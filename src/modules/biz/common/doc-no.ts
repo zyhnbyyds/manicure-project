@@ -1,0 +1,40 @@
+import { DEFAULT_SHOP_TIMEZONE, shopDateOf } from './shop-time.js';
+
+/** 单号前缀（§4.3：一律「主键回填」，不用「查当日最大号 +1」） */
+export type DocPrefix =
+  | 'B' // 预约单
+  | 'P' // 支付单
+  | 'R' // 退款单
+  | 'A' // 应收单
+  | 'C' // 会员卡
+  | 'X' // 积分兑换
+  | 'M'; // 会员号
+
+/**
+ * 生成单号：`前缀 + yyyyMMdd(店内本地日) + 主键补零 6 位`。
+ *
+ * 事务内 INSERT 拿到 `insertId` 后回填，天然唯一；配合列上的 UNIQUE 索引防并发重号。
+ */
+export function buildDocNo(
+  prefix: DocPrefix,
+  id: number,
+  timeZone: string = DEFAULT_SHOP_TIMEZONE,
+  now: Date = new Date(),
+): string {
+  const date = shopDateOf(now, timeZone).replace(/-/g, '');
+  return `${prefix}${date}${String(id).padStart(6, '0')}`;
+}
+
+/** 对外交易号：`前缀 + 主键 + 时间戳后缀`，保证全局唯一且不可猜测 */
+export function buildOutTradeNo(
+  prefix: DocPrefix,
+  id: number,
+  now: Date = new Date(),
+): string {
+  return `${prefix}${String(id).padStart(6, '0')}${now.getTime().toString(36).toUpperCase()}`;
+}
+
+/** 结算批次号：`S{yyyyMM}{seq}`，seq 由调用方按库内最大批次自增 */
+export function buildSettleBatch(period: string, sequence: number): string {
+  return `S${period}${String(sequence).padStart(3, '0')}`;
+}
