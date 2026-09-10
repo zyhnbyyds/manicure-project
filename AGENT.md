@@ -1,5 +1,33 @@
 # AGENT.md — Nest Admin
 
+## 核心指引（技能目录，先看这里）
+
+本项目在 `.agents/skills/` 下维护了一套**按功能与模块拆分**的技能（每个 `<name>/SKILL.md`），
+是业务开发的**唯一入口指引**；设计细节的唯一事实来源仍是
+`docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md`（v1.3）。
+
+开工前先加载 `project-overview`，再按任务加载对应模块技能：
+
+| 技能                 | 覆盖范围                                               |
+| -------------------- | ------------------------------------------------------ |
+| `project-overview`   | 总纲：技术基线、铁律、实施批次 B1~B6、技能索引、DoD    |
+| `data-model`         | 32 张表分组、命名/索引/软删约定、迁移流程、派生字段    |
+| `money-invariants`   | **资金红线**：条件更新、锁顺序、只追加、对账等式、幂等 |
+| `base-data`          | 服务项目 / 美甲师 / 美甲师可做项目 / 顾客档案          |
+| `scheduling`         | 周模板、日期例外、请假与既有预约冲突保护               |
+| `booking-core`       | 可约时段算法、冲突与锁、服务与资金状态机、创建九步     |
+| `membership`         | 等级折扣、积分（累计/抵扣/兑换）、储值、次卡、算价     |
+| `cashier-payment`    | 在线支付与回调、定金尾款、混合支付、退款判责审批、对账 |
+| `credit-receivable`  | 挂账主体、应收、销账、账龄、营收口径                   |
+| `notification`       | 短信 + 站内消息、模板、重试与降级                      |
+| `operations-reports` | 评价、报表口径、提成规则与结算                         |
+| `recurring-bookings` | 周期预约规则与幂等批量生成                             |
+| `miniapp-reserved`   | `/api/v1/app/**` 独立认证域与 `app_` 表（本期不做 UI） |
+| `web-frontend`       | 24 个页面、lew-ui 列表模式、收银台等复杂交互           |
+| `testing-acceptance` | 集成测试入口、B1~B6 验收清单、完成定义                 |
+
+> 任何涉及金额、余额、积分、次卡的改动，都必须同时加载 `money-invariants`。
+
 ## 项目概述
 
 **nest-admin** 是一个通用后端管理 API。技术栈为 NestJS + Fastify 作为 HTTP 层，Drizzle ORM 操作数据库，Zod 做数据校验。主要功能：JWT 双 token 认证、基于权限字符串的 RBAC 访问控制、部门/菜单/岗位/字典管理、定时任务、文件上传、操作审计日志、在线用户跟踪、代码生成器。
