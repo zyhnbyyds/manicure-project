@@ -54,7 +54,8 @@ async function bootstrap(): Promise<void> {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          description: '小程序端 app token（登录接口下发，payload 含 scope=app）',
+          description:
+            '小程序端 app token（登录接口下发，payload 含 scope=app）',
         },
         'app-token',
       )

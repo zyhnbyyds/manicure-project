@@ -88,14 +88,9 @@ const createSchema = z.object({
     .max(3)
     .openapi({ description: '服务项目 id，1~3 个' }),
   payMode: z.enum(['full', 'deposit']).openapi({ description: '全款 / 定金' }),
-  depositAmount: z
-    .number()
-    .int()
-    .min(0)
-    .optional()
-    .openapi({
-      description: '定金金额（分）；不传按 biz.booking.depositPermille 计算',
-    }),
+  depositAmount: z.number().int().min(0).optional().openapi({
+    description: '定金金额（分）；不传按 biz.booking.depositPermille 计算',
+  }),
   payments: z
     .array(paymentSchema)
     .optional()

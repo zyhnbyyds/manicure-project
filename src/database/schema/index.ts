@@ -779,9 +779,7 @@ export const bizCustomers = mysqlTable(
     balancePrincipal: int('balance_principal', { unsigned: true })
       .default(0)
       .notNull(),
-    balanceBonus: int('balance_bonus', { unsigned: true })
-      .default(0)
-      .notNull(),
+    balanceBonus: int('balance_bonus', { unsigned: true }).default(0).notNull(),
     ...auditColumns,
   },
   (table) => [
@@ -847,9 +845,7 @@ export const bizBookings = mysqlTable(
     creditAccountId: int('credit_account_id', { unsigned: true }),
     recurrenceId: int('recurrence_id', { unsigned: true }),
     memberCardId: int('member_card_id', { unsigned: true }),
-    refundAmount: int('refund_amount', { unsigned: true })
-      .default(0)
-      .notNull(),
+    refundAmount: int('refund_amount', { unsigned: true }).default(0).notNull(),
     refundedAt: datetime('refunded_at'),
     status: mysqlEnum('status', [
       'pending',
@@ -1552,10 +1548,7 @@ export const bizStaffServiceItems = mysqlTable(
     sort: int('sort').default(0).notNull(),
   },
   (table) => [
-    uniqueIndex('uq_staff_service_item').on(
-      table.staffId,
-      table.serviceItemId,
-    ),
+    uniqueIndex('uq_staff_service_item').on(table.staffId, table.serviceItemId),
     foreignKey({
       columns: [table.staffId],
       foreignColumns: [bizStaffs.id],
@@ -1630,7 +1623,11 @@ export const bizCommissionRules = mysqlTable(
     ...auditColumns,
   },
   (table) => [
-    index('idx_commission_rule_scope').on(table.scope, table.status, table.sort),
+    index('idx_commission_rule_scope').on(
+      table.scope,
+      table.status,
+      table.sort,
+    ),
     index('idx_commission_rule_staff').on(table.staffId),
   ],
 );
