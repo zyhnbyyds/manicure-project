@@ -51,25 +51,43 @@ export class RedisService implements OnApplicationShutdown {
   }
 
   async get(key: string): Promise<string | null> {
-    return this.connection()?.get(key) ?? null;
+    try {
+      return (await this.connection()?.get(key)) ?? null;
+    } catch (error) {
+      this.warnOnce(error);
+      return null;
+    }
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     const client = this.connection();
     if (!client) return;
-    if (ttlSeconds !== undefined)
-      await client.set(key, value, 'EX', ttlSeconds);
-    else await client.set(key, value);
+    try {
+      if (ttlSeconds !== undefined)
+        await client.set(key, value, 'EX', ttlSeconds);
+      else await client.set(key, value);
+    } catch (error) {
+      this.warnOnce(error);
+    }
   }
 
   async del(...keys: string[]): Promise<void> {
     const client = this.connection();
     if (!client || keys.length === 0) return;
-    await client.del(...keys);
+    try {
+      await client.del(...keys);
+    } catch (error) {
+      this.warnOnce(error);
+    }
   }
 
   async keys(pattern: string): Promise<string[]> {
-    return this.connection()?.keys(pattern) ?? [];
+    try {
+      return (await this.connection()?.keys(pattern)) ?? [];
+    } catch (error) {
+      this.warnOnce(error);
+      return [];
+    }
   }
 
   async getJson<T>(key: string): Promise<T | null> {
@@ -115,5 +133,21 @@ export class RedisService implements OnApplicationShutdown {
       this.client.close();
       this.client = null;
     }
+  }
+
+  /**
+   * 连接不可用时只 warn 一次。
+   *
+   * Redis 是**可选依赖**：本文件头部的契约是「连接错误仅记录 warn，不抛异常」，
+   * 但 `set/get/del/keys` 之前没兜住 `enableOfflineQueue: false` 抛出的
+   * `Connection is closed`，导致登录时 `OnlineService.track()` 直接把 500 抛给前端。
+   * 这里统一吞掉并只提示一次，避免刷日志。
+   */
+  private warned = false;
+  private warnOnce(error: unknown): void {
+    if (this.warned) return;
+    this.warned = true;
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.warn(`Redis 不可用，缓存能力已降级：${message}`);
   }
 }

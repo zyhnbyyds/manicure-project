@@ -410,8 +410,8 @@ describe('B1 主数据 / 排班变更的冲突保护（§6.4）', () => {
 
     const forced = await ctx.request(
       'POST',
-      `/api/v1/biz/staffs/${row.staffId}/overrides?force=true`,
-      { body: { date, type: 'off', reason: '临时请假' } },
+      `/api/v1/biz/staffs/${row.staffId}/overrides`,
+      { body: { date, type: 'off', reason: '临时请假', force: true } },
     );
     expect([200, 201]).toContain(forced.status);
     const slots = await ctx.request(

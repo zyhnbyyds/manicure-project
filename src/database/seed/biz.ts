@@ -226,6 +226,34 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     ),
     remark: '定金不足、到店后需补尾款时发送（§17.2）',
   },
+  {
+    code: 'recurrence_conflict',
+    name: '周期预约冲突告警（店员）',
+    channel: 'site',
+    title: '周期预约生成遇到冲突',
+    content:
+      '周期规则 #{recurrenceId}（顾客 {customerName} / 美甲师 {staffName}）在 {bookingDate} {bookingTime} 生成时撞上已有预约，冲突策略：{policy}。冲突明细：{conflicts}。请到「周期预约」页面人工处理。',
+    variables: vars(
+      'recurrenceId',
+      'customerName',
+      'staffName',
+      'bookingDate',
+      'bookingTime',
+      'policy',
+      'conflicts',
+    ),
+    remark: '周期预约 conflict_policy=notify 时给店员发站内消息（§21.2）',
+  },
+  {
+    code: 'recurrence_failed',
+    name: '周期预约生成失败（店员）',
+    channel: 'site',
+    title: '周期预约生成失败',
+    content:
+      '周期规则 #{recurrenceId}（美甲师 {staffName}）在 {bookingDate} 生成失败：{reason}。请检查规则配置或联系管理员。',
+    variables: vars('recurrenceId', 'staffName', 'bookingDate', 'reason'),
+    remark: '周期预约生成异常时给店员发站内消息（§21.2）',
+  },
 ];
 
 /* ------------------------------------------------------------------ *
