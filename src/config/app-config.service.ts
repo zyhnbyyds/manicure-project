@@ -1,0 +1,126 @@
+import { Injectable } from '@nestjs/common';
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  API_PREFIX: z.string().default('api/v1'),
+  DATABASE_URL: z.url(),
+  REDIS_URL: z.url().optional(),
+  JWT_ISSUER: z.string().min(1),
+  JWT_AUDIENCE: z.string().min(1),
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_REFRESH_SECRET: z.string().min(32),
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  JWT_REFRESH_TTL: z.string().default('7d'),
+  CORS_ORIGINS: z.string().default('http://localhost:5173'),
+  UPLOAD_DIR: z.string().default('uploads'),
+  SWAGGER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  SWAGGER_PATH: z.string().default('docs'),
+  SWAGGER_TITLE: z.string().default('Nest Admin API'),
+  SWAGGER_DESCRIPTION: z
+    .string()
+    .default('Administration API built with NestJS, Fastify and Drizzle ORM'),
+  SWAGGER_VERSION: z.string().default('0.1.0'),
+  AI_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_BASE_URL: z.string().default('https://api.deepseek.com'),
+  DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
+});
+export type AppEnvironment = z.infer<typeof envSchema>;
+
+@Injectable()
+export class AppConfigService {
+  private readonly values: AppEnvironment = envSchema.parse(process.env);
+  get port(): number {
+    return this.values.PORT;
+  }
+  get apiPrefix(): string {
+    return this.values.API_PREFIX;
+  }
+  get databaseUrl(): string {
+    return this.values.DATABASE_URL;
+  }
+  get redisUrl(): string | undefined {
+    return this.values.REDIS_URL;
+  }
+  get uploadDir(): string {
+    return this.values.UPLOAD_DIR;
+  }
+  get corsOrigins(): string[] {
+    return this.values.CORS_ORIGINS.split(',').map((value) => value.trim());
+  }
+  get environment(): AppEnvironment['NODE_ENV'] {
+    return this.values.NODE_ENV;
+  }
+  get swagger(): Pick<
+    AppEnvironment,
+    | 'SWAGGER_ENABLED'
+    | 'SWAGGER_PATH'
+    | 'SWAGGER_TITLE'
+    | 'SWAGGER_DESCRIPTION'
+    | 'SWAGGER_VERSION'
+  > {
+    const {
+      SWAGGER_ENABLED,
+      SWAGGER_PATH,
+      SWAGGER_TITLE,
+      SWAGGER_DESCRIPTION,
+      SWAGGER_VERSION,
+    } = this.values;
+    return {
+      SWAGGER_ENABLED,
+      SWAGGER_PATH,
+      SWAGGER_TITLE,
+      SWAGGER_DESCRIPTION,
+      SWAGGER_VERSION,
+    };
+  }
+  get jwt(): Pick<
+    AppEnvironment,
+    | 'JWT_ISSUER'
+    | 'JWT_AUDIENCE'
+    | 'JWT_ACCESS_SECRET'
+    | 'JWT_REFRESH_SECRET'
+    | 'JWT_ACCESS_TTL'
+    | 'JWT_REFRESH_TTL'
+  > {
+    const {
+      JWT_ISSUER,
+      JWT_AUDIENCE,
+      JWT_ACCESS_SECRET,
+      JWT_REFRESH_SECRET,
+      JWT_ACCESS_TTL,
+      JWT_REFRESH_TTL,
+    } = this.values;
+    return {
+      JWT_ISSUER,
+      JWT_AUDIENCE,
+      JWT_ACCESS_SECRET,
+      JWT_REFRESH_SECRET,
+      JWT_ACCESS_TTL,
+      JWT_REFRESH_TTL,
+    };
+  }
+  get ai(): Pick<
+    AppEnvironment,
+    'AI_ENABLED' | 'DEEPSEEK_API_KEY' | 'DEEPSEEK_BASE_URL' | 'DEEPSEEK_MODEL'
+  > {
+    const { AI_ENABLED, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL } =
+      this.values;
+    return {
+      AI_ENABLED,
+      DEEPSEEK_API_KEY,
+      DEEPSEEK_BASE_URL,
+      DEEPSEEK_MODEL,
+    };
+  }
+}

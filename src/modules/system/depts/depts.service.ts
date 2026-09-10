@@ -1,0 +1,207 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { and, asc, eq, isNull } from 'drizzle-orm';
+import { DatabaseService } from '../../../database/database.service';
+import { departments, users } from '../../../database/schema/index';
+import {
+  resolveDataScope,
+  type RequestActor,
+} from '../../../common/data-scope/data-scope';
+
+export type CreateDeptInput = {
+  parentId?: number | undefined;
+  name: string;
+  sort?: number | undefined;
+  phone?: string | undefined;
+  email?: string | undefined;
+  status?: 'active' | 'disabled' | undefined;
+};
+
+export type UpdateDeptInput = {
+  parentId?: number | undefined;
+  name?: string | undefined;
+  sort?: number | undefined;
+  phone?: string | null | undefined;
+  email?: string | null | undefined;
+  status?: 'active' | 'disabled' | undefined;
+};
+
+type DeptRow = typeof departments.$inferSelect;
+type TreeNode<T> = T & { children: TreeNode<T>[] };
+
+@Injectable()
+export class DeptsService {
+  constructor(private readonly database: DatabaseService) {}
+
+  async list(actor?: RequestActor): Promise<TreeNode<DeptRow>[]> {
+    const rows = await this.database.db
+      .select()
+      .from(departments)
+      .where(isNull(departments.deletedAt))
+      .orderBy(asc(departments.sort), asc(departments.id));
+    if (!actor) return buildTree(rows);
+    // 数据权限：非管理员只展示其数据范围内可见的部门（self 时无部门可见）
+    const scope = await resolveDataScope(this.database.db, actor);
+    if (scope.kind === 'all') return buildTree(rows);
+    const allowed = new Set(scope.kind === 'self' ? [] : scope.ids);
+    return buildTree(rows.filter((row) => allowed.has(row.id)));
+  }
+
+  async findOne(id: number): Promise<DeptRow> {
+    const [dept] = await this.database.db
+      .select()
+      .from(departments)
+      .where(and(eq(departments.id, id), isNull(departments.deletedAt)))
+      .limit(1);
+    if (!dept) throw new NotFoundException('部门不存在');
+    return dept;
+  }
+
+  async create(
+    input: CreateDeptInput,
+    actorId: number,
+  ): Promise<{ id: number }> {
+    const parentId = input.parentId ?? 0;
+    const ancestors = await this.resolveAncestors(parentId);
+    const result = await this.database.db.insert(departments).values({
+      ...withoutUndefined(input),
+      parentId,
+      ancestors,
+      createdBy: actorId,
+      updatedBy: actorId,
+    });
+    return { id: Number(result[0].insertId) };
+  }
+
+  async update(
+    id: number,
+    input: UpdateDeptInput,
+    actorId: number,
+  ): Promise<void> {
+    const existing = await this.findOne(id);
+    const patch = withoutUndefined(input);
+    const parentId = patch.parentId ?? existing.parentId;
+    if (parentId !== 0) {
+      if (parentId === id)
+        throw new BadRequestException('不能将部门设置为自己的上级');
+      await this.assertParentExists(parentId);
+      const descendants = await this.descendantIds(id);
+      if (descendants.includes(parentId))
+        throw new BadRequestException('不能将部门移动到自己的下级部门下');
+    }
+    await this.database.db
+      .update(departments)
+      .set({ ...patch, updatedBy: actorId })
+      .where(and(eq(departments.id, id), isNull(departments.deletedAt)));
+    if (parentId !== existing.parentId) await this.recomputeAncestors(id);
+  }
+
+  async remove(id: number, actorId: number): Promise<void> {
+    await this.findOne(id);
+    const [child] = await this.database.db
+      .select({ id: departments.id })
+      .from(departments)
+      .where(and(eq(departments.parentId, id), isNull(departments.deletedAt)))
+      .limit(1);
+    if (child) throw new BadRequestException('存在子部门，无法删除');
+    const [assigned] = await this.database.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.deptId, id), isNull(users.deletedAt)))
+      .limit(1);
+    if (assigned) throw new BadRequestException('部门下存在用户，无法删除');
+    await this.database.db
+      .update(departments)
+      .set({ deletedAt: new Date(), updatedBy: actorId })
+      .where(and(eq(departments.id, id), isNull(departments.deletedAt)));
+  }
+
+  private async resolveAncestors(parentId: number): Promise<string> {
+    if (parentId === 0) return '0';
+    const [parent] = await this.database.db
+      .select({ ancestors: departments.ancestors })
+      .from(departments)
+      .where(and(eq(departments.id, parentId), isNull(departments.deletedAt)))
+      .limit(1);
+    if (!parent) throw new NotFoundException('上级部门不存在');
+    return `${parent.ancestors},${parentId}`;
+  }
+
+  private async assertParentExists(parentId: number): Promise<void> {
+    const [parent] = await this.database.db
+      .select({ id: departments.id })
+      .from(departments)
+      .where(and(eq(departments.id, parentId), isNull(departments.deletedAt)))
+      .limit(1);
+    if (!parent) throw new NotFoundException('上级部门不存在');
+  }
+
+  private async descendantIds(id: number): Promise<number[]> {
+    const rows = await this.database.db
+      .select({ id: departments.id, parentId: departments.parentId })
+      .from(departments)
+      .where(isNull(departments.deletedAt));
+    const children = new Map<number, number[]>();
+    for (const row of rows) {
+      const list = children.get(row.parentId) ?? [];
+      list.push(row.id);
+      children.set(row.parentId, list);
+    }
+    const result: number[] = [];
+    const stack = [id];
+    while (stack.length) {
+      const current = stack.pop() as number;
+      for (const child of children.get(current) ?? []) {
+        result.push(child);
+        stack.push(child);
+      }
+    }
+    return result;
+  }
+
+  private async recomputeAncestors(id: number): Promise<void> {
+    const [node] = await this.database.db
+      .select()
+      .from(departments)
+      .where(and(eq(departments.id, id), isNull(departments.deletedAt)))
+      .limit(1);
+    if (!node) return;
+    const ancestors = await this.resolveAncestors(node.parentId);
+    await this.database.db
+      .update(departments)
+      .set({ ancestors })
+      .where(eq(departments.id, id));
+    const children = await this.database.db
+      .select({ id: departments.id })
+      .from(departments)
+      .where(and(eq(departments.parentId, id), isNull(departments.deletedAt)));
+    for (const child of children) await this.recomputeAncestors(child.id);
+  }
+}
+
+function withoutUndefined<T extends object>(
+  value: T,
+): { [K in keyof T]: Exclude<T[K], undefined> } {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, field]) => field !== undefined),
+  ) as { [K in keyof T]: Exclude<T[K], undefined> };
+}
+
+function buildTree<T extends { id: number; parentId: number }>(
+  rows: T[],
+): TreeNode<T>[] {
+  const nodes = new Map<number, TreeNode<T>>();
+  for (const row of rows) nodes.set(row.id, { ...row, children: [] });
+  const roots: TreeNode<T>[] = [];
+  for (const node of nodes.values()) {
+    if (node.parentId !== 0) {
+      const parent = nodes.get(node.parentId);
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    } else roots.push(node);
+  }
+  return roots;
+}

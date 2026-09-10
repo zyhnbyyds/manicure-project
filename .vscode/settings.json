@@ -1,0 +1,21 @@
+{
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/.git": false
+  },
+  "eslint.format.enable": true,
+  "cSpell.words": [
+    "asteasolutions",
+    "dbsize",
+    "depts",
+    "dompurify",
+    "echostr",
+    "loginlog",
+    "newpassword",
+    "operlog",
+    "rollbacking",
+    "TOCTOU",
+    "undoable",
+    "varchar"
+  ]
+}
