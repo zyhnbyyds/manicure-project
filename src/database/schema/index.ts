@@ -1,6 +1,8 @@
 import { defineRelations, sql } from 'drizzle-orm';
 import {
   boolean,
+  char,
+  date,
   datetime,
   foreignKey,
   index,
@@ -9,7 +11,9 @@ import {
   mysqlEnum,
   mysqlTable,
   text,
+  time,
   timestamp,
+  tinyint,
   uniqueIndex,
   varchar,
 } from 'drizzle-orm/mysql-core';
@@ -652,6 +656,1203 @@ export const aiTaskSteps = mysqlTable(
   ],
 );
 
+/* ------------------------------------------------------------------ *
+ * A. 预约主链路（§4.3）
+ * ------------------------------------------------------------------ */
+
+/** 服务项目：时长决定占用时段，缓冲参与冲突判定（§5.3） */
+export const bizServiceItems = mysqlTable(
+  'biz_service_item',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    category: varchar('category', { length: 30 }),
+    durationMinutes: int('duration_minutes', { unsigned: true }).notNull(),
+    bufferMinutes: int('buffer_minutes', { unsigned: true })
+      .default(0)
+      .notNull(),
+    price: int('price', { unsigned: true }).default(0).notNull(),
+    description: varchar('description', { length: 500 }),
+    image: varchar('image', { length: 500 }),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 500 }),
+    ...auditColumns,
+  },
+  (table) => [index('idx_service_item_status').on(table.status, table.sort)],
+);
+
+/** 美甲师档案：未必有后台账号，故 user_id 可空 */
+export const bizStaffs = mysqlTable(
+  'biz_staff',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    userId: int('user_id', { unsigned: true }),
+    nickname: varchar('nickname', { length: 50 }).notNull(),
+    avatar: varchar('avatar', { length: 500 }),
+    phone: varchar('phone', { length: 20 }),
+    bio: varchar('bio', { length: 500 }),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 500 }),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_staff_user').on(table.userId),
+    index('idx_staff_status').on(table.status, table.sort),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: 'fk_staff_user',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 周模板班次（物理删：PUT 整体替换先删后插，§3 豁免） */
+export const bizStaffWeeklyShifts = mysqlTable(
+  'biz_staff_weekly_shift',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    weekday: tinyint('weekday', { unsigned: true }).notNull(),
+    startTime: time('start_time').notNull(),
+    endTime: time('end_time').notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_shift_staff_weekday').on(table.staffId, table.weekday),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_shift_staff',
+    }).onDelete('cascade'),
+  ],
+);
+
+/** 日期例外（物理删，§3 豁免）：off 整天休息 / custom 自定义时段 */
+export const bizStaffScheduleOverrides = mysqlTable(
+  'biz_staff_schedule_override',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    date: date('date', { mode: 'string' }).notNull(),
+    type: mysqlEnum('type', ['off', 'custom']).notNull(),
+    startTime: time('start_time'),
+    endTime: time('end_time'),
+    reason: varchar('reason', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_override_staff_date').on(table.staffId, table.date),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_override_staff',
+    }).onDelete('cascade'),
+  ],
+);
+
+/** 顾客档案（兼会员档案，§4.4）：level_id 以下字段全部由账务流水驱动 */
+export const bizCustomers = mysqlTable(
+  'biz_customer',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    phone: varchar('phone', { length: 20 }),
+    gender: mysqlEnum('gender', ['unknown', 'male', 'female'])
+      .default('unknown')
+      .notNull(),
+    birthday: date('birthday', { mode: 'string' }),
+    remark: varchar('remark', { length: 500 }),
+    visitCount: int('visit_count', { unsigned: true }).default(0).notNull(),
+    lastVisitAt: datetime('last_visit_at'),
+    levelId: int('level_id', { unsigned: true }),
+    memberNo: varchar('member_no', { length: 32 }),
+    memberSince: datetime('member_since'),
+    totalSpent: int('total_spent', { unsigned: true }).default(0).notNull(),
+    points: int('points', { unsigned: true }).default(0).notNull(),
+    pointsTotal: int('points_total', { unsigned: true }).default(0).notNull(),
+    balancePrincipal: int('balance_principal', { unsigned: true })
+      .default(0)
+      .notNull(),
+    balanceBonus: int('balance_bonus', { unsigned: true })
+      .default(0)
+      .notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_customer_phone').on(table.phone),
+    uniqueIndex('uq_customer_member_no').on(table.memberNo),
+    index('idx_customer_level').on(table.levelId),
+    index('idx_customer_name').on(table.name),
+    foreignKey({
+      columns: [table.levelId],
+      foreignColumns: [bizMemberLevels.id],
+      name: 'fk_customer_level',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 预约单：快照金额 + 支付/应收/周期来源（§4.3、§5.8、§7.4） */
+export const bizBookings = mysqlTable(
+  'biz_booking',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    bookingNo: varchar('booking_no', { length: 32 }).notNull(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    startAt: datetime('start_at').notNull(),
+    endAt: datetime('end_at').notNull(),
+    durationMinutes: int('duration_minutes', { unsigned: true }).notNull(),
+    bufferMinutes: int('buffer_minutes', { unsigned: true })
+      .default(0)
+      .notNull(),
+    originalPrice: int('original_price', { unsigned: true })
+      .default(0)
+      .notNull(),
+    levelDiscountPermille: int('level_discount_permille', { unsigned: true })
+      .default(1000)
+      .notNull(),
+    levelDiscountAmount: int('level_discount_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    pointsDiscountAmount: int('points_discount_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    adjustAmount: int('adjust_amount').default(0).notNull(),
+    adjustReason: varchar('adjust_reason', { length: 200 }),
+    payableAmount: int('payable_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    depositAmount: int('deposit_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    paidAmount: int('paid_amount', { unsigned: true }).default(0).notNull(),
+    dueAmount: int('due_amount', { unsigned: true }).default(0).notNull(),
+    payStatus: mysqlEnum('pay_status', [
+      'unpaid',
+      'partial',
+      'paid',
+      'refunded',
+      'credit',
+    ])
+      .default('unpaid')
+      .notNull(),
+    payChannelSummary: varchar('pay_channel_summary', { length: 64 }),
+    settledAt: datetime('settled_at'),
+    creditAccountId: int('credit_account_id', { unsigned: true }),
+    recurrenceId: int('recurrence_id', { unsigned: true }),
+    memberCardId: int('member_card_id', { unsigned: true }),
+    refundAmount: int('refund_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    refundedAt: datetime('refunded_at'),
+    status: mysqlEnum('status', [
+      'pending',
+      'confirmed',
+      'arrived',
+      'completed',
+      'cancelled',
+      'no_show',
+    ])
+      .default('confirmed')
+      .notNull(),
+    channel: mysqlEnum('channel', ['admin', 'miniapp'])
+      .default('admin')
+      .notNull(),
+    customerName: varchar('customer_name', { length: 50 }).notNull(),
+    customerPhone: varchar('customer_phone', { length: 20 }),
+    remark: varchar('remark', { length: 500 }),
+    cancelReason: varchar('cancel_reason', { length: 200 }),
+    confirmedAt: datetime('confirmed_at'),
+    arrivedAt: datetime('arrived_at'),
+    finishedAt: datetime('finished_at'),
+    cancelledAt: datetime('cancelled_at'),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_booking_no').on(table.bookingNo),
+    uniqueIndex('uq_booking_recurrence_start').on(
+      table.recurrenceId,
+      table.startAt,
+    ),
+    index('idx_booking_staff_time').on(
+      table.staffId,
+      table.startAt,
+      table.endAt,
+    ),
+    index('idx_booking_customer').on(table.customerId, table.startAt),
+    index('idx_booking_status_start').on(table.status, table.startAt),
+    index('idx_booking_status_end').on(table.status, table.endAt),
+    index('idx_booking_pay').on(table.payStatus, table.startAt),
+    index('idx_booking_credit').on(table.creditAccountId, table.payStatus),
+    index('idx_booking_recurrence').on(table.recurrenceId),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_booking_customer',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_booking_staff',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.creditAccountId],
+      foreignColumns: [bizCreditAccounts.id],
+      name: 'fk_booking_credit_account',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.memberCardId],
+      foreignColumns: [bizMemberCards.id],
+      name: 'fk_booking_member_card',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.recurrenceId],
+      foreignColumns: [bizBookingRecurrences.id],
+      name: 'fk_booking_recurrence',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 预约项目明细：从属子表，不套 auditColumns（§3 豁免） */
+export const bizBookingItems = mysqlTable(
+  'biz_booking_item',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    bookingId: int('booking_id', { unsigned: true }).notNull(),
+    serviceItemId: int('service_item_id', { unsigned: true }).notNull(),
+    name: varchar('name', { length: 50 }).notNull(),
+    durationMinutes: int('duration_minutes', { unsigned: true }).notNull(),
+    price: int('price', { unsigned: true }).default(0).notNull(),
+    sort: int('sort').default(0).notNull(),
+  },
+  (table) => [
+    index('idx_booking_item_booking').on(table.bookingId),
+    index('idx_booking_item_service').on(table.serviceItemId),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_booking_item_booking',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.serviceItemId],
+      foreignColumns: [bizServiceItems.id],
+      name: 'fk_booking_item_service',
+    }).onDelete('restrict'),
+  ],
+);
+
+/* ------------------------------------------------------------------ *
+ * B. 会员体系（§4.4、§15）
+ * ------------------------------------------------------------------ */
+
+/** 会员等级：折扣率千分比 + 累计消费升级门槛 */
+export const bizMemberLevels = mysqlTable(
+  'biz_member_level',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 30 }).notNull(),
+    discountPermille: int('discount_permille', { unsigned: true })
+      .default(1000)
+      .notNull(),
+    upgradeAmount: int('upgrade_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_level_name').on(table.name),
+    index('idx_level_status_sort').on(table.status, table.sort),
+  ],
+);
+
+/** 充值方案：实付 + 赠送（赠送比例受 biz.member.maxBonusPermille 约束） */
+export const bizRechargePlans = mysqlTable(
+  'biz_recharge_plan',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 30 }).notNull(),
+    payAmount: int('pay_amount', { unsigned: true }).notNull(),
+    bonusAmount: int('bonus_amount', { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex('uq_recharge_plan_name').on(table.name)],
+);
+
+/** 次卡卡种 */
+export const bizMemberCardTypes = mysqlTable(
+  'biz_member_card_type',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    price: int('price', { unsigned: true }).notNull(),
+    totalTimes: int('total_times', { unsigned: true }).notNull(),
+    validDays: int('valid_days', { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_card_type_name').on(table.name),
+    index('idx_card_type_status_sort').on(table.status, table.sort),
+  ],
+);
+
+/** 卡种适用项目（物理删：随卡种整体替换） */
+export const bizMemberCardTypeItems = mysqlTable(
+  'biz_member_card_type_item',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    cardTypeId: int('card_type_id', { unsigned: true }).notNull(),
+    serviceItemId: int('service_item_id', { unsigned: true }).notNull(),
+    sort: int('sort').default(0).notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_card_type_item').on(table.cardTypeId, table.serviceItemId),
+    foreignKey({
+      columns: [table.cardTypeId],
+      foreignColumns: [bizMemberCardTypes.id],
+      name: 'fk_card_type_item_type',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.serviceItemId],
+      foreignColumns: [bizServiceItems.id],
+      name: 'fk_card_type_item_service',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 会员卡实例：used_times / status 只能由核销 service 条件更新 */
+export const bizMemberCards = mysqlTable(
+  'biz_member_card',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    cardNo: varchar('card_no', { length: 32 }).notNull(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    cardTypeId: int('card_type_id', { unsigned: true }).notNull(),
+    cardName: varchar('card_name', { length: 50 }).notNull(),
+    totalTimes: int('total_times', { unsigned: true }).notNull(),
+    usedTimes: int('used_times', { unsigned: true }).default(0).notNull(),
+    price: int('price', { unsigned: true }).default(0).notNull(),
+    payChannel: mysqlEnum('pay_channel', [
+      'cash',
+      'wechat',
+      'alipay',
+      'balance',
+    ]).notNull(),
+    purchasedAt: datetime('purchased_at').notNull(),
+    expireAt: datetime('expire_at'),
+    status: mysqlEnum('status', ['active', 'used_up', 'expired', 'refunded'])
+      .default('active')
+      .notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_member_card_no').on(table.cardNo),
+    index('idx_card_customer').on(table.customerId, table.status),
+    index('idx_card_expire').on(table.status, table.expireAt),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_card_customer',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.cardTypeId],
+      foreignColumns: [bizMemberCardTypes.id],
+      name: 'fk_card_type',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 次卡核销记录（只追加） */
+export const bizMemberCardLogs = mysqlTable(
+  'biz_member_card_log',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    cardId: int('card_id', { unsigned: true }).notNull(),
+    bookingId: int('booking_id', { unsigned: true }),
+    serviceItemId: int('service_item_id', { unsigned: true }).notNull(),
+    type: mysqlEnum('type', ['use', 'revert']).notNull(),
+    times: int('times', { unsigned: true }).default(1).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    createdBy: int('created_by', { unsigned: true }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_card_log_card').on(table.cardId, table.id),
+    index('idx_card_log_booking').on(table.bookingId),
+    foreignKey({
+      columns: [table.cardId],
+      foreignColumns: [bizMemberCards.id],
+      name: 'fk_card_log_card',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_card_log_booking',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 会员账务流水（只追加，不可修改删除，§15.7 不变量） */
+export const bizMemberTransactions = mysqlTable(
+  'biz_member_transaction',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    type: mysqlEnum('type', [
+      'recharge',
+      'consume',
+      'refund',
+      'card_buy',
+      'card_use',
+      'card_revert',
+      'points_earn',
+      'points_spend',
+      'points_redeem',
+      'level_change',
+      'adjust',
+    ]).notNull(),
+    amount: int('amount').default(0).notNull(),
+    balanceDeltaPrincipal: int('balance_delta_principal').default(0).notNull(),
+    balanceDeltaBonus: int('balance_delta_bonus').default(0).notNull(),
+    balancePrincipalAfter: int('balance_principal_after', { unsigned: true })
+      .default(0)
+      .notNull(),
+    balanceBonusAfter: int('balance_bonus_after', { unsigned: true })
+      .default(0)
+      .notNull(),
+    pointsDelta: int('points_delta').default(0).notNull(),
+    pointsAfter: int('points_after', { unsigned: true }).default(0).notNull(),
+    payChannel: mysqlEnum('pay_channel', [
+      'cash',
+      'wechat',
+      'alipay',
+      'balance',
+      'card',
+    ]),
+    bookingId: int('booking_id', { unsigned: true }),
+    cardId: int('card_id', { unsigned: true }),
+    planId: int('plan_id', { unsigned: true }),
+    reversalOf: int('reversal_of', { unsigned: true }),
+    remark: varchar('remark', { length: 200 }),
+    createdBy: int('created_by', { unsigned: true }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_txn_customer').on(table.customerId, table.id),
+    index('idx_txn_booking').on(table.bookingId),
+    index('idx_txn_type_created').on(table.type, table.createdAt),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_txn_customer',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_txn_booking',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.cardId],
+      foreignColumns: [bizMemberCards.id],
+      name: 'fk_txn_card',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.planId],
+      foreignColumns: [bizRechargePlans.id],
+      name: 'fk_txn_plan',
+    }).onDelete('set null'),
+  ],
+);
+
+/* ------------------------------------------------------------------ *
+ * E. 小程序身份（§4.4、§16）
+ * ------------------------------------------------------------------ */
+
+/** 微信身份：先有 openid 才能浏览，授权手机号后才绑定顾客档案 */
+export const appWxUsers = mysqlTable(
+  'app_wx_user',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    openid: varchar('openid', { length: 64 }).notNull(),
+    unionid: varchar('unionid', { length: 64 }),
+    customerId: int('customer_id', { unsigned: true }),
+    nickname: varchar('nickname', { length: 50 }),
+    avatar: varchar('avatar', { length: 500 }),
+    phone: varchar('phone', { length: 20 }),
+    lastLoginAt: datetime('last_login_at'),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_wx_openid').on(table.openid),
+    index('idx_wx_unionid').on(table.unionid),
+    index('idx_wx_customer').on(table.customerId),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_wx_user_customer',
+    }).onDelete('set null'),
+  ],
+);
+
+/* ------------------------------------------------------------------ *
+ * C. 支付与账务（§4.5、§17、§18）
+ * ------------------------------------------------------------------ */
+
+/** 支付单：一笔预约可有多张 = 混合支付 / 定金 + 尾款 */
+export const bizPayments = mysqlTable(
+  'biz_payment',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    paymentNo: varchar('payment_no', { length: 32 }).notNull(),
+    outTradeNo: varchar('out_trade_no', { length: 64 }).notNull(),
+    bookingId: int('booking_id', { unsigned: true }),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    purpose: mysqlEnum('purpose', [
+      'deposit',
+      'final',
+      'recharge',
+      'card_buy',
+      'credit_settle',
+    ]).notNull(),
+    channel: mysqlEnum('channel', [
+      'wxpay_native',
+      'alipay_qr',
+      'cash',
+      'wechat_offline',
+      'alipay_offline',
+      'balance',
+      'card',
+      'credit',
+    ]).notNull(),
+    amount: int('amount', { unsigned: true }).notNull(),
+    receivedAmount: int('received_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    status: mysqlEnum('status', [
+      'pending',
+      'success',
+      'failed',
+      'closed',
+      'refunded',
+      'partial_refunded',
+    ])
+      .default('pending')
+      .notNull(),
+    codeUrl: varchar('code_url', { length: 512 }),
+    transactionId: varchar('transaction_id', { length: 64 }),
+    paidAt: datetime('paid_at'),
+    expireAt: datetime('expire_at'),
+    refundedAmount: int('refunded_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    callbackAt: datetime('callback_at'),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_payment_no').on(table.paymentNo),
+    uniqueIndex('uq_payment_out_trade_no').on(table.outTradeNo),
+    index('idx_payment_booking').on(table.bookingId),
+    index('idx_payment_customer').on(table.customerId, table.id),
+    index('idx_payment_status').on(table.status, table.createdAt),
+    index('idx_payment_txn').on(table.transactionId),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_payment_booking',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_payment_customer',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 支付过程日志（只追加，排障举证） */
+export const bizPaymentLogs = mysqlTable(
+  'biz_payment_log',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    paymentId: int('payment_id', { unsigned: true }).notNull(),
+    event: mysqlEnum('event', [
+      'create',
+      'callback',
+      'query',
+      'close',
+      'refund',
+      'callback_invalid',
+    ]).notNull(),
+    httpStatus: int('http_status'),
+    raw: json('raw'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_payment_log_payment').on(table.paymentId, table.id),
+    foreignKey({
+      columns: [table.paymentId],
+      foreignColumns: [bizPayments.id],
+      name: 'fk_payment_log_payment',
+    }).onDelete('cascade'),
+  ],
+);
+
+/** 渠道对账差异（唯一键保证对账任务可重入） */
+export const bizPaymentDiffs = mysqlTable(
+  'biz_payment_diff',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    billDate: date('bill_date', { mode: 'string' }).notNull(),
+    channel: mysqlEnum('channel', ['wxpay_native', 'alipay_qr']).notNull(),
+    outTradeNo: varchar('out_trade_no', { length: 64 }),
+    transactionId: varchar('transaction_id', { length: 64 }),
+    systemAmount: int('system_amount', { unsigned: true }).default(0).notNull(),
+    channelAmount: int('channel_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    diffType: mysqlEnum('diff_type', [
+      'missing_in_system',
+      'missing_in_channel',
+      'amount_mismatch',
+      'status_mismatch',
+    ]).notNull(),
+    status: mysqlEnum('status', ['pending', 'resolved', 'ignored'])
+      .default('pending')
+      .notNull(),
+    handleBy: int('handle_by', { unsigned: true }),
+    handledAt: datetime('handled_at'),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_payment_diff').on(
+      table.billDate,
+      table.channel,
+      table.transactionId,
+      table.diffType,
+    ),
+    index('idx_payment_diff_status').on(table.status, table.billDate),
+  ],
+);
+
+/** 退款单：判责金额 + 申请/审批分离（§17.4） */
+export const bizRefunds = mysqlTable(
+  'biz_refund',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    refundNo: varchar('refund_no', { length: 32 }).notNull(),
+    paymentId: int('payment_id', { unsigned: true }).notNull(),
+    bookingId: int('booking_id', { unsigned: true }),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    amount: int('amount', { unsigned: true }).notNull(),
+    actualAmount: int('actual_amount', { unsigned: true }).default(0).notNull(),
+    deductAmount: int('deduct_amount', { unsigned: true }).default(0).notNull(),
+    mode: mysqlEnum('mode', ['original', 'cash', 'balance']).notNull(),
+    policyId: int('policy_id', { unsigned: true }),
+    liable: mysqlEnum('liable', ['store', 'customer', 'force_majeure'])
+      .default('store')
+      .notNull(),
+    reason: varchar('reason', { length: 200 }).notNull(),
+    status: mysqlEnum('status', [
+      'pending',
+      'approved',
+      'rejected',
+      'success',
+      'failed',
+    ])
+      .default('pending')
+      .notNull(),
+    applyBy: int('apply_by', { unsigned: true }).notNull(),
+    applyAt: datetime('apply_at').notNull(),
+    approveBy: int('approve_by', { unsigned: true }),
+    approveAt: datetime('approve_at'),
+    rejectReason: varchar('reject_reason', { length: 200 }),
+    channelRefundId: varchar('channel_refund_id', { length: 64 }),
+    refundedAt: datetime('refunded_at'),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_refund_no').on(table.refundNo),
+    index('idx_refund_payment').on(table.paymentId),
+    index('idx_refund_status').on(table.status, table.createdAt),
+    index('idx_refund_booking').on(table.bookingId),
+    foreignKey({
+      columns: [table.paymentId],
+      foreignColumns: [bizPayments.id],
+      name: 'fk_refund_payment',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_refund_booking',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 退款判责规则：提前 X 小时 → 退 Y‰ */
+export const bizRefundPolicies = mysqlTable(
+  'biz_refund_policy',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    hoursBefore: int('hours_before', { unsigned: true }).notNull(),
+    refundPermille: int('refund_permille', { unsigned: true }).notNull(),
+    minAmount: int('min_amount', { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_refund_policy_name').on(table.name),
+    index('idx_refund_policy_status_sort').on(table.status, table.sort),
+  ],
+);
+
+/** 挂账主体：额度 0 = 不限，settle_day 0 = 不定期 */
+export const bizCreditAccounts = mysqlTable(
+  'biz_credit_account',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    type: mysqlEnum('type', ['customer', 'company', 'staff']).notNull(),
+    customerId: int('customer_id', { unsigned: true }),
+    contact: varchar('contact', { length: 50 }),
+    phone: varchar('phone', { length: 20 }),
+    creditLimit: int('credit_limit', { unsigned: true }).default(0).notNull(),
+    usedAmount: int('used_amount', { unsigned: true }).default(0).notNull(),
+    settleDay: tinyint('settle_day', { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    remark: varchar('remark', { length: 500 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_credit_account_name').on(table.name),
+    index('idx_credit_account_type').on(table.type, table.status),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_credit_account_customer',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 应收单：挂账消费产生，销账时条件更新防超额 */
+export const bizReceivables = mysqlTable(
+  'biz_receivable',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    receivableNo: varchar('receivable_no', { length: 32 }).notNull(),
+    creditAccountId: int('credit_account_id', { unsigned: true }).notNull(),
+    bookingId: int('booking_id', { unsigned: true }),
+    customerId: int('customer_id', { unsigned: true }),
+    amount: int('amount', { unsigned: true }).notNull(),
+    settledAmount: int('settled_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    dueDate: date('due_date', { mode: 'string' }),
+    status: mysqlEnum('status', [
+      'open',
+      'partial',
+      'settled',
+      'overdue',
+      'cancelled',
+    ])
+      .default('open')
+      .notNull(),
+    settledAt: datetime('settled_at'),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_receivable_no').on(table.receivableNo),
+    index('idx_receivable_account').on(table.creditAccountId, table.status),
+    index('idx_receivable_due').on(table.status, table.dueDate),
+    foreignKey({
+      columns: [table.creditAccountId],
+      foreignColumns: [bizCreditAccounts.id],
+      name: 'fk_receivable_account',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_receivable_booking',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 销账记录（只追加，一笔应收可多次还款） */
+export const bizReceivablePayments = mysqlTable(
+  'biz_receivable_payment',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    receivableId: int('receivable_id', { unsigned: true }).notNull(),
+    amount: int('amount', { unsigned: true }).notNull(),
+    payChannel: mysqlEnum('pay_channel', [
+      'cash',
+      'wechat_offline',
+      'alipay_offline',
+      'balance',
+      'wxpay_native',
+      'alipay_qr',
+    ]).notNull(),
+    paymentId: int('payment_id', { unsigned: true }),
+    paidAt: datetime('paid_at').notNull(),
+    remark: varchar('remark', { length: 200 }),
+    createdBy: int('created_by', { unsigned: true }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_recv_pay_receivable').on(table.receivableId, table.id),
+    foreignKey({
+      columns: [table.receivableId],
+      foreignColumns: [bizReceivables.id],
+      name: 'fk_recv_pay_receivable',
+    }).onDelete('cascade'),
+  ],
+);
+
+/* ------------------------------------------------------------------ *
+ * D. 运营与配置（§4.6、§19~§22）
+ * ------------------------------------------------------------------ */
+
+/** 美甲师可做项目（物理删：整体替换）。空集合 = 可做全部 */
+export const bizStaffServiceItems = mysqlTable(
+  'biz_staff_service_item',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    serviceItemId: int('service_item_id', { unsigned: true }).notNull(),
+    sort: int('sort').default(0).notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_staff_service_item').on(
+      table.staffId,
+      table.serviceItemId,
+    ),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_staff_service_staff',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.serviceItemId],
+      foreignColumns: [bizServiceItems.id],
+      name: 'fk_staff_service_item',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 服务评价：一单一评 */
+export const bizReviews = mysqlTable(
+  'biz_review',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    bookingId: int('booking_id', { unsigned: true }).notNull(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    score: tinyint('score', { unsigned: true }).notNull(),
+    content: varchar('content', { length: 1000 }),
+    images: json('images'),
+    isPublic: boolean('is_public').default(true).notNull(),
+    reply: varchar('reply', { length: 500 }),
+    repliedAt: datetime('replied_at'),
+    status: mysqlEnum('status', ['published', 'hidden'])
+      .default('published')
+      .notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_review_booking').on(table.bookingId),
+    index('idx_review_staff').on(table.staffId, table.status, table.id),
+    index('idx_review_customer').on(table.customerId, table.id),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_review_booking',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_review_staff',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 提成规则：优先级 service_item > category > staff */
+export const bizCommissionRules = mysqlTable(
+  'biz_commission_rule',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    scope: mysqlEnum('scope', ['staff', 'category', 'service_item']).notNull(),
+    targetId: int('target_id', { unsigned: true }),
+    staffId: int('staff_id', { unsigned: true }),
+    category: varchar('category', { length: 30 }),
+    permille: int('permille', { unsigned: true }).default(0).notNull(),
+    fixedAmount: int('fixed_amount', { unsigned: true }).default(0).notNull(),
+    base: mysqlEnum('base', ['payable', 'paid', 'original'])
+      .default('paid')
+      .notNull(),
+    effectiveFrom: date('effective_from', { mode: 'string' }).notNull(),
+    effectiveTo: date('effective_to', { mode: 'string' }),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_commission_rule_scope').on(table.scope, table.status, table.sort),
+    index('idx_commission_rule_staff').on(table.staffId),
+  ],
+);
+
+/** 提成计提记录（只追加，可结算 / 冲销） */
+export const bizCommissionRecords = mysqlTable(
+  'biz_commission_record',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    bookingId: int('booking_id', { unsigned: true }).notNull(),
+    bookingItemId: int('booking_item_id', { unsigned: true }).notNull(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    ruleId: int('rule_id', { unsigned: true }),
+    baseAmount: int('base_amount', { unsigned: true }).notNull(),
+    amount: int('amount', { unsigned: true }).notNull(),
+    period: char('period', { length: 6 }).notNull(),
+    status: mysqlEnum('status', ['accrued', 'settled', 'reversed'])
+      .default('accrued')
+      .notNull(),
+    settledAt: datetime('settled_at'),
+    settleBatch: varchar('settle_batch', { length: 32 }),
+    remark: varchar('remark', { length: 200 }),
+    createdBy: int('created_by', { unsigned: true }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_comm_record_staff_period').on(
+      table.staffId,
+      table.period,
+      table.status,
+    ),
+    index('idx_comm_record_booking').on(table.bookingId),
+    foreignKey({
+      columns: [table.bookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_comm_record_booking',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.bookingItemId],
+      foreignColumns: [bizBookingItems.id],
+      name: 'fk_comm_record_booking_item',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_comm_record_staff',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.ruleId],
+      foreignColumns: [bizCommissionRules.id],
+      name: 'fk_comm_record_rule',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 周期预约规则：generated_until 是幂等游标 */
+export const bizBookingRecurrences = mysqlTable(
+  'biz_booking_recurrence',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    serviceItemIds: json('service_item_ids').notNull(),
+    weekday: tinyint('weekday', { unsigned: true }).notNull(),
+    startTime: time('start_time').notNull(),
+    durationMinutes: int('duration_minutes', { unsigned: true }).notNull(),
+    startDate: date('start_date', { mode: 'string' }).notNull(),
+    endDate: date('end_date', { mode: 'string' }),
+    generateDays: int('generate_days', { unsigned: true })
+      .default(30)
+      .notNull(),
+    generatedUntil: date('generated_until', { mode: 'string' }),
+    status: mysqlEnum('status', ['active', 'paused', 'stopped'])
+      .default('active')
+      .notNull(),
+    lastRunAt: datetime('last_run_at'),
+    conflictPolicy: mysqlEnum('conflict_policy', ['skip', 'notify'])
+      .default('notify')
+      .notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_recurrence_status').on(table.status, table.generatedUntil),
+    index('idx_recurrence_customer').on(table.customerId),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_recurrence_customer',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_recurrence_staff',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 积分兑换品：兑换即发一张次卡（复用卡种，不引入券体系） */
+export const bizPointsGoods = mysqlTable(
+  'biz_points_goods',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    cardTypeId: int('card_type_id', { unsigned: true }).notNull(),
+    points: int('points', { unsigned: true }).notNull(),
+    stock: int('stock').default(-1).notNull(),
+    perLimit: int('per_limit', { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_points_goods_name').on(table.name),
+    index('idx_points_goods_status').on(table.status, table.sort),
+    foreignKey({
+      columns: [table.cardTypeId],
+      foreignColumns: [bizMemberCardTypes.id],
+      name: 'fk_points_goods_card_type',
+    }).onDelete('restrict'),
+  ],
+);
+
+/** 积分兑换记录（只追加，可撤销） */
+export const bizPointsRedeems = mysqlTable(
+  'biz_points_redeem',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    redeemNo: varchar('redeem_no', { length: 32 }).notNull(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    goodsId: int('goods_id', { unsigned: true }).notNull(),
+    points: int('points', { unsigned: true }).notNull(),
+    memberCardId: int('member_card_id', { unsigned: true }),
+    status: mysqlEnum('status', ['success', 'reverted'])
+      .default('success')
+      .notNull(),
+    remark: varchar('remark', { length: 200 }),
+    createdBy: int('created_by', { unsigned: true }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_points_redeem_no').on(table.redeemNo),
+    index('idx_points_redeem_customer').on(table.customerId, table.id),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_points_redeem_customer',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.goodsId],
+      foreignColumns: [bizPointsGoods.id],
+      name: 'fk_points_redeem_goods',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.memberCardId],
+      foreignColumns: [bizMemberCards.id],
+      name: 'fk_points_redeem_card',
+    }).onDelete('set null'),
+  ],
+);
+
+/** 通知模板：{变量} 必须都已声明 */
+export const sysNoticeTemplates = mysqlTable(
+  'sys_notice_template',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    code: varchar('code', { length: 50 }).notNull(),
+    name: varchar('name', { length: 50 }).notNull(),
+    channel: mysqlEnum('channel', ['sms', 'site', 'both'])
+      .default('both')
+      .notNull(),
+    title: varchar('title', { length: 100 }),
+    content: varchar('content', { length: 1000 }).notNull(),
+    variables: json('variables'),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex('uq_notice_template_code').on(table.code)],
+);
+
+/** 通知发送日志（只追加，站内消息也存这里） */
+export const sysNoticeLogs = mysqlTable(
+  'sys_notice_log',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    templateCode: varchar('template_code', { length: 50 }).notNull(),
+    channel: mysqlEnum('channel', ['sms', 'site']).notNull(),
+    recipientType: mysqlEnum('recipient_type', ['customer', 'user']).notNull(),
+    recipientId: int('recipient_id', { unsigned: true }).notNull(),
+    phone: varchar('phone', { length: 20 }),
+    title: varchar('title', { length: 100 }),
+    content: varchar('content', { length: 1000 }).notNull(),
+    status: mysqlEnum('status', ['pending', 'success', 'failed', 'skipped'])
+      .default('pending')
+      .notNull(),
+    provider: varchar('provider', { length: 30 }),
+    providerMsgId: varchar('provider_msg_id', { length: 64 }),
+    error: varchar('error', { length: 500 }),
+    retryCount: tinyint('retry_count', { unsigned: true }).default(0).notNull(),
+    sentAt: datetime('sent_at'),
+    readAt: datetime('read_at'),
+    bookingId: int('booking_id', { unsigned: true }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_notice_log_status').on(table.status, table.retryCount, table.id),
+    index('idx_notice_log_recipient').on(
+      table.recipientType,
+      table.recipientId,
+      table.id,
+    ),
+    index('idx_notice_log_booking').on(table.bookingId),
+  ],
+);
+
 export const relations = defineRelations(
   {
     departments,
@@ -679,6 +1880,38 @@ export const relations = defineRelations(
     aiApprovals,
     aiTasks,
     aiTaskSteps,
+    bizServiceItems,
+    bizStaffs,
+    bizStaffWeeklyShifts,
+    bizStaffScheduleOverrides,
+    bizCustomers,
+    bizBookings,
+    bizBookingItems,
+    bizMemberLevels,
+    bizRechargePlans,
+    bizMemberCardTypes,
+    bizMemberCardTypeItems,
+    bizMemberCards,
+    bizMemberCardLogs,
+    bizMemberTransactions,
+    bizPayments,
+    bizPaymentLogs,
+    bizPaymentDiffs,
+    bizRefunds,
+    bizRefundPolicies,
+    bizCreditAccounts,
+    bizReceivables,
+    bizReceivablePayments,
+    bizStaffServiceItems,
+    bizReviews,
+    bizCommissionRules,
+    bizCommissionRecords,
+    bizBookingRecurrences,
+    bizPointsGoods,
+    bizPointsRedeems,
+    sysNoticeTemplates,
+    sysNoticeLogs,
+    appWxUsers,
   },
   ({
     departments,
@@ -698,6 +1931,38 @@ export const relations = defineRelations(
     aiApprovals,
     aiTasks,
     aiTaskSteps,
+    bizServiceItems,
+    bizStaffs,
+    bizStaffWeeklyShifts,
+    bizStaffScheduleOverrides,
+    bizCustomers,
+    bizBookings,
+    bizBookingItems,
+    bizMemberLevels,
+    bizRechargePlans,
+    bizMemberCardTypes,
+    bizMemberCardTypeItems,
+    bizMemberCards,
+    bizMemberCardLogs,
+    bizMemberTransactions,
+    bizPayments,
+    bizPaymentLogs,
+    bizPaymentDiffs,
+    bizRefunds,
+    bizRefundPolicies,
+    bizCreditAccounts,
+    bizReceivables,
+    bizReceivablePayments,
+    bizStaffServiceItems,
+    bizReviews,
+    bizCommissionRules,
+    bizCommissionRecords,
+    bizBookingRecurrences,
+    bizPointsGoods,
+    bizPointsRedeems,
+    sysNoticeTemplates,
+    sysNoticeLogs,
+    appWxUsers,
     one,
     many,
   }) => ({
@@ -810,6 +2075,357 @@ export const relations = defineRelations(
       task: one.aiTasks({
         from: aiTaskSteps.taskId,
         to: aiTasks.id,
+      }),
+    },
+    bizServiceItems: {
+      staffAssignments: many.bizStaffServiceItems({
+        from: bizServiceItems.id,
+        to: bizStaffServiceItems.serviceItemId,
+      }),
+      bookingItems: many.bizBookingItems({
+        from: bizServiceItems.id,
+        to: bizBookingItems.serviceItemId,
+      }),
+    },
+    bizStaffs: {
+      user: one.users({ from: bizStaffs.userId, to: users.id }),
+      weeklyShifts: many.bizStaffWeeklyShifts({
+        from: bizStaffs.id,
+        to: bizStaffWeeklyShifts.staffId,
+      }),
+      scheduleOverrides: many.bizStaffScheduleOverrides({
+        from: bizStaffs.id,
+        to: bizStaffScheduleOverrides.staffId,
+      }),
+      serviceItems: many.bizStaffServiceItems({
+        from: bizStaffs.id,
+        to: bizStaffServiceItems.staffId,
+      }),
+      bookings: many.bizBookings({
+        from: bizStaffs.id,
+        to: bizBookings.staffId,
+      }),
+    },
+    bizStaffWeeklyShifts: {
+      staff: one.bizStaffs({
+        from: bizStaffWeeklyShifts.staffId,
+        to: bizStaffs.id,
+      }),
+    },
+    bizStaffScheduleOverrides: {
+      staff: one.bizStaffs({
+        from: bizStaffScheduleOverrides.staffId,
+        to: bizStaffs.id,
+      }),
+    },
+    bizCustomers: {
+      level: one.bizMemberLevels({
+        from: bizCustomers.levelId,
+        to: bizMemberLevels.id,
+      }),
+      bookings: many.bizBookings({
+        from: bizCustomers.id,
+        to: bizBookings.customerId,
+      }),
+      transactions: many.bizMemberTransactions({
+        from: bizCustomers.id,
+        to: bizMemberTransactions.customerId,
+      }),
+      cards: many.bizMemberCards({
+        from: bizCustomers.id,
+        to: bizMemberCards.customerId,
+      }),
+      wxUsers: many.appWxUsers({
+        from: bizCustomers.id,
+        to: appWxUsers.customerId,
+      }),
+    },
+    bizBookings: {
+      customer: one.bizCustomers({
+        from: bizBookings.customerId,
+        to: bizCustomers.id,
+      }),
+      staff: one.bizStaffs({
+        from: bizBookings.staffId,
+        to: bizStaffs.id,
+      }),
+      items: many.bizBookingItems({
+        from: bizBookings.id,
+        to: bizBookingItems.bookingId,
+      }),
+      payments: many.bizPayments({
+        from: bizBookings.id,
+        to: bizPayments.bookingId,
+      }),
+      receivable: one.bizReceivables({
+        from: bizBookings.id,
+        to: bizReceivables.bookingId,
+      }),
+      review: one.bizReviews({
+        from: bizBookings.id,
+        to: bizReviews.bookingId,
+      }),
+      recurrence: one.bizBookingRecurrences({
+        from: bizBookings.recurrenceId,
+        to: bizBookingRecurrences.id,
+      }),
+    },
+    bizBookingItems: {
+      booking: one.bizBookings({
+        from: bizBookingItems.bookingId,
+        to: bizBookings.id,
+      }),
+      serviceItem: one.bizServiceItems({
+        from: bizBookingItems.serviceItemId,
+        to: bizServiceItems.id,
+      }),
+      commissionRecords: many.bizCommissionRecords({
+        from: bizBookingItems.id,
+        to: bizCommissionRecords.bookingItemId,
+      }),
+    },
+    bizMemberLevels: {
+      customers: many.bizCustomers({
+        from: bizMemberLevels.id,
+        to: bizCustomers.levelId,
+      }),
+    },
+    bizRechargePlans: {
+      transactions: many.bizMemberTransactions({
+        from: bizRechargePlans.id,
+        to: bizMemberTransactions.planId,
+      }),
+    },
+    bizMemberCardTypes: {
+      serviceItems: many.bizMemberCardTypeItems({
+        from: bizMemberCardTypes.id,
+        to: bizMemberCardTypeItems.cardTypeId,
+      }),
+      cards: many.bizMemberCards({
+        from: bizMemberCardTypes.id,
+        to: bizMemberCards.cardTypeId,
+      }),
+      pointsGoods: many.bizPointsGoods({
+        from: bizMemberCardTypes.id,
+        to: bizPointsGoods.cardTypeId,
+      }),
+    },
+    bizMemberCardTypeItems: {
+      cardType: one.bizMemberCardTypes({
+        from: bizMemberCardTypeItems.cardTypeId,
+        to: bizMemberCardTypes.id,
+      }),
+      serviceItem: one.bizServiceItems({
+        from: bizMemberCardTypeItems.serviceItemId,
+        to: bizServiceItems.id,
+      }),
+    },
+    bizMemberCards: {
+      customer: one.bizCustomers({
+        from: bizMemberCards.customerId,
+        to: bizCustomers.id,
+      }),
+      cardType: one.bizMemberCardTypes({
+        from: bizMemberCards.cardTypeId,
+        to: bizMemberCardTypes.id,
+      }),
+      logs: many.bizMemberCardLogs({
+        from: bizMemberCards.id,
+        to: bizMemberCardLogs.cardId,
+      }),
+    },
+    bizMemberCardLogs: {
+      card: one.bizMemberCards({
+        from: bizMemberCardLogs.cardId,
+        to: bizMemberCards.id,
+      }),
+      booking: one.bizBookings({
+        from: bizMemberCardLogs.bookingId,
+        to: bizBookings.id,
+      }),
+    },
+    bizMemberTransactions: {
+      customer: one.bizCustomers({
+        from: bizMemberTransactions.customerId,
+        to: bizCustomers.id,
+      }),
+      booking: one.bizBookings({
+        from: bizMemberTransactions.bookingId,
+        to: bizBookings.id,
+      }),
+      card: one.bizMemberCards({
+        from: bizMemberTransactions.cardId,
+        to: bizMemberCards.id,
+      }),
+      plan: one.bizRechargePlans({
+        from: bizMemberTransactions.planId,
+        to: bizRechargePlans.id,
+      }),
+    },
+    bizPayments: {
+      booking: one.bizBookings({
+        from: bizPayments.bookingId,
+        to: bizBookings.id,
+      }),
+      customer: one.bizCustomers({
+        from: bizPayments.customerId,
+        to: bizCustomers.id,
+      }),
+      logs: many.bizPaymentLogs({
+        from: bizPayments.id,
+        to: bizPaymentLogs.paymentId,
+      }),
+      refunds: many.bizRefunds({
+        from: bizPayments.id,
+        to: bizRefunds.paymentId,
+      }),
+    },
+    bizPaymentLogs: {
+      payment: one.bizPayments({
+        from: bizPaymentLogs.paymentId,
+        to: bizPayments.id,
+      }),
+    },
+    bizRefunds: {
+      payment: one.bizPayments({
+        from: bizRefunds.paymentId,
+        to: bizPayments.id,
+      }),
+      booking: one.bizBookings({
+        from: bizRefunds.bookingId,
+        to: bizBookings.id,
+      }),
+      policy: one.bizRefundPolicies({
+        from: bizRefunds.policyId,
+        to: bizRefundPolicies.id,
+      }),
+    },
+    bizRefundPolicies: {
+      refunds: many.bizRefunds({
+        from: bizRefundPolicies.id,
+        to: bizRefunds.policyId,
+      }),
+    },
+    bizCreditAccounts: {
+      customer: one.bizCustomers({
+        from: bizCreditAccounts.customerId,
+        to: bizCustomers.id,
+      }),
+      receivables: many.bizReceivables({
+        from: bizCreditAccounts.id,
+        to: bizReceivables.creditAccountId,
+      }),
+    },
+    bizReceivables: {
+      account: one.bizCreditAccounts({
+        from: bizReceivables.creditAccountId,
+        to: bizCreditAccounts.id,
+      }),
+      booking: one.bizBookings({
+        from: bizReceivables.bookingId,
+        to: bizBookings.id,
+      }),
+      payments: many.bizReceivablePayments({
+        from: bizReceivables.id,
+        to: bizReceivablePayments.receivableId,
+      }),
+    },
+    bizReceivablePayments: {
+      receivable: one.bizReceivables({
+        from: bizReceivablePayments.receivableId,
+        to: bizReceivables.id,
+      }),
+    },
+    bizStaffServiceItems: {
+      staff: one.bizStaffs({
+        from: bizStaffServiceItems.staffId,
+        to: bizStaffs.id,
+      }),
+      serviceItem: one.bizServiceItems({
+        from: bizStaffServiceItems.serviceItemId,
+        to: bizServiceItems.id,
+      }),
+    },
+    bizReviews: {
+      booking: one.bizBookings({
+        from: bizReviews.bookingId,
+        to: bizBookings.id,
+      }),
+      customer: one.bizCustomers({
+        from: bizReviews.customerId,
+        to: bizCustomers.id,
+      }),
+      staff: one.bizStaffs({
+        from: bizReviews.staffId,
+        to: bizStaffs.id,
+      }),
+    },
+    bizCommissionRules: {
+      records: many.bizCommissionRecords({
+        from: bizCommissionRules.id,
+        to: bizCommissionRecords.ruleId,
+      }),
+    },
+    bizCommissionRecords: {
+      booking: one.bizBookings({
+        from: bizCommissionRecords.bookingId,
+        to: bizBookings.id,
+      }),
+      bookingItem: one.bizBookingItems({
+        from: bizCommissionRecords.bookingItemId,
+        to: bizBookingItems.id,
+      }),
+      staff: one.bizStaffs({
+        from: bizCommissionRecords.staffId,
+        to: bizStaffs.id,
+      }),
+      rule: one.bizCommissionRules({
+        from: bizCommissionRecords.ruleId,
+        to: bizCommissionRules.id,
+      }),
+    },
+    bizBookingRecurrences: {
+      customer: one.bizCustomers({
+        from: bizBookingRecurrences.customerId,
+        to: bizCustomers.id,
+      }),
+      staff: one.bizStaffs({
+        from: bizBookingRecurrences.staffId,
+        to: bizStaffs.id,
+      }),
+      bookings: many.bizBookings({
+        from: bizBookingRecurrences.id,
+        to: bizBookings.recurrenceId,
+      }),
+    },
+    bizPointsGoods: {
+      cardType: one.bizMemberCardTypes({
+        from: bizPointsGoods.cardTypeId,
+        to: bizMemberCardTypes.id,
+      }),
+      redeems: many.bizPointsRedeems({
+        from: bizPointsGoods.id,
+        to: bizPointsRedeems.goodsId,
+      }),
+    },
+    bizPointsRedeems: {
+      customer: one.bizCustomers({
+        from: bizPointsRedeems.customerId,
+        to: bizCustomers.id,
+      }),
+      goods: one.bizPointsGoods({
+        from: bizPointsRedeems.goodsId,
+        to: bizPointsGoods.id,
+      }),
+      memberCard: one.bizMemberCards({
+        from: bizPointsRedeems.memberCardId,
+        to: bizMemberCards.id,
+      }),
+    },
+    appWxUsers: {
+      customer: one.bizCustomers({
+        from: appWxUsers.customerId,
+        to: bizCustomers.id,
       }),
     },
   }),
