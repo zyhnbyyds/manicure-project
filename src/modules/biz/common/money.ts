@@ -152,7 +152,10 @@ export function splitBalanceDeduction(
   }
   const total = balancePrincipal + balanceBonus;
   if (total <= 0) return { bonus: 0, principal: amount };
-  const bonus = Math.min(balanceBonus, Math.floor((amount * balanceBonus) / total));
+  const bonus = Math.min(
+    balanceBonus,
+    Math.floor((amount * balanceBonus) / total),
+  );
   return { bonus, principal: amount - bonus };
 }
 

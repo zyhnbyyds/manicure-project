@@ -17,30 +17,46 @@
 - 事务内一切读写用 `tx`；锁顺序 `biz_staff → biz_customer → biz_payment → biz_member_card`。
 - 权限点写进 `src/database/seed/menus.ts`（各段全小写冒号分隔）。
 - 公共工具：`src/modules/biz/common/`
-  | 文件                   | 导出                                                                                                          |
-  | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-  | `shop-time.ts`         | `shopDayRange` `shopLocalToUtc` `formatShopDateTime` `shopDateOf` `shopToday` `addLocalDays` `shopWeekday` `daysBetween` `listLocalDates` `timeToMinutes` `minutesToTime` `DEFAULT_SHOP_TIMEZONE` |
-  | `money.ts`             | `quoteBooking` `calcDepositAmount` `permilleOf` `sumDuration` `maxBuffer` `splitBalanceDeduction` `commissionOf` `pointsToCents` `centsToPoints` |
-  | `doc-no.ts`            | `buildDocNo` `buildOutTradeNo` `buildSettleBatch`                                                             |
-  | `query.ts`             | `parsePagination` `keywordLike` `localDateRange` `andConditions`                                              |
-  | `biz-config.service.ts`| `BizConfigService`（`@Global`，直接注入）：`booking()` `member()` `payment()` `notice()` `credit()` `commission()` `all()` `getString/getInt/getBoolean/getList` `invalidate()` |
+  | 文件                    | 导出                                                                                                                                                                                              |
+  | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `shop-time.ts`          | `shopDayRange` `shopLocalToUtc` `formatShopDateTime` `shopDateOf` `shopToday` `addLocalDays` `shopWeekday` `daysBetween` `listLocalDates` `timeToMinutes` `minutesToTime` `DEFAULT_SHOP_TIMEZONE` |
+  | `money.ts`              | `quoteBooking` `calcDepositAmount` `permilleOf` `sumDuration` `maxBuffer` `splitBalanceDeduction` `commissionOf` `pointsToCents` `centsToPoints`                                                  |
+  | `doc-no.ts`             | `buildDocNo` `buildOutTradeNo` `buildSettleBatch`                                                                                                                                                 |
+  | `query.ts`              | `parsePagination` `keywordLike` `localDateRange` `andConditions`                                                                                                                                  |
+  | `biz-config.service.ts` | `BizConfigService`（`@Global`，直接注入）：`booking()` `member()` `payment()` `notice()` `credit()` `commission()` `all()` `getString/getInt/getBoolean/getList` `invalidate()`                   |
 
 ## 1. 模块与文件清单
 
-| 模块         | 目录                                  | 服务类                                                                | 控制器前缀                                                       |
-| ------------ | ------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| 基础数据     | `src/modules/biz/base-data/`          | `ServiceItemsService` / `StaffsService` / `CustomersService`           | `biz/service-items` `biz/staffs` `biz/customers`                 |
-| 排班         | `src/modules/biz/scheduling/`         | `SchedulingService`                                                   | `biz/staffs`（`:id/weekly-shifts` `:id/overrides`）              |
-| 预约主链路   | `src/modules/biz/booking/`            | `SlotsService` / `BookingsService` / `BookingSettlementService`        | `biz/bookings`                                                   |
-| 会员         | `src/modules/biz/membership/`         | `MemberLevelsService` `RechargePlansService` `CardTypesService` `MemberAccountsService` `MemberCardsService` `PointsGoodsService` | `biz/member-levels` `biz/recharge-plans` `biz/card-types` `biz/members` `biz/member-cards` `biz/points-goods` `biz/points` `biz/points-redeems` |
-| 收银         | `src/modules/biz/payment/`            | `PaymentsService` `RefundsService` `PaymentDiffsService`              | `biz/payments` `biz/refunds` `biz/payment-diffs`                 |
-| 挂账         | `src/modules/biz/credit/`             | `CreditAccountsService` `ReceivablesService`                          | `biz/credit-accounts` `biz/receivables`                          |
-| 报表/提成    | `src/modules/biz/operations/`         | `ReportsService` `CommissionService`                                  | `biz/reports` `biz/commission-*`                                 |
-| 评价/周期/通知 | `src/modules/biz/operations/`       | `ReviewsService` `RecurrencesService` `NoticesService` `SmsProvider`  | `biz/reviews` `biz/recurrences` `biz/notice-*`                   |
-| 小程序域     | `src/modules/app/`                    | `AppAuthService` `AppCatalogService` `AppMemberService` `AppAccessTokenGuard` | `/api/v1/app/**`                                          |
+### 1.1 依赖倒置：只依赖端口，不 import 别人的 service
+
+`src/modules/biz/common/ports.ts` 冻结了全部跨模块能力（抽象类，同时充当 DI token）：
+`ServiceItemPort` `StaffPort` `CustomerPort` `SchedulePort` `SlotPort` `SettlementPort`
+`MemberAccountPort` `MemberCardPort` `PaymentPort` `CreditPort` `NoticePort` `CommissionPort` `RecurrencePort`。
+
+- **消费方**：构造函数注入抽象类（`private readonly members: MemberAccountPort`），绝不 import 别的模块的 service 类。
+- **提供方**：在自己的 `*.module.ts` 里 `providers: [XxxService]`、`exports: [XxxService]`（不需要提供端口 token）。
+- **绑定**：根模块 `src/modules/biz/biz.module.ts`（`@Global`，由 PM 编写）统一 `{ provide: MemberAccountPort, useExisting: MemberAccountsService }`。
+
+这样并行开发的模块之间**没有编译期耦合**，也不会出现循环依赖。
+
+### 1.2 模块与文件清单
+
+| 模块           | 目录                          | 服务类                                                                                                                            | 控制器前缀                                                                                                                                      |
+| -------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 基础数据       | `src/modules/biz/base-data/`  | `ServiceItemsService` / `StaffsService` / `CustomersService`                                                                      | `biz/service-items` `biz/staffs` `biz/customers`                                                                                                |
+| 排班           | `src/modules/biz/scheduling/` | `SchedulingService`                                                                                                               | `biz/staffs`（`:id/weekly-shifts` `:id/overrides`）                                                                                             |
+| 预约主链路     | `src/modules/biz/booking/`    | `SlotsService` / `BookingsService` / `BookingSettlementService`                                                                   | `biz/bookings`                                                                                                                                  |
+| 会员           | `src/modules/biz/membership/` | `MemberLevelsService` `RechargePlansService` `CardTypesService` `MemberAccountsService` `MemberCardsService` `PointsGoodsService` | `biz/member-levels` `biz/recharge-plans` `biz/card-types` `biz/members` `biz/member-cards` `biz/points-goods` `biz/points` `biz/points-redeems` |
+| 收银           | `src/modules/biz/payment/`    | `PaymentsService` `RefundsService` `PaymentDiffsService`                                                                          | `biz/payments` `biz/refunds` `biz/payment-diffs`                                                                                                |
+| 挂账           | `src/modules/biz/credit/`     | `CreditAccountsService` `ReceivablesService`                                                                                      | `biz/credit-accounts` `biz/receivables`                                                                                                         |
+| 报表/提成      | `src/modules/biz/reports/`    | `ReportsService` `CommissionService`                                                                                              | `biz/reports` `biz/commission-*`                                                                                                                |
+| 评价/周期/通知 | `src/modules/biz/operations/` | `ReviewsService` `RecurrencesService` `NoticesService` `SmsProvider`                                                              | `biz/reviews` `biz/recurrences` `biz/notice-*`                                                                                                  |
+| 小程序域       | `src/modules/app/`            | `AppAuthService` `AppCatalogService` `AppMemberService` `AppAccessTokenGuard`                                                     | `/api/v1/app/**`                                                                                                                                |
 
 批次归属：B1 = 基础数据 + 排班 + 预约；B2 = 会员；B3 = 收银；B4 = 挂账 + 报表 + 提成；
 B5 = 评价 + 周期 + 通知 + 美甲师项目；B6 = 小程序。**全部一次性交付**。
+
+> 端口签名与本文件 §2 的 service 签名一致；以 `ports.ts` 为准（它是可编译的）。
 
 ## 2. 跨模块方法签名（冻结）
 

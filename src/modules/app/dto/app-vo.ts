@@ -1,0 +1,442 @@
+/**
+ * 小程序端（`/api/v1/app/**`）专用 Zod schema（请求 + 响应）。
+ *
+ * 三条铁律（spec §8.3 / §16.3）：
+ * 1. **禁止复用后台 DTO / VO**：app 域字段集合在这里独立定义，只暴露 C 端需要的字段；
+ * 2. 每个 schema 都 `registerComponent`，Swagger 中以 `#/components/schemas/App*` 引用；
+ * 3. 响应字段**逐个显式列举**：不含 `cost` / `remark` / `createdBy` / `status` / `sort` /
+ *    `bufferMinutes` / 其他顾客信息等内部字段（验收项：字段集合断言）。
+ *
+ * 命名约定：`appXxxSchema` + `AppXxxVo`（响应）/ `AppXxxRequest`（请求）。
+ */
+import { z } from 'zod';
+import { registerComponent } from '../../../common/swagger/zod-schema.helper.js';
+
+/* ------------------------------------------------------------------ *
+ * 通用
+ * ------------------------------------------------------------------ */
+
+/** 店内本地日 `YYYY-MM-DD`（绝不用 `new Date('YYYY-MM-DD')` 解析） */
+const localDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .openapi({ example: '2026-09-11', description: '店内本地日 YYYY-MM-DD' });
+
+/** 带时区偏移的 ISO8601 时刻（UTC 存储，展示口径 +08:00） */
+const isoDateTime = z
+  .string()
+  .openapi({
+    example: '2026-09-11T10:00:00+08:00',
+    description: '带偏移的 ISO8601 时刻',
+  });
+
+export const appListQuerySchema = z.object({
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .openapi({ example: 1, description: '页码' }),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .openapi({ example: 20, description: '每页条数' }),
+});
+registerComponent('AppListQuery', appListQuerySchema);
+export type AppListQuery = z.infer<typeof appListQuerySchema>;
+
+/* ------------------------------------------------------------------ *
+ * 认证（auth）
+ * ------------------------------------------------------------------ */
+
+export const appLoginRequestSchema = z.object({
+  code: z
+    .string()
+    .min(1)
+    .max(200)
+    .openapi({
+      example: '081Kf3Ga1abcDE0',
+      description: 'wx.login 返回的 code',
+    }),
+  nickname: z
+    .string()
+    .min(1)
+    .max(50)
+    .optional()
+    .openapi({ example: '小美', description: '微信昵称（可选，授权时快照）' }),
+  avatar: z
+    .string()
+    .min(1)
+    .max(500)
+    .optional()
+    .openapi({
+      example: 'https://thirdwx.qlogo.cn/xxx',
+      description: '微信头像（可选）',
+    }),
+});
+registerComponent('AppLoginRequest', appLoginRequestSchema);
+export type AppLoginRequest = z.infer<typeof appLoginRequestSchema>;
+
+/** 登录响应：只回 token 与绑定状态，不回任何后台身份信息 */
+export const appLoginVo = z.object({
+  accessToken: z
+    .string()
+    .openapi({ description: 'app 域 access token（payload 含 scope=app）' }),
+  tokenType: z.literal('Bearer'),
+  expiresIn: z.string().openapi({ example: '15m', description: '有效期' }),
+  customerId: z
+    .number()
+    .int()
+    .nullable()
+    .openapi({
+      example: null,
+      description: '已绑定的顾客 ID；null = 仅浏览（未授权手机号）',
+    }),
+});
+registerComponent('AppLoginVo', appLoginVo);
+export type AppLoginVo = z.infer<typeof appLoginVo>;
+
+export const appBindPhoneRequestSchema = z.object({
+  code: z
+    .string()
+    .min(1)
+    .max(200)
+    .openapi({
+      example: 'e31x2abc',
+      description: 'getPhoneNumber 返回的 code',
+    }),
+});
+registerComponent('AppBindPhoneRequest', appBindPhoneRequestSchema);
+export type AppBindPhoneRequest = z.infer<typeof appBindPhoneRequestSchema>;
+
+/* ------------------------------------------------------------------ *
+ * 目录（catalog）：服务项目 / 美甲师 / 可约时段
+ * ------------------------------------------------------------------ */
+
+/** 字段集合冻结：id/name/category/durationMinutes/price/description/image —— 无成本、无备注、无状态 */
+export const appServiceItemVo = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  category: z.string().nullable(),
+  durationMinutes: z.number().int(),
+  price: z.number().int().openapi({ description: '价格（分）' }),
+  description: z.string().nullable(),
+  image: z.string().nullable(),
+});
+registerComponent('AppServiceItemVo', appServiceItemVo);
+export type AppServiceItemVo = z.infer<typeof appServiceItemVo>;
+
+export const appServiceItemListVo = z.object({
+  items: z.array(appServiceItemVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppServiceItemListVo', appServiceItemListVo);
+export type AppServiceItemListVo = z.infer<typeof appServiceItemListVo>;
+
+/** 字段集合冻结：id/nickname/avatar/bio —— 无手机号、无状态、无备注 */
+export const appStaffVo = z.object({
+  id: z.number().int(),
+  nickname: z.string(),
+  avatar: z.string().nullable(),
+  bio: z.string().nullable(),
+});
+registerComponent('AppStaffVo', appStaffVo);
+export type AppStaffVo = z.infer<typeof appStaffVo>;
+
+export const appStaffListVo = z.object({
+  items: z.array(appStaffVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppStaffListVo', appStaffListVo);
+export type AppStaffListVo = z.infer<typeof appStaffListVo>;
+
+/**
+ * 可约时段查询：`serviceItemIds` 兼容两种写法（§9.7）——
+ * 逗号分隔 `?serviceItemIds=1,2` 或重复 query `?serviceItemIds=1&serviceItemIds=2`。
+ * 这里的 schema 是 Swagger 文档口径；实际归一化见 `normalizeServiceItemIds`。
+ */
+export const appAvailableSlotsQuerySchema = z.object({
+  staffId: z.coerce
+    .number()
+    .int()
+    .positive()
+    .openapi({ example: 1, description: '美甲师 ID' }),
+  date: localDate,
+  serviceItemIds: z.union([z.string(), z.array(z.string())]).openapi({
+    example: '1,2',
+    description: '服务项目 ID：逗号分隔或重复 query，去重后 1~3 个',
+  }),
+});
+registerComponent('AppAvailableSlotsQuery', appAvailableSlotsQuerySchema);
+
+/** 归一化后的项目 ID 数组：去重、1~3 个（与后台 `requireActiveItems` 约束一致） */
+export const appServiceItemIdsSchema = z
+  .array(z.number().int().positive())
+  .min(1)
+  .max(3);
+
+/** 把 `string | string[] | number | ...` 的 query 值归一化成去重后的正整数数组 */
+export function normalizeServiceItemIds(value: unknown): number[] {
+  const raw = Array.isArray(value) ? value : [value];
+  const ids = raw
+    .flatMap((item) => String(item).split(','))
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .map((item) => Number(item));
+  return [...new Set(ids)];
+}
+
+export const appSlotItemVo = z.object({
+  startAt: isoDateTime,
+  endAt: isoDateTime,
+});
+registerComponent('AppSlotItemVo', appSlotItemVo);
+
+/** 与后台 `/biz/bookings/available-slots` 同源（同一个 SlotPort 实现，结果必须一致） */
+export const appAvailableSlotsVo = z.object({
+  slots: z.array(appSlotItemVo),
+  reason: z
+    .enum([
+      'off',
+      'no_shift',
+      'staff_cannot_do',
+      'fully_booked',
+      'out_of_window',
+    ])
+    .optional()
+    .openapi({ description: '无可约时段时的原因' }),
+  durationMinutes: z.number().int(),
+  bufferMinutes: z.number().int(),
+});
+registerComponent('AppAvailableSlotsVo', appAvailableSlotsVo);
+export type AppAvailableSlotsVo = z.infer<typeof appAvailableSlotsVo>;
+
+/* ------------------------------------------------------------------ *
+ * 会员（member）
+ * ------------------------------------------------------------------ */
+
+/** 次卡对外字段：不含 price / payChannel / remark / createdBy 等内部字段 */
+export const appMemberCardVo = z.object({
+  id: z.number().int(),
+  cardNo: z.string(),
+  cardName: z.string(),
+  totalTimes: z.number().int(),
+  usedTimes: z.number().int(),
+  expireAt: z
+    .string()
+    .nullable()
+    .openapi({ example: '2027-09-11T00:00:00.000Z' }),
+  status: z.enum(['active', 'used_up', 'expired', 'refunded']),
+});
+registerComponent('AppMemberCardVo', appMemberCardVo);
+export type AppMemberCardVo = z.infer<typeof appMemberCardVo>;
+
+export const appMemberCardsQuerySchema = z.object({
+  status: z
+    .enum(['active', 'used_up', 'expired', 'refunded'])
+    .optional()
+    .openapi({ description: '按状态过滤（不传 = 全部本人卡）' }),
+});
+registerComponent('AppMemberCardsQuery', appMemberCardsQuerySchema);
+
+export const appMemberCardListVo = z.object({
+  items: z.array(appMemberCardVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppMemberCardListVo', appMemberCardListVo);
+export type AppMemberCardListVo = z.infer<typeof appMemberCardListVo>;
+
+/** 会员信息：余额只有本金 + 赠送，无任何内部字段 */
+export const appMemberMeVo = z.object({
+  customerId: z.number().int(),
+  name: z.string(),
+  phone: z.string().nullable(),
+  levelName: z.string().nullable(),
+  discountPermille: z
+    .number()
+    .int()
+    .openapi({ example: 950, description: '折扣率千分比；无等级 = 1000' }),
+  points: z.number().int(),
+  balancePrincipal: z.number().int().openapi({ description: '储值本金（分）' }),
+  balanceBonus: z.number().int().openapi({ description: '储值赠送（分）' }),
+  cards: z.array(appMemberCardVo),
+});
+registerComponent('AppMemberMeVo', appMemberMeVo);
+export type AppMemberMeVo = z.infer<typeof appMemberMeVo>;
+
+/* ------------------------------------------------------------------ *
+ * 预约 / 评价 / 支付 / 订阅：本期只留契约骨架（501）
+ * ------------------------------------------------------------------ */
+
+export const appBookingStatusSchema = z.enum([
+  'pending',
+  'confirmed',
+  'arrived',
+  'completed',
+  'cancelled',
+  'no_show',
+]);
+export const appPayStatusSchema = z.enum([
+  'unpaid',
+  'partial',
+  'paid',
+  'refunded',
+  'credit',
+]);
+
+export const appBookingItemVo = z.object({
+  serviceItemId: z.number().int(),
+  name: z.string(),
+  price: z.number().int().openapi({ description: '价格（分）' }),
+  durationMinutes: z.number().int(),
+});
+registerComponent('AppBookingItemVo', appBookingItemVo);
+
+/** 「我的预约」单条（P2 实现；字段先定，避免 P2 改后台模型） */
+export const appBookingVo = z.object({
+  id: z.number().int(),
+  bookingNo: z.string(),
+  staffId: z.number().int(),
+  staffName: z.string().nullable(),
+  startAt: isoDateTime,
+  endAt: isoDateTime,
+  status: appBookingStatusSchema,
+  payStatus: appPayStatusSchema,
+  payableAmount: z.number().int(),
+  paidAmount: z.number().int(),
+  dueAmount: z.number().int(),
+  items: z.array(appBookingItemVo),
+});
+registerComponent('AppBookingVo', appBookingVo);
+export type AppBookingVo = z.infer<typeof appBookingVo>;
+
+export const appBookingListVo = z.object({
+  items: z.array(appBookingVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppBookingListVo', appBookingListVo);
+
+export const appBookingListQuerySchema = appListQuerySchema.extend({
+  status: appBookingStatusSchema
+    .optional()
+    .openapi({ description: '按状态过滤' }),
+});
+registerComponent('AppBookingListQuery', appBookingListQuerySchema);
+
+/** 自助下单（P2 接微信支付；本期 501） */
+export const appCreateBookingRequestSchema = z.object({
+  staffId: z.number().int().positive().openapi({ example: 1 }),
+  startAt: isoDateTime,
+  serviceItemIds: z
+    .array(z.number().int().positive())
+    .min(1)
+    .max(3)
+    .openapi({ example: [1, 2], description: '服务项目 ID（去重后 1~3 个）' }),
+  memberCardId: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .openapi({ description: '使用次卡时传入' }),
+  pointsToUse: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .openapi({ description: '积分抵扣数量' }),
+  remark: z.string().max(200).nullable().optional(),
+});
+registerComponent('AppCreateBookingRequest', appCreateBookingRequestSchema);
+export type AppCreateBookingRequest = z.infer<
+  typeof appCreateBookingRequestSchema
+>;
+
+export const appCancelBookingRequestSchema = z.object({
+  reason: z
+    .string()
+    .max(200)
+    .optional()
+    .openapi({ example: '临时有事', description: '取消原因' }),
+});
+registerComponent('AppCancelBookingRequest', appCancelBookingRequestSchema);
+export type AppCancelBookingRequest = z.infer<
+  typeof appCancelBookingRequestSchema
+>;
+
+export const appCreateReviewRequestSchema = z.object({
+  bookingId: z.number().int().positive().openapi({ example: 1 }),
+  rating: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .openapi({ example: 5, description: '评分 1~5' }),
+  content: z.string().max(500).optional(),
+  images: z.array(z.string().max(500)).max(9).optional(),
+});
+registerComponent('AppCreateReviewRequest', appCreateReviewRequestSchema);
+export type AppCreateReviewRequest = z.infer<
+  typeof appCreateReviewRequestSchema
+>;
+
+export const appReviewVo = z.object({
+  id: z.number().int(),
+  bookingId: z.number().int(),
+  rating: z.number().int(),
+  content: z.string().nullable(),
+  createdAt: z.string(),
+});
+registerComponent('AppReviewVo', appReviewVo);
+
+/** 小程序内 JSAPI 支付（P2；本期后台在线支付走 Native 扫码） */
+export const appWxpayJsapiRequestSchema = z.object({
+  bookingId: z.number().int().positive().openapi({ example: 1 }),
+  purpose: z
+    .enum(['deposit', 'final'])
+    .openapi({ example: 'deposit', description: '定金 / 尾款' }),
+  amount: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .openapi({ description: '金额（分），不传则按预约应收' }),
+});
+registerComponent('AppWxpayJsapiRequest', appWxpayJsapiRequestSchema);
+export type AppWxpayJsapiRequest = z.infer<typeof appWxpayJsapiRequestSchema>;
+
+/** `wx.requestPayment` 所需参数（P2 填充） */
+export const appWxpayJsapiVo = z.object({
+  paymentNo: z.string(),
+  timeStamp: z.string(),
+  nonceStr: z.string(),
+  package: z.string(),
+  signType: z.literal('RSA'),
+  paySign: z.string(),
+});
+registerComponent('AppWxpayJsapiVo', appWxpayJsapiVo);
+
+/** 订阅消息授权（P2：模板落 `sys_notice_log.channel` 枚举位） */
+export const appSubscribeRequestSchema = z.object({
+  templateIds: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(3)
+    .openapi({ example: ['TEMPLATE_ID'] }),
+  bookingId: z.number().int().positive().optional(),
+});
+registerComponent('AppSubscribeRequest', appSubscribeRequestSchema);
+export type AppSubscribeRequest = z.infer<typeof appSubscribeRequestSchema>;
+
+export const appSubscribeVo = z.object({
+  accepted: z.boolean(),
+  templateIds: z.array(z.string()),
+});
+registerComponent('AppSubscribeVo', appSubscribeVo);

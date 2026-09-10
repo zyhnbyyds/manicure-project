@@ -220,13 +220,10 @@ export class BizConfigService {
         300,
         { min: 0, max: 1000 },
       ),
-      maxBonusPermille: await this.getInt(
-        'biz.member.maxBonusPermille',
-        200,
-        { min: 0 },
-      ),
-      bonusDeductMode:
-        mode === 'proportional' ? 'proportional' : 'bonus_first',
+      maxBonusPermille: await this.getInt('biz.member.maxBonusPermille', 200, {
+        min: 0,
+      }),
+      bonusDeductMode: mode === 'proportional' ? 'proportional' : 'bonus_first',
       minRechargeAmount: await this.getInt(
         'biz.member.minRechargeAmount',
         10000,
@@ -266,11 +263,10 @@ export class BizConfigService {
   async credit(): Promise<CreditConfig> {
     return {
       defaultLimit: await this.getInt('biz.credit.defaultLimit', 0, { min: 0 }),
-      defaultSettleDay: await this.getInt(
-        'biz.credit.defaultSettleDay',
-        5,
-        { min: 0, max: 28 },
-      ),
+      defaultSettleDay: await this.getInt('biz.credit.defaultSettleDay', 5, {
+        min: 0,
+        max: 28,
+      }),
     };
   }
 

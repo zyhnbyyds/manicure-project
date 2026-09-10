@@ -45,6 +45,16 @@ async function bootstrap(): Promise<void> {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'access-token',
       )
+      // 小程序端（B6）独立 token 域：/api/v1/app/** 的 @ApiBearerAuth('app-token')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: '小程序端 app token（登录接口下发，payload 含 scope=app）',
+        },
+        'app-token',
+      )
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
 

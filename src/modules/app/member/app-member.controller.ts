@@ -1,0 +1,199 @@
+import {
+  Body,
+  Controller,
+  Get,
+  NotImplementedException,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Public } from '../../../common/auth/public.decorator.js';
+import {
+  AppAccessTokenGuard,
+  type AppRequest,
+} from '../auth/app-access-token.guard.js';
+import {
+  appBookingListQuerySchema,
+  appCancelBookingRequestSchema,
+  appCreateBookingRequestSchema,
+  appCreateReviewRequestSchema,
+  appMemberCardsQuerySchema,
+  appSubscribeRequestSchema,
+  appWxpayJsapiRequestSchema,
+} from '../dto/app-vo.js';
+import { AppMemberService } from './app-member.service.js';
+
+/**
+ * app 域会员中心 + C 端写接口契约骨架（`/api/v1/app`）。
+ *
+ * 只有三个 controller（auth / catalog / member，§16.1），因此 C 端的
+ * 预约 / 评价 / 支付 / 订阅骨架统一挂在本 controller 下：本期全部返回 501，
+ * **不落库**，只保证路由 + Zod schema + Swagger 契约完整（P2 直接填实现）。
+ *
+ * 鉴权：`@Public()` 跳过全局后台守卫 → `AppAccessTokenGuard` 认 app token；
+ * app 域不接 RBAC，只有「本人数据」——所有查询强制 `customer_id = 当前绑定顾客`。
+ */
+@ApiTags('小程序端')
+@ApiBearerAuth('app-token')
+@Public()
+@UseGuards(AppAccessTokenGuard)
+@Controller('app')
+export class AppMemberController {
+  constructor(private readonly member: AppMemberService) {}
+
+  @Get('member/me')
+  @ApiOperation({
+    summary: '我的会员信息（等级 / 折扣率 / 积分 / 余额 / 次卡）',
+    description:
+      '未绑定手机号（app_wx_user.customer_id 为空）→ 401 且响应体带 needBind: true。' +
+      '余额只公开本金与赠送两项，不含任何内部字段。',
+  })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({
+    status: 401,
+    description:
+      '未登录，或未绑定手机号（响应体 `{ message, needBind: true }`）',
+  })
+  me(@Req() request: AppRequest) {
+    // 守卫已保证存在；这里只是让类型收窄，避免把 undefined 传进 service
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.me(appUser.id);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 以下为契约骨架：路由 + Zod schema + Swagger 已冻结，业务返回 501（不落库）
+   * ------------------------------------------------------------------ */
+
+  @Get('member/cards')
+  @ApiOperation({ summary: '我的次卡列表（契约骨架，本期返回 501）' })
+  @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    description: '每页条数',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: '按状态过滤 active/used_up/expired/refunded',
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  cards(@Query() query: Record<string, unknown>): never {
+    appMemberCardsQuerySchema.parse(query);
+    throw new NotImplementedException('我的次卡列表将在 P2 小程序端实现');
+  }
+
+  @Get('bookings')
+  @ApiOperation({ summary: '我的预约列表（契约骨架，本期返回 501）' })
+  @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    description: '每页条数',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'pending/confirmed/arrived/completed/cancelled/no_show',
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  bookings(@Query() query: Record<string, unknown>): never {
+    appBookingListQuerySchema.parse(query);
+    throw new NotImplementedException('我的预约列表将在 P2 小程序端实现');
+  }
+
+  @Post('bookings')
+  @ApiOperation({
+    summary: '自助下单（契约骨架，本期返回 501）',
+    description:
+      'P2 接通微信支付（JSAPI 预支付单）；本期只冻结入参契约，不落库、不占时段。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppCreateBookingRequest' } })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  createBooking(@Body() body: unknown): never {
+    appCreateBookingRequestSchema.parse(body);
+    throw new NotImplementedException('自助下单将在 P2 小程序端实现');
+  }
+
+  @Post('bookings/:id/cancel')
+  @ApiOperation({
+    summary: '自助取消预约（契约骨架，本期返回 501）',
+    description: '是否可退按 §15.6 的人工判责规则，本期只留契约。',
+  })
+  @ApiParam({ name: 'id', description: '预约 ID', example: 1 })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppCancelBookingRequest' } })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  cancelBooking(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+  ): never {
+    appCancelBookingRequestSchema.parse(body);
+    throw new NotImplementedException(
+      `自助取消预约（id=${id}）将在 P2 小程序端实现`,
+    );
+  }
+
+  @Post('reviews')
+  @ApiOperation({
+    summary: '提交服务评价（契约骨架，本期返回 501）',
+    description: '复用后台 biz_review 的一单一评约束。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppCreateReviewRequest' } })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  createReview(@Body() body: unknown): never {
+    appCreateReviewRequestSchema.parse(body);
+    throw new NotImplementedException('小程序端评价将在 P2 实现');
+  }
+
+  @Post('payments/wxpay/jsapi')
+  @ApiOperation({
+    summary: '小程序内微信支付（JSAPI）（契约骨架，本期返回 501）',
+    description:
+      '本期后台在线支付走 Native 扫码（§17.1），JSAPI 只是给 P2 预留的契约位：' +
+      '返回 wx.requestPayment 所需的预支付参数。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppWxpayJsapiRequest' } })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 503, description: '微信支付通道未启用' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  wxpayJsapi(@Body() body: unknown): never {
+    appWxpayJsapiRequestSchema.parse(body);
+    throw new NotImplementedException('小程序内 JSAPI 支付将在 P2 实现');
+  }
+
+  @Post('subscribe')
+  @ApiOperation({
+    summary: '订阅消息授权（契约骨架，本期返回 501）',
+    description:
+      '订阅消息需由小程序客户端授权；本期只在 sys_notice_log.channel 预留枚举位，' +
+      'P2 加模板 ID 映射即可。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppSubscribeRequest' } })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 501, description: '本期未实现' })
+  subscribe(@Body() body: unknown): never {
+    appSubscribeRequestSchema.parse(body);
+    throw new NotImplementedException('订阅消息将在 P2 实现');
+  }
+}

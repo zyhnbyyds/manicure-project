@@ -3,6 +3,8 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { hashPassword } from '../../common/password/password.service';
 import { roles, userRoles, users } from '../schema/index';
+import { seedBiz } from './biz.js';
+import { seedMenus } from './menus.js';
 
 async function seed(): Promise<void> {
   const url = Bun.env.DATABASE_URL;
@@ -41,6 +43,11 @@ async function seed(): Promise<void> {
     .insert(userRoles)
     .values({ userId: user.id, roleId: role.id })
     .onDuplicateKeyUpdate({ set: { roleId: role.id } });
+
+  // 管理员就绪后再灌菜单 / 权限点与业务初始数据（两者都幂等），最后统一收连接池
+  await seedMenus(pool);
+  await seedBiz(pool);
+
   await pool.end();
 }
 

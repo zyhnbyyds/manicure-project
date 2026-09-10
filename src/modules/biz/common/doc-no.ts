@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { DEFAULT_SHOP_TIMEZONE, shopDateOf } from './shop-time.js';
 
 /** 单号前缀（§4.3：一律「主键回填」，不用「查当日最大号 +1」） */
@@ -37,4 +38,16 @@ export function buildOutTradeNo(
 /** 结算批次号：`S{yyyyMM}{seq}`，seq 由调用方按库内最大批次自增 */
 export function buildSettleBatch(period: string, sequence: number): string {
   return `S${period}${String(sequence).padStart(3, '0')}`;
+}
+
+/**
+ * 插入前的临时单号。
+ *
+ * `booking_no` 是 NOT NULL + UNIQUE，而正式单号要用主键回填（INSERT 之后才知道 id）。
+ * 若插入时统一填 `''`，两个并发事务会在唯一索引上互相阻塞并报 1062。
+ * 因此先用一个全局唯一的临时值占位，同一事务内立刻回填正式单号
+ * （未提交的行在 REPEATABLE READ 下读不到，外部永远看不到这个临时值）。
+ */
+export function tempDocNo(): string {
+  return `T${Date.now().toString(36)}${randomUUID().slice(0, 8)}`;
 }
