@@ -5,17 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  like,
-  lt,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, like, lt } from 'drizzle-orm';
 import { AppConfigService } from '../../../../config/app-config.service.js';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
@@ -57,8 +47,24 @@ export type PaymentStatus =
   | 'refunded'
   | 'partial_refunded';
 
+/**
+ * `biz_payment.channel` 的取值。
+ *
+ * 注意：`PayChannel`（端口类型）比它多 `wechat` / `alipay` 两个值——那是会员流水的口径，
+ * 支付单上必须写 `wechat_offline` / `alipay_offline`，所以这里必须显式收窄。
+ */
+export type PaymentChannel =
+  | 'wxpay_native'
+  | 'alipay_qr'
+  | 'cash'
+  | 'wechat_offline'
+  | 'alipay_offline'
+  | 'balance'
+  | 'card'
+  | 'credit';
+
 export type PaymentListFilter = {
-  channel?: PayChannel | undefined;
+  channel?: PaymentChannel | undefined;
   status?: PaymentStatus | undefined;
   purpose?: PaymentDraft['purpose'] | undefined;
   dateFrom?: string | undefined;
@@ -135,20 +141,24 @@ export class PaymentsService extends PaymentPort {
   ): Promise<PaymentOutcome> {
     if (draft.channel === 'credit')
       throw new BadRequestException('挂账请使用 creditAccountId');
-    const amount = Math.trunc(draft.amount);
-    if (!Number.isFinite(amount) || amount < 0)
+    const channel = toPaymentChannel(draft.channel);
+    const requestedAmount = Math.trunc(draft.amount);
+    if (!Number.isFinite(requestedAmount) || requestedAmount < 0)
       throw new BadRequestException('金额不合法');
-    const isOnline = isOnlineChannel(draft.channel);
+    // 次卡核销不产生金额（§17.1）：支付单 amount / received_amount 一律为 0
+    const amount = channel === 'card' ? 0 : requestedAmount;
+    const onlineChannel: OnlineChannel | null = isOnlineChannel(channel)
+      ? channel
+      : null;
+    const isOnline = onlineChannel !== null;
     const bookingId = draft.bookingId ?? null;
     const receivedAmount =
-      draft.channel === 'card' || draft.channel === 'credit'
-        ? 0
-        : Math.trunc(draft.receivedAmount ?? amount);
+      channel === 'card' ? 0 : Math.trunc(draft.receivedAmount ?? amount);
     if (receivedAmount < 0) throw new BadRequestException('实收金额不合法');
     // 现金允许多收（找零），其它渠道实收不得超过应收
-    if (draft.channel !== 'cash' && receivedAmount > amount)
+    if (channel !== 'cash' && receivedAmount > amount)
       throw new BadRequestException('实收金额不得超过应收金额');
-    if (draft.channel === 'card' && !draft.memberCardId)
+    if (channel === 'card' && !draft.memberCardId)
       throw new BadRequestException('次卡核销必须指定 memberCardId');
 
     const paymentConfig = await this.bizConfig.payment();
@@ -158,14 +168,27 @@ export class PaymentsService extends PaymentPort {
       ? new Date(now.getTime() + paymentConfig.qrExpireMinutes * 60_000)
       : null;
 
-    // 1) 先落单（pending / success），单号在主键回填前用一次性占位保证 UNIQUE 不冲突
+    // 1) 储值扣减必须**先于**支付单 INSERT：全局锁顺序 biz_customer → biz_payment（§6.6）
+    if (channel === 'balance') {
+      await this.members.applyBalancePayment(tx, {
+        customerId: draft.customerId,
+        amount,
+        bookingId,
+        remark:
+          draft.remark ??
+          (bookingId === null ? '储值支付' : `预约 #${bookingId} 储值支付`),
+        actorId,
+      });
+    }
+
+    // 2) 落单（pending / success），单号在主键回填前用一次性占位保证 UNIQUE 不冲突
     const inserted = await tx.insert(bizPayments).values({
       paymentNo: temporaryToken(),
       outTradeNo: temporaryToken(),
       bookingId,
       customerId: draft.customerId,
       purpose: draft.purpose,
-      channel: draft.channel,
+      channel,
       amount,
       // 在线渠道的实收在「下单时」即确定：回调只改状态与渠道字段（§6.6 幂等闸门）
       receivedAmount: receivedAmount,
@@ -188,17 +211,8 @@ export class PaymentsService extends PaymentPort {
       .set({ paymentNo, outTradeNo })
       .where(eq(bizPayments.id, id));
 
-    // 2) 资金动作（锁顺序 biz_customer → biz_payment，§6.6）
-    if (draft.channel === 'balance') {
-      await this.members.applyBalancePayment(tx, {
-        customerId: draft.customerId,
-        amount,
-        bookingId,
-        remark: draft.remark ?? `支付单 ${paymentNo}`,
-        actorId,
-      });
-    }
-    if (draft.channel === 'card') {
+    // 3) 次卡核销在支付单之后：锁顺序 biz_payment → biz_member_card（§6.6）
+    if (channel === 'card') {
       const serviceItemId = await this.requireServiceItemId(tx, bookingId);
       await this.memberCards.useCard(tx, {
         cardId: draft.memberCardId ?? 0,
@@ -208,16 +222,16 @@ export class PaymentsService extends PaymentPort {
       });
     }
 
-    // 3) 在线渠道统一下单（未配置 → 抛错回滚，不留 pending 单）
+    // 4) 在线渠道统一下单（未配置 → 抛错回滚，不留 pending 单）
     let codeUrl: string | null = null;
-    if (isOnline) {
-      const provider = this.providerFor(draft.channel);
+    if (onlineChannel) {
+      const provider = this.providerFor(onlineChannel);
       const order = await provider.createNativeOrder({
         outTradeNo,
         amount,
         description: this.describePayment(draft, paymentNo),
         expireAt: expireAt ?? now,
-        notifyUrl: this.notifyUrlOf(draft.channel),
+        notifyUrl: this.notifyUrlOf(onlineChannel),
       });
       codeUrl = order.codeUrl;
       await tx
@@ -227,7 +241,7 @@ export class PaymentsService extends PaymentPort {
     }
 
     await this.insertLog(tx, id, 'create', {
-      channel: draft.channel,
+      channel,
       purpose: draft.purpose,
       amount,
       receivedAmount,
@@ -242,7 +256,7 @@ export class PaymentsService extends PaymentPort {
       paymentNo,
       outTradeNo,
       status: isOnline ? 'pending' : 'success',
-      channel: draft.channel,
+      channel,
       amount,
       receivedAmount,
       codeUrl,
@@ -378,8 +392,7 @@ export class PaymentsService extends PaymentPort {
       }),
     );
     // affectedRows=0：重复 / 并发回调，直接答成功（渠道会重试，绝不能抛错）
-    if (settled)
-      void this.sendPaidNotice(payment).catch(() => undefined);
+    if (settled) void this.sendPaidNotice(payment).catch(() => undefined);
     return provider.successReply();
   }
 
@@ -418,6 +431,8 @@ export class PaymentsService extends PaymentPort {
     const payment = await this.requirePayment(id);
     if (!isOnlineChannel(payment.channel))
       throw new BadRequestException('该支付单不是在线支付，无需查单');
+    // 非 pending 的支付单已经定局（success / closed / failed 都是终态），不再打扰渠道
+    if (payment.status !== 'pending') return { status: payment.status };
     const provider = this.providerFor(payment.channel);
     const state = await provider.queryOrder(payment.outTradeNo);
 
@@ -458,12 +473,17 @@ export class PaymentsService extends PaymentPort {
       throw new ConflictException('渠道未返回交易号，无法落地');
 
     const settled = await this.database.db.transaction((tx) =>
-      this.settlePayment(tx, payment, {
-        transactionId: state.transactionId ?? '',
-        successTime: state.paidAt ?? new Date(),
-        amount: state.amount,
-        raw: state.raw,
-      }),
+      this.settlePayment(
+        tx,
+        payment,
+        {
+          transactionId: state.transactionId ?? '',
+          successTime: state.paidAt ?? new Date(),
+          amount: state.amount,
+          raw: state.raw,
+        },
+        'query',
+      ),
     );
     if (settled) void this.sendPaidNotice(payment).catch(() => undefined);
     return { status: 'success' };
@@ -483,6 +503,7 @@ export class PaymentsService extends PaymentPort {
     tx: BizTx,
     payment: PaymentRow,
     input: SettleInput,
+    event: 'callback' | 'query' = 'callback',
   ): Promise<boolean> {
     const affected = await tx
       .update(bizPayments)
@@ -500,7 +521,7 @@ export class PaymentsService extends PaymentPort {
       );
     if (!affected[0].affectedRows) return false;
 
-    await this.insertLog(tx, payment.id, 'callback', {
+    await this.insertLog(tx, payment.id, event, {
       transactionId: input.transactionId,
       amount: input.amount,
       successTime: input.successTime.toISOString(),
@@ -528,7 +549,9 @@ export class PaymentsService extends PaymentPort {
         actorId,
       });
     }
-    await this.enqueuePaidNotice(tx, payment);
+    // 通知只在**事务提交后**发送（`sendPaidNotice`），失败回滚不了账务也不阻塞回调应答。
+    // 这里不再额外 `enqueueInTx`：否则会同时留下一条 pending 与一条已发送日志（双写），
+    // pending 那条永远不会被 flush（`retryFailed` 只认 failed）。
   }
 
   /* ------------------------------------------------------------------ *
@@ -547,10 +570,7 @@ export class PaymentsService extends PaymentPort {
       .select({ id: bizPayments.id })
       .from(bizPayments)
       .where(
-        and(
-          eq(bizPayments.status, 'pending'),
-          lt(bizPayments.expireAt, now),
-        ),
+        and(eq(bizPayments.status, 'pending'), lt(bizPayments.expireAt, now)),
       )
       .orderBy(asc(bizPayments.id))
       .limit(500);
@@ -579,9 +599,7 @@ export class PaymentsService extends PaymentPort {
       const affected = await tx
         .update(bizPayments)
         .set({ status: 'closed', updatedBy: actorId })
-        .where(
-          and(eq(bizPayments.id, id), eq(bizPayments.status, 'pending')),
-        );
+        .where(and(eq(bizPayments.id, id), eq(bizPayments.status, 'pending')));
       if (!affected[0].affectedRows)
         throw new ConflictException('只有待支付的支付单可以关单');
       await this.insertLog(tx, id, 'close', {
@@ -598,9 +616,11 @@ export class PaymentsService extends PaymentPort {
   ): Promise<{ items: PaymentRow[]; page: number; pageSize: number }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizPayments.deletedAt)];
-    if (filter.channel) conditions.push(eq(bizPayments.channel, filter.channel));
+    if (filter.channel)
+      conditions.push(eq(bizPayments.channel, filter.channel));
     if (filter.status) conditions.push(eq(bizPayments.status, filter.status));
-    if (filter.purpose) conditions.push(eq(bizPayments.purpose, filter.purpose));
+    if (filter.purpose)
+      conditions.push(eq(bizPayments.purpose, filter.purpose));
     if (filter.customerId)
       conditions.push(eq(bizPayments.customerId, filter.customerId));
     if (filter.bookingId)
@@ -734,7 +754,13 @@ export class PaymentsService extends PaymentPort {
   private async insertLog(
     executor: BizExecutor,
     paymentId: number,
-    event: 'create' | 'callback' | 'query' | 'close' | 'refund' | 'callback_invalid',
+    event:
+      | 'create'
+      | 'callback'
+      | 'query'
+      | 'close'
+      | 'refund'
+      | 'callback_invalid',
     raw: unknown,
     httpStatus: number | null = null,
   ): Promise<void> {
@@ -744,30 +770,6 @@ export class PaymentsService extends PaymentPort {
       httpStatus,
       raw,
     });
-  }
-
-  /** 通知只落 pending（事务内），真实发送在事务提交之后且失败不回滚（§19.2） */
-  private async enqueuePaidNotice(
-    tx: BizTx,
-    payment: PaymentRow,
-  ): Promise<void> {
-    const templateCode = PAID_NOTICE_TEMPLATES[payment.purpose];
-    if (!templateCode) return;
-    try {
-      await this.notices.enqueueInTx(tx, {
-        templateCode,
-        recipientType: 'customer',
-        recipientId: payment.customerId,
-        variables: {
-          amount: (payment.receivedAmount / 100).toFixed(2),
-          paymentNo: payment.paymentNo,
-        },
-        bookingId: payment.bookingId,
-      });
-    } catch (error) {
-      // 模板缺失 / 变量不匹配不能拖垮收款事务
-      this.logger.warn(`支付成功通知入队失败（不影响账务）：${messageOf(error)}`);
-    }
   }
 
   private async sendPaidNotice(payment: PaymentRow): Promise<void> {
@@ -785,7 +787,9 @@ export class PaymentsService extends PaymentPort {
         bookingId: payment.bookingId,
       });
     } catch (error) {
-      this.logger.warn(`支付成功通知发送失败（不影响账务）：${messageOf(error)}`);
+      this.logger.warn(
+        `支付成功通知发送失败（不影响账务）：${messageOf(error)}`,
+      );
     }
   }
 }
@@ -808,14 +812,24 @@ const PURPOSE_LABELS: Record<string, string> = {
  * 内置模板里只有 `recharge_success` 是「涉及金额」的，因此在线充值 / 购卡 / 销账走它；
  * 预约收款（定金 / 尾款）的通知由预约链路（`booking_created`）负责，这里不重复发。
  */
-const PAID_NOTICE_TEMPLATES: Partial<Record<PaymentDraft['purpose'], string>> = {
-  recharge: 'recharge_success',
-  card_buy: 'recharge_success',
-  credit_settle: 'recharge_success',
-};
+const PAID_NOTICE_TEMPLATES: Partial<Record<PaymentDraft['purpose'], string>> =
+  {
+    recharge: 'recharge_success',
+    card_buy: 'recharge_success',
+    credit_settle: 'recharge_success',
+  };
 
 function isOnlineChannel(channel: string): channel is OnlineChannel {
   return channel === 'wxpay_native' || channel === 'alipay_qr';
+}
+
+/** 端口类型 `PayChannel` → `biz_payment.channel` 列取值（`wechat` / `alipay` 不是合法列值） */
+function toPaymentChannel(channel: PayChannel): PaymentChannel {
+  if (channel === 'wechat' || channel === 'alipay')
+    throw new BadRequestException(
+      '在线收款请使用 wxpay_native / alipay_qr，店家收款码请使用 wechat_offline / alipay_offline',
+    );
+  return channel;
 }
 
 /** `biz_member_transaction.pay_channel` 只有 5 个值，在线渠道要归并到 wechat / alipay */

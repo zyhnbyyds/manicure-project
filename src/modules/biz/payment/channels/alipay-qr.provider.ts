@@ -60,9 +60,7 @@ export class AlipayQrProvider extends PaymentChannelProvider {
     return this.appConfig.alipay.configured;
   }
 
-  async createNativeOrder(
-    input: NativeOrderInput,
-  ): Promise<NativeOrderResult> {
+  async createNativeOrder(input: NativeOrderInput): Promise<NativeOrderResult> {
     const minutes = Math.max(
       Math.ceil((input.expireAt.getTime() - Date.now()) / 60_000),
       1,
@@ -75,9 +73,7 @@ export class AlipayQrProvider extends PaymentChannelProvider {
     });
     const qrCode = textField(data, 'qr_code');
     if (textField(data, 'code') !== '10000' || !qrCode)
-      throw new ConflictException(
-        `支付宝下单失败：${describeFailure(data)}`,
-      );
+      throw new ConflictException(`支付宝下单失败：${describeFailure(data)}`);
     return { codeUrl: qrCode, expireAt: input.expireAt, raw: data };
   }
 
@@ -173,10 +169,13 @@ export class AlipayQrProvider extends PaymentChannelProvider {
       return [];
     }
     try {
-      const data = await this.call('alipay.data.dataservice.bill.downloadurl.query', {
-        bill_type: 'trade',
-        bill_date: billDate,
-      });
+      const data = await this.call(
+        'alipay.data.dataservice.bill.downloadurl.query',
+        {
+          bill_type: 'trade',
+          bill_date: billDate,
+        },
+      );
       const url = textField(data, 'bill_download_url');
       if (textField(data, 'code') !== '10000' || !url) {
         this.logger.warn(
@@ -193,9 +192,10 @@ export class AlipayQrProvider extends PaymentChannelProvider {
       }
       const buffer = Buffer.from(await response.arrayBuffer());
       // 官方账单是 ZIP（内含 GBK 编码 CSV），个别环境直接给 CSV
-      const csv = buffer.subarray(0, 2).toString('latin1') === 'PK'
-        ? decodeGbk(extractFirstZipEntry(buffer) ?? Buffer.alloc(0))
-        : decodeGbk(buffer);
+      const csv =
+        buffer.subarray(0, 2).toString('latin1') === 'PK'
+          ? decodeGbk(extractFirstZipEntry(buffer) ?? Buffer.alloc(0))
+          : decodeGbk(buffer);
       return parseAlipayBillCsv(csv);
     } catch (error) {
       this.logger.warn(`支付宝账单解析失败：${messageOf(error)}`);
@@ -248,7 +248,10 @@ export class AlipayQrProvider extends PaymentChannelProvider {
       version: '1.0',
       biz_content: JSON.stringify(bizContent),
     };
-    if (credential.notifyUrl && method !== 'alipay.data.dataservice.bill.downloadurl.query')
+    if (
+      credential.notifyUrl &&
+      method !== 'alipay.data.dataservice.bill.downloadurl.query'
+    )
       params['notify_url'] = credential.notifyUrl;
 
     const signature = createSign('RSA-SHA256')
@@ -266,12 +269,16 @@ export class AlipayQrProvider extends PaymentChannelProvider {
     });
     const text = await response.text();
     if (!response.ok)
-      throw new ConflictException(`支付宝接口失败：HTTP ${response.status} ${text.slice(0, 200)}`);
+      throw new ConflictException(
+        `支付宝接口失败：HTTP ${response.status} ${text.slice(0, 200)}`,
+      );
     const parsed = asRecord(safeJsonParse(text));
     // 响应节点名 = 方法名里的 `.` 换成 `_`（如 alipay_trade_precreate_response）
     const node = asRecord(parsed?.[`${method.replaceAll('.', '_')}_response`]);
     if (!node)
-      throw new ConflictException(`支付宝接口响应无法解析：${text.slice(0, 200)}`);
+      throw new ConflictException(
+        `支付宝接口响应无法解析：${text.slice(0, 200)}`,
+      );
     if (!tolerateBusinessError && textField(node, 'code') !== '10000')
       throw new ConflictException(`支付宝接口失败：${describeFailure(node)}`);
     return node;
@@ -342,9 +349,13 @@ function describeFailure(data: unknown): string {
   const record = asRecord(data);
   const code = textField(data, 'code');
   const message =
-    textField(data, 'sub_msg') ?? textField(data, 'msg') ?? textField(data, 'sub_code');
+    textField(data, 'sub_msg') ??
+    textField(data, 'msg') ??
+    textField(data, 'sub_code');
   if (code || message) return `${code ?? ''} ${message ?? ''}`.trim();
-  return record ? JSON.stringify(record).slice(0, 200) : String(data).slice(0, 200);
+  return record
+    ? JSON.stringify(record).slice(0, 200)
+    : String(data).slice(0, 200);
 }
 
 function messageOf(error: unknown): string {
@@ -367,7 +378,11 @@ function parseBillLocalTime(value: string | undefined): Date | null {
 
 function decodeGbk(buffer: Buffer): string {
   try {
-    return new TextDecoder('gbk').decode(buffer);
+    // Node/Bun 的 TextDecoder 类型只声明了 utf-8 等少数标签，GBK 需显式放宽
+    const Decoder = TextDecoder as unknown as new (
+      label: string,
+    ) => TextDecoder;
+    return new Decoder('gbk').decode(buffer);
   } catch {
     return buffer.toString('utf8');
   }
@@ -426,7 +441,8 @@ function parseAlipayBillCsv(csv: string): ChannelBillRecord[] {
     }
     const columns = splitCsvLine(line);
     if (!header) {
-      if (columns.includes('交易号') && columns.includes('商户订单号')) header = columns;
+      if (columns.includes('交易号') && columns.includes('商户订单号'))
+        header = columns;
       continue;
     }
     const pick = (name: string): string | undefined => {
@@ -437,9 +453,7 @@ function parseAlipayBillCsv(csv: string): ChannelBillRecord[] {
     const outTradeNo = pick('商户订单号');
     if (!transactionId || !outTradeNo) continue;
     const amount =
-      yuanToCents(pick('商家实收')) ||
-      yuanToCents(pick('订单金额')) ||
-      0;
+      yuanToCents(pick('商家实收')) || yuanToCents(pick('订单金额')) || 0;
     records.push({
       outTradeNo,
       transactionId,

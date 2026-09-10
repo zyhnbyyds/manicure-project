@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   X509Certificate,
   createDecipheriv,
@@ -72,9 +77,7 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
     return this.appConfig.wxpay.configured;
   }
 
-  async createNativeOrder(
-    input: NativeOrderInput,
-  ): Promise<NativeOrderResult> {
+  async createNativeOrder(input: NativeOrderInput): Promise<NativeOrderResult> {
     const credential = this.credential();
     const body = {
       appid: credential.appId,
@@ -258,9 +261,16 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
     };
   }
 
+  /**
+   * 失败应答走 **HTTP 200 + `{code:'FAIL'}`**。
+   *
+   * 微信 V3 的约定是「HTTP 状态码表示传输结果、body 的 code 表示业务处理结果」：
+   * 回 5xx 会被当成传输失败并按退避策略反复重投（通道未启用、金额不一致这类
+   * 问题重投多少次都不会成功），因此失败也用 200 把原因带回去，只让渠道停止重试。
+   */
   failureReply(message: string): ChannelReply {
     return {
-      statusCode: 500,
+      statusCode: 200,
       body: JSON.stringify({ code: 'FAIL', message: message.slice(0, 200) }),
     };
   }
@@ -287,13 +297,8 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
   }
 
   /** `WECHATPAY2-SHA256-RSA2048` 签名（`方法\nURL\n时间戳\n随机串\n报文\n`） */
-  private signatureOf(
-    privateKey: string,
-    message: string,
-  ): string {
-    return createSign('RSA-SHA256')
-      .update(message)
-      .sign(privateKey, 'base64');
+  private signatureOf(privateKey: string, message: string): string {
+    return createSign('RSA-SHA256').update(message).sign(privateKey, 'base64');
   }
 
   private async request(
@@ -362,7 +367,9 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
           const certificate = new X509Certificate(pem);
           keys.set(
             serial,
-            certificate.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+            certificate.publicKey
+              .export({ type: 'spki', format: 'pem' })
+              .toString(),
           );
         } catch (error) {
           this.logger.warn(`平台证书解密失败：${messageOf(error)}`);
@@ -402,7 +409,10 @@ function decryptResource(
   encrypted: Record<string, unknown>,
   apiV3Key: string,
 ): string {
-  const ciphertext = Buffer.from(textField(encrypted, 'ciphertext') ?? '', 'base64');
+  const ciphertext = Buffer.from(
+    textField(encrypted, 'ciphertext') ?? '',
+    'base64',
+  );
   const authTag = ciphertext.subarray(ciphertext.length - 16);
   const payload = ciphertext.subarray(0, ciphertext.length - 16);
   const nonce = textField(encrypted, 'nonce') ?? '';
@@ -425,10 +435,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function textField(
-  value: unknown,
-  key: string,
-): string | undefined {
+function textField(value: unknown, key: string): string | undefined {
   const record = asRecord(value);
   const field = record?.[key];
   return typeof field === 'string' && field.length > 0 ? field : undefined;
@@ -475,11 +482,12 @@ function parseBillLocalTime(value: string): Date | null {
 }
 
 function describeFailure(data: unknown, status: number): string {
-  const record = asRecord(data);
   const code = textField(data, 'code');
   const message = textField(data, 'message');
   if (code || message) return `${code ?? status} ${message ?? ''}`.trim();
-  return typeof data === 'string' && data ? data.slice(0, 200) : `HTTP ${status}`;
+  return typeof data === 'string' && data
+    ? data.slice(0, 200)
+    : `HTTP ${status}`;
 }
 
 function messageOf(error: unknown): string {
