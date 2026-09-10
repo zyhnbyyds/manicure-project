@@ -28,6 +28,40 @@
 
 > 任何涉及金额、余额、积分、次卡的改动，都必须同时加载 `money-invariants`。
 
+## 业务模块地图（美甲预约，B1~B6 已交付）
+
+施工契约与跨模块方法签名冻结在 `docs/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`；
+实施阶段发现的口径修正与修掉的缺陷登记在 spec **附录 D.3**（以该节为准修订正文）。
+
+```
+src/modules/biz/
+  common/      shop-time / money / doc-no / query / tx / biz-config.service / ports   # 公共层，勿改
+  base-data/   服务项目 / 美甲师（含可做项目）/ 顾客档案
+  scheduling/  周模板（PUT 整体替换）+ 日期例外（off/custom）+ 冲突保护
+  booking/     可约时段、创建九步、改期、状态流转、结算、BookingSettlementService.recalc
+  membership/  等级 / 充值方案 / 卡种 / 会员账务（余额·积分·流水）/ 次卡 / 积分兑换
+  payment/     支付单 / 渠道 provider / 回调 / 退款判责与审批 / 对账差异
+  credit/      挂账主体 / 应收台账 / 销账 / 账龄
+  reports/     报表中心（6 张表 + CSV 导出）/ 提成（规则·计提·结算·冲销）
+  operations/  评价 / 周期预约 / 通知（模板·短信·站内）
+  biz.module.ts  @Global：汇总子模块 + 用 useExisting 把实现绑到 ports.ts 的端口 token
+src/modules/app/  小程序端预留（/api/v1/app/**，独立 token 域，写接口 501 骨架）
+```
+
+**跨模块只依赖端口**：`src/modules/biz/common/ports.ts` 里的抽象类同时是 DI token，
+`biz.module.ts` 负责绑定。模块之间**不要**互相 import service（避免循环依赖）。
+
+## 测试
+
+```bash
+bun run test                                   # 全量（含真库集成用例，约 2~3 分钟）
+bun test tests/integration/b1-booking.int.spec.ts   # 只跑 B1 集成验收
+```
+
+集成测试用**独立测试库**：`TEST_DATABASE_URL` → `.env.test` → `.env` 的主库名 + `_test`，
+缺库会自动建库并跑迁移，随后 `TRUNCATE` 业务表、把 `sys_job` 置为 disabled。
+用例通过 Fastify `app.inject()` 打真实 HTTP（guard / Zod / 事务全是真的）。
+
 ## 项目概述
 
 **nest-admin** 是一个通用后端管理 API。技术栈为 NestJS + Fastify 作为 HTTP 层，Drizzle ORM 操作数据库，Zod 做数据校验。主要功能：JWT 双 token 认证、基于权限字符串的 RBAC 访问控制、部门/菜单/岗位/字典管理、定时任务、文件上传、操作审计日志、在线用户跟踪、代码生成器。
