@@ -34,11 +34,10 @@ const createSchema = z.object({
     .min(1)
     .max(50)
     .openapi({ example: '张女士', description: '姓名 / 称呼' }),
-  phone: z
-    .string()
-    .max(20)
-    .nullish()
-    .openapi({ example: '13800000002', description: '手机号（唯一，可空=散客）' }),
+  phone: z.string().max(20).nullish().openapi({
+    example: '13800000002',
+    description: '手机号（唯一，可空=散客）',
+  }),
   gender: z
     .enum(['unknown', 'male', 'female'])
     .optional()

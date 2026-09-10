@@ -410,8 +410,11 @@ export class SchedulingService extends SchedulePort {
       throw new BadRequestException('班次数据格式不正确，应为数组');
     if (shifts.length > 70) throw new BadRequestException('班次段数过多');
     const grouped = new Map<number, ShiftSegment[]>();
-    const normalized: { weekday: number; startTime: string; endTime: string }[] =
-      [];
+    const normalized: {
+      weekday: number;
+      startTime: string;
+      endTime: string;
+    }[] = [];
     for (const shift of shifts) {
       const weekday = Math.trunc(Number(shift?.weekday));
       if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7)
@@ -508,7 +511,9 @@ export class SchedulingService extends SchedulePort {
       off: false,
       segments: weekly
         .map((row) => ({ startTime: row.startTime, endTime: row.endTime }))
-        .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)),
+        .sort(
+          (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime),
+        ),
     };
   }
 
@@ -543,7 +548,13 @@ export class SchedulingService extends SchedulePort {
     return rows
       .filter(
         (row) =>
-          !this.withinSegments(row.startAt, row.endAt, date, segments, timeZone),
+          !this.withinSegments(
+            row.startAt,
+            row.endAt,
+            date,
+            segments,
+            timeZone,
+          ),
       )
       .map((row) => ({
         id: row.id,

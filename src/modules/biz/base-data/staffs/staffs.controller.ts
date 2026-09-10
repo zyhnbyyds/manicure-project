@@ -45,23 +45,25 @@ const createSchema = z.object({
     .nullish()
     .openapi({ example: '13800000001', description: '联系电话' }),
   bio: z.string().max(500).nullish().openapi({ description: '简介 / 擅长' }),
-  status: z
-    .enum(['active', 'disabled'])
+  status: z.enum(['active', 'disabled']).optional().openapi({
+    example: 'active',
+    description: '状态，停用后不再出现在可约列表',
+  }),
+  sort: z
+    .number()
+    .int()
     .optional()
-    .openapi({ example: 'active', description: '状态，停用后不再出现在可约列表' }),
-  sort: z.number().int().optional().openapi({ example: 0, description: '排序' }),
+    .openapi({ example: 0, description: '排序' }),
   remark: z.string().max(500).nullish().openapi({ description: '备注' }),
 });
 
 const updateSchema = createSchema.partial();
 
 const setServiceItemsSchema = z.object({
-  serviceItemIds: z
-    .array(z.number().int().positive())
-    .openapi({
-      example: [1, 2],
-      description: '可做项目 id；空数组 = 可做全部项目（§22）',
-    }),
+  serviceItemIds: z.array(z.number().int().positive()).openapi({
+    example: [1, 2],
+    description: '可做项目 id；空数组 = 可做全部项目（§22）',
+  }),
 });
 
 registerComponent('CreateStaffRequest', createSchema);

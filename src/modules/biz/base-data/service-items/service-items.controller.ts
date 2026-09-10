@@ -68,7 +68,11 @@ const createSchema = z.object({
     .enum(['active', 'disabled'])
     .optional()
     .openapi({ example: 'active', description: '状态，停用后不可被预约' }),
-  sort: z.number().int().optional().openapi({ example: 0, description: '排序' }),
+  sort: z
+    .number()
+    .int()
+    .optional()
+    .openapi({ example: 0, description: '排序' }),
   remark: z.string().max(500).nullish().openapi({ description: '备注' }),
 });
 
@@ -127,7 +131,9 @@ export class ServiceItemsController {
   @Post()
   @RequirePermissions('biz:serviceitem:create')
   @ApiOperation({ summary: '新增服务项目' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/CreateServiceItemRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/CreateServiceItemRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   create(@Body() body: unknown, @Req() request: AuthRequest) {
     return this.serviceItems.create(createSchema.parse(body), request.user.id);
@@ -137,7 +143,9 @@ export class ServiceItemsController {
   @RequirePermissions('biz:serviceitem:update')
   @ApiOperation({ summary: '修改服务项目' })
   @ApiParam({ name: 'id', description: '项目ID' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/UpdateServiceItemRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/UpdateServiceItemRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   update(
     @Param('id', ParseIntPipe) id: number,

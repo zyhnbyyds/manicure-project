@@ -6,6 +6,7 @@ import { BookingsService } from './booking/bookings.service.js';
 import { SlotsService } from './booking/slots.service.js';
 import { BizCommonModule } from './common/biz-common.module.js';
 import {
+  BookingOpsPort,
   CommissionPort,
   CreditPort,
   CustomerPort,
@@ -70,6 +71,7 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     { provide: SchedulePort, useExisting: SchedulingService },
     { provide: SlotPort, useExisting: SlotsService },
     { provide: SettlementPort, useExisting: BookingSettlementService },
+    { provide: BookingOpsPort, useExisting: BookingsService },
     { provide: MemberAccountPort, useExisting: MemberAccountsService },
     { provide: MemberCardPort, useExisting: MemberCardsService },
     { provide: PaymentPort, useExisting: PaymentsService },
@@ -86,6 +88,7 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     SchedulePort,
     SlotPort,
     SettlementPort,
+    BookingOpsPort,
     MemberAccountPort,
     MemberCardPort,
     PaymentPort,
@@ -94,7 +97,9 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     NoticePort,
     CommissionPort,
     RecurrencePort,
-    BookingsService,
+    // 需要具体 service 时导出「模块」而不是 provider：Nest 不允许导出
+    // 不属于当前模块的 provider（它们由 BookingModule 提供）
+    BookingModule,
   ],
 })
 export class BizModule {}

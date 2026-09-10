@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   bizBookings,
   bizPayments,
@@ -11,6 +11,20 @@ import {
   SettlementPort,
 } from '../common/ports.js';
 import type { BizTx } from '../common/tx.js';
+
+/**
+ * 已发生过退款的支付单也要计入 `paid_amount`。
+ *
+ * `paid_amount` 是**毛收入**（§15.7 不变量 4：净营收 = paid_amount − refund_amount），
+ * 退款只体现在 `refund_amount` 上。若这里只认 `status='success'`，
+ * 退款后（支付单被置为 `partial_refunded` / `refunded`）`paid_amount` 会被清零，
+ * `due_amount` 变回全额、`pay_status` 退回 `unpaid`，列表与报表口径全错。
+ */
+const COUNTED_PAYMENT_STATUS = [
+  'success',
+  'partial_refunded',
+  'refunded',
+] as const;
 
 /**
  * 预约资金字段的唯一重算入口（§15.7 不变量 4）。
@@ -52,7 +66,7 @@ export class BookingSettlementService extends SettlementPort {
       .where(
         and(
           eq(bizPayments.bookingId, bookingId),
-          eq(bizPayments.status, 'success'),
+          inArray(bizPayments.status, COUNTED_PAYMENT_STATUS),
         ),
       );
 
@@ -83,10 +97,12 @@ export class BookingSettlementService extends SettlementPort {
     } else if (paidAmount >= booking.payableAmount) {
       // 应付为 0（次卡核销）时 paid(0) >= 0 也落到 paid
       payStatus = 'paid';
+    } else if (booking.creditAccountId !== null) {
+      // 还有未收部分挂在挂账主体上（含「现金 + 挂账」混合支付）：
+      // 收银台的挂账队列正是按这个状态筛的，必须优先于 partial
+      payStatus = 'credit';
     } else if (paidAmount > 0) {
       payStatus = 'partial';
-    } else if (booking.creditAccountId !== null) {
-      payStatus = 'credit';
     } else {
       payStatus = 'unpaid';
     }

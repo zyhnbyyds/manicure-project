@@ -251,7 +251,9 @@ export class CustomersService extends CustomerPort {
         visitCount: sql`${bizCustomers.visitCount} + 1`,
         lastVisitAt: new Date(),
       })
-      .where(and(eq(bizCustomers.id, customerId), isNull(bizCustomers.deletedAt)));
+      .where(
+        and(eq(bizCustomers.id, customerId), isNull(bizCustomers.deletedAt)),
+      );
   }
 
   /** 纳为会员：生成 `M{yyyyMMdd}{id}` 会员号与入会时间（幂等） */
@@ -287,10 +289,7 @@ export class CustomersService extends CustomerPort {
       .update(bizCustomers)
       .set({ memberNo, memberSince, updatedBy: actorId ?? null })
       .where(
-        and(
-          eq(bizCustomers.id, customerId),
-          isNull(bizCustomers.deletedAt),
-        ),
+        and(eq(bizCustomers.id, customerId), isNull(bizCustomers.deletedAt)),
       );
     return { memberNo, memberSince };
   }
@@ -301,7 +300,8 @@ export class CustomersService extends CustomerPort {
     excludeId?: number,
   ): Promise<void> {
     const conditions = [eq(bizCustomers.phone, phone)];
-    if (excludeId !== undefined) conditions.push(ne(bizCustomers.id, excludeId));
+    if (excludeId !== undefined)
+      conditions.push(ne(bizCustomers.id, excludeId));
     const [existing] = await this.database.db
       .select({
         id: bizCustomers.id,

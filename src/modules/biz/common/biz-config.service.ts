@@ -1,4 +1,5 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { Injectable } from '@nestjs/common';
+import { and, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service';
 import { configs } from '../../../database/schema/index';
 import { DEFAULT_SHOP_TIMEZONE } from './shop-time.js';
@@ -62,6 +63,7 @@ type ConfigKey = keyof BizConfig;
 
 /** 默认值：缺失 / 非法 / 越界一律回落到这里，绝不因为配置问题让核心链路不可用 */
 export const BIZ_CONFIG_DEFAULTS: Record<string, string> = {
+  'biz.shop.name': '美甲店',
   'biz.booking.timezone': DEFAULT_SHOP_TIMEZONE,
   'biz.booking.stepMinutes': '15',
   'biz.booking.minLeadMinutes': '60',
@@ -88,6 +90,7 @@ export const BIZ_CONFIG_DEFAULTS: Record<string, string> = {
 
 /** 配置中文名，供 seed 写入 `sys_config.name` */
 export const BIZ_CONFIG_LABELS: Record<string, string> = {
+  'biz.shop.name': '门店名称（通知模板 {shopName} 变量）',
   'biz.booking.timezone': '店内时区',
   'biz.booking.stepMinutes': '可约时段粒度（分钟）',
   'biz.booking.minLeadMinutes': '小程序端最少提前预约（分钟）',
@@ -119,7 +122,12 @@ const CACHE_TTL_MS = 10_000;
  *
  * 所有 `biz.*` 配置项都在这里解析：`sys_config.value` 是字符串，缺失 / 非法 /
  * 越界一律回落默认值，不允许在各 service 里散落 `Number(...)`（§5.6）。
+ *
+ * **必须带 `@Injectable()`**：否则 Nest 拿不到构造函数参数的元数据，
+ * 会注入 `undefined`（表现为运行时报 `this.database` 不是对象），
+ * 而 `tsc` 完全看不出问题。
  */
+@Injectable()
 export class BizConfigService {
   private cache: { at: number; values: Map<string, string> } | null = null;
 

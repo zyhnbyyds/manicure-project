@@ -142,7 +142,9 @@ export class StaffsService extends StaffPort {
       .limit(1);
     if (!staff) throw new NotFoundException('美甲师不存在');
     if (staff.status !== 'active')
-      throw new ConflictException(`美甲师「${staff.nickname}」已停用，不可被预约`);
+      throw new ConflictException(
+        `美甲师「${staff.nickname}」已停用，不可被预约`,
+      );
     return staff;
   }
 
@@ -150,9 +152,7 @@ export class StaffsService extends StaffPort {
     return this.database.db
       .select()
       .from(bizStaffs)
-      .where(
-        and(eq(bizStaffs.status, 'active'), isNull(bizStaffs.deletedAt)),
-      )
+      .where(and(eq(bizStaffs.status, 'active'), isNull(bizStaffs.deletedAt)))
       .orderBy(asc(bizStaffs.sort), asc(bizStaffs.id));
   }
 
@@ -265,7 +265,10 @@ export class StaffsService extends StaffPort {
     userId: number,
     excludeStaffId?: number,
   ): Promise<void> {
-    const conditions = [eq(bizStaffs.userId, userId), isNull(bizStaffs.deletedAt)];
+    const conditions = [
+      eq(bizStaffs.userId, userId),
+      isNull(bizStaffs.deletedAt),
+    ];
     if (excludeStaffId !== undefined)
       conditions.push(ne(bizStaffs.id, excludeStaffId));
     const [bound] = await this.database.db

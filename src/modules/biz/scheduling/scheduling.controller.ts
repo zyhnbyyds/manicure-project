@@ -57,9 +57,10 @@ const createOverrideSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .openapi({ example: '2026-09-12', description: '生效日期 YYYY-MM-DD' }),
-  type: z
-    .enum(['off', 'custom'])
-    .openapi({ example: 'off', description: 'off=整天休息；custom=自定义时段' }),
+  type: z.enum(['off', 'custom']).openapi({
+    example: 'off',
+    description: 'off=整天休息；custom=自定义时段',
+  }),
   startTime: z
     .string()
     .regex(TIME_PATTERN)
@@ -75,13 +76,10 @@ const createOverrideSchema = z.object({
     .max(200)
     .nullish()
     .openapi({ example: '调休', description: '原因' }),
-  force: z
-    .boolean()
-    .optional()
-    .openapi({
-      example: false,
-      description: '该日已有预约落在新班次外时，true 才强制落库（§6.4）',
-    }),
+  force: z.boolean().optional().openapi({
+    example: false,
+    description: '该日已有预约落在新班次外时，true 才强制落库（§6.4）',
+  }),
 });
 
 registerComponent('ReplaceWeeklyShiftsRequest', replaceWeeklyShiftsSchema);

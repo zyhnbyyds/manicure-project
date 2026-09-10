@@ -74,7 +74,8 @@ export class ServiceItemsService extends ServiceItemPort {
     const conditions = [isNull(bizServiceItems.deletedAt)];
     const keyword = keywordLike(bizServiceItems.name, filter.keyword);
     if (keyword) conditions.push(keyword);
-    if (filter.status) conditions.push(eq(bizServiceItems.status, filter.status));
+    if (filter.status)
+      conditions.push(eq(bizServiceItems.status, filter.status));
     const items = await this.database.db
       .select()
       .from(bizServiceItems)
@@ -119,7 +120,9 @@ export class ServiceItemsService extends ServiceItemPort {
     const result = await this.database.db
       .update(bizServiceItems)
       .set({ ...withoutUndefined(input), updatedBy: actorId })
-      .where(and(eq(bizServiceItems.id, id), isNull(bizServiceItems.deletedAt)));
+      .where(
+        and(eq(bizServiceItems.id, id), isNull(bizServiceItems.deletedAt)),
+      );
     if (!result[0].affectedRows) throw new NotFoundException('服务项目不存在');
   }
 
@@ -129,7 +132,9 @@ export class ServiceItemsService extends ServiceItemPort {
     const result = await this.database.db
       .update(bizServiceItems)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(bizServiceItems.id, id), isNull(bizServiceItems.deletedAt)));
+      .where(
+        and(eq(bizServiceItems.id, id), isNull(bizServiceItems.deletedAt)),
+      );
     if (!result[0].affectedRows) throw new NotFoundException('服务项目不存在');
   }
 
@@ -142,8 +147,7 @@ export class ServiceItemsService extends ServiceItemPort {
     const unique = [
       ...new Set(ids.filter((id) => Number.isInteger(id) && id > 0)),
     ];
-    if (!unique.length)
-      throw new BadRequestException('至少选择 1 个服务项目');
+    if (!unique.length) throw new BadRequestException('至少选择 1 个服务项目');
     if (unique.length > MAX_BOOKING_ITEMS)
       throw new BadRequestException(
         `单次最多选择 ${MAX_BOOKING_ITEMS} 个服务项目`,

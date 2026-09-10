@@ -1966,6 +1966,14 @@ export const relations = defineRelations(
     one,
     many,
   }) => ({
+    // 这三张表本期只需要注册（保证 db.query.* 可用），没有关系查询需求；
+    // 显式引用一次，避免「解构未使用」被判为 lint 错误。
+    ...(() => {
+      void bizPaymentDiffs;
+      void sysNoticeTemplates;
+      void sysNoticeLogs;
+      return {};
+    })(),
     users: {
       department: one.departments({
         from: users.deptId,

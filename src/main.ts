@@ -24,6 +24,9 @@ async function bootstrap(): Promise<void> {
     // trustProxy：反向代理（nginx）场景下让 request.ip 解析 x-forwarded-for，
     // 配合 nginx 的 Proxy_set_header X-Forwarded-For 才能拿到真实客户端 IP
     new FastifyAdapter({ logger: true, trustProxy: true }),
+    // rawBody：微信支付 V3 回调验签必须用**原样报文**（键顺序敏感），
+    // 仅靠 JSON.stringify(body) 在真实环境会验签失败
+    { rawBody: true },
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
   const config = app.get(AppConfigService);
