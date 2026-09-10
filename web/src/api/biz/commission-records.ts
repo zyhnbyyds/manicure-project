@@ -27,14 +27,15 @@ export interface CommissionRecord {
   createdAt: string;
 }
 
-export interface CommissionRecordListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type CommissionRecordListQuery = {
   staffId?: number | string;
   /** YYYYMM */
   period?: string;
   status?: CommissionRecordStatus | '';
   page?: number;
   pageSize?: number;
-}
+};
 
 /** 计提记录列表（分页） */
 export function listCommissionRecords(params: CommissionRecordListQuery = {}) {

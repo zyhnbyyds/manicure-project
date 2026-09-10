@@ -31,29 +31,56 @@ export interface PointsGoodsBody {
   remark?: string | null;
 }
 
-/** 积分兑换记录（biz_points_redeem） */
+/**
+ * 积分兑换记录（biz_points_redeem）
+ * `GET /biz/points-redeems` 会联查返回 `customerName` / `customerPhone` / `goodsName`，
+ * **但不返回卡号**（只有 `memberCardId`）；列表接口也没有 `total`。
+ */
 export interface PointsRedeem {
   id: number;
   redeemNo: string;
   customerId: number;
   customerName?: string | null;
+  customerPhone?: string | null;
   goodsId: number;
   goodsName?: string | null;
   points: number;
   memberCardId: number | null;
   status: 'success' | 'reverted';
   remark: string | null;
+  createdBy?: number | null;
   createdAt: string;
 }
 
-/** 积分抵扣试算结果（POST /biz/points/preview，金额单位「分」） */
+/**
+ * 积分抵扣试算结果（POST /biz/points/preview，金额单位「分」）
+ * 字段与后端 `PointsGoodsService.preview()` 的返回一一对应。
+ * `serviceItemIds` 必须是 **1~3 个**（后端 zod 上限 3）。
+ */
 export interface PointsPreview {
-  /** 本单最多可用积分 */
-  maxPoints: number;
-  /** 最多可抵金额（分） */
-  maxDiscountAmount: number;
-  /** 当前积分余额（后端可能返回，用于展示） */
+  customerId?: number;
+  /** 会员当前积分余额 */
   points?: number;
+  /** 项目原价合计（分） */
+  originalPrice?: number;
+  /** 等级折扣率千分比（1000 = 不打折） */
+  levelDiscountPermille?: number;
+  /** 等级优惠金额（分） */
+  levelDiscountAmount?: number;
+  /** 本单最多可用的积分数 */
+  maxPoints: number;
+  /** 最多可抵扣金额（分） */
+  maxDiscountAmount: number;
+  /** 受「折后金额 × maxPointsPermille」限制的积分数上限 */
+  capPoints?: number;
+  /** 受比例上限限制的抵扣金额（分） */
+  capDiscountAmount?: number;
+  /** 汇率：多少积分抵 1 元 */
+  pointsDiscountPerYuan?: number;
+  /** 单笔抵扣上限（千分比） */
+  maxPointsPermille?: number;
+  /** 抵扣后的应付金额（分） */
+  payableAmount?: number;
 }
 
 export interface PointsGoodsQuery {
@@ -122,7 +149,11 @@ export function redeemPoints(
 export function listPointsRedeems(
   page = 1,
   pageSize = 20,
-  query: { customerId?: string | number; goodsId?: string | number; status?: string } = {},
+  query: {
+    customerId?: string | number;
+    goodsId?: string | number;
+    status?: string;
+  } = {},
 ) {
   return get<PageResult<PointsRedeem>>('/biz/points-redeems', {
     page,

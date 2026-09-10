@@ -31,13 +31,14 @@ export interface CreditAccount {
   updatedAt: string;
 }
 
-export interface CreditAccountListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type CreditAccountListQuery = {
   keyword?: string;
   type?: CreditAccountType | '';
   status?: CreditAccountStatus | '';
   page?: number;
   pageSize?: number;
-}
+};
 
 export interface CreditAccountBody {
   name: string;

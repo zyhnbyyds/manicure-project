@@ -87,7 +87,8 @@ export interface ReceivableSummaryRow {
   count: number;
 }
 
-export interface ReceivableListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type ReceivableListQuery = {
   creditAccountId?: number | string;
   status?: ReceivableStatus | '';
   dueDateFrom?: string;
@@ -96,7 +97,7 @@ export interface ReceivableListQuery {
   overdue?: boolean | string;
   page?: number;
   pageSize?: number;
-}
+};
 
 /** 销账单笔入参 */
 export interface SettlePaymentInput {

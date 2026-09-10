@@ -35,13 +35,14 @@ export interface Recurrence {
   createdAt: string;
 }
 
-export interface RecurrenceListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type RecurrenceListQuery = {
   customerId?: number | string;
   staffId?: number | string;
   status?: RecurrenceStatus | '';
   page?: number;
   pageSize?: number;
-}
+};
 
 export interface RecurrenceBody {
   name?: string | null;
@@ -114,10 +115,10 @@ export function deleteRecurrence(id: number) {
 
 /** 该规则已生成的预约 */
 export function listRecurrenceBookings(id: number, page = 1, pageSize = 50) {
-  return get<PageResult<RecurrenceBooking>>(
-    `/biz/recurrences/${id}/bookings`,
-    { page, pageSize },
-  );
+  return get<PageResult<RecurrenceBooking>>(`/biz/recurrences/${id}/bookings`, {
+    page,
+    pageSize,
+  });
 }
 
 /* ---------------- 表单下拉数据源 ---------------- */

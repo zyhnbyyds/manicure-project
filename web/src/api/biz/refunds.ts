@@ -59,24 +59,48 @@ export interface Refund {
  * 规则只给**建议**，最终金额由店员确认并必填原因（§17.4）。
  */
 export interface RefundPreview {
+  bookingId: number;
+  bookingNo: string;
+  /** 预约开始时间（UTC ISO） */
+  startAt: string;
+  /** 试算所用的取消时间（默认当前时间） */
+  cancelAt: string;
+  /** 距离预约开始的**实际**小时数（可为负 = 已过开始时间）。后端字段名是 `hoursToStart` */
+  hoursToStart: number;
+  /** 兼容别名（历史文档写作 hoursUntilStart，后端不返回该字段） */
+  hoursUntilStart?: number | null;
+  /** 本次试算采用的责任归属 */
+  liable: RefundLiable;
   /** 命中的判责规则 id（都不命中 = null） */
   policyId: number | null;
   /** 命中规则名，如「提前 24 小时以上」 */
   policyName: string | null;
-  /** 规则阈值：提前小时数 */
+  /** 规则阈值：提前小时数（未命中为 null） */
   hoursBefore: number | null;
-  /** 距离预约开始的**实际**小时数 */
-  hoursUntilStart: number | null;
   /** 可退比例（千分比，1000 = 全退，0 = 不退） */
   refundPermille: number;
+  /** 预约毛实收（分）= Σ 成功支付单 received_amount */
+  paidAmount: number;
+  /** 已退金额（分） */
+  refundedAmount: number;
+  /** 剩余可退（分）= paidAmount − refundedAmount */
+  refundableAmount: number;
   /** 建议退款额（分） */
   suggestAmount: number;
   /** 判责扣减额（分） */
   deductAmount: number;
-  /** 可退金额上限（分，通常 = 支付单已收 − 已退） */
-  refundableAmount?: number;
-  /** 已收金额（分），用于展示 */
-  paidAmount?: number;
+  /**
+   * 逐笔可退明细。退款单**必须挂在具体支付单上**，
+   * 所以混合支付的预约要按支付单分别申请 / 审批。
+   */
+  payments?: {
+    paymentId: number;
+    paymentNo: string;
+    channel: string;
+    amount: number;
+    refundedAmount: number;
+    refundableAmount: number;
+  }[];
 }
 
 export interface RefundQuery {

@@ -87,10 +87,9 @@ export function reportText(
 }
 
 /** 把宽松响应归一成表格行：数组直接用；对象里第一个数组字段作为行集；否则整体当一行 */
-export function reportRows(payload: ReportPayload | null): Record<
-  string,
-  unknown
->[] {
+export function reportRows(
+  payload: ReportPayload | null,
+): Record<string, unknown>[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
   for (const value of Object.values(payload)) {
@@ -118,7 +117,10 @@ export function reportScalars(
  *
  * `GET /biz/reports/export` 需要一个带 Bearer token 的请求，而 `window.open` 无法附带
  * Authorization 头（会 401），因此这里走 axios（`~/request` 已注入 token）拿 blob 再本地下载。
- * 若后端改为返回文件地址而不是流，可退化成 `window.open(downloadUrl)`（同源下载链接需带一次性 token）。
+ *
+ * TODO(export-fallback): 若后端改为返回「文件 id / 下载地址」而不是文件流，可退化为
+ * `window.open(downloadUrl)`；同源裸链接不带 token 会被 401 拒绝，届时需后端提供一次性
+ * 签名 URL（或先调接口换 downloadToken 再拼到 URL 上）。当前实现不做无 token 的降级。
  */
 export async function exportReport(query: {
   type: ReportTabKey;

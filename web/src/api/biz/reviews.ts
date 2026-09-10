@@ -25,7 +25,8 @@ export interface Review {
   updatedAt: string;
 }
 
-export interface ReviewListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type ReviewListQuery = {
   staffId?: number | string;
   score?: number | string;
   status?: ReviewStatus | '';
@@ -33,7 +34,7 @@ export interface ReviewListQuery {
   dateTo?: string;
   page?: number;
   pageSize?: number;
-}
+};
 
 /** 后台代录（仍受「一单一评」约束，重复提交后端返回 409） */
 export interface CreateReviewBody {

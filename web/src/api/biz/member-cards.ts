@@ -2,11 +2,7 @@ import type { PageResult } from '~/types/api';
 import { get, post } from '~/request';
 
 /** 次卡状态（§4.4 biz_member_card.status） */
-export type MemberCardStatus =
-  | 'active'
-  | 'used_up'
-  | 'expired'
-  | 'refunded';
+export type MemberCardStatus = 'active' | 'used_up' | 'expired' | 'refunded';
 
 /** 购卡支付方式（biz_member_card.pay_channel；不允许再用次卡买卡） */
 export type CardPayChannel = 'cash' | 'wechat' | 'alipay' | 'balance';

@@ -28,7 +28,8 @@ export interface NoticeLog {
   createdAt: string;
 }
 
-export interface NoticeLogListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type NoticeLogListQuery = {
   channel?: NoticeLogChannel | '';
   status?: NoticeLogStatus | '';
   templateCode?: string;
@@ -36,7 +37,7 @@ export interface NoticeLogListQuery {
   dateTo?: string;
   page?: number;
   pageSize?: number;
-}
+};
 
 /** 发送记录列表（分页） */
 export function listNoticeLogs(params: NoticeLogListQuery = {}) {

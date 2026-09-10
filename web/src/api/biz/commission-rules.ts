@@ -32,12 +32,13 @@ export interface CommissionRule {
   createdAt: string;
 }
 
-export interface CommissionRuleListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type CommissionRuleListQuery = {
   scope?: CommissionScope | '';
   status?: CommissionRuleStatus | '';
   page?: number;
   pageSize?: number;
-}
+};
 
 export interface CommissionRuleBody {
   name: string;

@@ -247,15 +247,17 @@ export interface SettleBookingBody {
   remark?: string;
 }
 
-/** 结算结果：预约资金快照 + 本次各笔支付结果 */
+/** 结算结果：预约资金快照 + 本次各笔支付结果（后端 = `{ ...recalc(), payableAmount, payments }`） */
 export interface SettleBookingResult {
-  id: number;
+  id?: number;
   bookingNo?: string;
   paidAmount: number;
   dueAmount: number;
   payableAmount?: number;
+  refundAmount?: number;
   payStatus: 'unpaid' | 'partial' | 'paid' | 'refunded' | 'credit';
-  payChannelSummary?: string | null;
+  /** 已收渠道汇总（如 `cash,balance`）。后端字段名是 `channelSummary`，不是 `payChannelSummary` */
+  channelSummary?: string | null;
   settledAt?: string | null;
   payments?: PaymentOutcome[];
 }
@@ -297,10 +299,13 @@ export interface CreditAccountOption {
 
 /** 挂账主体列表（收银台下拉用；页面由挂账模块负责） */
 export async function listCreditAccountOptions() {
-  const data = await get<PageResult<CreditAccountOption>>('/biz/credit-accounts', {
-    page: 1,
-    pageSize: 100,
-    status: 'active',
-  });
+  const data = await get<PageResult<CreditAccountOption>>(
+    '/biz/credit-accounts',
+    {
+      page: 1,
+      pageSize: 100,
+      status: 'active',
+    },
+  );
   return data.items;
 }

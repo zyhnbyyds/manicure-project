@@ -15,7 +15,6 @@ import type { LewFormOption, LewTableColumn } from 'lew-ui';
 import {
   createCreditAccount,
   deleteCreditAccount,
-  listCreditAccounts,
   listCustomerOptions,
   updateCreditAccount,
 } from '~/api/biz/credit-accounts';
@@ -131,8 +130,7 @@ const columns: LewTableColumn[] = [
       return h(
         'span',
         {
-          class:
-            available <= 0 ? 'text-[var(--lew-color-error)] font-600' : '',
+          class: available <= 0 ? 'text-[var(--lew-color-error)] font-600' : '',
         },
         `¥${fen2yuan(available)}`,
       );
@@ -227,7 +225,11 @@ const formOptions: LewFormOption[] = [
     // 只有「顾客」类型才需要关联档案
     visible: (formData: Record<string, unknown>) =>
       formData.type === 'customer',
-    props: { options: customerOptions, placeholder: '请选择顾客', clearable: true },
+    props: {
+      options: customerOptions,
+      placeholder: '请选择顾客',
+      clearable: true,
+    },
   },
   {
     field: 'contact',
@@ -305,7 +307,8 @@ function openEdit(row: CreditAccount) {
 async function handleSubmit() {
   const valid = await formRef.value?.validate();
   if (!valid) return;
-  const values = (formRef.value?.getForm?.() ?? form.value) as typeof form.value;
+  const values = (formRef.value?.getForm?.() ??
+    form.value) as typeof form.value;
   const type = values.type as CreditAccountType;
   // 月结日只允许 1..28 或 0
   const settleDay = Number(values.settleDay ?? 0);

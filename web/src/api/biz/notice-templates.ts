@@ -20,13 +20,14 @@ export interface NoticeTemplate {
   createdAt: string;
 }
 
-export interface NoticeTemplateListQuery {
+/** 列表查询（用 type 而非 interface：对象字面量类型才能满足 request 的 Record 约束） */
+export type NoticeTemplateListQuery = {
   keyword?: string;
   channel?: NoticeChannel | '';
   status?: NoticeTemplateStatus | '';
   page?: number;
   pageSize?: number;
-}
+};
 
 export interface NoticeTemplateBody {
   code: string;
@@ -86,7 +87,9 @@ export const NOTICE_VARIABLE_PRESETS: { value: string; label: string }[] = [
 const VARIABLE_PATTERN = /\{([a-zA-Z][a-zA-Z0-9_]*)\}/g;
 
 /** 抽取文本里用到的 `{变量}` 名（去重，保持出现顺序） */
-export function extractTemplateVariables(...texts: (string | null | undefined)[]) {
+export function extractTemplateVariables(
+  ...texts: (string | null | undefined)[]
+) {
   const found: string[] = [];
   for (const text of texts) {
     if (!text) continue;
