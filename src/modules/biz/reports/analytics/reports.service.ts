@@ -51,7 +51,6 @@ import {
   shopDayRange,
   shopToday,
 } from '../../common/shop-time.js';
-import type { PayChannel } from '../../common/ports.js';
 
 /* ------------------------------------------------------------------ *
  * 类型
@@ -74,11 +73,41 @@ export type PaymentPurpose =
   | 'card_buy'
   | 'credit_settle';
 
+/**
+ * `channel` 维度 = **支付渠道**。
+ *
+ * 既接受 `biz_payment.channel` 的库内枚举值，也接受聚合标签
+ * `wechat`（= `wxpay_native` + `wechat_offline`）与 `alipay`（= `alipay_qr` + `alipay_offline`），
+ * 这样后台前端的「微信 / 支付宝」两个筛选项可以直接命中，不用拆成四个。
+ */
+/** `biz_payment.channel` 的库内枚举值 */
+export const PAYMENT_CHANNEL_VALUES = [
+  'cash',
+  'wechat_offline',
+  'wxpay_native',
+  'alipay_offline',
+  'alipay_qr',
+  'balance',
+  'card',
+  'credit',
+] as const;
+
+export type PaymentChannelValue = (typeof PAYMENT_CHANNEL_VALUES)[number];
+
+export type ReportChannel = PaymentChannelValue | 'wechat' | 'alipay';
+
+/** 渠道筛选 → 支付单上的实际渠道集合 */
+export function channelsOf(channel: ReportChannel): PaymentChannelValue[] {
+  if (channel === 'wechat') return ['wxpay_native', 'wechat_offline'];
+  if (channel === 'alipay') return ['alipay_qr', 'alipay_offline'];
+  return [channel];
+}
+
 export type ReportQuery = {
   dateFrom?: string | undefined;
   dateTo?: string | undefined;
   staffId?: number | undefined;
-  channel?: PayChannel | undefined;
+  channel?: ReportChannel | undefined;
   /** 扩展维度：按支付用途筛选（默认不过滤，与 §20.2 口径一致） */
   purpose?: PaymentPurpose | undefined;
   granularity?: ReportGranularity | undefined;
@@ -186,6 +215,12 @@ export type ReceivableAccountRow = {
   buckets: Record<ReceivableBucket, number>;
 };
 
+/** 主体维度的账龄累加器（主体识别信息单独从 `biz_credit_account` 取） */
+type ReceivableAccountNumbers = Omit<
+  ReceivableAccountRow,
+  'creditAccountId' | 'name' | 'type' | 'creditLimit' | 'usedAmount'
+>;
+
 export type ReceivablesReport = {
   /** 账龄基准日（店内本地日） */
   asOf: string;
@@ -289,7 +324,7 @@ type ResolvedQuery = {
   dateFrom: string;
   dateTo: string;
   staffId?: number | undefined;
-  channel?: PayChannel | undefined;
+  channel?: ReportChannel | undefined;
   purpose?: PaymentPurpose | undefined;
 };
 
@@ -408,8 +443,8 @@ export class ReportsService {
           ['储值赠送', report.member.rechargeBonus, '分'],
           ['期末本金结存', report.member.balancePrincipalEnd, '分'],
           ['期末赠送结存', report.member.balanceBonusEnd, '分'],
-          ['积分发放', report.member.pointsIssued, '分'],
-          ['积分抵扣', report.member.pointsSpent, '分'],
+          ['积分发放', report.member.pointsIssued, '积分'],
+          ['积分抵扣', report.member.pointsSpent, '积分'],
           ['次卡核销次数', report.member.cardUsedTimes, '次'],
           ['次卡发售', report.member.cardIssued, '张'],
         ];
@@ -521,7 +556,10 @@ export class ReportsService {
         this.cardIssuedCount(q),
       ]);
 
-    const gross = payments.reduce((total, row) => total + row.receivedAmount, 0);
+    const gross = payments.reduce(
+      (total, row) => total + row.receivedAmount,
+      0,
+    );
     const refund = refunds.reduce((total, row) => total + row.actualAmount, 0);
     const completed = bookings.filter((row) => row.status === 'completed');
     const count = completed.length;
@@ -633,7 +671,8 @@ export class ReportsService {
       );
       for (const customerId of customerIds) {
         const firstAt = firstMap.get(customerId) ?? 0;
-        if (firstAt >= start.getTime() && firstAt < end.getTime()) newCustomers++;
+        if (firstAt >= start.getTime() && firstAt < end.getTime())
+          newCustomers++;
         else returning++;
       }
     }
@@ -681,7 +720,10 @@ export class ReportsService {
 
     for (const payment of payments) {
       const row = rows.get(
-        periodOf(this.localDay(payment.paidAt ?? payment.createdAt, q), q),
+        periodOf(
+          this.localDay(payment.paidAt ?? payment.createdAt, q.timeZone),
+          q.granularity,
+        ),
       );
       if (!row) continue;
       row.gross += payment.receivedAmount;
@@ -704,13 +746,18 @@ export class ReportsService {
 
     for (const refund of refunds) {
       const row = rows.get(
-        periodOf(this.localDay(refund.refundedAt ?? refund.createdAt, q), q),
+        periodOf(
+          this.localDay(refund.refundedAt ?? refund.createdAt, q.timeZone),
+          q.granularity,
+        ),
       );
       if (row) row.refund += refund.actualAmount;
     }
 
     for (const booking of bookings) {
-      const row = rows.get(periodOf(this.localDay(booking.startAt, q), q));
+      const row = rows.get(
+        periodOf(this.localDay(booking.startAt, q.timeZone), q.granularity),
+      );
       if (row) row.count += 1;
     }
 
@@ -766,17 +813,20 @@ export class ReportsService {
     }
 
     return [...rows.values()]
-      .map((row) => ({
-        ...row,
-        cardTimes: Math.max(row.cardTimes, 0),
-        cardRatio:
-          row.times > 0
-            ? Math.floor((Math.max(row.cardTimes, 0) * 1000) / row.times)
-            : 0,
-      }))
+      .map((row) => {
+        const cardTimes = Math.max(row.cardTimes, 0);
+        return {
+          ...row,
+          cardTimes,
+          cardRatio:
+            row.times > 0 ? Math.floor((cardTimes * 1000) / row.times) : 0,
+        };
+      })
       .sort(
         (a, b) =>
-          b.amount - a.amount || b.times - a.times || a.serviceItemId - b.serviceItemId,
+          b.amount - a.amount ||
+          b.times - a.times ||
+          a.serviceItemId - b.serviceItemId,
       );
   }
 
@@ -784,7 +834,7 @@ export class ReportsService {
 
   private async staffsOf(q: ResolvedQuery): Promise<StaffReportRow[]> {
     const [bookings, commissions, reviews] = await Promise.all([
-      this.bookingRows(q, { completedOnly: true, amounts: true }),
+      this.bookingRows(q, { completedOnly: true }),
       this.database.db
         .select({
           staffId: bizCommissionRecords.staffId,
@@ -795,9 +845,7 @@ export class ReportsService {
           andConditions([
             inArray(bizCommissionRecords.status, ['accrued', 'settled']),
             this.dayRange(bizCommissionRecords.createdAt, q),
-            q.staffId
-              ? eq(bizCommissionRecords.staffId, q.staffId)
-              : undefined,
+            q.staffId ? eq(bizCommissionRecords.staffId, q.staffId) : undefined,
           ]),
         )
         .groupBy(bizCommissionRecords.staffId),
@@ -868,9 +916,7 @@ export class ReportsService {
 
     return [...rows.values()].sort(
       (a, b) =>
-        b.amount - a.amount ||
-        b.bookings - a.bookings ||
-        a.staffId - b.staffId,
+        b.amount - a.amount || b.bookings - a.bookings || a.staffId - b.staffId,
     );
   }
 
@@ -890,20 +936,13 @@ export class ReportsService {
               this.dayRange(bizCustomers.memberSince, q),
             ]),
           ),
-        this.database.db
-          .select({
-            principal: sum(bizMemberTransactions.balanceDeltaPrincipal),
-            bonus: sum(bizMemberTransactions.balanceDeltaBonus),
-          })
-          .from(bizMemberTransactions)
-          .where(lt(bizMemberTransactions.createdAt, this.rangeStart(q))),
         this.openingBalanceRows(q),
+        this.balanceDeltaRows(q),
       ]);
-    void opening;
 
     const dayDeltas = new Map<string, number>();
     for (const txn of deltas) {
-      const day = this.localDay(txn.createdAt, q);
+      const day = this.localDay(txn.createdAt, q.timeZone);
       dayDeltas.set(
         day,
         (dayDeltas.get(day) ?? 0) +
@@ -933,12 +972,17 @@ export class ReportsService {
     for (const customer of memberNews) {
       if (!customer.memberSince) continue;
       const row = rows.get(
-        periodOf(this.localDay(customer.memberSince, q), q),
+        periodOf(
+          this.localDay(customer.memberSince, q.timeZone),
+          q.granularity,
+        ),
       );
       if (row) row.newMembers += 1;
     }
     for (const txn of transactions) {
-      const row = rows.get(periodOf(this.localDay(txn.createdAt, q), q));
+      const row = rows.get(
+        periodOf(this.localDay(txn.createdAt, q.timeZone), q.granularity),
+      );
       if (!row) continue;
       if (txn.type === 'recharge') {
         row.recharge += txn.balanceDeltaPrincipal;
@@ -953,21 +997,20 @@ export class ReportsService {
         row.pointsSpent += -txn.pointsDelta;
     }
     for (const log of cardLogs) {
-      const row = rows.get(periodOf(this.localDay(log.createdAt, q), q));
+      const row = rows.get(
+        periodOf(this.localDay(log.createdAt, q.timeZone), q.granularity),
+      );
       if (!row) continue;
       row.cardUsed += log.type === 'use' ? log.times : -log.times;
     }
 
     // 期末结存：从区间期初余额起，按本地日累计（桶内取最后一天的值）
     let running = opening;
-    let cursor = 0;
     for (const date of listLocalDates(q.dateFrom, q.dateTo)) {
       running += dayDeltas.get(date) ?? 0;
       const row = rows.get(periodOf(date, q.granularity));
       if (row) row.balanceEnd = running;
-      cursor += 1;
     }
-    void cursor;
 
     return [...rows.values()].map((row) => ({
       ...row,
@@ -1020,24 +1063,20 @@ export class ReportsService {
         .from(bizCreditAccounts)
         .where(isNull(bizCreditAccounts.deletedAt)),
     ]);
-    const accountMap = new Map(accounts.map((row) => [row.id, row]));
-
+    const byAccount = new Map<number, ReceivableAccountNumbers>();
     const buckets = new Map<ReceivableBucket, ReceivableBucketRow>(
       BUCKETS.map((bucket) => [
         bucket,
         { bucket, count: 0, amount: 0, settledAmount: 0, outstanding: 0 },
       ]),
     );
-    const byAccount = new Map<number, ReceivableAccountRow>();
     const total = { count: 0, amount: 0, settledAmount: 0, outstanding: 0 };
     const overdue = { count: 0, amount: 0 };
 
     for (const row of receivableRows) {
       const outstanding = Math.max(row.amount - row.settledAmount, 0);
       if (outstanding <= 0) continue;
-      const createdDay = this.localDay(row.createdAt, {
-        timeZone: q.timeZone,
-      } as ResolvedQuery);
+      const createdDay = this.localDay(row.createdAt, q.timeZone);
       const agingDays = row.dueDate
         ? Math.max(daysBetween(row.dueDate, asOf), 0)
         : Math.max(daysBetween(createdDay, asOf), 0);
@@ -1054,13 +1093,7 @@ export class ReportsService {
         bucketRow.outstanding += outstanding;
       }
 
-      const account = accountMap.get(row.creditAccountId);
       const existing = byAccount.get(row.creditAccountId) ?? {
-        creditAccountId: row.creditAccountId,
-        name: account?.name ?? `#${row.creditAccountId}`,
-        type: account?.type ?? 'customer',
-        creditLimit: account?.creditLimit ?? 0,
-        usedAmount: account?.usedAmount ?? 0,
         count: 0,
         amount: 0,
         settledAmount: 0,
@@ -1100,9 +1133,30 @@ export class ReportsService {
       ),
       overdue,
       total,
-      accounts: [...byAccount.values()].sort(
-        (a, b) => b.outstanding - a.outstanding || a.creditAccountId - b.creditAccountId,
-      ),
+      // 与 `/biz/receivables/summary` 保持同一主体集合（含零余额主体），便于交叉核对。
+      // 主体识别信息一律取 `biz_credit_account`（账龄金额才来自明细累加）。
+      accounts: accounts
+        .map((account) => {
+          const numbers = byAccount.get(account.id);
+          return {
+            creditAccountId: account.id,
+            name: account.name,
+            type: account.type,
+            creditLimit: account.creditLimit,
+            usedAmount: account.usedAmount,
+            count: numbers?.count ?? 0,
+            amount: numbers?.amount ?? 0,
+            settledAmount: numbers?.settledAmount ?? 0,
+            outstanding: numbers?.outstanding ?? 0,
+            overdueAmount: numbers?.overdueAmount ?? 0,
+            buckets: numbers?.buckets ?? { '0-30': 0, '31-60': 0, '60+': 0 },
+          };
+        })
+        .sort(
+          (a, b) =>
+            b.outstanding - a.outstanding ||
+            a.creditAccountId - b.creditAccountId,
+        ),
     };
   }
 
@@ -1172,8 +1226,8 @@ export class ReportsService {
   }
 
   /** 一次查询内的本地日换算（含 DST 的正确做法，禁用 UTC 截断） */
-  private localDay(value: Date, q: ResolvedQuery): string {
-    return shopDateOf(value, q.timeZone);
+  private localDay(value: Date, timeZone: string): string {
+    return shopDateOf(value, timeZone);
   }
 
   private paymentRows(q: ResolvedQuery) {
@@ -1201,7 +1255,9 @@ export class ReportsService {
               ),
             ),
           ),
-          q.channel ? eq(bizPayments.channel, q.channel) : undefined,
+          q.channel
+            ? inArray(bizPayments.channel, channelsOf(q.channel))
+            : undefined,
           q.purpose ? eq(bizPayments.purpose, q.purpose) : undefined,
           q.staffId
             ? inArray(
@@ -1245,7 +1301,7 @@ export class ReportsService {
                 this.database.db
                   .select({ id: bizPayments.id })
                   .from(bizPayments)
-                  .where(eq(bizPayments.channel, q.channel)),
+                  .where(inArray(bizPayments.channel, channelsOf(q.channel))),
               )
             : undefined,
           q.staffId
@@ -1262,10 +1318,7 @@ export class ReportsService {
   }
 
   /** 预约单：营业日锚点 = `start_at`（服务开始的那一天） */
-  private bookingRows(
-    q: ResolvedQuery,
-    options: { completedOnly?: boolean; amounts?: boolean },
-  ) {
+  private bookingRows(q: ResolvedQuery, options: { completedOnly?: boolean }) {
     return this.database.db
       .select({
         id: bizBookings.id,
@@ -1316,7 +1369,7 @@ export class ReportsService {
   }
 
   /** 该渠道有成功支付单的预约（`channel` 维度统一指支付渠道） */
-  private bookingChannelCondition(channel: PayChannel): SQL {
+  private bookingChannelCondition(channel: ReportChannel): SQL {
     return inArray(
       bizBookings.id,
       this.database.db
@@ -1325,7 +1378,7 @@ export class ReportsService {
         .where(
           and(
             inArray(bizPayments.status, PAID_PAYMENT_STATUSES),
-            eq(bizPayments.channel, channel),
+            inArray(bizPayments.channel, channelsOf(channel)),
             isNull(bizPayments.deletedAt),
           ),
         ),
@@ -1359,7 +1412,7 @@ export class ReportsService {
   }
 
   /** 余额增量流水（用于按日累计期末结存） */
-  private openingBalanceDeltaRows(q: ResolvedQuery) {
+  private balanceDeltaRows(q: ResolvedQuery) {
     return this.database.db
       .select({
         balanceDeltaPrincipal: bizMemberTransactions.balanceDeltaPrincipal,
@@ -1444,5 +1497,3 @@ export function buildCsv(
   const lines = [header, ...rows].map((row) => row.map(csvCell).join(','));
   return `\uFEFF${lines.join('\r\n')}\r\n`;
 }
-
-export { asc, desc };
