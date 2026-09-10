@@ -74,7 +74,9 @@ export class ReviewsService {
       filter.customerId !== undefined
         ? eq(bizReviews.customerId, filter.customerId)
         : undefined,
-      filter.score !== undefined ? eq(bizReviews.score, filter.score) : undefined,
+      filter.score !== undefined
+        ? eq(bizReviews.score, filter.score)
+        : undefined,
       filter.status ? eq(bizReviews.status, filter.status) : undefined,
       localDateRange(
         bizReviews.createdAt,
@@ -168,7 +170,10 @@ export class ReviewsService {
   /** `published` / `hidden` 切换 + 是否公开展示 */
   async updateVisibility(
     id: number,
-    input: { status?: 'published' | 'hidden'; isPublic?: boolean },
+    input: {
+      status?: 'published' | 'hidden' | undefined;
+      isPublic?: boolean | undefined;
+    },
     actorId: number,
   ): Promise<void> {
     await this.findOne(id);

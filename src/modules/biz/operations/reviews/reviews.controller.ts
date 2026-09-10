@@ -71,15 +71,22 @@ const visibilitySchema = z.object({
   isPublic: z.boolean().optional().openapi({ description: '是否公开展示' }),
 });
 
+/** 列表筛选项：前端清空下拉框会发空字符串，统一按「不筛选」处理 */
+const optional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    schema.optional(),
+  );
+
 const listQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
-  staffId: z.coerce.number().int().positive().optional(),
-  customerId: z.coerce.number().int().positive().optional(),
-  score: z.coerce.number().int().min(1).max(5).optional(),
-  status: z.enum(['published', 'hidden']).optional(),
-  dateFrom: z.string().regex(LOCAL_DATE).optional(),
-  dateTo: z.string().regex(LOCAL_DATE).optional(),
+  page: optional(z.coerce.number().int().min(1)),
+  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  staffId: optional(z.coerce.number().int().positive()),
+  customerId: optional(z.coerce.number().int().positive()),
+  score: optional(z.coerce.number().int().min(1).max(5)),
+  status: optional(z.enum(['published', 'hidden'])),
+  dateFrom: optional(z.string().regex(LOCAL_DATE)),
+  dateTo: optional(z.string().regex(LOCAL_DATE)),
 });
 
 registerComponent('CreateReviewRequest', createSchema);
@@ -111,12 +118,10 @@ export class ReviewsController {
   @ApiResponse({ status: 200, description: '成功' })
   list(@Query() query: unknown, @Req() request: AuthRequest) {
     const filter = listQuerySchema.parse(query);
-    return this.reviews.list(
-      filter.page ?? 1,
-      filter.pageSize ?? 20,
-      filter,
-      { userId: request.user.id, permissions: request.user.permissions },
-    );
+    return this.reviews.list(filter.page ?? 1, filter.pageSize ?? 20, filter, {
+      userId: request.user.id,
+      permissions: request.user.permissions,
+    });
   }
 
   @Post()

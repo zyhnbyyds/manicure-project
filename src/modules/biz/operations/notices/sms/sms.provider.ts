@@ -68,7 +68,9 @@ export class AliyunSmsProvider extends SmsProvider {
       signal: AbortSignal.timeout(SMS_TIMEOUT_MS),
     });
     if (!response.ok)
-      throw new Error(`短信网关 HTTP ${response.status} ${response.statusText}`);
+      throw new Error(
+        `短信网关 HTTP ${response.status} ${response.statusText}`,
+      );
 
     const payload = (await response.json()) as {
       Code?: string;
@@ -91,7 +93,9 @@ function signParameters(
 ): string {
   const canonical = Object.keys(parameters)
     .sort()
-    .map((key) => `${percentEncode(key)}=${percentEncode(parameters[key] ?? '')}`)
+    .map(
+      (key) => `${percentEncode(key)}=${percentEncode(parameters[key] ?? '')}`,
+    )
     .join('&');
   const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonical)}`;
   return createHmac('sha1', `${accessKeySecret}&`)

@@ -54,14 +54,10 @@ const createTemplateSchema = z.object({
     .nullable()
     .optional()
     .openapi({ example: '预约提醒', description: '站内消息标题' }),
-  content: z
-    .string()
-    .min(1)
-    .max(1000)
-    .openapi({
-      example: '{customerName} 您好，您明天 {time} 有预约',
-      description: '模板内容，支持 {变量}',
-    }),
+  content: z.string().min(1).max(1000).openapi({
+    example: '{customerName} 您好，您明天 {time} 有预约',
+    description: '模板内容，支持 {变量}',
+  }),
   variables: templateVariablesSchema
     .optional()
     .openapi({ description: '变量声明（字符串数组 / 对象数组 / 对象映射）' }),
@@ -78,38 +74,50 @@ const createTemplateSchema = z.object({
 });
 const updateTemplateSchema = createTemplateSchema.partial();
 
+/**
+ * 列表筛选项统一口径：前端下拉框清空时会发空字符串（`status=''`），
+ * 一律按「不筛选」处理，避免 400（`web/src/api/biz/*.ts` 的 `X | ''` 就是这种用法）。
+ */
+const optional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    schema.optional(),
+  );
+
 const templateQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
-  channel: z.enum(['sms', 'site', 'both']).optional(),
-  status: z.enum(['active', 'disabled']).optional(),
-  keyword: z.string().max(50).optional(),
+  page: optional(z.coerce.number().int().min(1)),
+  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  channel: optional(z.enum(['sms', 'site', 'both'])),
+  status: optional(z.enum(['active', 'disabled'])),
+  keyword: optional(z.string().max(50)),
 });
 
 const logQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
-  channel: z.enum(['sms', 'site']).optional(),
-  status: z.enum(['pending', 'success', 'failed', 'skipped']).optional(),
-  templateCode: z.string().max(50).optional(),
-  recipientType: z.enum(['customer', 'user']).optional(),
-  recipientId: z.coerce.number().int().positive().optional(),
-  dateFrom: z.string().regex(LOCAL_DATE).optional(),
-  dateTo: z.string().regex(LOCAL_DATE).optional(),
+  page: optional(z.coerce.number().int().min(1)),
+  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  channel: optional(z.enum(['sms', 'site'])),
+  status: optional(z.enum(['pending', 'success', 'failed', 'skipped'])),
+  templateCode: optional(z.string().max(50)),
+  recipientType: optional(z.enum(['customer', 'user'])),
+  recipientId: optional(z.coerce.number().int().positive()),
+  dateFrom: optional(z.string().regex(LOCAL_DATE)),
+  dateTo: optional(z.string().regex(LOCAL_DATE)),
 });
 
 const sendSchema = z.object({
   templateCode: z.string().min(1).max(50),
   recipientType: z.enum(['customer', 'user']),
   recipientIds: z.array(z.coerce.number().int().positive()).min(1).max(200),
-  variables: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
+  variables: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .default({}),
   channels: z.array(z.enum(['sms', 'site'])).optional(),
   bookingId: z.coerce.number().int().positive().nullable().optional(),
 });
 
 const inboxQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  page: optional(z.coerce.number().int().min(1)),
+  pageSize: optional(z.coerce.number().int().min(1).max(100)),
 });
 
 const inboxReadSchema = z.object({
@@ -203,7 +211,11 @@ export class NoticesController {
   @ApiResponse({ status: 200, description: '成功' })
   listLogs(@Query() query: unknown) {
     const filter = logQuerySchema.parse(query);
-    return this.notices.listLogs(filter.page ?? 1, filter.pageSize ?? 20, filter);
+    return this.notices.listLogs(
+      filter.page ?? 1,
+      filter.pageSize ?? 20,
+      filter,
+    );
   }
 
   @Get('notice-logs/:id')
@@ -229,8 +241,10 @@ export class NoticesController {
   @ApiOperation({ summary: '手动发送通知' })
   @ApiBody({ schema: { $ref: '#/components/schemas/SendNoticeRequest' } })
   @ApiResponse({ status: 200, description: '成功' })
-  send(@Body() body: unknown) {
+  async send(@Body() body: unknown) {
     const input = sendSchema.parse(body);
+    // 打错模板 code 时给 404，而不是静默降级成兜底站内消息
+    await this.notices.assertTemplateExists(input.templateCode);
     return this.notices.sendToMany({
       templateCode: input.templateCode,
       recipientType: input.recipientType,

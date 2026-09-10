@@ -87,6 +87,18 @@ export type SaveNoticeTemplateInput = {
   remark?: string | null | undefined;
 };
 
+/** 局部更新：每个字段都显式带 `| undefined`，兼容 `exactOptionalPropertyTypes` */
+export type UpdateNoticeTemplateInput = {
+  code?: string | undefined;
+  name?: string | undefined;
+  channel?: 'sms' | 'site' | 'both' | undefined;
+  title?: string | null | undefined;
+  content?: string | undefined;
+  variables?: unknown;
+  status?: 'active' | 'disabled' | undefined;
+  remark?: string | null | undefined;
+};
+
 export type NoticeLogFilter = {
   channel?: NoticeChannel | undefined;
   status?: NoticeLogStatus | undefined;
@@ -200,7 +212,10 @@ export class NoticesService extends NoticePort {
       .select()
       .from(sysNoticeTemplates)
       .where(
-        and(eq(sysNoticeTemplates.id, id), isNull(sysNoticeTemplates.deletedAt)),
+        and(
+          eq(sysNoticeTemplates.id, id),
+          isNull(sysNoticeTemplates.deletedAt),
+        ),
       )
       .limit(1);
     if (!row) throw new NotFoundException('通知模板不存在');
@@ -234,7 +249,7 @@ export class NoticesService extends NoticePort {
 
   async updateTemplate(
     id: number,
-    input: Partial<SaveNoticeTemplateInput>,
+    input: UpdateNoticeTemplateInput,
     actorId: number,
   ): Promise<void> {
     const existing = await this.findTemplate(id);
@@ -251,7 +266,10 @@ export class NoticesService extends NoticePort {
       .update(sysNoticeTemplates)
       .set({ ...patch, updatedBy: actorId })
       .where(
-        and(eq(sysNoticeTemplates.id, id), isNull(sysNoticeTemplates.deletedAt)),
+        and(
+          eq(sysNoticeTemplates.id, id),
+          isNull(sysNoticeTemplates.deletedAt),
+        ),
       );
   }
 
@@ -262,7 +280,10 @@ export class NoticesService extends NoticePort {
       .update(sysNoticeTemplates)
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(
-        and(eq(sysNoticeTemplates.id, id), isNull(sysNoticeTemplates.deletedAt)),
+        and(
+          eq(sysNoticeTemplates.id, id),
+          isNull(sysNoticeTemplates.deletedAt),
+        ),
       );
   }
 
@@ -301,8 +322,7 @@ export class NoticesService extends NoticePort {
       .from(sysNoticeTemplates)
       .where(and(...conditions))
       .limit(1);
-    if (duplicate)
-      throw new ConflictException(`模板编码 ${code} 已存在`);
+    if (duplicate) throw new ConflictException(`模板编码 ${code} 已存在`);
   }
 
   /* ------------------------------------------------------------------ *
@@ -356,9 +376,11 @@ export class NoticesService extends NoticePort {
   }
 
   /** 单条重发（`retry_count` 累加用于举证；不受 `retryLimit` 限制，属于人工动作） */
-  async resend(
-    logId: number,
-  ): Promise<{ id: number; status: NoticeLogStatus; providerMsgId: string | null }> {
+  async resend(logId: number): Promise<{
+    id: number;
+    status: NoticeLogStatus;
+    providerMsgId: string | null;
+  }> {
     const log = await this.findLog(logId);
     const notice = await this.config.notice();
     const outcome = await this.deliver({
@@ -371,7 +393,9 @@ export class NoticesService extends NoticePort {
       notice,
       retryCount: log.retryCount + 1,
     });
-    this.logger.log(`通知 ${logId} 重发结果：${outcome}（${SMS_TIMEOUT_NOTE}）`);
+    this.logger.log(
+      `通知 ${logId} 重发结果：${outcome}（${SMS_TIMEOUT_NOTE}）`,
+    );
     const updated = await this.findLog(logId);
     return {
       id: updated.id,
@@ -485,6 +509,13 @@ export class NoticesService extends NoticePort {
     }
   }
 
+  /** 手动发送前校验模板存在：打错 code 时给 404，而不是静默降级成兜底站内消息 */
+  async assertTemplateExists(code: string): Promise<void> {
+    const template = await this.loadTemplate(code, this.database.db);
+    if (!template)
+      throw new NotFoundException(`通知模板 ${code} 不存在或已停用`);
+  }
+
   /** 手动发送（`POST /biz/notice/send`）：一次给多个收件人 */
   async sendToMany(input: {
     templateCode: string;
@@ -573,7 +604,9 @@ export class NoticesService extends NoticePort {
         else if (outcome === 'failed') failed += 1;
         else skipped += 1;
       } catch (error) {
-        this.logger.warn(`pending 通知 ${row.id} 发送异常：${messageOf(error)}`);
+        this.logger.warn(
+          `pending 通知 ${row.id} 发送异常：${messageOf(error)}`,
+        );
       }
     }
     return { sent, failed, skipped };
@@ -625,7 +658,7 @@ export class NoticesService extends NoticePort {
    * **幂等**：同一 `(booking_id, template_code)` 当天已发过则跳过，
    * 任务重跑（或手工触发）不会重复打扰顾客。
    */
-  async sendBookingReminders(): Promise<{ sent: number }> {
+  async sendBookingReminders(): Promise<{ sent: number; skipped: number }> {
     const timeZone = (await this.config.booking()).timezone;
     const today = shopToday(timeZone);
     const remindDate = addLocalDays(today, 1);
@@ -633,8 +666,10 @@ export class NoticesService extends NoticePort {
     const bookings = await this.database.db
       .select({
         id: bizBookings.id,
+        bookingNo: bizBookings.bookingNo,
         customerId: bizBookings.customerId,
         customerName: bizBookings.customerName,
+        customerPhone: bizBookings.customerPhone,
         staffId: bizBookings.staffId,
         startAt: bizBookings.startAt,
       })
@@ -648,7 +683,7 @@ export class NoticesService extends NoticePort {
         ),
       )
       .orderBy(asc(bizBookings.startAt));
-    if (!bookings.length) return { sent: 0 };
+    if (!bookings.length) return { sent: 0, skipped: 0 };
 
     const { start: todayStart } = shopDayRange(today, timeZone);
     const alreadySent = await this.database.db
@@ -674,31 +709,56 @@ export class NoticesService extends NoticePort {
     const serviceNames = await this.loadServiceNames(
       bookings.map((booking) => booking.id),
     );
+    const shopName = await this.shopName();
 
     let sent = 0;
+    let skipped = 0;
     for (const booking of bookings) {
-      if (sentBookings.has(booking.id)) continue;
+      // 幂等：今天已经提醒过这一单 → 跳过（任务重跑不会重复打扰顾客）
+      if (sentBookings.has(booking.id)) {
+        skipped += 1;
+        continue;
+      }
       const result = await this.send({
         templateCode: NOTICE_TEMPLATES.bookingRemind,
         recipientType: 'customer',
         recipientId: booking.customerId,
         bookingId: booking.id,
+        // 变量名与 seed 模板 / 前端变量预设一致（§19.1）：
+        // `booking_remind` 用到 customerName / shopName / bookingTime / staffName
         variables: {
           customerName: booking.customerName,
-          date: remindDate,
-          time: formatShopDateTime(booking.startAt, timeZone).slice(11, 16),
+          customerPhone: booking.customerPhone ?? '',
+          shopName,
+          bookingNo: booking.bookingNo,
+          bookingDate: remindDate,
+          bookingTime: formatShopDateTime(booking.startAt, timeZone).slice(
+            11,
+            16,
+          ),
           staffName: staffNames.get(booking.staffId) ?? '',
-          services: serviceNames.get(booking.id) ?? '',
+          serviceItems: serviceNames.get(booking.id) ?? '',
         },
       });
       sent += result.sent;
+      if (result.sent === 0) skipped += 1;
     }
-    return { sent };
+    return { sent, skipped };
   }
 
   /* ------------------------------------------------------------------ *
    * 内部实现
    * ------------------------------------------------------------------ */
+
+  /**
+   * 门店名称：读取可选配置项 `biz.shop.name`（`sys_config` 里没有该行时返回空串）。
+   *
+   * seed 里的模板内容引用了 `{shopName}`，但 `BIZ_CONFIG_DEFAULTS` 未定义该键；
+   * 这里用 `getString` 的通用读取能力兜底，配置一旦补上即可生效，无需改代码。
+   */
+  private async shopName(): Promise<string> {
+    return this.config.getString('biz.shop.name', '');
+  }
 
   private providerName(): string {
     return this.appConfig.sms.provider;
@@ -790,8 +850,7 @@ export class NoticesService extends NoticePort {
     phone: string | null,
     notice: NoticeConfig,
   ): string | null {
-    if (!notice.smsEnabled)
-      return '短信总开关 biz.notice.smsEnabled 未开启';
+    if (!notice.smsEnabled) return '短信总开关 biz.notice.smsEnabled 未开启';
     if (!notice.smsTemplates.includes(templateCode))
       return `模板 ${templateCode} 未加入短信白名单 biz.notice.smsTemplates`;
     if (!phone) return '收件人缺少手机号';
@@ -821,7 +880,11 @@ export class NoticesService extends NoticePort {
       rawTitle === null ? null : this.renderText(rawTitle, input, warnings);
     const content = this.renderText(rawContent, input, warnings);
     const phone = channels.includes('sms')
-      ? await this.resolvePhone(executor, input.recipientType, input.recipientId)
+      ? await this.resolvePhone(
+          executor,
+          input.recipientType,
+          input.recipientId,
+        )
       : null;
     return {
       templateCode: input.templateCode,
@@ -902,7 +965,9 @@ export class NoticesService extends NoticePort {
     return new Map(rows.map((row) => [row.id, row.nickname]));
   }
 
-  private async loadServiceNames(bookingIds: number[]): Promise<Map<number, string>> {
+  private async loadServiceNames(
+    bookingIds: number[],
+  ): Promise<Map<number, string>> {
     const unique = [...new Set(bookingIds)];
     if (!unique.length) return new Map();
     const rows = await this.database.db
