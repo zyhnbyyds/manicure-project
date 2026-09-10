@@ -39,9 +39,10 @@ import { AppMemberService } from './app-member.service.js';
 /**
  * app 域会员中心 + C 端写接口契约骨架（`/api/v1/app`）。
  *
- * 只有三个 controller（auth / catalog / member，§16.1），因此 C 端的
- * 预约 / 评价 / 支付 / 订阅骨架统一挂在本 controller 下：本期全部返回 501，
+ * C 端的预约 / 评价 / 订阅等骨架统一挂在本 controller 下：本期全部返回 501，
  * **不落库**，只保证路由 + Zod schema + Swagger 契约完整（P2 直接填实现）。
+ * （微信支付**回调**方向相反、不带 app token，单独放在
+ * `../payments/app-payments.controller.ts`。）
  *
  * 鉴权：`@Public()` 跳过全局后台守卫 → `AppAccessTokenGuard` 认 app token；
  * app 域不接 RBAC，只有「本人数据」——所有查询强制 `customer_id = 当前绑定顾客`。

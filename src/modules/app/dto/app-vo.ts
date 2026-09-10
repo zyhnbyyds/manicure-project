@@ -23,12 +23,10 @@ const localDate = z
   .openapi({ example: '2026-09-11', description: '店内本地日 YYYY-MM-DD' });
 
 /** 带时区偏移的 ISO8601 时刻（UTC 存储，展示口径 +08:00） */
-const isoDateTime = z
-  .string()
-  .openapi({
-    example: '2026-09-11T10:00:00+08:00',
-    description: '带偏移的 ISO8601 时刻',
-  });
+const isoDateTime = z.string().openapi({
+  example: '2026-09-11T10:00:00+08:00',
+  description: '带偏移的 ISO8601 时刻',
+});
 
 export const appListQuerySchema = z.object({
   page: z.coerce
@@ -53,29 +51,20 @@ export type AppListQuery = z.infer<typeof appListQuerySchema>;
  * ------------------------------------------------------------------ */
 
 export const appLoginRequestSchema = z.object({
-  code: z
-    .string()
-    .min(1)
-    .max(200)
-    .openapi({
-      example: '081Kf3Ga1abcDE0',
-      description: 'wx.login 返回的 code',
-    }),
+  code: z.string().min(1).max(200).openapi({
+    example: '081Kf3Ga1abcDE0',
+    description: 'wx.login 返回的 code',
+  }),
   nickname: z
     .string()
     .min(1)
     .max(50)
     .optional()
     .openapi({ example: '小美', description: '微信昵称（可选，授权时快照）' }),
-  avatar: z
-    .string()
-    .min(1)
-    .max(500)
-    .optional()
-    .openapi({
-      example: 'https://thirdwx.qlogo.cn/xxx',
-      description: '微信头像（可选）',
-    }),
+  avatar: z.string().min(1).max(500).optional().openapi({
+    example: 'https://thirdwx.qlogo.cn/xxx',
+    description: '微信头像（可选）',
+  }),
 });
 registerComponent('AppLoginRequest', appLoginRequestSchema);
 export type AppLoginRequest = z.infer<typeof appLoginRequestSchema>;
@@ -87,27 +76,19 @@ export const appLoginVo = z.object({
     .openapi({ description: 'app 域 access token（payload 含 scope=app）' }),
   tokenType: z.literal('Bearer'),
   expiresIn: z.string().openapi({ example: '15m', description: '有效期' }),
-  customerId: z
-    .number()
-    .int()
-    .nullable()
-    .openapi({
-      example: null,
-      description: '已绑定的顾客 ID；null = 仅浏览（未授权手机号）',
-    }),
+  customerId: z.number().int().nullable().openapi({
+    example: null,
+    description: '已绑定的顾客 ID；null = 仅浏览（未授权手机号）',
+  }),
 });
 registerComponent('AppLoginVo', appLoginVo);
 export type AppLoginVo = z.infer<typeof appLoginVo>;
 
 export const appBindPhoneRequestSchema = z.object({
-  code: z
-    .string()
-    .min(1)
-    .max(200)
-    .openapi({
-      example: 'e31x2abc',
-      description: 'getPhoneNumber 返回的 code',
-    }),
+  code: z.string().min(1).max(200).openapi({
+    example: 'e31x2abc',
+    description: 'getPhoneNumber 返回的 code',
+  }),
 });
 registerComponent('AppBindPhoneRequest', appBindPhoneRequestSchema);
 export type AppBindPhoneRequest = z.infer<typeof appBindPhoneRequestSchema>;
@@ -422,6 +403,50 @@ export const appWxpayJsapiVo = z.object({
   paySign: z.string(),
 });
 registerComponent('AppWxpayJsapiVo', appWxpayJsapiVo);
+
+/**
+ * 微信支付 V3 渠道回调报文（`POST /app/payments/wxpay/notify`，§9.7 契约骨架）。
+ *
+ * 关键字段：`resource.ciphertext` 是 AES-256-GCM 密文，需用 `WXPAY_API_V3_KEY` 解密后
+ * 才能拿到 `out_trade_no` / `transaction_id` / `amount.total`；签名与证书序号在**请求头**
+ * （`Wechatpay-Signature` / `-Timestamp` / `-Nonce` / `-Serial`），不在 body 里。
+ * 因此本期不做 `parse` 拦截：P2 由验签结果决定应答，而不是把报文判成 HTTP 400。
+ */
+export const appWxpayNotifyRequestSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .openapi({ description: '回调通知 ID（幂等去重键之一）' }),
+  create_time: z
+    .string()
+    .optional()
+    .openapi({ example: '2026-09-11T10:00:00+08:00' }),
+  event_type: z.string().optional().openapi({
+    example: 'TRANSACTION.SUCCESS',
+    description: '事件类型（支付成功为 TRANSACTION.SUCCESS）',
+  }),
+  resource_type: z.string().optional().openapi({ example: 'encrypt-resource' }),
+  summary: z.string().optional().openapi({ example: '支付成功' }),
+  resource: z.object({
+    algorithm: z.string().openapi({ example: 'AEAD_AES_256_GCM' }),
+    ciphertext: z.string().min(1).openapi({
+      description: 'AES-256-GCM 密文（含 out_trade_no / amount.total）',
+    }),
+    associated_data: z.string().optional(),
+    nonce: z.string(),
+    original_type: z.string().optional().openapi({ example: 'transaction' }),
+  }),
+});
+registerComponent('AppWxpayNotifyRequest', appWxpayNotifyRequestSchema);
+export type AppWxpayNotifyRequest = z.infer<typeof appWxpayNotifyRequestSchema>;
+
+/** 渠道应答契约：微信要求 HTTP 200 + `{code:'SUCCESS', message:'OK'}`；失败用 `{code:'FAIL', message}`（微信会重试） */
+export const appWxpayNotifyVo = z.object({
+  code: z.enum(['SUCCESS', 'FAIL']).openapi({ example: 'SUCCESS' }),
+  message: z.string().openapi({ example: 'OK' }),
+});
+registerComponent('AppWxpayNotifyVo', appWxpayNotifyVo);
+export type AppWxpayNotifyVo = z.infer<typeof appWxpayNotifyVo>;
 
 /** 订阅消息授权（P2：模板落 `sys_notice_log.channel` 枚举位） */
 export const appSubscribeRequestSchema = z.object({

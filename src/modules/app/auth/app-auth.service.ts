@@ -55,6 +55,8 @@ export class AppAuthService {
       .onDuplicateKeyUpdate({
         set: {
           lastLoginAt: now,
+          // 身份记录若曾被软删，重新登录即恢复（同一 openid 永远只有一行）
+          deletedAt: null,
           ...(session.unionid ? { unionid: session.unionid } : {}),
           ...(input.nickname ? { nickname: input.nickname } : {}),
           ...(input.avatar ? { avatar: input.avatar } : {}),

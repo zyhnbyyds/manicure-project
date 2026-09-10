@@ -38,7 +38,7 @@ export class AppMemberService {
     const [identity] = await this.database.db
       .select({ id: appWxUsers.id, customerId: appWxUsers.customerId })
       .from(appWxUsers)
-      .where(eq(appWxUsers.id, appUserId))
+      .where(and(eq(appWxUsers.id, appUserId), isNull(appWxUsers.deletedAt)))
       .limit(1);
     if (!identity) throw new UnauthorizedException();
     if (identity.customerId === null) throw needBind();

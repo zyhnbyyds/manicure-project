@@ -6,6 +6,7 @@ import { AppCatalogController } from './catalog/app-catalog.controller.js';
 import { AppCatalogService } from './catalog/app-catalog.service.js';
 import { AppMemberController } from './member/app-member.controller.js';
 import { AppMemberService } from './member/app-member.service.js';
+import { AppPaymentsController } from './payments/app-payments.controller.js';
 
 /**
  * 小程序端（B6，spec §16）—— 只做接口与认证域预留，**不做 UI**。
@@ -19,7 +20,12 @@ import { AppMemberService } from './member/app-member.service.js';
  * controller 里写 `app/...`，实际暴露为 `/api/v1/app/...`。
  */
 @Module({
-  controllers: [AppAuthController, AppCatalogController, AppMemberController],
+  controllers: [
+    AppAuthController,
+    AppCatalogController,
+    AppMemberController,
+    AppPaymentsController,
+  ],
   providers: [
     AppAuthService,
     AppCatalogService,
