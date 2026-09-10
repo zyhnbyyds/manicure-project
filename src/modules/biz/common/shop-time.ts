@@ -17,7 +17,10 @@ function pad(value: number, length = 2): string {
 }
 
 /** 某时刻在指定时区的 UTC 偏移（毫秒，东八区为 +28800000） */
-export function timeZoneOffsetMs(instant: Date, timeZone: string): number {
+export function timeZoneOffsetMs(
+  instant: Date,
+  timeZone: string = DEFAULT_SHOP_TIMEZONE,
+): number {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone,
     hourCycle: 'h23',

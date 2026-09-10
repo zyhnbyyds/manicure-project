@@ -46,6 +46,24 @@ function selectChain(result: unknown) {
   });
 }
 
+/** 定时任务的业务端口桩（§11 的 handler 只依赖端口） */
+function stubPorts(): any[] {
+  const port = () => ({
+    autoCompleteExpired: vi.fn().mockResolvedValue({ completed: 0 }),
+    autoNoShowExpired: vi.fn().mockResolvedValue({ noShow: 0 }),
+    closeExpired: vi.fn().mockResolvedValue({ closed: 0 }),
+    queryPending: vi.fn().mockResolvedValue({ checked: 0, settled: 0 }),
+    reconcile: vi.fn().mockResolvedValue({ diffs: 0 }),
+    markOverdue: vi.fn().mockResolvedValue({ overdue: 0 }),
+    expireCards: vi.fn().mockResolvedValue({ expired: 0 }),
+    recountAllLevels: vi.fn().mockResolvedValue({ updated: 0 }),
+    sendBookingReminders: vi.fn().mockResolvedValue({ sent: 0, skipped: 0 }),
+    retryFailed: vi.fn().mockResolvedValue({ retried: 0, succeeded: 0 }),
+    generate: vi.fn().mockResolvedValue({ generated: 0, skipped: 0 }),
+  });
+  return Array.from({ length: 7 }, port);
+}
+
 describe('JobsService', () => {
   let scheduler: any;
   scheduler = new (require('@nestjs/schedule').SchedulerRegistry)();
@@ -69,7 +87,7 @@ describe('JobsService', () => {
           updatedBy: null,
         },
       ]);
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       const result = await service.list(1, 20);
       expect(result.items).toHaveLength(1);
     });
@@ -94,7 +112,7 @@ describe('JobsService', () => {
           updatedBy: null,
         },
       ]);
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       const result = await service.findOne(1);
       expect(result.name).toBe('Cleanup');
     });
@@ -102,7 +120,7 @@ describe('JobsService', () => {
     it('throws NotFoundException', async () => {
       const { db } = mockDb();
       db.select = selectChain([]);
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
   });
@@ -135,7 +153,7 @@ describe('JobsService', () => {
           }),
         }),
       });
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       const result = await service.create(
         { name: 'Test', handler: 'noop', cron: '0 0 * * *' },
         1,
@@ -145,7 +163,7 @@ describe('JobsService', () => {
 
     it('throws BadRequestException for unknown handler', async () => {
       const { db } = mockDb();
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       await expect(
         service.create(
           { name: 'Test', handler: 'unknown', cron: '0 0 * * *' },
@@ -174,7 +192,7 @@ describe('JobsService', () => {
           updatedBy: null,
         },
       ]);
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       const result = await service.runNow(1);
       expect(result).toEqual({ success: true });
     });
@@ -196,7 +214,7 @@ describe('JobsService', () => {
           durationMs: 100,
         },
       ]);
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       const result = await service.listLogs(1, 1, 20);
       expect(result.items).toHaveLength(1);
     });
@@ -205,7 +223,7 @@ describe('JobsService', () => {
   describe('clearLogs', () => {
     it('deletes all job logs', async () => {
       const { db } = mockDb();
-      const service = new JobsService({ db } as any, scheduler);
+      const service = new JobsService({ db } as any, scheduler, ...stubPorts());
       await expect(service.clearLogs()).resolves.toBeUndefined();
     });
   });

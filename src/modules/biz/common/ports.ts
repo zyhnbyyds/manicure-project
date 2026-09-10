@@ -506,6 +506,19 @@ export abstract class NoticePort {
   /** 只落 pending 记录（事务内调用，避免事务里做网络 IO） */
   abstract enqueueInTx(tx: BizTx, input: NoticeSendInput): Promise<number[]>;
   abstract retryFailed(): Promise<{ retried: number; succeeded: number }>;
+  /** 次日预约提醒（定时任务 `sendBookingReminders`，必须幂等） */
+  abstract sendBookingReminders(): Promise<{ sent: number; skipped: number }>;
+}
+
+/* ------------------------------------------------------------------ *
+ * 预约状态机定时任务（B1）
+ * ------------------------------------------------------------------ */
+
+export abstract class BookingOpsPort {
+  /** `status='arrived'` 且 `end_at < now` → `completed`（幂等） */
+  abstract autoCompleteExpired(): Promise<{ completed: number }>;
+  /** `status='confirmed'` 且超过容忍期未到店 → `no_show`（幂等） */
+  abstract autoNoShowExpired(): Promise<{ noShow: number }>;
 }
 
 /* ------------------------------------------------------------------ *

@@ -12,6 +12,16 @@ import { CronJob } from 'cron';
 import { and, desc, eq, isNotNull, isNull, lt, ne, or } from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service';
 import { jobLogs, jobs, refreshTokens } from '../../database/schema/index';
+import {
+  BookingOpsPort,
+  CreditPort,
+  MemberAccountPort,
+  MemberCardPort,
+  NoticePort,
+  PaymentPort,
+  RecurrencePort,
+} from '../biz/common/ports.js';
+import { addLocalDays, shopToday } from '../biz/common/shop-time.js';
 
 export type CreateJobInput = {
   name: string;
@@ -42,7 +52,24 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly database: DatabaseService,
     private readonly scheduler: SchedulerRegistry,
+    private readonly bookingOps: BookingOpsPort,
+    private readonly payments: PaymentPort,
+    private readonly credit: CreditPort,
+    private readonly members: MemberAccountPort,
+    private readonly memberCards: MemberCardPort,
+    private readonly notices: NoticePort,
+    private readonly recurrences: RecurrencePort,
   ) {
+    this.registerHandlers();
+  }
+
+  /**
+   * 定时任务处理器注册表（§11）。
+   *
+   * 硬约束：**定时任务不碰钱**（§15.7 不变量 5），只改状态与等级；
+   * 每个 handler 都必须可重复执行而不产生副作用（幂等靠条件更新 + affectedRows 闸门）。
+   */
+  private registerHandlers(): void {
     this.handlers.set('noop', async () => {});
     this.handlers.set('cleanExpiredRefreshTokens', async () => {
       await this.database.db
@@ -52,6 +79,62 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
             lt(refreshTokens.expiresAt, new Date()),
             isNotNull(refreshTokens.revokedAt),
           ),
+        );
+    });
+    this.handlers.set('autoCompleteExpiredBookings', async () => {
+      const result = await this.bookingOps.autoCompleteExpired();
+      if (result.completed)
+        this.logger.log(`自动完成 ${result.completed} 张预约`);
+    });
+    this.handlers.set('autoNoShowBookings', async () => {
+      const result = await this.bookingOps.autoNoShowExpired();
+      if (result.noShow) this.logger.log(`标记爽约 ${result.noShow} 张预约`);
+    });
+    this.handlers.set('expireMemberCards', async () => {
+      const result = await this.memberCards.expireCards();
+      if (result.expired) this.logger.log(`过期次卡 ${result.expired} 张`);
+    });
+    this.handlers.set('recountMemberLevels', async () => {
+      const result = await this.members.recountAllLevels();
+      if (result.updated) this.logger.log(`重算会员等级 ${result.updated} 人`);
+    });
+    this.handlers.set('closeExpiredPayments', async () => {
+      const result = await this.payments.closeExpired();
+      if (result.closed) this.logger.log(`关闭超时支付单 ${result.closed} 张`);
+    });
+    this.handlers.set('queryPendingPayments', async () => {
+      const result = await this.payments.queryPending();
+      if (result.settled)
+        this.logger.log(`主动查单补记支付成功 ${result.settled} 笔`);
+    });
+    this.handlers.set('reconcilePayments', async () => {
+      const billDate = yesterdayInShop();
+      const result = await this.payments.reconcile(billDate);
+      this.logger.log(`对账 ${billDate}：差异 ${result.diffs} 条`);
+    });
+    this.handlers.set('markOverdueReceivables', async () => {
+      const result = await this.credit.markOverdue();
+      if (result.overdue) this.logger.log(`标记逾期应收 ${result.overdue} 张`);
+    });
+    this.handlers.set('sendBookingReminders', async () => {
+      const result = await this.notices.sendBookingReminders();
+      if (result.sent)
+        this.logger.log(
+          `发送次日预约提醒 ${result.sent} 条（跳过 ${result.skipped} 条）`,
+        );
+    });
+    this.handlers.set('retryFailedNotices', async () => {
+      const result = await this.notices.retryFailed();
+      if (result.retried)
+        this.logger.log(
+          `重试通知 ${result.retried} 条，成功 ${result.succeeded} 条`,
+        );
+    });
+    this.handlers.set('generateRecurringBookings', async () => {
+      const result = await this.recurrences.generate();
+      if (result.generated)
+        this.logger.log(
+          `周期预约生成 ${result.generated} 单（跳过 ${result.skipped} 单）`,
         );
     });
   }
@@ -282,4 +365,9 @@ function withoutUndefined<T extends object>(
 function messageOf(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.slice(0, 2000);
+}
+
+/** 前一天（店内本地日），对账任务用 */
+function yesterdayInShop(): string {
+  return addLocalDays(shopToday(), -1);
 }

@@ -27,6 +27,8 @@ import { GeneratorModule } from './modules/generator/generator.module';
 import { CompatModule } from './modules/compat/compat.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AiModule } from './ai/ai.module';
+import { BizModule } from './modules/biz/biz.module';
+import { MiniappModule } from './modules/app/app.module';
 
 @Module({
   imports: [
@@ -55,6 +57,10 @@ import { AiModule } from './ai/ai.module';
     CompatModule,
     DashboardModule,
     AiModule,
+    // 美甲预约业务域（B1~B6）：B1 基础数据/排班/预约、B2 会员、B3 收银、
+    // B4 挂账/报表/提成、B5 评价/周期/通知、B6 小程序预留
+    BizModule,
+    MiniappModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AccessTokenGuard },
