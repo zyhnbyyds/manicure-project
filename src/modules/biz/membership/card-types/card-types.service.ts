@@ -40,6 +40,18 @@ export type CardTypeListFilter = {
   status?: 'active' | 'disabled' | undefined;
 };
 
+/** 更新入参：每个字段都显式带 `undefined`，便于直接透传 zod 结果 */
+export type UpdateCardTypeInput = {
+  name?: string | undefined;
+  price?: number | undefined;
+  totalTimes?: number | undefined;
+  validDays?: number | undefined;
+  status?: 'active' | 'disabled' | undefined;
+  sort?: number | undefined;
+  remark?: string | null | undefined;
+  serviceItemIds?: number[] | undefined;
+};
+
 /**
  * 次卡卡种（§15.5）。
  *
@@ -97,7 +109,10 @@ export class CardTypesService {
       .select()
       .from(bizMemberCardTypes)
       .where(
-        and(eq(bizMemberCardTypes.id, id), isNull(bizMemberCardTypes.deletedAt)),
+        and(
+          eq(bizMemberCardTypes.id, id),
+          isNull(bizMemberCardTypes.deletedAt),
+        ),
       )
       .limit(1);
     if (!cardType) throw new NotFoundException('卡种不存在');
@@ -124,7 +139,10 @@ export class CardTypesService {
       .select({ serviceItemId: bizMemberCardTypeItems.serviceItemId })
       .from(bizMemberCardTypeItems)
       .where(eq(bizMemberCardTypeItems.cardTypeId, cardTypeId))
-      .orderBy(asc(bizMemberCardTypeItems.sort), asc(bizMemberCardTypeItems.id));
+      .orderBy(
+        asc(bizMemberCardTypeItems.sort),
+        asc(bizMemberCardTypeItems.id),
+      );
     return rows.map((row) => row.serviceItemId);
   }
 
@@ -147,7 +165,10 @@ export class CardTypesService {
         eq(bizMemberCardTypeItems.serviceItemId, bizServiceItems.id),
       )
       .where(eq(bizMemberCardTypeItems.cardTypeId, cardTypeId))
-      .orderBy(asc(bizMemberCardTypeItems.sort), asc(bizMemberCardTypeItems.id));
+      .orderBy(
+        asc(bizMemberCardTypeItems.sort),
+        asc(bizMemberCardTypeItems.id),
+      );
     return rows.map((row) => ({
       serviceItemId: row.serviceItemId,
       name: row.name ?? '（项目已删除）',
@@ -185,7 +206,7 @@ export class CardTypesService {
 
   async update(
     id: number,
-    input: Partial<CardTypeInput>,
+    input: UpdateCardTypeInput,
     actorId: number,
   ): Promise<void> {
     const current = await this.requireCardType(this.database.db, id);
@@ -235,7 +256,10 @@ export class CardTypesService {
       .update(bizMemberCardTypes)
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(
-        and(eq(bizMemberCardTypes.id, id), isNull(bizMemberCardTypes.deletedAt)),
+        and(
+          eq(bizMemberCardTypes.id, id),
+          isNull(bizMemberCardTypes.deletedAt),
+        ),
       );
     if (!result[0].affectedRows) throw new NotFoundException('卡种不存在');
   }
@@ -266,7 +290,8 @@ export class CardTypesService {
     const ids = [...new Set((raw ?? []).map((id) => Math.trunc(id)))].filter(
       (id) => Number.isInteger(id) && id > 0,
     );
-    if (!ids.length) throw new BadRequestException('卡种必须至少配置一个适用项目');
+    if (!ids.length)
+      throw new BadRequestException('卡种必须至少配置一个适用项目');
     const rows = await this.database.db
       .select({
         id: bizServiceItems.id,
@@ -308,7 +333,10 @@ export class CardTypesService {
         eq(bizMemberCardTypeItems.serviceItemId, bizServiceItems.id),
       )
       .where(inArray(bizMemberCardTypeItems.cardTypeId, cardTypeIds))
-      .orderBy(asc(bizMemberCardTypeItems.sort), asc(bizMemberCardTypeItems.id));
+      .orderBy(
+        asc(bizMemberCardTypeItems.sort),
+        asc(bizMemberCardTypeItems.id),
+      );
     for (const row of rows) {
       const list = map.get(row.cardTypeId) ?? [];
       list.push({

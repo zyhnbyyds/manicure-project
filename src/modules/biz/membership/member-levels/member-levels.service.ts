@@ -28,6 +28,16 @@ export type MemberLevelListFilter = {
   status?: 'active' | 'disabled' | undefined;
 };
 
+/** 更新入参：每个字段都显式带 `undefined`（`exactOptionalPropertyTypes` 下才能直接透传 zod 结果） */
+export type UpdateMemberLevelInput = {
+  name?: string | undefined;
+  discountPermille?: number | undefined;
+  upgradeAmount?: number | undefined;
+  sort?: number | undefined;
+  status?: 'active' | 'disabled' | undefined;
+  remark?: string | null | undefined;
+};
+
 /**
  * 取「能升级到的等级」：`status='active'` 且 `upgrade_amount <= totalSpent` 中 `sort` 最大的一个。
  *
@@ -91,7 +101,8 @@ export class MemberLevelsService {
     filter: MemberLevelListFilter = {},
   ): Promise<{ items: MemberLevelRow[]; page: number; pageSize: number }> {
     const conditions = [isNull(bizMemberLevels.deletedAt)];
-    if (filter.status) conditions.push(eq(bizMemberLevels.status, filter.status));
+    if (filter.status)
+      conditions.push(eq(bizMemberLevels.status, filter.status));
     const items = await this.database.db
       .select()
       .from(bizMemberLevels)
@@ -132,12 +143,17 @@ export class MemberLevelsService {
     const [level] = await executor
       .select({ discountPermille: bizMemberLevels.discountPermille })
       .from(bizMemberLevels)
-      .where(and(eq(bizMemberLevels.id, levelId), isNull(bizMemberLevels.deletedAt)))
+      .where(
+        and(eq(bizMemberLevels.id, levelId), isNull(bizMemberLevels.deletedAt)),
+      )
       .limit(1);
     return level?.discountPermille ?? 1000;
   }
 
-  async create(input: MemberLevelInput, actorId: number): Promise<{ id: number }> {
+  async create(
+    input: MemberLevelInput,
+    actorId: number,
+  ): Promise<{ id: number }> {
     await this.assertNameUnique(input.name);
     const sort = Math.trunc(input.sort ?? 0);
     const upgradeAmount = Math.trunc(input.upgradeAmount ?? 0);
@@ -163,7 +179,7 @@ export class MemberLevelsService {
 
   async update(
     id: number,
-    input: MemberLevelInput,
+    input: UpdateMemberLevelInput,
     actorId: number,
   ): Promise<void> {
     const current = await this.findOne(id);
@@ -194,7 +210,9 @@ export class MemberLevelsService {
         }),
         updatedBy: actorId,
       })
-      .where(and(eq(bizMemberLevels.id, id), isNull(bizMemberLevels.deletedAt)));
+      .where(
+        and(eq(bizMemberLevels.id, id), isNull(bizMemberLevels.deletedAt)),
+      );
     if (!result[0].affectedRows) throw new NotFoundException('会员等级不存在');
   }
 
@@ -211,14 +229,20 @@ export class MemberLevelsService {
     const result = await this.database.db
       .update(bizMemberLevels)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(bizMemberLevels.id, id), isNull(bizMemberLevels.deletedAt)));
+      .where(
+        and(eq(bizMemberLevels.id, id), isNull(bizMemberLevels.deletedAt)),
+      );
     if (!result[0].affectedRows) throw new NotFoundException('会员等级不存在');
   }
 
   /** 名称唯一：不过滤软删（软删行仍占用唯一键，§4.3 坑 1） */
-  private async assertNameUnique(name: string, excludeId?: number): Promise<void> {
+  private async assertNameUnique(
+    name: string,
+    excludeId?: number,
+  ): Promise<void> {
     const conditions = [eq(bizMemberLevels.name, name)];
-    if (excludeId !== undefined) conditions.push(ne(bizMemberLevels.id, excludeId));
+    if (excludeId !== undefined)
+      conditions.push(ne(bizMemberLevels.id, excludeId));
     const [duplicate] = await this.database.db
       .select({ id: bizMemberLevels.id })
       .from(bizMemberLevels)

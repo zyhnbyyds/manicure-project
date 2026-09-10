@@ -76,7 +76,9 @@ export class RechargePlansController {
   @Post()
   @RequirePermissions('biz:rechargeplan:create')
   @ApiOperation({ summary: '新增充值方案（赠送比例上限校验）' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/CreateRechargePlanRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/CreateRechargePlanRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   create(@Body() body: unknown, @Req() request: AuthRequest) {
     return this.plans.create(createSchema.parse(body), request.user.id);
@@ -86,7 +88,9 @@ export class RechargePlansController {
   @RequirePermissions('biz:rechargeplan:update')
   @ApiOperation({ summary: '修改充值方案' })
   @ApiParam({ name: 'id', description: '方案ID' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/UpdateRechargePlanRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/UpdateRechargePlanRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   update(
     @Param('id', ParseIntPipe) id: number,

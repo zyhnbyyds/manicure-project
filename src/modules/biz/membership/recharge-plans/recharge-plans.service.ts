@@ -26,6 +26,16 @@ export type RechargePlanListFilter = {
   status?: 'active' | 'disabled' | undefined;
 };
 
+/** 更新入参：每个字段都显式带 `undefined`，便于直接透传 zod 结果 */
+export type UpdateRechargePlanInput = {
+  name?: string | undefined;
+  payAmount?: number | undefined;
+  bonusAmount?: number | undefined;
+  status?: 'active' | 'disabled' | undefined;
+  sort?: number | undefined;
+  remark?: string | null | undefined;
+};
+
 /**
  * 充值方案（§15.4）。
  *
@@ -61,7 +71,9 @@ export class RechargePlansService {
     const [plan] = await this.database.db
       .select()
       .from(bizRechargePlans)
-      .where(and(eq(bizRechargePlans.id, id), isNull(bizRechargePlans.deletedAt)))
+      .where(
+        and(eq(bizRechargePlans.id, id), isNull(bizRechargePlans.deletedAt)),
+      )
       .limit(1);
     if (!plan) throw new NotFoundException('充值方案不存在');
     return plan;
@@ -109,7 +121,7 @@ export class RechargePlansService {
 
   async update(
     id: number,
-    input: Partial<RechargePlanInput>,
+    input: UpdateRechargePlanInput,
     actorId: number,
   ): Promise<void> {
     const current = await this.findOne(id);
@@ -143,7 +155,9 @@ export class RechargePlansService {
     const result = await this.database.db
       .update(bizRechargePlans)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(bizRechargePlans.id, id), isNull(bizRechargePlans.deletedAt)));
+      .where(
+        and(eq(bizRechargePlans.id, id), isNull(bizRechargePlans.deletedAt)),
+      );
     if (!result[0].affectedRows) throw new NotFoundException('充值方案不存在');
   }
 
