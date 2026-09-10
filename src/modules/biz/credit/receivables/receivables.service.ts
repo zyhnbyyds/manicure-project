@@ -20,6 +20,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
+  bizBookings,
   bizCreditAccounts,
   bizReceivablePayments,
   bizReceivables,
@@ -27,11 +28,7 @@ import {
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { buildDocNo } from '../../common/doc-no.js';
 import { andConditions } from '../../common/query.js';
-import {
-  daysBetween,
-  shopDateOf,
-  shopToday,
-} from '../../common/shop-time.js';
+import { daysBetween, shopDateOf, shopToday } from '../../common/shop-time.js';
 import {
   CreditPort,
   CustomerPort,
@@ -204,7 +201,10 @@ export class ReceivablesService extends CreditPort {
       amount,
     );
     // 顾客挂账校验：主体绑定了顾客时，只能给该顾客挂账；且顾客必须存在
-    if (account.customerId !== null && account.customerId !== input.customerId) {
+    if (
+      account.customerId !== null &&
+      account.customerId !== input.customerId
+    ) {
       throw new ConflictException('该挂账主体不属于此顾客');
     }
     await this.customers.requireById(input.customerId, tx);
@@ -246,7 +246,9 @@ export class ReceivablesService extends CreditPort {
         ),
       );
     if (!claimed[0].affectedRows) {
-      throw new ConflictException('挂账额度不足或已被其它单据占用，请刷新后重试');
+      throw new ConflictException(
+        '挂账额度不足或已被其它单据占用，请刷新后重试',
+      );
     }
     return { receivableId, receivableNo, dueDate };
   }
@@ -274,14 +276,16 @@ export class ReceivablesService extends CreditPort {
     }
     if (row.creditLimit !== 0 && row.usedAmount + requested > row.creditLimit) {
       const remaining = Math.max(row.creditLimit - row.usedAmount, 0);
-      throw new ConflictException(`超出挂账额度，剩余 ¥${formatYuan(remaining)}`);
+      throw new ConflictException(
+        `超出挂账额度，剩余 ¥${formatYuan(remaining)}`,
+      );
     }
     return row;
   }
 
   /**
    * 销账（§18.3）：逐笔落支付单 + 销账记录 → 条件更新（不得超额）→
-   * 回减主体占用额度 → **结清时**才回写预约资金状态并累计消费与积分。
+   * 回减主体占用额度 → 回写预约资金状态并按**本次实收**累计消费与积分。
    */
   async settle(
     receivableId: number,
@@ -405,18 +409,26 @@ export class ReceivablesService extends CreditPort {
         .from(bizReceivables)
         .where(eq(bizReceivables.id, receivableId))
         .limit(1);
-      const settledAmount = after?.settledAmount ?? receivable.settledAmount + total;
+      const settledAmount =
+        after?.settledAmount ?? receivable.settledAmount + total;
       const status = after?.status ?? 'partial';
 
-      if (status === 'settled') {
-        // 预约资金状态由唯一重算入口回写（§15.7 不变量 4）
-        if (receivable.bookingId !== null) {
-          await this.settlements.recalc(tx, receivable.bookingId);
-        }
-        // 销账才计消费与积分（§18.4）
+      // 每次销账都落账（§15.7 不变量 4 / §18.4「销账时才计入营收」）：
+      // 部分销账也要让预约的 paid_amount 跟上已成功的支付单。
+      if (receivable.bookingId !== null) {
+        await this.settlements.recalc(tx, receivable.bookingId);
+      }
+      // 只按「本次**已成功**的实收合计」累计一次：在线渠道此时是 pending，
+      // 积分要等渠道回调成功后才计（「积分跟着钱走」，§15.3）。
+      // 同一笔销账重复提交已被上面的条件更新（`settled_amount + x <= amount`）
+      // 拦成 409，因此不会重复累计。
+      const receivedNow = settled
+        .filter((item) => item.status === 'success')
+        .reduce((sum, item) => sum + item.amount, 0);
+      if (receivedNow > 0) {
         await this.members.recordConsumption(tx, {
           customerId,
-          paidAmount: total,
+          paidAmount: receivedNow,
           bookingId: receivable.bookingId,
           payChannel:
             payments.length === 1 ? (payments[0]?.channel ?? null) : null,
@@ -428,7 +440,12 @@ export class ReceivablesService extends CreditPort {
     });
   }
 
-  /** 作废：仅未销账（`settled_amount = 0` 且未结）可作废，必填原因（§18.3） */
+  /**
+   * 作废：仅未销账（`settled_amount = 0` 且未结）可作废，必填原因（§18.3）。
+   *
+   * 同一事务内回减 `used_amount`、摘掉预约的 `credit_account_id` 并
+   * `recalc` 回写真实资金状态，避免「台账已废、预约还挂在信用上」。
+   */
   async cancel(
     receivableId: number,
     reason: string,
@@ -478,6 +495,16 @@ export class ReceivablesService extends CreditPort {
           usedAmount: sql`GREATEST(CAST(${bizCreditAccounts.usedAmount} AS SIGNED) - ${receivable.amount}, 0)`,
         })
         .where(eq(bizCreditAccounts.id, receivable.creditAccountId));
+
+      // 主体没了：预约不能再挂在它名下；再让唯一重算入口把资金状态从
+      // `credit` 拉回真实值（无实收 → unpaid），避免台账与预约资金状态不一致。
+      if (receivable.bookingId !== null) {
+        await tx
+          .update(bizBookings)
+          .set({ creditAccountId: null })
+          .where(eq(bizBookings.id, receivable.bookingId));
+        await this.settlements.recalc(tx, receivable.bookingId);
+      }
     });
   }
 
@@ -716,10 +743,7 @@ function temporaryDocNo(): string {
   return `T${randomUUID().replace(/-/g, '').slice(0, 24)}`;
 }
 
-function buildCancelRemark(
-  current: string | null,
-  reason: string,
-): string {
+function buildCancelRemark(current: string | null, reason: string): string {
   const text = current ? `${current} | 作废：${reason}` : `作废：${reason}`;
   return text.slice(0, 200);
 }

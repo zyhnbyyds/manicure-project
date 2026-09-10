@@ -3,7 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
   bizCreditAccounts,
@@ -174,20 +184,21 @@ export class CreditAccountsService {
         .where(
           and(
             eq(bizReceivables.creditAccountId, id),
-            inArray(
-              bizReceivables.status,
-              OUTSTANDING_RECEIVABLE_STATUSES,
-            ),
+            inArray(bizReceivables.status, OUTSTANDING_RECEIVABLE_STATUSES),
             isNull(bizReceivables.deletedAt),
           ),
         )
         .limit(1);
-      if (unsettled) throw new ConflictException('该主体存在未结应收，不能删除');
+      if (unsettled)
+        throw new ConflictException('该主体存在未结应收，不能删除');
       await tx
         .update(bizCreditAccounts)
         .set({ deletedAt: new Date(), updatedBy: actorId })
         .where(
-          and(eq(bizCreditAccounts.id, id), isNull(bizCreditAccounts.deletedAt)),
+          and(
+            eq(bizCreditAccounts.id, id),
+            isNull(bizCreditAccounts.deletedAt),
+          ),
         );
     });
   }

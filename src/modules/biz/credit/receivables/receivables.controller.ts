@@ -21,10 +21,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
 import { parsePagination } from '../../common/query.js';
-import {
-  SETTLE_CHANNELS,
-  ReceivablesService,
-} from './receivables.service.js';
+import { SETTLE_CHANNELS, ReceivablesService } from './receivables.service.js';
 
 const localDate = z
   .string()
@@ -89,7 +86,9 @@ export class ReceivablesController {
   // 注意：`summary` 必须声明在 `:id` 之前，否则会被 `:id` 路由吞掉
   @Get('summary')
   @RequirePermissions('biz:receivable:list')
-  @ApiOperation({ summary: '挂账汇总（按主体账龄 0-30 / 31-60 / 60+ 与逾期金额）' })
+  @ApiOperation({
+    summary: '挂账汇总（按主体账龄 0-30 / 31-60 / 60+ 与逾期金额）',
+  })
   @ApiResponse({ status: 200, description: '成功' })
   summary() {
     return this.receivables.summary();
@@ -105,7 +104,11 @@ export class ReceivablesController {
     description: '每页条数',
     example: 20,
   })
-  @ApiQuery({ name: 'creditAccountId', required: false, description: '挂账主体' })
+  @ApiQuery({
+    name: 'creditAccountId',
+    required: false,
+    description: '挂账主体',
+  })
   @ApiQuery({
     name: 'status',
     required: false,

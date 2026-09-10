@@ -109,7 +109,11 @@ export class CreditAccountsController {
     description: '每页条数',
     example: 20,
   })
-  @ApiQuery({ name: 'keyword', required: false, description: '名称/电话关键字' })
+  @ApiQuery({
+    name: 'keyword',
+    required: false,
+    description: '名称/电话关键字',
+  })
   @ApiQuery({
     name: 'type',
     required: false,
@@ -132,17 +136,24 @@ export class CreditAccountsController {
   @Post()
   @RequirePermissions('biz:credit:create')
   @ApiOperation({ summary: '新增挂账主体' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/CreateCreditAccountRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/CreateCreditAccountRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   create(@Body() body: unknown, @Req() request: AuthRequest) {
-    return this.creditAccounts.create(createSchema.parse(body), request.user.id);
+    return this.creditAccounts.create(
+      createSchema.parse(body),
+      request.user.id,
+    );
   }
 
   @Patch(':id')
   @RequirePermissions('biz:credit:update')
   @ApiOperation({ summary: '修改挂账主体' })
   @ApiParam({ name: 'id', description: '挂账主体ID' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/UpdateCreditAccountRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/UpdateCreditAccountRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   update(
     @Param('id', ParseIntPipe) id: number,
