@@ -177,9 +177,11 @@ export function toStyleString(input: ThemeTokens): string {
 
 function syncChrome(input: ThemeTokens): void {
   try {
+    // 设计稿的导航栏是**奶油底色 + 深色标题**（不是主色底白字），
+    // 所以这里用 bg 作底色、黑色作前景；主色只留给按钮与价格。
     wx.setNavigationBarColor({
-      frontColor: input.onPrimary,
-      backgroundColor: input.primary,
+      frontColor: '#000000',
+      backgroundColor: input.bg,
       fail: () => {
         /* 部分基础库/低版本不支持时忽略：页面内样式仍然正确 */
       },

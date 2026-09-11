@@ -45,6 +45,14 @@ page {
   --gap-md: 20rpx;
   --gap-lg: 32rpx;
 
+  /**
+   * 衬线字体栈 —— 设计稿的**标题与价格用宋体（明朝体）**，
+   * 笔画有明显粗细对比、数字带衬线，是这套稿子最明显的风格特征；
+   * 正文/副标题/按钮仍用无衬线（PingFang）。
+   */
+  --font-serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC',
+    'Source Han Serif SC', 'SimSun', serif;
+
   background: var(--c-bg);
   color: var(--c-text);
   font-size: 28rpx;
@@ -132,12 +140,14 @@ page {
 /* ── 文字 ─────────────────────────────────────────────────── */
 
 .title-lg {
+  font-family: var(--font-serif);
   font-size: 40rpx;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 1rpx;
 }
 
 .title {
+  font-family: var(--font-serif);
   font-size: 32rpx;
   font-weight: 600;
 }
@@ -179,19 +189,10 @@ page {
 }
 
 .section__title {
-  font-size: 32rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-}
-
-.section__title::before {
-  content: '';
-  width: 8rpx;
-  height: 30rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-primary);
-  margin-right: 14rpx;
+  font-family: var(--font-serif);
+  font-size: 34rpx;
+  font-weight: 600;
+  /* 设计稿的区块标题**没有**主色竖条，这里刻意不加 */
 }
 
 .section__more {
@@ -320,8 +321,9 @@ page {
 .price {
   display: inline-flex;
   align-items: baseline;
+  font-family: var(--font-serif);
   color: var(--c-primary);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .price__symbol {
