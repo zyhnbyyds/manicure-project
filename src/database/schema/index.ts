@@ -1196,7 +1196,19 @@ export const bizMemberTransactions = mysqlTable(
  * E. 小程序身份（§4.4、§16）
  * ------------------------------------------------------------------ */
 
-/** 微信身份：先有 openid 才能浏览，授权手机号后才绑定顾客档案 */
+/**
+ * 微信身份：先有 openid 才能浏览，授权手机号后才绑定顾客档案。
+ *
+ * 同一个微信号可以同时是「顾客」和「美甲师」（店员自己也会来做指甲），
+ * 所以两种身份各占一组列，互不影响：
+ * - 顾客身份：`customer_id`（手机号授权后匹配/创建 `biz_customer`）；
+ * - 美甲师工作台：`staff_id` + `staff_status`（手机号命中 `biz_staff.phone` 后置 `pending`，
+ *   **必须店长在后台确认**才变 `active`——仅凭手机号自动开通等于提权漏洞：
+ *   spec §16.2 允许「手机号属于他人 openid 也允许绑定」，号码被复用即可看该美甲师的预约与业绩）。
+ *
+ * `staff_status` 放在这里而不是 token 里：停用（`biz_staff.status=disabled`）或店长撤权后
+ * **下一次请求立即失效**，而 token 里的角色要等过期才失效。
+ */
 export const appWxUsers = mysqlTable(
   'app_wx_user',
   {
@@ -1204,6 +1216,21 @@ export const appWxUsers = mysqlTable(
     openid: varchar('openid', { length: 64 }).notNull(),
     unionid: varchar('unionid', { length: 64 }),
     customerId: int('customer_id', { unsigned: true }),
+    staffId: int('staff_id', { unsigned: true }),
+    staffStatus: mysqlEnum('staff_status', [
+      'none',
+      'pending',
+      'active',
+      'rejected',
+    ])
+      .default('none')
+      .notNull(),
+    /** 手机号命中美甲师档案、提交开通申请的时间 */
+    staffRequestedAt: datetime('staff_requested_at'),
+    /** 店长确认/驳回的时间 */
+    staffDecidedAt: datetime('staff_decided_at'),
+    /** 决策人（`sys_user.id`），用于事后追溯 */
+    staffDecidedBy: int('staff_decided_by', { unsigned: true }),
     nickname: varchar('nickname', { length: 50 }),
     avatar: varchar('avatar', { length: 500 }),
     phone: varchar('phone', { length: 20 }),
@@ -1214,10 +1241,16 @@ export const appWxUsers = mysqlTable(
     uniqueIndex('uq_wx_openid').on(table.openid),
     index('idx_wx_unionid').on(table.unionid),
     index('idx_wx_customer').on(table.customerId),
+    index('idx_wx_staff').on(table.staffId, table.staffStatus),
     foreignKey({
       columns: [table.customerId],
       foreignColumns: [bizCustomers.id],
       name: 'fk_wx_user_customer',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_wx_user_staff',
     }).onDelete('set null'),
   ],
 );
