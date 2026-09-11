@@ -120,6 +120,13 @@ export abstract class CustomerPort {
   ): Promise<{ id: number }>;
   abstract update(id: number, input: unknown, actorId: number): Promise<void>;
   abstract remove(id: number, actorId: number): Promise<void>;
+  /**
+   * 恢复软删档案（§4.3）。
+   *
+   * 软删只置 `deleted_at`，余额/积分/次卡历史都还在行上 —— 恢复会把它们一并带回来，
+   * 属数据完整性动作，所以只能由门店在后台显式触发；小程序端自助绑定一律拒绝（409）。
+   */
+  abstract restore(id: number, actorId: number): Promise<void>;
   abstract requireById(id: number, tx?: BizTx): Promise<CustomerRow>;
   /** 不过滤软删（§4.3 坑 1） */
   abstract findByPhone(phone: string): Promise<CustomerRow | null>;

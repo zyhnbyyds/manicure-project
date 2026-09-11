@@ -84,6 +84,11 @@ export class CustomersController {
     required: false,
     description: '是否有储值余额 true / false',
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: '档案状态 active（默认）/ deleted（已删除，用于找回并恢复）',
+  })
   @ApiResponse({ status: 200, description: '成功' })
   list(
     @Query('page') rawPage?: string,
@@ -91,6 +96,7 @@ export class CustomersController {
     @Query('keyword') keyword?: string,
     @Query('levelId') rawLevelId?: string,
     @Query('hasBalance') rawHasBalance?: string,
+    @Query('status') status?: string,
   ) {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
     const filter: CustomerListFilter = {};
@@ -102,6 +108,8 @@ export class CustomersController {
       filter.hasBalance = true;
     else if (rawHasBalance === 'false' || rawHasBalance === '0')
       filter.hasBalance = false;
+    // 白名单：非法值当未传（回落「只看在用」），与其它列表页口径一致
+    if (status === 'active' || status === 'deleted') filter.status = status;
     return this.customers.list(page, pageSize, filter);
   }
 
@@ -166,6 +174,17 @@ export class CustomersController {
   @ApiResponse({ status: 200, description: '成功' })
   recount(@Param('id', ParseIntPipe) id: number, @Req() request: AuthRequest) {
     return this.customers.recount(id, request.user.id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions('biz:customer:update')
+  @ApiOperation({ summary: '恢复已删除顾客（幂等）' })
+  @ApiParam({ name: 'id', description: '顾客ID' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 404, description: '顾客不存在' })
+  @ApiResponse({ status: 409, description: '手机号已被在用顾客占用' })
+  restore(@Param('id', ParseIntPipe) id: number, @Req() request: AuthRequest) {
+    return this.customers.restore(id, request.user.id);
   }
 
   @Delete(':id')

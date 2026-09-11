@@ -100,9 +100,9 @@ describe('B6 手机号绑定（§9.7 / §4.3）', () => {
     expect(first.body.created).toBe(true);
     expect(first.body.customerId).toBeGreaterThan(0);
 
-    const customers = await ctx.sql<{ id: number; name: string; phone: string }[]>(
-      `SELECT id, name, phone FROM biz_customer WHERE phone = '13800000001'`,
-    );
+    const customers = await ctx.sql<
+      { id: number; name: string; phone: string }[]
+    >(`SELECT id, name, phone FROM biz_customer WHERE phone = '13800000001'`);
     expect(customers).toHaveLength(1);
     // 昵称来自 wx.login 时的快照
     expect(customers[0].name).toBe('小美');
@@ -142,6 +142,70 @@ describe('B6 手机号绑定（§9.7 / §4.3）', () => {
     expect(res.body.customerId).toBe(existing.insertId);
   });
 
+  it('后台恢复软删顾客后，小程序可以重新绑定该手机号', async () => {
+    const removed = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_customer (name, phone, deleted_at) VALUES ('待恢复顾客', '13800000012', NOW())`,
+    );
+
+    const deletedList = await ctx.request(
+      'GET',
+      '/api/v1/biz/customers?status=deleted&keyword=13800000012',
+    );
+    expect(deletedList.status).toBe(200);
+    expect(deletedList.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: removed.insertId,
+          deletedAt: expect.any(String),
+        }),
+      ]),
+    );
+
+    const restored = await ctx.request(
+      'POST',
+      `/api/v1/biz/customers/${removed.insertId}/restore`,
+    );
+    expect(restored.status).toBe(201);
+
+    const afterRestore = await ctx.sql<{ deleted_at: string | null }[]>(
+      `SELECT deleted_at FROM biz_customer WHERE id = ${removed.insertId}`,
+    );
+    expect(afterRestore[0].deleted_at).toBeNull();
+
+    const { token } = await seedAppUser('openid-restore-then-bind');
+    const rebound = await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000012' },
+    });
+    expect(rebound.status).toBe(201);
+    expect(rebound.body.customerId).toBe(removed.insertId);
+    expect(rebound.body.created).toBe(false);
+  });
+
+  it('恢复接口幂等：重复恢复同一顾客仍成功', async () => {
+    const removed = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_customer (name, phone, deleted_at) VALUES ('幂等恢复顾客', '13800000013', NOW())`,
+    );
+    const first = await ctx.request(
+      'POST',
+      `/api/v1/biz/customers/${removed.insertId}/restore`,
+    );
+    const second = await ctx.request(
+      'POST',
+      `/api/v1/biz/customers/${removed.insertId}/restore`,
+    );
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+  });
+
+  it('恢复不存在的顾客 → 404', async () => {
+    const res = await ctx.request(
+      'POST',
+      '/api/v1/biz/customers/999999/restore',
+    );
+    expect(res.status).toBe(404);
+  });
+
   it('命中**已删除**顾客 → 409 + needRestoreConfirm，且既不恢复也不绑定', async () => {
     const removed = await ctx.sql<{ insertId: number }>(
       `INSERT INTO biz_customer (name, phone, deleted_at) VALUES ('旧顾客', '13800000003', NOW())`,
@@ -163,9 +227,9 @@ describe('B6 手机号绑定（§9.7 / §4.3）', () => {
     expect(customers[0].deleted_at).not.toBeNull();
 
     // 也没绑定：手机号快照落了，但 customer_id 必须仍为空
-    const identity = await ctx.sql<{ customer_id: number | null; phone: string }[]>(
-      `SELECT customer_id, phone FROM app_wx_user WHERE id = ${appUserId}`,
-    );
+    const identity = await ctx.sql<
+      { customer_id: number | null; phone: string }[]
+    >(`SELECT customer_id, phone FROM app_wx_user WHERE id = ${appUserId}`);
     expect(identity[0].customer_id).toBeNull();
     expect(identity[0].phone).toBe('13800000003');
   });

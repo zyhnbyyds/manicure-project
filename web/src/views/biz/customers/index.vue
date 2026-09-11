@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { h, nextTick, ref } from 'vue';
-import { History, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next';
+import {
+  History,
+  Pencil,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+} from 'lucide-vue-next';
 import {
   LewButton,
   LewDrawer,
@@ -19,6 +26,7 @@ import {
   deleteCustomer,
   getCustomer,
   recountCustomer,
+  restoreCustomer,
   updateCustomer,
 } from '~/api/biz/customers';
 import type {
@@ -66,8 +74,16 @@ const balanceOptions = [
   { label: '有储值余额', value: 'true' },
   { label: '无储值余额', value: 'false' },
 ];
+const customerStatusOptions = [
+  { label: '在用档案', value: 'active' },
+  { label: '已删除档案', value: 'deleted' },
+];
 
-const query = ref<{ keyword?: string; hasBalance?: string }>({});
+const query = ref<{
+  keyword?: string;
+  hasBalance?: string;
+  status?: 'active' | 'deleted';
+}>({ status: 'active' });
 
 const {
   items,
@@ -83,6 +99,7 @@ const {
   query: () => ({
     ...(query.value.keyword ? { keyword: query.value.keyword } : {}),
     ...(query.value.hasBalance ? { hasBalance: query.value.hasBalance } : {}),
+    ...(query.value.status ? { status: query.value.status } : {}),
   }),
 });
 
@@ -164,7 +181,18 @@ const columns: LewTableColumn[] = [
       );
     },
   },
-  { title: '操作', field: 'operation', width: 130, fixed: 'right' },
+  {
+    title: '状态',
+    field: 'deletedAt',
+    width: 100,
+    customRender: ({ row }) => {
+      const customer = row as unknown as Customer;
+      return customer.deletedAt
+        ? h('span', { class: 'text-[var(--lew-color-error)]' }, '已删除')
+        : h('span', { class: 'text-[var(--lew-color-success)]' }, '在用');
+    },
+  },
+  { title: '操作', field: 'operation', width: 150, fixed: 'right' },
 ];
 
 void search();
@@ -299,6 +327,23 @@ function handleDelete(row: Customer) {
       } catch {
         // 409 原文提示由 request 拦截器统一弹出
       }
+    },
+  });
+}
+
+function handleRestore(row: Customer) {
+  confirmDanger({
+    type: 'normal',
+    confirmColor: 'primary',
+    confirmText: '恢复',
+    title: '恢复顾客档案',
+    content:
+      `确定恢复顾客「${row.name}」吗？恢复后会一并恢复其余额、积分、会员与次卡历史，` +
+      '小程序可重新绑定该手机号。',
+    onConfirm: async () => {
+      await restoreCustomer(row.id);
+      LewMessage.success('恢复成功');
+      void refresh();
     },
   });
 }
@@ -454,6 +499,13 @@ async function openHistory(row: Customer) {
         placeholder="储值余额"
         clearable
       />
+      <LewSelect
+        v-model="query.status"
+        width="150px"
+        :options="customerStatusOptions"
+        placeholder="档案状态"
+        clearable
+      />
       <LewButton type="light" :loading="loading" @click="search()"
         >查询</LewButton
       >
@@ -503,6 +555,15 @@ async function openHistory(row: Customer) {
               <Pencil :size="14" />
             </IconButton>
             <IconButton
+              v-if="(row as unknown as Customer).deletedAt"
+              permission="biz:customer:update"
+              title="恢复档案"
+              @click="handleRestore(row as unknown as Customer)"
+            >
+              <RotateCcw :size="14" />
+            </IconButton>
+            <IconButton
+              v-else
               permission="biz:customer:delete"
               color="error"
               title="删除"

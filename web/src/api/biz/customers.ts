@@ -46,6 +46,8 @@ export interface CustomerListQuery {
   keyword?: string;
   levelId?: number;
   hasBalance?: boolean;
+  /** 档案状态：active（默认）/ deleted（已删除） */
+  status?: 'active' | 'deleted';
 }
 
 /** 历史预约里的项目明细（快照） */
@@ -106,6 +108,11 @@ export function createCustomer(body: CreateCustomerBody) {
 /** 修改顾客 */
 export function updateCustomer(id: number, body: UpdateCustomerBody) {
   return patch<void>(`/biz/customers/${id}`, body);
+}
+
+/** 恢复已删除顾客（幂等） */
+export function restoreCustomer(id: number) {
+  return post<void>(`/biz/customers/${id}/restore`);
 }
 
 /** 删除顾客（软删；存在预约记录时 409） */

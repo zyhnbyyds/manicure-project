@@ -10,6 +10,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   ne,
   or,
@@ -50,6 +51,13 @@ export type CustomerListFilter = {
   keyword?: string;
   levelId?: number;
   hasBalance?: boolean;
+  /**
+   * `active`（默认）只看在用档案；`deleted` 只看软删档案。
+   *
+   * 软删档案必须能被门店翻出来 —— 小程序端绑定命中软删时会回 409 并给出顾客 id，
+   * 门店要能据此找到人、执行恢复（§4.3）。
+   */
+  status?: 'active' | 'deleted';
 };
 
 /**
@@ -73,7 +81,11 @@ export class CustomersService extends CustomerPort {
     pageSize: number,
     filter: CustomerListFilter,
   ): Promise<PageResult<CustomerRow>> {
-    const conditions = [isNull(bizCustomers.deletedAt)];
+    const conditions = [
+      filter.status === 'deleted'
+        ? isNotNull(bizCustomers.deletedAt)
+        : isNull(bizCustomers.deletedAt),
+    ];
     const name = keywordLike(bizCustomers.name, filter.keyword);
     const phone = keywordLike(bizCustomers.phone, filter.keyword);
     if (name && phone) {
@@ -168,6 +180,29 @@ export class CustomersService extends CustomerPort {
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(and(eq(bizCustomers.id, id), isNull(bizCustomers.deletedAt)));
     if (!result[0].affectedRows) throw new NotFoundException('顾客不存在');
+  }
+
+  /**
+   * 恢复软删档案（§4.3）。
+   *
+   * - **幂等**：已经是启用状态时直接返回成功。两个店员同时点「恢复」不该报错，
+   *   而且并发下后到的那个请求 `affectedRows` 会是 0 —— 那同样说明目标状态已达成。
+   * - **查人不过滤软删**：`findOne` 会把软删档案挡在外面，这里必须换一个查法，
+   *   否则「要恢复的那个人恰恰是被删的那个人」这个前提直接自相矛盾。
+   * - **手机号冲突兜底**：正常路径下不可能冲突（`assertPhoneAvailable` 查重时
+   *   不过滤 `deletedAt`，所以同一个手机号在整个表里最多只有一行）。这里再挡一道，
+   *   是防有人绕过服务直改库；真撞上了给明确 409，而不是让两行同号共存、
+   *   之后 `findByPhone` 随机命中一个。
+   */
+  async restore(id: number, actorId: number): Promise<void> {
+    const customer = await this.findAnyById(id);
+    if (!customer.deletedAt) return;
+    if (customer.phone)
+      await this.assertPhoneFreeForRestore(customer.phone, id);
+    await this.database.db
+      .update(bizCustomers)
+      .set({ deletedAt: null, updatedBy: actorId })
+      .where(and(eq(bizCustomers.id, id), isNotNull(bizCustomers.deletedAt)));
   }
 
   async requireById(id: number, tx?: BizTx): Promise<CustomerRow> {
@@ -292,6 +327,46 @@ export class CustomersService extends CustomerPort {
         and(eq(bizCustomers.id, customerId), isNull(bizCustomers.deletedAt)),
       );
     return { memberNo, memberSince };
+  }
+
+  /**
+   * 按 id 查人，**不过滤软删**（恢复流程专用）。
+   * 已删除的档案也要能查到，否则没法恢复；彻底不存在才 404。
+   */
+  private async findAnyById(id: number): Promise<CustomerRow> {
+    const [customer] = await this.database.db
+      .select()
+      .from(bizCustomers)
+      .where(eq(bizCustomers.id, id))
+      .limit(1);
+    if (!customer) throw new NotFoundException('顾客不存在');
+    return customer;
+  }
+
+  /**
+   * 恢复前的手机号兜底校验：启用态下同号必须仍然唯一。
+   * 正常路径下走不到这里（见 `restore` 注释），纯防御。
+   */
+  private async assertPhoneFreeForRestore(
+    phone: string,
+    selfId: number,
+  ): Promise<void> {
+    const [other] = await this.database.db
+      .select({ id: bizCustomers.id, name: bizCustomers.name })
+      .from(bizCustomers)
+      .where(
+        and(
+          eq(bizCustomers.phone, phone),
+          ne(bizCustomers.id, selfId),
+          isNull(bizCustomers.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (other)
+      throw new ConflictException(
+        `手机号 ${phone} 已被在用顾客「${other.name}」(#${other.id}) 占用，` +
+          `不能恢复；请先改掉其中一方的手机号`,
+      );
   }
 
   /** 手机号查重：**不过滤 deletedAt**（§4.3 坑 1） */
