@@ -130,12 +130,20 @@ const CACHE_TTL_MS = 10_000;
 @Injectable()
 export class BizConfigService {
   private cache: { at: number; values: Map<string, string> } | null = null;
+  /**
+   * 进行中的加载。
+   *
+   * `all()` 会并发读六组配置，若只靠 `cache` 判空，六个并发调用会在首次
+   * 加载时各自查一次库（缓存击穿）。共享同一个 Promise 后只查一次。
+   */
+  private inflight: Promise<Map<string, string>> | null = null;
 
   constructor(private readonly database: DatabaseService) {}
 
   /** 清缓存（配置页保存后调用，或等待 10 秒自然过期） */
   invalidate(): void {
     this.cache = null;
+    this.inflight = null;
   }
 
   async getString(key: string, fallback: string): Promise<string> {
@@ -305,6 +313,13 @@ export class BizConfigService {
     const now = Date.now();
     if (this.cache && now - this.cache.at < CACHE_TTL_MS)
       return this.cache.values;
+    this.inflight ??= this.fetchValues(now).finally(() => {
+      this.inflight = null;
+    });
+    return this.inflight;
+  }
+
+  private async fetchValues(at: number): Promise<Map<string, string>> {
     const rows = await this.database.db
       .select({ key: configs.key, value: configs.value })
       .from(configs)
@@ -313,7 +328,7 @@ export class BizConfigService {
     for (const [key, value] of Object.entries(BIZ_CONFIG_DEFAULTS))
       values.set(key, value);
     for (const row of rows) values.set(row.key, row.value);
-    this.cache = { at: now, values };
+    this.cache = { at, values };
     return values;
   }
 }

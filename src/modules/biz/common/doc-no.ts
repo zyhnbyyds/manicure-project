@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { DEFAULT_SHOP_TIMEZONE, shopDateOf } from './shop-time.js';
 
 /** 单号前缀（§4.3：一律「主键回填」，不用「查当日最大号 +1」） */
@@ -49,5 +48,9 @@ export function buildSettleBatch(period: string, sequence: number): string {
  * （未提交的行在 REPEATABLE READ 下读不到，外部永远看不到这个临时值）。
  */
 export function tempDocNo(): string {
-  return `T${Date.now().toString(36)}${randomUUID().slice(0, 8)}`;
+  // 用 `globalThis.crypto` 而不是 `node:crypto`：`bun test` 不做文件级 mock 隔离，
+  // 任意一个 spec 里的 `vi.mock('node:crypto')` 都会全局替换掉它，
+  // 临时单号退化成固定值后，并发插入会在 booking_no 唯一索引上互相阻塞。
+  // （`payments.service` / `refunds.service` 出于同样原因也用的是 globalThis.crypto）
+  return `T${Date.now().toString(36)}${globalThis.crypto.randomUUID().slice(0, 8)}`;
 }
