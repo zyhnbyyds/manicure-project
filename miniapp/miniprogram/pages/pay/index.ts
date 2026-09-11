@@ -1,7 +1,7 @@
 import { bookingApi, memberApi } from '../../api/index';
 import type { Booking } from '../../api/types';
 import { fenToYuan } from '../../utils/format';
-import { goBookings } from '../../utils/nav';
+import { goBookings, goPayResult } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
@@ -132,14 +132,17 @@ Page({
     try {
       if (activeMethod === 'wechat') {
         // 后端 JSAPI 目前返回 501，请求层会转成「这个功能马上就来啦」；
-        // 这里保留完整调用位，通道一接上就能用。
-        await bookingApi.createJsapiPayment({ bookingId, purpose: 'final' });
-        wx.showModal({
-          title: '支付已发起',
-          content: '请在微信支付面板完成付款',
-          showCancel: false,
-          confirmText: '好',
-          complete: () => goBookings(),
+        // 这里保留完整调用位：拿到预支付参数 → 拉起微信支付 → 跳结果页，
+        // 支付通道一接上就能直接work。
+        const params = await bookingApi.createJsapiPayment({
+          bookingId,
+          purpose: 'final',
+        });
+        await this.requestPayment(params);
+        goPayResult({
+          status: 'success',
+          bookingNo: booking.bookingNo,
+          amount: this.data.dueAmount,
         });
         return;
       }
@@ -154,6 +157,27 @@ Page({
 
   onOrderTap() {
     goBookings();
+  },
+
+  /** `wx.requestPayment` 的 Promise 封装（用户取消不算异常，单独静默处理） */
+  requestPayment(params: {
+    timeStamp: string;
+    nonceStr: string;
+    package: string;
+    signType: 'RSA';
+    paySign: string;
+  }): Promise<void> {
+    return new Promise((resolve, reject) => {
+      wx.requestPayment({
+        timeStamp: params.timeStamp,
+        nonceStr: params.nonceStr,
+        package: params.package,
+        signType: params.signType,
+        paySign: params.paySign,
+        success: () => resolve(),
+        fail: (error) => reject(error),
+      });
+    });
   },
 
   goBookings,

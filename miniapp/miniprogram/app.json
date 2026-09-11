@@ -7,6 +7,7 @@
     "pages/slots/index",
     "pages/confirm/index",
     "pages/pay/index",
+    "pages/pay-result/index",
     "pages/bookings/index",
     "pages/member/index",
     "pages/mine/index",

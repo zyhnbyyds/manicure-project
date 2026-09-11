@@ -63,6 +63,20 @@ export function goPay(bookingId: number): void {
   wx.navigateTo({ url: `/pages/pay/index?bookingId=${bookingId}` });
 }
 
+/** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */
+export function goPayResult(input: {
+  status?: 'success' | 'pending';
+  bookingNo?: string;
+  amount?: number;
+}): void {
+  const params = [
+    `status=${input.status ?? 'success'}`,
+    `bookingNo=${encodeURIComponent(input.bookingNo ?? '')}`,
+    `amount=${input.amount ?? 0}`,
+  ].join('&');
+  wx.redirectTo({ url: `/pages/pay-result/index?${params}` });
+}
+
 export function goConfirm(): void {
   wx.navigateTo({ url: '/pages/confirm/index' });
 }

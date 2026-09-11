@@ -1,0 +1,29 @@
+<view class="page result" style="{{themeStyle}}">
+  <view class="page-body result-body">
+    <!-- 状态图标：主色实心圆 + 白色对勾（设计稿的视觉重心） -->
+    <view class="badge {{status === 'pending' ? 'badge--pending' : ''}}">
+      <image
+        class="badge__icon"
+        src="{{status === 'pending' ? iconsWhite.clock : iconsWhite.check}}"
+        mode="aspectFit"
+      />
+    </view>
+
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle}}</view>
+    <view wx:if="{{amountText}}" class="amount">¥{{amountText}}</view>
+
+    <view class="card tip">
+      <view class="tip__label">订单提示</view>
+      <view class="tip__text">{{orderTip}}</view>
+    </view>
+
+    <view class="card tip">
+      <view class="tip__label">温馨提示</view>
+      <view class="tip__text">{{warmTip}}</view>
+    </view>
+
+    <view class="btn btn--primary btn--block result__primary" bindtap="goOrders">查看订单</view>
+    <view class="result__link" bindtap="onDone">完成</view>
+  </view>
+</view>
