@@ -349,6 +349,33 @@ export const appBookingListVo = z.object({
   pageSize: z.number().int(),
 });
 registerComponent('AppBookingListVo', appBookingListVo);
+export type AppBookingListVo = z.infer<typeof appBookingListVo>;
+
+/** 下单响应（A10）：pending 待确认，不收款；字段与列表 VO 对齐 */
+export const appCreateBookingVo = z.object({
+  id: z.number().int(),
+  bookingNo: z.string(),
+  startAt: isoDateTime,
+  endAt: isoDateTime,
+  status: z.literal('pending'),
+  payableAmount: z.number().int(),
+  paidAmount: z.number().int(),
+  dueAmount: z.number().int(),
+  payStatus: appPayStatusSchema,
+  items: z.array(appBookingItemVo),
+});
+registerComponent('AppCreateBookingVo', appCreateBookingVo);
+export type AppCreateBookingVo = z.infer<typeof appCreateBookingVo>;
+
+/** 取消响应（A10） */
+export const appCancelBookingVo = z.object({
+  changed: z.boolean().openapi({ description: '本次是否发生了状态变更' }),
+  warning: z.string().nullable().openapi({
+    description: '已有实收时提示走退款审批；null = 无',
+  }),
+});
+registerComponent('AppCancelBookingVo', appCancelBookingVo);
+export type AppCancelBookingVo = z.infer<typeof appCancelBookingVo>;
 
 export const appBookingListQuerySchema = appListQuerySchema.extend({
   status: appBookingStatusSchema

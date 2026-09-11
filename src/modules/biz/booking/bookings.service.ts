@@ -349,10 +349,11 @@ export class BookingsService implements BookingPort {
     customerId: number,
     page: number,
     pageSize: number,
+    filter: { status?: BookingStatus | undefined } = {},
   ): Promise<{ items: BookingWithItems[]; page: number; pageSize: number }> {
     const rows = await this.selectByScope(
       eq(bizBookings.customerId, customerId),
-      {},
+      { status: filter.status },
       page,
       pageSize,
     );
@@ -672,6 +673,238 @@ export class BookingsService implements BookingPort {
   }
 
   /* ---------------------------------------------------------------- *
+   * app 域自助下单（A10）
+   *
+   * 与后台 `create()` 共用九步，三处差异：
+   * 1. 落 `channel='miniapp'` + `status='pending'`（与店员代录的 `confirmed` 区分，§9.7）；
+   * 2. **不收款**：小程序端没有在线支付通道（JSAPI P2 做），订单保持 `unpaid`；
+   *    传 `memberCardId` 则整单次卡当场核销（payable=0）；
+   * 3. 无改价、无 force 覆盖、无挂账 —— 这三样是后台能力，C 端不允许。
+   * ---------------------------------------------------------------- */
+
+  async createForCustomer(
+    customerId: number,
+    input: {
+      staffId: number;
+      startAt: string;
+      serviceItemIds: number[];
+      memberCardId?: number | null | undefined;
+      pointsToUse?: number | undefined;
+      remark?: string | undefined;
+    },
+  ) {
+    const bookingConfig = await this.config.booking();
+    const tz = bookingConfig.timezone;
+
+    // ---- 步骤 2：前置校验全部在事务外（FOR UPDATE 之前不能有普通 SELECT 建立 RR 快照）----
+    const customer = await this.customers.requireById(customerId);
+    await this.staffs.requireActive(input.staffId);
+    const itemIds = [...new Set(input.serviceItemIds)];
+    if (itemIds.length < 1 || itemIds.length > 3)
+      throw new BadRequestException('服务项目需选择 1~3 个');
+    const items = await this.serviceItems.requireActiveItems(itemIds);
+    await this.assertStaffCanDo(input.staffId, itemIds);
+
+    const startAt = parseIsoWithOffset(input.startAt);
+    const date = shopDateOf(startAt, tz);
+    const durationMinutes = sumOf(items, (item) => item.durationMinutes);
+    const bufferMinutes = Math.max(
+      ...items.map((item) => item.bufferMinutes),
+      0,
+    );
+    await this.slots.assertGridAligned(startAt, date, tz);
+    // 小程序渠道：沿用 60 分钟提前期（§5.6）
+    await this.slots.assertLeadTime(startAt, 'miniapp');
+    await this.slots.assertWithinShift({
+      staffId: input.staffId,
+      date,
+      startAt,
+      durationMinutes,
+      timeZone: tz,
+    });
+
+    // 顾客侧冲突：小程序端没有 force，重叠直接 409（后台是软检查 + force 覆盖）
+    const overlaps = await this.slots.findCustomerOverlaps({
+      customerId,
+      startAt,
+      durationMinutes,
+    });
+    if (overlaps.length) {
+      throw new ConflictException({
+        message: '该顾客此时段已有预约，请选择其他时段',
+        conflicts: overlaps.map((row) => ({
+          id: row.id,
+          bookingNo: row.bookingNo,
+          startAt: formatShopDateTime(row.startAt, tz),
+          endAt: formatShopDateTime(row.endAt, tz),
+        })),
+      });
+    }
+
+    // 次卡核销：整单 payable=0（§5.7：卡价已是打包优惠，不叠加折扣与积分）。
+    // 一张卡一次核销只对应一个项目：多选项目时「整单用卡」无法用一张卡表达
+    // （要按项目逐项核销是后台收银的事），C 端直接 400，不做隐式猜测。
+    const useCard = input.memberCardId != null;
+    if (useCard && itemIds.length !== 1)
+      throw new BadRequestException('使用次卡时只能选择 1 个项目');
+
+    // ---- 步骤 3：算价（等级折扣 → 积分抵扣 → 应付；次卡 = 0）----
+    const memberConfig = await this.config.member();
+    const pricing = await this.members.getPricingContext(customer.id);
+    const quote = this.buildQuote({
+      items,
+      levelDiscountPermille: pricing.levelDiscountPermille,
+      pointsUsed: useCard ? 0 : input.pointsToUse,
+      memberConfig,
+      adjustAmount: 0,
+      useCard,
+    });
+
+    // ---- 步骤 5~8：锁 → 复检 → 建单 → 收款（无收款时保持 unpaid）----
+    const created = await this.database.db.transaction(async (tx) => {
+      // 步骤 5：必须是事务内第一条语句
+      await this.slots.lockStaffRow(tx, input.staffId);
+      // 步骤 6：冲突复检（查询带 FOR UPDATE，当前读）
+      await this.slots.assertNoConflict(tx, {
+        staffId: input.staffId,
+        startAt,
+        durationMinutes,
+        bufferMinutes,
+      });
+
+      // 步骤 7：建单 + 明细，拿 insertId 回填正式单号
+      const inserted = await tx.insert(bizBookings).values({
+        bookingNo: tempDocNo(),
+        customerId: customer.id,
+        staffId: input.staffId,
+        startAt,
+        endAt: new Date(startAt.getTime() + durationMinutes * 60_000),
+        durationMinutes,
+        bufferMinutes,
+        originalPrice: quote.originalPrice,
+        levelDiscountPermille: quote.levelDiscountPermille,
+        levelDiscountAmount: quote.levelDiscountAmount,
+        pointsDiscountAmount: quote.pointsDiscountAmount,
+        adjustAmount: 0,
+        adjustReason: null,
+        payableAmount: quote.payableAmount,
+        depositAmount: 0,
+        paidAmount: 0,
+        dueAmount: quote.payableAmount,
+        payStatus: 'unpaid',
+        creditAccountId: null,
+        memberCardId: useCard ? input.memberCardId : null,
+        // 小程序提交 → 待确认；与店员代录（confirmed）区分（§9.7）
+        status: 'pending',
+        channel: 'miniapp',
+        customerName: customer.name,
+        customerPhone: customer.phone ?? null,
+        remark: input.remark ?? null,
+        confirmedAt: null,
+        createdBy: null,
+        updatedBy: null,
+      });
+      const bookingId = Number(inserted[0].insertId);
+      const bookingNo = buildDocNo('B', bookingId, tz, new Date());
+      await tx
+        .update(bizBookings)
+        .set({ bookingNo })
+        .where(eq(bizBookings.id, bookingId));
+      await tx.insert(bizBookingItems).values(
+        items.map((item, index) => ({
+          bookingId,
+          serviceItemId: item.id,
+          name: item.name,
+          durationMinutes: item.durationMinutes,
+          price: item.price,
+          sort: index,
+        })),
+      );
+
+      // ---- 步骤 8a：积分抵扣（条件更新，余额不足抛 ConflictException）----
+      if (quote.pointsUsed > 0) {
+        await this.members.deductPoints(tx, {
+          customerId: customer.id,
+          points: quote.pointsUsed,
+          bookingId,
+          type: 'points_spend',
+          remark: `预约 ${bookingNo} 积分抵扣`,
+          actorId: null,
+        });
+      }
+      // ---- 步骤 8b：次卡当场核销 —— 走 `PaymentPort.createInTx`（与后台 create
+      // 同一条路径：锁顺序 customer → payment → member_card，条件更新只会成功一次）。
+      // 不传 payments = 不收款：订单保持 unpaid，到店后由收银台补收。
+      const outcomes = [];
+      if (useCard) {
+        outcomes.push(
+          await this.payments.createInTx(
+            tx,
+            {
+              customerId: customer.id,
+              bookingId,
+              purpose: 'final',
+              channel: 'card',
+              amount: 0,
+              memberCardId: input.memberCardId ?? null,
+              remark: `预约 ${bookingNo} 次卡核销`,
+            },
+            null,
+          ),
+        );
+      }
+      // 步骤 8c：重算金额事实（无收款 → 保持 unpaid；次卡核销 → recalc 更新 paid=0）
+      const settlement = await this.settlement.recalc(tx, bookingId);
+      return { bookingId, bookingNo, settlement, outcomes };
+    });
+
+    // ---- 步骤 9：提交事务后才发通知（失败不回滚业务）----
+    void this.notices
+      .send({
+        templateCode: 'booking_created',
+        recipientType: 'customer',
+        recipientId: customer.id,
+        variables: {
+          customerName: customer.name,
+          bookingDate: shopDateOf(startAt, tz),
+          bookingTime: formatShopDateTime(startAt, tz).slice(11, 16),
+          amount: (quote.payableAmount / 100).toFixed(2),
+        },
+        bookingId: created.bookingId,
+      })
+      .catch(() => undefined);
+
+    return {
+      id: created.bookingId,
+      bookingNo: created.bookingNo,
+      startAt: formatShopDateTime(startAt, tz),
+      endAt: formatShopDateTime(
+        new Date(startAt.getTime() + durationMinutes * 60_000),
+        tz,
+      ),
+      status: 'pending' as const,
+      durationMinutes,
+      bufferMinutes,
+      originalPrice: quote.originalPrice,
+      levelDiscountAmount: quote.levelDiscountAmount,
+      pointsDiscountAmount: quote.pointsDiscountAmount,
+      pointsUsed: quote.pointsUsed,
+      payableAmount: quote.payableAmount,
+      depositAmount: 0,
+      paidAmount: created.settlement.paidAmount,
+      dueAmount: created.settlement.dueAmount,
+      payStatus: created.settlement.payStatus,
+      payChannelSummary: created.settlement.channelSummary,
+      items: items.map((item) => ({
+        serviceItemId: item.id,
+        name: item.name,
+        price: item.price,
+        durationMinutes: item.durationMinutes,
+      })),
+    };
+  }
+
+  /* ---------------------------------------------------------------- *
    * 改期 / 改美甲师 / 改项目（§6.3：凡改变 start_at/end_at/staff_id/项目组合都走锁 + 复检）
    * ---------------------------------------------------------------- */
 
@@ -884,6 +1117,35 @@ export class BookingsService implements BookingPort {
       cancelReason: reason,
       cancelledAt: new Date(),
     });
+  }
+
+  /**
+   * 自助取消（A10）：非本人单 → 403；不存在 → 404。
+   *
+   * 与后台 `cancel` 共用 `transition`（状态机 pending/confirmed → cancelled，§7.3），
+   * 只多了「仅本人」闸门。`actorId` 传 null：小程序端没有 sys_user，`updated_by` 记 null。
+   */
+  async cancelForCustomer(id: number, customerId: number, reason: string) {
+    if (!reason?.trim()) throw new BadRequestException('取消必须填写原因');
+    const booking = await this.assertOwnedByCustomer(id, customerId);
+    const result = await this.transition(id, 'cancelled', 'cancel', null, {
+      cancelReason: reason,
+      cancelledAt: new Date(),
+    });
+    if (result.changed) {
+      await this.database.db
+        .transaction((tx) =>
+          this.commissions.reverseForBooking(tx, id, reason, null),
+        )
+        .catch(() => undefined);
+    }
+    return {
+      ...result,
+      warning:
+        booking.paidAmount > 0
+          ? '该预约有实收，请到「退款审批」发起退款（系统不会自动退）'
+          : undefined,
+    };
   }
 
   async cancel(id: number, reason: string, actor: RequestActor) {
@@ -1281,6 +1543,28 @@ export class BookingsService implements BookingPort {
       .limit(1);
     if (!row) throw new NotFoundException('预约不存在');
     if (row.staffId !== staffId)
+      throw new ForbiddenException('只能操作本人的预约');
+    return row;
+  }
+
+  /**
+   * A10 越权闸门（顾客侧）：预约不存在 → 404；不属于该顾客 → 403。
+   *
+   * 与 `assertOwnedByStaff` 同构：customer_id 是唯一归属，app 域任何入参
+   * 都不允许改变这一点（§8.3 隔离）。
+   */
+  private async assertOwnedByCustomer(id: number, customerId: number) {
+    const [row] = await this.database.db
+      .select({
+        id: bizBookings.id,
+        customerId: bizBookings.customerId,
+        paidAmount: bizBookings.paidAmount,
+      })
+      .from(bizBookings)
+      .where(and(eq(bizBookings.id, id), isNull(bizBookings.deletedAt)))
+      .limit(1);
+    if (!row) throw new NotFoundException('预约不存在');
+    if (row.customerId !== customerId)
       throw new ForbiddenException('只能操作本人的预约');
     return row;
   }

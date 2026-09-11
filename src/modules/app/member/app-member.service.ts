@@ -8,14 +8,20 @@ import {
   bizMemberLevels,
 } from '../../../database/schema/index.js';
 import {
+  BookingPort,
   MemberAccountPort,
   MemberCardPort,
   type MemberCardRow,
   NoticePort,
+  type BookingWithItems,
   ReviewPort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
 import type {
+  AppBookingListVo,
+  AppBookingVo,
+  AppCancelBookingVo,
+  AppCreateBookingVo,
   AppMemberCardListVo,
   AppMemberCardVo,
   AppMemberMeVo,
@@ -48,6 +54,7 @@ export class AppMemberService {
     private readonly memberCards: MemberCardPort,
     private readonly reviews: ReviewPort,
     private readonly notices: NoticePort,
+    private readonly bookingPort: BookingPort,
   ) {}
 
   /**
@@ -223,6 +230,121 @@ export class AppMemberService {
     });
     return { accepted: accepted.length > 0, templateIds: accepted };
   }
+
+  /**
+   * 我的预约列表（A10）。
+   *
+   * `customer_id` 只从 token 对应的身份来，客户端传什么都不好使（§8.3 隔离）。
+   * 字段只暴露卡面信息与项目快照：无成本、无备注、无内部字段。
+   */
+  async bookings(
+    appUserId: number,
+    query: {
+      status?: string | undefined;
+      page?: number | undefined;
+      pageSize?: number | undefined;
+    },
+  ): Promise<AppBookingListVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const { page, pageSize } = parsePagination(query.page, query.pageSize);
+    const result = await this.bookingPort.listByCustomer(
+      customerId,
+      page,
+      pageSize,
+      { status: query.status as never },
+    );
+    return {
+      page: result.page,
+      pageSize: result.pageSize,
+      items: result.items.map(mapBooking),
+    };
+  }
+
+  /**
+   * 自助下单（A10）。
+   *
+   * 全部业务逻辑在 `BookingPort.createForCustomer`（复用后台九步，落
+   * `channel=miniapp` + `status=pending`）。这里只负责：
+   * - 归属（customerId 只从 token 来）；
+   * - 把 `pointsToUse` 等入参透传给端口；
+   * - 把结果投影成 C 端 VO（无 adjustAmount / 无渠道明细）。
+   */
+  async createBooking(
+    appUserId: number,
+    input: {
+      staffId: number;
+      startAt: string;
+      serviceItemIds: number[];
+      memberCardId?: number | null | undefined;
+      pointsToUse?: number | undefined;
+      remark?: string | null | undefined;
+    },
+  ): Promise<AppCreateBookingVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const created = await this.bookingPort.createForCustomer(customerId, {
+      staffId: input.staffId,
+      startAt: input.startAt,
+      serviceItemIds: input.serviceItemIds,
+      memberCardId: input.memberCardId ?? null,
+      pointsToUse: input.pointsToUse,
+      remark: input.remark ?? undefined,
+    });
+    return {
+      id: created.id,
+      bookingNo: created.bookingNo,
+      startAt: created.startAt,
+      endAt: created.endAt,
+      status: 'pending',
+      payableAmount: created.payableAmount,
+      paidAmount: created.paidAmount,
+      dueAmount: created.dueAmount,
+      payStatus: created.payStatus,
+      items: created.items,
+    };
+  }
+
+  /**
+   * 自助取消（A10）。
+   *
+   * 归属 + 状态机都在端口里（`cancelForCustomer` 复用后台 `transition`）：
+   * 非本人 403、不存在 404、状态不允许 409。这里只透传 + 投影。
+   */
+  async cancelBooking(
+    appUserId: number,
+    bookingId: number,
+    input: { reason?: string | undefined },
+  ): Promise<AppCancelBookingVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const result = await this.bookingPort.cancelForCustomer(
+      bookingId,
+      customerId,
+      input.reason ?? '',
+    );
+    return { changed: result.changed, warning: result.warning ?? null };
+  }
+}
+
+/** 预约列表 VO 投影：只留 C 端字段 */
+function mapBooking(booking: BookingWithItems): AppBookingVo {
+  return {
+    id: booking.id,
+    bookingNo: booking.bookingNo,
+    staffId: booking.staffId,
+    staffName: null,
+    startAt: booking.startAt.toISOString(),
+    endAt: booking.endAt.toISOString(),
+    status: booking.status,
+    payStatus: booking.payStatus,
+    payableAmount: booking.payableAmount,
+    paidAmount: booking.paidAmount,
+    dueAmount: booking.dueAmount,
+    items: booking.items.map((item) => ({
+      serviceItemId: item.serviceItemId,
+      name: item.name,
+      price: item.price,
+      durationMinutes: item.durationMinutes,
+    })),
+  };
 }
 
 /**
@@ -233,10 +355,7 @@ export class AppMemberService {
  * 这里保证的是「顾客看到的可用性」与「到店真能用」一致。
  */
 function displayCardStatus(
-  card: Pick<
-    MemberCardRow,
-    'status' | 'expireAt' | 'usedTimes' | 'totalTimes'
-  >,
+  card: Pick<MemberCardRow, 'status' | 'expireAt' | 'usedTimes' | 'totalTimes'>,
 ): 'active' | 'used_up' | 'expired' | 'refunded' {
   if (card.status === 'refunded') return 'refunded';
   if (card.status === 'expired') return 'expired';

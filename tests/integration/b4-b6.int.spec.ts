@@ -618,6 +618,7 @@ describe('B6 小程序预留（§16）', () => {
     expect(me.status).toBe(401);
     expect(me.body.needBind).toBe(true);
 
+    // A10 后自助下单已真实现：未绑定手机号 → 401 + needBind（不再 501）
     const skeleton = await ctx.request('POST', '/api/v1/app/bookings', {
       token: appToken,
       body: {
@@ -626,7 +627,8 @@ describe('B6 小程序预留（§16）', () => {
         serviceItemIds: [row.serviceItemId],
       },
     });
-    expect(skeleton.status).toBe(501);
+    expect(skeleton.status).toBe(401);
+    expect(skeleton.body.needBind).toBe(true);
   });
 
   // 这个用例必须「当天还剩足够时间、且已经过了零点一会儿」才有意义：它比的是
@@ -645,42 +647,42 @@ describe('B6 小程序预留（§16）', () => {
   it.skipIf(remainingMs < 150 * 60 * 1000 || elapsedMs < 60 * 60 * 1000)(
     'G7：小程序端 60 分钟提前期 ≠ 后台 0 分钟（同一时刻两种口径）',
     async () => {
-    const row = await seed();
-    const now = Date.now();
-    // 班次**相对当前时间**铺开（不写死 10:00-20:00）：
-    // 写死的话「未来 1 小时内」可能根本不在班次里，断言就变成空转。
-    // 终点必须**截断在当天 24:00 之前**：`end_time` 是 TIME 列，跨夜的班次
-    // （如 19:52 → 00:22）在 slots.service 里会被算成「结束早于开始」，排出 0 个时段。
-    // 正常写入不会造出这种数据（`scheduling.service` 的 `validateWeeklyShifts` 里
-    // `startTime >= endTime` 直接 400），是这里用裸 SQL 绕过了那道校验才踩到。
-    const shiftEndMs = Math.min(
-      now + 4 * 60 * 60 * 1000,
-      startOfTomorrowMs - 60 * 1000,
-    );
-    await ctx.sql(
-      `UPDATE biz_staff_weekly_shift SET weekday = ?, start_time = ?, end_time = ? WHERE staff_id = ?`,
-      [
-        shopWeekday(todayForLead),
-        shopLocalClock(now - 30 * 60 * 1000),
-        shopLocalClock(shiftEndMs),
-        row.staffId,
-      ],
-    );
-    const wx = await ctx.sql<{ insertId: number }>(
-      `INSERT INTO app_wx_user (openid, customer_id) VALUES ('openid-lead', NULL)`,
-    );
-    const appToken = await ctx.appToken('openid-lead', wx.insertId);
-    const query = `staffId=${row.staffId}&date=${todayForLead}&serviceItemIds=${row.serviceItemId}`;
+      const row = await seed();
+      const now = Date.now();
+      // 班次**相对当前时间**铺开（不写死 10:00-20:00）：
+      // 写死的话「未来 1 小时内」可能根本不在班次里，断言就变成空转。
+      // 终点必须**截断在当天 24:00 之前**：`end_time` 是 TIME 列，跨夜的班次
+      // （如 19:52 → 00:22）在 slots.service 里会被算成「结束早于开始」，排出 0 个时段。
+      // 正常写入不会造出这种数据（`scheduling.service` 的 `validateWeeklyShifts` 里
+      // `startTime >= endTime` 直接 400），是这里用裸 SQL 绕过了那道校验才踩到。
+      const shiftEndMs = Math.min(
+        now + 4 * 60 * 60 * 1000,
+        startOfTomorrowMs - 60 * 1000,
+      );
+      await ctx.sql(
+        `UPDATE biz_staff_weekly_shift SET weekday = ?, start_time = ?, end_time = ? WHERE staff_id = ?`,
+        [
+          shopWeekday(todayForLead),
+          shopLocalClock(now - 30 * 60 * 1000),
+          shopLocalClock(shiftEndMs),
+          row.staffId,
+        ],
+      );
+      const wx = await ctx.sql<{ insertId: number }>(
+        `INSERT INTO app_wx_user (openid, customer_id) VALUES ('openid-lead', NULL)`,
+      );
+      const appToken = await ctx.appToken('openid-lead', wx.insertId);
+      const query = `staffId=${row.staffId}&date=${todayForLead}&serviceItemIds=${row.serviceItemId}`;
 
-    const appSlots = await ctx.request(
-      'GET',
-      `/api/v1/app/available-slots?${query}`,
-      { token: appToken },
-    );
-    const backendSlots = await ctx.request(
-      'GET',
-      `/api/v1/biz/bookings/available-slots?${query}`,
-    );
+      const appSlots = await ctx.request(
+        'GET',
+        `/api/v1/app/available-slots?${query}`,
+        { token: appToken },
+      );
+      const backendSlots = await ctx.request(
+        'GET',
+        `/api/v1/biz/bookings/available-slots?${query}`,
+      );
       expect(appSlots.status).toBe(200);
       expect(backendSlots.status).toBe(200);
 

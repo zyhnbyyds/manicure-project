@@ -626,6 +626,35 @@ export type StaffBookingFilter = {
   status?: BookingStatus | undefined;
 };
 
+/** A10 自助下单返回：与 `BookingsService.create` 的字段子集（不含改价/渠道明细） */
+export type BookingCreateResult = {
+  id: number;
+  bookingNo: string;
+  startAt: string;
+  endAt: string;
+  /** 小程序自助端的订单一律待确认（与后台代录的 confirmed 区分） */
+  status: 'pending';
+  durationMinutes: number;
+  bufferMinutes: number;
+  originalPrice: number;
+  levelDiscountAmount: number;
+  pointsDiscountAmount: number;
+  pointsUsed: number;
+  payableAmount: number;
+  depositAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  payStatus: BookingPayStatus;
+  payChannelSummary: string | null;
+  /** 下单时的项目快照（VO 投影用，不含成本/内部字段） */
+  items: {
+    serviceItemId: number;
+    name: string;
+    price: number;
+    durationMinutes: number;
+  }[];
+};
+
 export abstract class BookingPort {
   /**
    * 美甲师本人的预约（S3）。
@@ -644,7 +673,48 @@ export abstract class BookingPort {
     customerId: number,
     page: number,
     pageSize: number,
+    filter?: { status?: BookingStatus | undefined },
   ): Promise<PageResult<BookingWithItems>>;
+  /**
+   * 自助下单（A10）。
+   *
+   * **复用后台创建九步**（§9.5）：前置校验 → 算价 → 锁美甲师行 → 冲突复检 →
+   * 建单 + 明细 → 收款（可选：次卡当场核销 / 积分抵扣）→ 同一事务提交；
+   * app 域**绝不另写一套**算价 / 时段 / 冲突检测（施工单 §0.2 纪律 2）。
+   *
+   * 与后台 `create()` 的三处差异：
+   * 1. 落 `channel='miniapp'` + `status='pending'`（后台是 `admin` + `confirmed`，
+   *    小程序提交进入待确认，与店员代录区分，§9.7）；
+   * 2. **不收款**：小程序端没有在线支付通道（JSAPI 在 P2），订单保持 `unpaid`，
+   *    由确认后收银 / 到店收款；`memberCardId` 传了则整单次卡**当场核销**（payable=0）；
+   * 3. 无 `adjustAmount` / `force` / 挂账：小程序端没有改价权限、
+   *    不允许覆盖冲突（顾客时段冲突直接 409，与后台带 `force` 的软检查区分）。
+   *
+   * `pointsToUse` 映射到后台的 `pointsUsed`（等级折扣 → 积分抵扣 → 应付，§5.7）。
+   */
+  abstract createForCustomer(
+    customerId: number,
+    input: {
+      staffId: number;
+      startAt: string;
+      serviceItemIds: number[];
+      memberCardId?: number | null | undefined;
+      pointsToUse?: number | undefined;
+      remark?: string | undefined;
+    },
+  ): Promise<BookingCreateResult>;
+  /**
+   * 自助取消（A10）：非本人单 → 403；不存在 → 404；
+   * pending / confirmed 均可取消（后台 `cancel` 已覆盖，§7.3）。
+   *
+   * `reason` 必填（与后台同一口径）。取消后若已有实收会提示走退款审批，
+   * **系统不会自动退**（§15.6 人工判责）。
+   */
+  abstract cancelForCustomer(
+    id: number,
+    customerId: number,
+    reason: string,
+  ): Promise<{ changed: boolean; warning?: string | undefined }>;
   /**
    * 到店（S4）：非本人单 → 403；**已经是 arrived → `changed:false`**（幂等）。
    *

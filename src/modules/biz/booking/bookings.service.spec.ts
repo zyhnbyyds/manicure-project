@@ -36,6 +36,7 @@ function createHarness(
 
   const onBookingCompleted = vi.fn().mockResolvedValue(undefined);
   const accrueForBooking = vi.fn().mockResolvedValue({ records: 1, amount: 0 });
+  const reverseForBooking = vi.fn().mockResolvedValue({ reversed: 0 });
   const send = vi.fn().mockResolvedValue({ sent: 0, failed: 0, logIds: [] });
 
   const service = new BookingsService(
@@ -53,7 +54,7 @@ function createHarness(
     {} as never, // settlement
     {} as never, // refunds
     { send } as never, // notices
-    { accrueForBooking } as never, // commissions
+    { accrueForBooking, reverseForBooking } as never, // commissions
   );
   return {
     service,
@@ -63,6 +64,7 @@ function createHarness(
     transaction,
     onBookingCompleted,
     accrueForBooking,
+    reverseForBooking,
   };
 }
 
@@ -261,6 +263,51 @@ describe('BookingsService —— app 域端口（S3 读 / S4 写）', () => {
         await expect(h.service.phoneForStaff(404, 7)).rejects.toThrow(
           NotFoundException,
         );
+      });
+    });
+
+    describe('cancelForCustomer（A10 自助取消）', () => {
+      it('缺 reason → 400，且不发任何 update', async () => {
+        const h = createHarness();
+        await expect(h.service.cancelForCustomer(5, 9, '')).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(h.update).not.toHaveBeenCalled();
+      });
+
+      it('别人的单 → 403，且不发 update', async () => {
+        const h = createHarness({
+          selectResults: [[booking({ customerId: 8 })]],
+        });
+        await expect(
+          h.service.cancelForCustomer(5, 9, '临时有事'),
+        ).rejects.toThrow(ForbiddenException);
+        expect(h.update).not.toHaveBeenCalled();
+      });
+
+      it('预约不存在 → 404', async () => {
+        const h = createHarness({ selectResults: [[]] });
+        await expect(
+          h.service.cancelForCustomer(404, 9, '临时有事'),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('本人的单 → 走既有取消动作（transition），有实收时给退款提示', async () => {
+        const h = createHarness({
+          selectResults: [[booking({ customerId: 9, paidAmount: 5000 })]],
+        });
+        await expect(
+          h.service.cancelForCustomer(5, 9, '临时有事'),
+        ).resolves.toEqual({
+          changed: true,
+          warning: '该预约有实收，请到「退款审批」发起退款（系统不会自动退）',
+        });
+        expect(h.updateSet).toHaveBeenCalledWith({
+          status: 'cancelled',
+          updatedBy: null,
+          cancelReason: '临时有事',
+          cancelledAt: expect.any(Date),
+        });
       });
     });
   });

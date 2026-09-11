@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   NotImplementedException,
   Param,
   ParseIntPipe,
@@ -33,6 +34,9 @@ import {
   appMemberCardsQuerySchema,
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
+  type AppBookingListVo,
+  type AppCancelBookingVo,
+  type AppCreateBookingVo,
   type AppReviewVo,
   type AppSubscribeVo,
 } from '../dto/app-vo.js';
@@ -105,7 +109,10 @@ export class AppMemberController {
   cards(@Req() request: AppRequest, @Query() query: Record<string, unknown>) {
     const appUser = request.appUser;
     if (!appUser) throw new UnauthorizedException();
-    return this.member.cards(appUser.id, appMemberCardsQuerySchema.parse(query));
+    return this.member.cards(
+      appUser.id,
+      appMemberCardsQuerySchema.parse(query),
+    );
   }
 
   /* ------------------------------------------------------------------ *
@@ -113,7 +120,13 @@ export class AppMemberController {
    * ------------------------------------------------------------------ */
 
   @Get('bookings')
-  @ApiOperation({ summary: '我的预约列表（契约骨架，本期返回 501）' })
+  @ApiOperation({
+    summary: '我的预约列表',
+    description:
+      '仅本人预约（`customer_id` 只从 token 对应的绑定身份来，不接受客户端传值）；' +
+      '返回 `{ items, page, pageSize }`，无 `total`。列表只含卡面信息与项目快照，' +
+      '无成本 / 无备注 / 无内部字段。',
+  })
   @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
   @ApiQuery({
     name: 'pageSize',
@@ -126,43 +139,87 @@ export class AppMemberController {
     required: false,
     description: 'pending/confirmed/arrived/completed/cancelled/no_show',
   })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppBookingListVo' },
+  })
   @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  bookings(@Query() query: Record<string, unknown>): never {
-    appBookingListQuerySchema.parse(query);
-    throw new NotImplementedException('我的预约列表将在 P2 小程序端实现');
+  bookings(
+    @Req() request: AppRequest,
+    @Query() query: Record<string, unknown>,
+  ): Promise<AppBookingListVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    const parsed = appBookingListQuerySchema.parse(query);
+    return this.member.bookings(appUser.id, {
+      status: parsed.status,
+      page: parsed.page,
+      pageSize: parsed.pageSize,
+    });
   }
 
   @Post('bookings')
   @ApiOperation({
-    summary: '自助下单（契约骨架，本期返回 501）',
+    summary: '自助下单',
     description:
-      'P2 接通微信支付（JSAPI 预支付单）；本期只冻结入参契约，不落库、不占时段。',
+      '复用后台创建九步（预约 - 锁定 - 冲突复检 - 建单 - 交易），仅两处差异：\n' +
+      '**落 `channel=miniapp` + `status=pending`**（与店员代录的 `confirmed` 区分，待门店确认）；\n' +
+      '**不收款**（JSAPI 支付在 P2），如传 `memberCardId` 则整单次卡当场核销（payable=0，选 1 个项目）。\n' +
+      '无改价 / 无强制覆盖；顾客时段与已有预约重叠 → 409。',
   })
   @ApiBody({ schema: { $ref: '#/components/schemas/AppCreateBookingRequest' } })
+  @ApiResponse({
+    status: 201,
+    description: '已受理（待确认）',
+    schema: { $ref: '#/components/schemas/AppCreateBookingVo' },
+  })
+  @ApiResponse({ status: 400, description: '入参非法 / 不在班次 / 未达提前期' })
   @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  createBooking(@Body() body: unknown): never {
-    appCreateBookingRequestSchema.parse(body);
-    throw new NotImplementedException('自助下单将在 P2 小程序端实现');
+  @ApiResponse({ status: 409, description: '与本人已有预约重叠' })
+  createBooking(
+    @Req() request: AppRequest,
+    @Body() body: unknown,
+  ): Promise<AppCreateBookingVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.createBooking(
+      appUser.id,
+      appCreateBookingRequestSchema.parse(body),
+    );
   }
 
   @Post('bookings/:id/cancel')
   @ApiOperation({
-    summary: '自助取消预约（契约骨架，本期返回 501）',
-    description: '是否可退按 §15.6 的人工判责规则，本期只留契约。',
+    summary: '自助取消预约',
+    description:
+      '仅本人可取消（他人单 403）；pending / confirmed 均可；' +
+      '`reason` 必填。已有实收时不自动退款，响应带 `warning` 提示走退款审批（§15.6 人工判责）。',
   })
   @ApiParam({ name: 'id', description: '预约 ID', example: 1 })
   @ApiBody({ schema: { $ref: '#/components/schemas/AppCancelBookingRequest' } })
+  @HttpCode(200)
+  @ApiResponse({
+    status: 200,
+    description: '取消结果',
+    schema: { $ref: '#/components/schemas/AppCancelBookingVo' },
+  })
+  @ApiResponse({ status: 400, description: '取消原因未填' })
   @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
-  @ApiResponse({ status: 501, description: '本期未实现' })
+  @ApiResponse({ status: 403, description: '不是本人的预约' })
+  @ApiResponse({ status: 404, description: '预约不存在' })
+  @ApiResponse({ status: 409, description: '当前状态不允许取消' })
   cancelBooking(
+    @Req() request: AppRequest,
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown,
-  ): never {
-    appCancelBookingRequestSchema.parse(body);
-    throw new NotImplementedException(
-      `自助取消预约（id=${id}）将在 P2 小程序端实现`,
+  ): Promise<AppCancelBookingVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.cancelBooking(
+      appUser.id,
+      id,
+      appCancelBookingRequestSchema.parse(body),
     );
   }
 
