@@ -1231,6 +1231,8 @@ export const appWxUsers = mysqlTable(
     staffDecidedAt: datetime('staff_decided_at'),
     /** 决策人（`sys_user.id`），用于事后追溯 */
     staffDecidedBy: int('staff_decided_by', { unsigned: true }),
+    /** 驳回原因：店长必须填写，小程序端能看到「为什么没通过」 */
+    staffRejectReason: varchar('staff_reject_reason', { length: 200 }),
     nickname: varchar('nickname', { length: 50 }),
     avatar: varchar('avatar', { length: 500 }),
     phone: varchar('phone', { length: 20 }),

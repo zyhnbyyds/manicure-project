@@ -5,7 +5,7 @@
  * 开通只能由店长在后台确认，app 域任何入参都不允许把 `staff_status` 顶成 `active`。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, itemsOf, type TestContext } from './harness.js';
 
 let ctx: TestContext;
 
@@ -411,5 +411,156 @@ describe('B6 美甲师工作台开通：只给候选，不给权限', () => {
       expect(res.status).toBe(201);
       expect(res.body.staffCandidate).toBeNull();
     }
+  });
+});
+
+describe('B6 店长确认工作台开通（§12.5 S2）', () => {
+  /** 造一条 pending 申请：美甲师档案 + 小程序身份 + 绑手机号 + apply */
+  async function seedPending(openid: string, phone: string, nickname: string) {
+    const staff = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES (?, ?, 'active', 1)`,
+      [nickname, phone],
+    );
+    const { appUserId, token } = await seedAppUser(openid);
+    await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: phone },
+    });
+    const applied = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(applied.status).toBe(201);
+    return { staffId: staff.insertId, appUserId, token };
+  }
+
+  it('未申请过的顾客不出现在店长待办里；pending 申请能筛出来', async () => {
+    await seedPending('openid-grant-pending', '13800000021', '待确认小柚');
+    const { appUserId } = await seedAppUser('openid-grant-none');
+
+    const list = await ctx.request(
+      'GET',
+      '/api/v1/biz/app-staff-grants?status=pending',
+    );
+    expect(list.status).toBe(200);
+    const ids = itemsOf(list.body).map((row: any) => row.id);
+    expect(ids).not.toContain(appUserId); // 从没申请过的顾客不该进店长待办
+    expect(ids).toHaveLength(1);
+    expect(itemsOf(list.body)[0]).toMatchObject({
+      staffStatus: 'pending',
+      staffName: '待确认小柚',
+      staffArchivedStatus: 'active',
+    });
+  });
+
+  it('通过 → active + 决策人落库；重复通过幂等', async () => {
+    const { appUserId } = await seedPending(
+      'openid-grant-approve',
+      '13800000022',
+      '通过小柚',
+    );
+    const first = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+    );
+    expect(first.status).toBe(201);
+    expect(first.body).toMatchObject({ staffStatus: 'active' });
+
+    const row = await ctx.sql<
+      { staff_status: string; staff_decided_by: number | null }[]
+    >(
+      `SELECT staff_status, staff_decided_by FROM app_wx_user WHERE id = ${appUserId}`,
+    );
+    expect(row[0].staff_status).toBe('active');
+    expect(Number(row[0].staff_decided_by)).toBeGreaterThan(0);
+
+    const again = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+    );
+    expect(again.status).toBe(201);
+    expect(again.body.staffStatus).toBe('active');
+  });
+
+  it('档案停用后批准 → 409（批了也进不去工作台）', async () => {
+    const { staffId, appUserId } = await seedPending(
+      'openid-grant-disabled',
+      '13800000023',
+      '停用小柚',
+    );
+    await ctx.sql(`UPDATE biz_staff SET status = 'disabled' WHERE id = ?`, [
+      staffId,
+    ]);
+    const res = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+    );
+    expect(res.status).toBe(409);
+    const row = await ctx.sql<{ staff_status: string }[]>(
+      `SELECT staff_status FROM app_wx_user WHERE id = ${appUserId}`,
+    );
+    expect(row[0].staff_status).toBe('pending');
+  });
+
+  it('驳回必须填原因；驳回后可重新申请回 pending', async () => {
+    const { appUserId, token } = await seedPending(
+      'openid-grant-reject',
+      '13800000024',
+      '驳回小柚',
+    );
+    const noReason = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/reject`,
+      { body: { reason: '' } },
+    );
+    expect(noReason.status).toBe(400);
+
+    const rejected = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/reject`,
+      { body: { reason: '手机号与档案不符' } },
+    );
+    expect(rejected.status).toBe(201);
+    const row = await ctx.sql<
+      { staff_status: string; staff_reject_reason: string | null }[]
+    >(
+      `SELECT staff_status, staff_reject_reason FROM app_wx_user WHERE id = ${appUserId}`,
+    );
+    expect(row[0].staff_status).toBe('rejected');
+    expect(row[0].staff_reject_reason).toBe('手机号与档案不符');
+
+    // 已驳回不能再被批准（必须走申请端重申，避免店长绕过重申直接开通）
+    const approve = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+    );
+    expect(approve.status).toBe(409);
+
+    const reapply = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(reapply.status).toBe(201);
+    expect(reapply.body.staffStatus).toBe('pending');
+  });
+
+  it('没有 biz:staff:grant 权限 → 拒绝访问', async () => {
+    const { appUserId } = await seedPending(
+      'openid-grant-noperm',
+      '13800000025',
+      '无权限小柚',
+    );
+    const weak = await ctx.token({ permissions: ['biz:staff:list'] });
+    const list = await ctx.request('GET', '/api/v1/biz/app-staff-grants', {
+      token: weak,
+    });
+    // 本仓库的口径：权限不足抛 UnauthorizedException（401），不是 403
+    expect(list.status).toBe(401);
+    const approve = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+      { token: weak },
+    );
+    expect(approve.status).toBe(401);
   });
 });

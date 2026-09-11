@@ -1,0 +1,1 @@
+ALTER TABLE `app_wx_user` ADD `staff_reject_reason` varchar(200);

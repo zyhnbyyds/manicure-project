@@ -32,7 +32,7 @@ type BizPermissionSeed = {
   actions: string[];
 };
 
-/** 一个业务页面：目录下 24 个 `C` 页面中的一条 */
+/** 一个业务页面：目录下 25 个 `C` 页面中的一条（含 §12.5 追加的「工作台授权」） */
 type BizPageSeed = {
   /** 菜单唯一 name（子菜单与按钮的 parentKey 都指向它） */
   name: string;
@@ -50,7 +50,7 @@ type BizPageSeed = {
 };
 
 /**
- * 「美甲预约」下的 24 个页面，顺序即菜单 sort。
+ * 「美甲预约」下的 25 个页面，顺序即菜单 sort。
  * path / component **必须**与 spec §10.1 表格逐字一致。
  */
 const BIZ_PAGES: BizPageSeed[] = [
@@ -79,6 +79,18 @@ const BIZ_PAGES: BizPageSeed[] = [
         actions: ['create', 'update', 'delete', 'items'],
       },
     ],
+  },
+  {
+    // 施工单 §12.5：美甲师工作台开通申请由店长在后台确认（H19 决策：放后台，复用 RBAC）
+    name: 'biz_app_staff_grants',
+    title: '工作台授权',
+    path: '/biz/app-staff-grants',
+    component: 'biz/app-staff-grants/index',
+    icon: 'user',
+    // 一个权限点管整个页面（列表 + 通过 + 驳回）：这三件事只能同一个人做，
+    // 拆成三个点只会让授权更容易配漏。
+    permission: 'biz:staff:grant',
+    permissions: [],
   },
   {
     name: 'biz_schedules',
@@ -594,7 +606,7 @@ const MENU_SEEDS: MenuSeed[] = [
     icon: 'bot',
     sort: 7,
   },
-  // ===== 美甲预约（目录 + 24 个页面 + 按钮权限）=====
+  // ===== 美甲预约（目录 + 25 个页面 + 按钮权限）=====
   ...buildBizMenus(),
 ];
 

@@ -13,6 +13,8 @@ import { AppCatalogService } from './catalog/app-catalog.service.js';
 import { AppMemberController } from './member/app-member.controller.js';
 import { AppMemberService } from './member/app-member.service.js';
 import { AppPaymentsController } from './payments/app-payments.controller.js';
+import { AppStaffGrantsController } from './staff/app-staff-grants.controller.js';
+import { AppStaffGrantsService } from './staff/app-staff-grants.service.js';
 import { AppStaffController } from './staff/app-staff.controller.js';
 import { AppStaffService } from './staff/app-staff.service.js';
 import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
@@ -35,12 +37,14 @@ import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
     AppMemberController,
     AppPaymentsController,
     AppStaffController,
+    AppStaffGrantsController,
   ],
   providers: [
     AppAuthService,
     AppCatalogService,
     AppMemberService,
     AppStaffService,
+    AppStaffGrantsService,
     AppStaffScopeGuard,
     AppAccessTokenGuard,
     /**
