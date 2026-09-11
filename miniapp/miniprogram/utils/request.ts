@@ -13,7 +13,13 @@
 import { API_BASE, REQUEST_TIMEOUT } from '../config';
 import { clearAuth, getToken } from './token';
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+/**
+ * `wx.request` 支持的 method —— **注意没有 PATCH**：
+ * 微信只提供 OPTIONS / GET / HEAD / POST / PUT / DELETE / TRACE / CONNECT。
+ * app 域接口目前不含 PATCH，若将来需要，只能由后端补一个 POST 动作端点，
+ * 不要在客户端硬塞 PATCH（类型层就会拦下来）。
+ */
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 export interface RequestOptions {
   /** 形如 `/app/service-items` */
