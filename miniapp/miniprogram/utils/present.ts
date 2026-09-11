@@ -275,6 +275,11 @@ export interface BookingVM {
   bookingNo: string;
   staffName: string;
   staffEmoji: string;
+  /** 原始状态与资金状态：筛选/按钮显隐要用，不能只留展示文案 */
+  status: Booking['status'];
+  payStatus: Booking['payStatus'];
+  /** 原始开始时刻：列表排序要用 */
+  startAt: string;
   dateText: string;
   timeText: string;
   statusText: string;
@@ -309,6 +314,9 @@ export function toBookingVM(booking: Booking): BookingVM {
     bookingNo: booking.bookingNo,
     staffName: booking.staffName ?? '到店安排',
     staffEmoji: staffEmoji(booking.staffId),
+    status: booking.status,
+    payStatus: booking.payStatus,
+    startAt: booking.startAt,
     dateText: formatDateTimeLabel(booking.startAt).replace(/\s\d{2}:\d{2}$/, ''),
     timeText: formatTimeRange(booking.startAt, booking.endAt),
     statusText: formatBookingStatus(booking.status),

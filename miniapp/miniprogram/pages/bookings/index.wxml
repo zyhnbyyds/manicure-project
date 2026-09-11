@@ -1,75 +1,94 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <!-- 状态筛选 -->
+  <!-- 搜索（batch1 第 1 屏：单号 / 项目 / 美甲师都能搜） -->
+  <view class="search">
+    <view class="search__box">
+      <image class="search__icon" src="{{icons.search}}" mode="aspectFit" />
+      <input
+        class="search__input"
+        value="{{keyword}}"
+        placeholder="搜索单号 / 项目 / 美甲师"
+        placeholder-class="search__placeholder"
+        bindinput="onSearchInput"
+      />
+      <view wx:if="{{keyword}}" class="search__clear" bindtap="onSearchClear">×</view>
+    </view>
+  </view>
+
+  <!-- 状态筛选 + 排序 -->
   <view class="filters">
-    <view
-      wx:for="{{filters}}"
-      wx:key="key"
-      class="filters__item {{activeFilter === item.key ? 'is-active' : ''}}"
-      data-key="{{item.key}}"
-      bindtap="onFilter"
-    >
-      {{item.label}}
+    <scroll-view class="filters__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view class="filters__row">
+        <view
+          wx:for="{{filters}}"
+          wx:key="key"
+          class="chip {{activeFilter === item.key ? 'is-active' : ''}}"
+          data-key="{{item.key}}"
+          bindtap="onFilter"
+        >
+          {{item.label}}
+        </view>
+      </view>
+    </scroll-view>
+    <view class="filters__sort" bindtap="onFilterSort">
+      <image class="filters__sort-icon" src="{{icons.funnel}}" mode="aspectFit" />
     </view>
   </view>
 
   <view class="page-body">
     <view wx:if="{{loading}}" class="loading">正在翻你的预约…</view>
 
+    <!-- 网络失败态（batch3 第 3 屏） -->
     <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
+      <view class="empty__badge">
+        <image class="empty__badge-icon" src="{{icons.calendar}}" mode="aspectFit" />
+      </view>
       <view class="empty__text">{{errorText}}</view>
+      <view class="empty__hint">请检查网络后重试</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="load">重新加载</view>
     </view>
 
+    <!-- 空态（batch3 第 1 屏：暂无预约 + 去挑款式） -->
     <view wx:elif="{{bookings.length === 0}}" class="empty">
-      <view class="empty__emoji">📅</view>
-      <view class="empty__text">这里还空空的</view>
-      <view class="empty__hint">约一次美甲，给自己一点小奖励～</view>
+      <view class="empty__badge">
+        <image class="empty__badge-icon" src="{{icons.calendar}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">暂无预约</view>
+      <view class="empty__hint">还没有预约记录，去挑一款喜欢的款式吧</view>
       <view class="btn btn--primary empty__action" bindtap="goServices">去挑款式</view>
     </view>
 
-    <block wx:else>
-      <view wx:for="{{bookings}}" wx:key="id" class="booking card">
-        <view class="booking__head">
-          <view class="booking__status booking__status--{{item.tone}}">
-            <view class="dot"></view>
-            {{item.statusText}}
+    <!-- 双列订单卡片（batch1 第 1 屏） -->
+    <view wx:else class="grid">
+      <view wx:for="{{bookings}}" wx:key="id" class="card bcard">
+        <view class="bcard__status pill--{{item.tone}}">{{item.statusText}}</view>
+        <view class="bcard__no">预约单号</view>
+        <view class="bcard__no-value ellipsis">{{item.bookingNo}}</view>
+        <view class="bcard__when">{{item.dateText}} {{item.timeText}}</view>
+        <view class="bcard__staff ellipsis">{{item.staffEmoji}} {{item.staffName}}</view>
+        <view class="bcard__items ellipsis-2">{{item.itemNames}}</view>
+        <view class="bcard__foot">
+          <view class="bcard__amount">¥{{item.payableText}}</view>
+          <view class="bcard__pay">{{item.payStatusText}}</view>
+        </view>
+        <view class="bcard__actions">
+          <view
+            wx:if="{{item.payStatus === 'unpaid' || item.payStatus === 'partial'}}"
+            class="mini-btn"
+            data-id="{{item.id}}"
+            bindtap="onPay"
+          >
+            去支付
           </view>
-          <view class="text-weak">{{item.bookingNo}}</view>
-        </view>
-
-        <view class="booking__when">
-          <view class="booking__date">{{item.dateText}}</view>
-          <view class="booking__time">{{item.timeText}}</view>
-        </view>
-
-        <view class="booking__meta">
-          <view class="booking__staff">{{item.staffEmoji}} {{item.staffName}}</view>
-          <view class="text-weak">{{item.durationText}}</view>
-        </view>
-
-        <view class="booking__items ellipsis-2">{{item.itemNames}}</view>
-
-        <view class="divider"></view>
-
-        <view class="row-between">
-          <view class="text-sub">
-            {{item.payStatusText}}
-            <text wx:if="{{item.dueText !== '0.00'}}" class="booking__due">· 待付 ¥{{item.dueText}}</text>
-          </view>
-          <view class="booking__amount">¥{{item.payableText}}</view>
-        </view>
-
-        <view wx:if="{{item.cancellable || item.reviewable}}" class="booking__actions">
           <view
             wx:if="{{item.reviewable}}"
-            class="btn btn--soft btn--sm"
+            class="mini-btn"
             bindtap="onReview"
           >
             去评价
           </view>
           <view
             wx:if="{{item.cancellable}}"
-            class="btn btn--ghost btn--sm"
+            class="mini-btn mini-btn--ghost"
             data-id="{{item.id}}"
             bindtap="onCancel"
           >
@@ -77,6 +96,6 @@
           </view>
         </view>
       </view>
-    </block>
+    </view>
   </view>
 </view>
