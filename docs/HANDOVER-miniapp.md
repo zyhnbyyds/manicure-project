@@ -37,14 +37,14 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 
 ### 主要文件
 
-| 分类 | 路径 |
-| ---- | ---- |
-| 小程序工程 | `miniapp/miniprogram/**`（10 页面 + 主题 + api/utils/store + `custom-tab-bar`） |
-| 小程序配置 | `miniapp/project.config.json`（appid）、`miniapp/.gitignore`、`miniapp/tsconfig.json` |
-| 后端身份域 | `src/modules/app/auth/*`、`src/modules/app/dto/app-vo.ts` |
-| 后端端口 | `src/modules/biz/common/ports.ts`、`src/modules/biz/base-data/staffs/staffs.service.ts` |
-| 迁移 | `src/database/migrations/20260911055121_clear_warhawk/` |
-| 集成用例 | `tests/integration/b6-app-identity.int.spec.ts`、`tests/integration/harness.ts` |
+| 分类        | 路径                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 小程序工程  | `miniapp/miniprogram/**`（10 页面 + 主题 + api/utils/store + `custom-tab-bar`）                                           |
+| 小程序配置  | `miniapp/project.config.json`（appid）、`miniapp/.gitignore`、`miniapp/tsconfig.json`                                     |
+| 后端身份域  | `src/modules/app/auth/*`、`src/modules/app/dto/app-vo.ts`                                                                 |
+| 后端端口    | `src/modules/biz/common/ports.ts`、`src/modules/biz/base-data/staffs/staffs.service.ts`                                   |
+| 迁移        | `src/database/migrations/20260911055121_clear_warhawk/`                                                                   |
+| 集成用例    | `tests/integration/b6-app-identity.int.spec.ts`、`tests/integration/harness.ts`                                           |
 | 设计/施工单 | `docs/superpowers/specs/...nail-salon-booking-design.md`、`docs/superpowers/plans/2026-09-11-miniapp-development-plan.md` |
 
 ---
@@ -62,6 +62,7 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
   演示数据双通道、`utils/present.ts` 展示层映射、草稿失效联动。
 
 **验证到什么程度**：
+
 - ✅ `tsc --noEmit` 通过；开发者工具编译无 console error。
 - ✅ 模拟器截图验证了 **3 页**：首页、主题设置、项目列表（见「截图产物」一节）。
 - ❌ **其余 7 页没有逐页截图**，只保证编译通过与静态结构正确。
@@ -78,6 +79,7 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 - **端口补口**：`StaffPort.findByPhone`。
 
 **验证到什么程度**：
+
 - ✅ 新增 10 条集成用例全绿，覆盖：登录换 token、重复/并发登录只 1 行、未绑定 401+needBind、
   新建顾客、复用已有顾客、软删 → 409 且不恢复不绑定、未登录 401、
   美甲师候选只回不给权、**防提权（请求体塞 staffStatus 被丢弃）**、停用/删除不算候选。
@@ -91,34 +93,34 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 
 ### P0 —— 建议立刻做，否则后面的活会踩空
 
-| # | 任务 | 为什么是 P0 | 依赖 |
-| - | ---- | ----------- | ---- |
-| 1 | ✅ **恢复软删顾客**（`CustomerPort.restore` + 服务实现 + 后台顾客页入口） | 已完成：`GET /biz/customers?status=deleted` 找回，`POST /biz/customers/:id/restore` 幂等恢复；恢复后小程序可重新绑定。见提交 `50120dd` | 无 |
-| 2 | ✅ **`/app/staff/apply` + staff 作用域校验** | 已完成：手机号匹配在职档案后置 `pending`；重复 / rejected 重申幂等；请求体不可提权；`AppStaffScopeGuard` 每请求查 `app_wx_user + biz_staff`，要求授权 active、档案 active 且未软删。见提交 `2a975d4` | 无（表已就绪） |
-| 3 | ✅ **新增 `BookingPort`** | 已完成：`BookingPort`（`listByStaff` / `listByCustomer` / `arriveForStaff` / `completeForStaff`）由 `BizModule` 用 `useExisting` 绑到 `BookingsService`，`BookingsService implements BookingPort` 让契约在编译期就受检；S4 复用既有完成动作（`runComplete`），带本人闸门 + `start_at` 时间护栏 + 幂等。12 条单测（含变异验证）。见提交 `fe75c18` | 无 |
-| 4 | **`wxpay_jsapi` 加进 `biz_payment.channel` 枚举** | spec §16.4 声称「已预留」，实际全库 0 命中。不迁移则接 JSAPI 支付时预支付单**落不了库** | `bun run db:generate` |
+| #   | 任务                                                                      | 为什么是 P0                                                                                                                                                                                                                                                                                                                                      | 依赖                  |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
+| 1   | ✅ **恢复软删顾客**（`CustomerPort.restore` + 服务实现 + 后台顾客页入口） | 已完成：`GET /biz/customers?status=deleted` 找回，`POST /biz/customers/:id/restore` 幂等恢复；恢复后小程序可重新绑定。见提交 `50120dd`                                                                                                                                                                                                           | 无                    |
+| 2   | ✅ **`/app/staff/apply` + staff 作用域校验**                              | 已完成：手机号匹配在职档案后置 `pending`；重复 / rejected 重申幂等；请求体不可提权；`AppStaffScopeGuard` 每请求查 `app_wx_user + biz_staff`，要求授权 active、档案 active 且未软删。见提交 `2a975d4`                                                                                                                                             | 无（表已就绪）        |
+| 3   | ✅ **新增 `BookingPort`**                                                 | 已完成：`BookingPort`（`listByStaff` / `listByCustomer` / `arriveForStaff` / `completeForStaff`）由 `BizModule` 用 `useExisting` 绑到 `BookingsService`，`BookingsService implements BookingPort` 让契约在编译期就受检；S4 复用既有完成动作（`runComplete`），带本人闸门 + `start_at` 时间护栏 + 幂等。12 条单测（含变异验证）。见提交 `fe75c18` | 无                    |
+| 4   | ✅ **`wxpay_jsapi` 加进 `biz_payment.channel` 枚举**                      | 已完成：列上已加（`20260911080757`）；但**故意不进** `PaymentChannel` 类型——没有 provider 却被当线上渠道会被 `isOnlineChannel` 判成线下、直接置成功（钱没到账却已核销），所以 `toPaymentChannel` 显式 400 拦住。见提交 `fdc5c3b`                                                                                                                 | `bun run db:generate` |
 
 ### P1 —— 美甲师工作台主线（施工单 §12.6 的 S2~S5）
 
-| # | 模块 | 内容 | 门禁 |
-| - | ---- | ---- | ---- |
-| 5 | **S2 店长确认** | `GET /biz/app-staff-grants?status=pending`、`POST .../:id/approve`、`/:id/reject`；权限点 `biz:staff:grant` 写进 `src/database/seed/menus.ts`；**后台页面**（H19 已定：放后台） | 🤖 |
-| 6 | **S3 只读 5 接口** | `/app/staff/me`、`/bookings`、`/schedule`、`/performance`（**提成逐单明细全见**，D9 已定）、`/reviews`；全部 `staff_id` 限定；字段集合用 Zod 断言 | 🤖 |
-| 7 | **S4 写 2 接口** | `/app/staff/bookings/:id/arrived`、`/complete`。**硬约束：必须调既有 `BookingService` 动作方法，禁止自己 UPDATE `biz_booking.status`**（否则漏提成计提、`visit_count` 累加、幂等闸门）。「完成」需加护栏：**不得早于 `start_at`** | 🤖 触钱，**动手前先加载 `money-invariants`** |
-| 8 | **S5 小程序端** | 顾客/工作台模式切换；工作台（今日日程+业绩卡）、我的预约、业绩明细、我的评价页；手机号**脱敏 + `wx.makePhoneCall` 拨号**（D11 已定） | 🤖 |
+| #   | 模块                  | 内容                                                                                                                                                                                                                                                                                                                                                                                                             | 门禁                                         |
+| --- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 5   | ✅ **S2 店长确认**    | 已完成：`GET /biz/app-staff-grants?status=pending`、`POST .../:id/approve`、`/:id/reject`；权限点 `biz:staff:grant` 已进 `menus.ts`（25 页）；后台页面 `web/src/views/biz/app-staff-grants`。状态机：已 active 幂等、已驳回 409（须重申）、档案停用/删除 409；驳回原因落新增列 `staff_reject_reason`。12 条单测 + 5 条集成。见提交 `eff60a2`、`8c1aad9`                                                          | 🤖                                           |
+| 6   | ✅ **S3 只读 5 接口** | 已完成：`/app/staff/me`、`/bookings`、`/schedule`、`/performance`（**提成逐单明细全见**，D9）、`/reviews`，全部 `staff_id` 硬限定（方法第一参数就是 staffId，不做「传进来再校验」）；顾客/本人手机号一律 `maskPhone`（D11）；字段集合由 `app-staff-workbench.vo.ts` 的 Zod 断言（无成本、无内部字段）。新增 `ReviewPort` + `CommissionPort.listByStaff/summarizeByStaff`。15 条单测（含 2 次变异验证）+ 7 条集成 | 🤖                                           |
+| 7   | ✅ **S4 写 2 接口**   | 已完成：`POST /app/staff/bookings/:id/arrived`、`/complete`，走 `BookingPort` → 既有 `runComplete`（提成计提 + `visit_count` + `affectedRows` 幂等闸门），app 域**没有**自己 UPDATE 状态；早于 `start_at` → 400（§12.4-3）；已到目标状态 → `changed:false`（幂等，不报 409）。触钱口径已按 `money-invariants` §4 写集成：重复完成 `biz_commission_record` 仍为 1 条。5 条集成（含越权 403、404、时间护栏）       | 🤖 触钱，**动手前先加载 `money-invariants`** |
+| 8   | **S5 小程序端**       | 顾客/工作台模式切换；工作台（今日日程+业绩卡）、我的预约、业绩明细、我的评价页；手机号**脱敏 + `wx.makePhoneCall` 拨号**（D11 已定）                                                                                                                                                                                                                                                                             | 🤖                                           |
 
 ### P2 —— 原 B6 收口剩余（可与 P1 并行）
 
-| # | 任务 | 说明 |
-| - | ---- | ---- |
-| 9 | **G2**：补「未配置凭据 → 503」用例 | 需要能在测试里切回 `HttpWxMiniappProvider`（或单测直接构造 Http 实现 + 空配置） |
-| 10 | **G4**：9 个 501 骨架端点用例 + 不落库断言 | 现在只测了 `POST /app/bookings` 一个 |
-| 11 | **G5**：修 spec 骨架条数口径 | spec §12 说 5 个、§16.1 列 8 个、代码实际 9 个 |
-| 12 | **G6/G7**：收紧 `available-slots` 一致性断言 | 现在只在两边都非空时才比对；且没断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟 |
-| 13 | **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 现在只测了未绑定 401 |
-| 14 | **G9**：限流 429 + Swagger app 分组断言 | `@RouteConfig({rateLimit})` + `@fastify/rate-limit` 的组合**从没验证过是否真生效** |
-| 15 | **A9/A11/A12/A13/A14** | `member/cards`、`reviews`、`subscribe`、支付回调业务层（假验签器）、`app_wx_user_bind_log` |
-| 16 | **A19**：`scripts/devtools.mjs` 自证脚本 | 封装「绝对路径调 wechatide + 首次授权轮询 + 编译→跳页→截图→拉 console」。**注意截图返回 `.png` 但内容是 JPEG** |
+| #   | 任务                                               | 说明                                                                                                           |
+| --- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 9   | **G2**：补「未配置凭据 → 503」用例                 | 需要能在测试里切回 `HttpWxMiniappProvider`（或单测直接构造 Http 实现 + 空配置）                                |
+| 10  | **G4**：9 个 501 骨架端点用例 + 不落库断言         | 现在只测了 `POST /app/bookings` 一个                                                                           |
+| 11  | **G5**：修 spec 骨架条数口径                       | spec §12 说 5 个、§16.1 列 8 个、代码实际 9 个                                                                 |
+| 12  | **G6/G7**：收紧 `available-slots` 一致性断言       | 现在只在两边都非空时才比对；且没断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟                                       |
+| 13  | **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 现在只测了未绑定 401                                                                                           |
+| 14  | **G9**：限流 429 + Swagger app 分组断言            | `@RouteConfig({rateLimit})` + `@fastify/rate-limit` 的组合**从没验证过是否真生效**                             |
+| 15  | **A9/A11/A12/A13/A14**                             | `member/cards`、`reviews`、`subscribe`、支付回调业务层（假验签器）、`app_wx_user_bind_log`                     |
+| 16  | **A19**：`scripts/devtools.mjs` 自证脚本           | 封装「绝对路径调 wechatide + 首次授权轮询 + 编译→跳页→截图→拉 console」。**注意截图返回 `.png` 但内容是 JPEG** |
 
 ---
 
@@ -145,20 +147,20 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 
 ## 5. 人工门禁现状
 
-| ID | 事项 | 状态 |
-| -- | ---- | ---- |
-| H1 | 技术选型 | ✅ 已定：原生小程序 + TypeScript（脚手架已建） |
-| H15 | 集成测试库可连 | ✅ **已解除**（895 tests 全绿，真库跑通迁移） |
-| H19 | 店长确认入口放哪 | ✅ 已定：**后台页面**（`biz:staff:grant`） |
-| H3 | 小程序 AppID / AppSecret | ⚠️ AppID 已知 `wx9f814556a48f60ae`（**接口测试号**，不能上线）；**AppSecret 仍缺** |
-| H4 | 代码上传密钥 + IP 白名单 | ❌ 未提供 |
-| H11 | UI 设计稿 / 位图素材 | ❌ 未提供（已用「分类 emoji + 主题渐变底」占位，不阻塞开发） |
-| H12 | 真机与视觉验收 | ⚠️ 降级运行：我能截图自证；但 `compile` / `automation` 两个 client 的授权**仍是 pending**，元素级自动化做不了 |
-| H5/H6/H7/H18 | 主体认证 / 小程序备案 / 域名备案+HTTPS / 正式 appId | ❌ 全部未启动 —— **这四项决定上线日**，不阻塞开发 |
-| H8 | 微信后台服务器域名配置 | ❌ 未配置 |
-| H9 | 微信支付商户号 + APIv3 证书 | ❌ 未提供 |
-| H10 | 订阅消息模板 | ❌ 未申请 |
-| H13/H14/H16/H17 | 真人支付验证 / 内测 / 提审发布 / 隐私协议 | ❌ 未开始 |
+| ID              | 事项                                                | 状态                                                                                                          |
+| --------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| H1              | 技术选型                                            | ✅ 已定：原生小程序 + TypeScript（脚手架已建）                                                                |
+| H15             | 集成测试库可连                                      | ✅ **已解除**（895 tests 全绿，真库跑通迁移）                                                                 |
+| H19             | 店长确认入口放哪                                    | ✅ 已定：**后台页面**（`biz:staff:grant`）                                                                    |
+| H3              | 小程序 AppID / AppSecret                            | ⚠️ AppID 已知 `wx9f814556a48f60ae`（**接口测试号**，不能上线）；**AppSecret 仍缺**                            |
+| H4              | 代码上传密钥 + IP 白名单                            | ❌ 未提供                                                                                                     |
+| H11             | UI 设计稿 / 位图素材                                | ❌ 未提供（已用「分类 emoji + 主题渐变底」占位，不阻塞开发）                                                  |
+| H12             | 真机与视觉验收                                      | ⚠️ 降级运行：我能截图自证；但 `compile` / `automation` 两个 client 的授权**仍是 pending**，元素级自动化做不了 |
+| H5/H6/H7/H18    | 主体认证 / 小程序备案 / 域名备案+HTTPS / 正式 appId | ❌ 全部未启动 —— **这四项决定上线日**，不阻塞开发                                                             |
+| H8              | 微信后台服务器域名配置                              | ❌ 未配置                                                                                                     |
+| H9              | 微信支付商户号 + APIv3 证书                         | ❌ 未提供                                                                                                     |
+| H10             | 订阅消息模板                                        | ❌ 未申请                                                                                                     |
+| H13/H14/H16/H17 | 真人支付验证 / 内测 / 提审发布 / 隐私协议           | ❌ 未开始                                                                                                     |
 
 ---
 
@@ -195,8 +197,10 @@ bun run typecheck && bun run lint && bun run test   # 基线应是 895 pass / 0 
 然后二选一：
 
 - **P0-1 已完成**：从「档案状态 → 已删除」筛出顾客，点「恢复档案」并确认；恢复后重新绑定手机号即可走通。
-- **P0-1 / P0-2 已完成**：下一步优先 P0-3 `BookingPort`，然后进入 S2 店长确认 / S3 只读工作台接口。
+- **P0-1 ~ P0-4、S2 / S3 / S4 后端已完成**：接口与测试齐了，**剩下的是 S5 小程序端**（顾客/工作台模式切换、工作台页、我的预约、业绩明细、我的评价、脱敏拨号）。
 
 - **推美甲师主线**：P0-3（`BookingPort`）→ S2/S3 → S4/S5。
+
+**动 S4 之前必须加载 `money-invariants`**：那是唯一触钱的一条（完成会触发提成逐项计提）。已完成，`biz_commission_record` 只追加 + 幂等的断言写在 `tests/integration/b6-app-identity.int.spec.ts` 里。
 
 **动 S4 之前必须加载 `money-invariants`**：那是唯一触钱的一条（完成会触发提成逐项计提）。

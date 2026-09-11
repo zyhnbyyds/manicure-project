@@ -610,6 +610,22 @@ export abstract class BookingPort {
     staffId: number,
     actorId?: number | null,
   ): Promise<{ changed: boolean; warning?: string | undefined }>;
+  /**
+   * 某月的业绩概览（S3）：完成单量 + 实收合计。
+   *
+   * `period` 是 `yyyyMM`，按**店内时区**的 `finished_at` 划月 —— 不能让小程序端
+   * 自己算月份边界，手机时区一变口径就漂。
+   */
+  abstract performanceByStaff(
+    staffId: number,
+    /** 不传 = 当月（按**店内时区**算，不能让调用方自己定月份边界） */
+    period?: string | undefined,
+  ): Promise<{
+    period: string;
+    completedCount: number;
+    /** 已完成预约的实收合计（分） */
+    paidAmount: number;
+  }>;
 }
 
 /* ------------------------------------------------------------------ *
@@ -641,7 +657,42 @@ export abstract class CommissionPort {
     reason: string,
     actorId?: number | null,
   ): Promise<{ reversed: number }>;
+  /**
+   * 美甲师本人的提成逐单明细（S3 业绩，D9：逐单全见）。
+   *
+   * `period` 为 `yyyyMM`，不传 = 全部；按 id 倒序，最多 `STAFF_COMMISSION_LIMIT` 条。
+   */
+  abstract listByStaff(
+    staffId: number,
+    period?: string | undefined,
+  ): Promise<StaffCommissionItem[]>;
+  /** 按状态汇总（卡片上的「待发 / 已发 / 已冲销」） */
+  abstract summarizeByStaff(
+    staffId: number,
+    period?: string | undefined,
+  ): Promise<{
+    accrued: number;
+    settled: number;
+    reversed: number;
+  }>;
 }
+
+/** 上限保护：单人单月不会太多，但「不传 period」时要有个兜底 */
+export const STAFF_COMMISSION_LIMIT = 500;
+
+export type StaffCommissionItem = {
+  id: number;
+  bookingId: number;
+  bookingNo: string | null;
+  serviceItemName: string | null;
+  /** 计提基数（分） */
+  baseAmount: number;
+  /** 提成金额（分） */
+  amount: number;
+  period: string;
+  status: 'accrued' | 'settled' | 'reversed';
+  settledAt: Date | null;
+};
 
 /* ------------------------------------------------------------------ *
  * 退款（B3）：预约详情的「发起退款」入口走这里
@@ -693,6 +744,34 @@ export abstract class RefundPort {
       dateTo?: string | undefined;
     },
   ): Promise<PageResult<Record<string, unknown>>>;
+}
+
+/* ------------------------------------------------------------------ *
+ * 评价（B5）：app 域只消费「本人」的评价（§20.1）
+ * ------------------------------------------------------------------ */
+
+export type StaffReviewItem = {
+  id: number;
+  bookingId: number;
+  bookingNo: string | null;
+  /** 1~5 */
+  score: number;
+  content: string | null;
+  reply: string | null;
+  createdAt: Date;
+};
+
+export abstract class ReviewPort {
+  /** 本人评价（只出 `published`，隐藏的不给本人看以外的口径） */
+  abstract listByStaff(
+    staffId: number,
+    page: number,
+    pageSize: number,
+  ): Promise<PageResult<StaffReviewItem>>;
+  /** 平均评分（没有评价时 average=null，前端显示「暂无评分」而不是 0 分） */
+  abstract averageScore(
+    staffId: number,
+  ): Promise<{ count: number; average: number | null }>;
 }
 
 /* ------------------------------------------------------------------ *

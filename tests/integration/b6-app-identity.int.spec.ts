@@ -5,9 +5,16 @@
  * 开通只能由店长在后台确认，app 域任何入参都不允许把 `staff_status` 顶成 `active`。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  addLocalDays,
+  shopToday,
+  shopWeekday,
+} from '../../src/modules/biz/common/shop-time.js';
 import { createTestContext, itemsOf, type TestContext } from './harness.js';
 
 let ctx: TestContext;
+/** 建单用的店内本地日（今天 +3 天，避开「现在几点」的影响） */
+let date: string;
 
 /**
  * 造一条小程序身份并签发 app token，
@@ -24,7 +31,8 @@ async function seedAppUser(openid: string, nickname: string | null = null) {
 
 beforeAll(async () => {
   ctx = await createTestContext();
-});
+  date = addLocalDays(shopToday(), 3);
+}, 120_000);
 
 beforeEach(async () => {
   await ctx.resetBusinessData();
@@ -562,5 +570,510 @@ describe('B6 店长确认工作台开通（§12.5 S2）', () => {
       { token: weak },
     );
     expect(approve.status).toBe(401);
+  });
+});
+
+describe('B6 美甲师工作台只读面（§12.5 S3）', () => {
+  /** 走完整链路开通：档案 → 绑手机号 → 申请 → 店长通过 */
+  async function seedGrantedStaff(
+    openid: string,
+    phone: string,
+    nickname: string,
+  ) {
+    const staff = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES (?, ?, 'active', 1)`,
+      [nickname, phone],
+    );
+    const { appUserId, token } = await seedAppUser(openid);
+    await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: phone },
+    });
+    const applied = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(applied.status).toBe(201);
+    const approved = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+    );
+    expect(approved.status).toBe(201);
+    return { staffId: staff.insertId, appUserId, token };
+  }
+
+  /** 建一单（建单接口出来就是 confirmed），顺便给该美甲师排上班（可重复调用） */
+  async function seedBooking(
+    staffId: number,
+    customerPhone: string,
+    startHour = 10,
+  ) {
+    const item = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_service_item (name, category, duration_minutes, buffer_minutes, price, status, sort)
+       VALUES ('法式美甲', '基础', 60, 0, 19900, 'active', 1)`,
+    );
+    const customer = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_customer (name, phone, gender) VALUES ('李女士', ?, 'female')`,
+      [customerPhone],
+    );
+    await ctx.sql(
+      `INSERT INTO biz_staff_weekly_shift (staff_id, weekday, start_time, end_time)
+       SELECT ?, ?, '09:00:00', '21:00:00' FROM DUAL
+       WHERE NOT EXISTS (SELECT 1 FROM biz_staff_weekly_shift WHERE staff_id = ? AND weekday = ?)`,
+      [staffId, shopWeekday(date), staffId, shopWeekday(date)],
+    );
+    const created = await ctx.request('POST', '/api/v1/biz/bookings', {
+      body: {
+        customerId: customer.insertId,
+        staffId,
+        startAt: `${date}T${String(startHour).padStart(2, '0')}:00:00+08:00`,
+        serviceItemIds: [item.insertId],
+        payMode: 'full',
+        payments: [{ channel: 'cash', amount: 19900 }],
+      },
+    });
+    expect(created.status).toBe(201);
+    return {
+      bookingId: Number(created.body.id),
+      customerId: customer.insertId,
+      serviceItemId: item.insertId,
+    };
+  }
+
+  it('me：只出本人档案，手机号脱敏，字段集合固定', async () => {
+    const me = await seedGrantedStaff('openid-wb-me', '13800000031', '小柚');
+    const res = await ctx.request('GET', '/api/v1/app/staff/me', {
+      token: me.token,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      staffId: me.staffId,
+      nickname: '小柚',
+      phone: '138****0031',
+      staffStatus: 'active',
+    });
+    expect(Object.keys(res.body).sort()).toEqual([
+      'allowedServiceItemIds',
+      'avatar',
+      'bio',
+      'nickname',
+      'phone',
+      'staffId',
+      'staffStatus',
+    ]);
+  });
+
+  it('bookings：只出本人的单；别人（含同事）的单一条都看不到', async () => {
+    const me = await seedGrantedStaff('openid-wb-list', '13800000032', '小柚');
+    const colleague = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, status, sort) VALUES ('同事小美', 'active', 2)`,
+    );
+    const mine = await seedBooking(me.staffId, '13800000033');
+    const others = await seedBooking(colleague.insertId, '13800000034');
+
+    const res = await ctx.request('GET', '/api/v1/app/staff/bookings', {
+      token: me.token,
+    });
+    expect(res.status).toBe(200);
+    const ids = itemsOf(res.body).map((row: any) => Number(row.id));
+    expect(ids).toContain(mine.bookingId);
+    expect(ids).not.toContain(others.bookingId);
+
+    const booking = itemsOf(res.body)[0] as Record<string, unknown>;
+    // §12.6：成本 / 内部字段一个都不出去
+    for (const key of [
+      'customerId',
+      'staffId',
+      'originalPrice',
+      'adjustAmount',
+      'adjustReason',
+      'depositAmount',
+      'payChannelSummary',
+      'createdBy',
+      'updatedBy',
+      'deletedAt',
+    ])
+      expect(booking[key]).toBeUndefined();
+    expect(booking.customerPhoneMasked).toBe('138****0033');
+  });
+
+  it('schedule：返回当天生效班次与日期例外', async () => {
+    const me = await seedGrantedStaff(
+      'openid-wb-schedule',
+      '13800000035',
+      '小柚',
+    );
+    await ctx.sql(
+      `INSERT INTO biz_staff_weekly_shift (staff_id, weekday, start_time, end_time)
+       VALUES (?, ?, '10:00:00', '19:00:00')`,
+      [me.staffId, shopWeekday(date)],
+    );
+    const res = await ctx.request(
+      'GET',
+      `/api/v1/app/staff/schedule?date=${date}`,
+      { token: me.token },
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      date,
+      off: false,
+      segments: [{ startTime: '10:00:00', endTime: '19:00:00' }],
+    });
+    expect(res.body.overrides).toEqual([]);
+  });
+
+  it('schedule：date 缺失或格式不对 → 400', async () => {
+    const me = await seedGrantedStaff(
+      'openid-wb-sched-bad',
+      '13800000036',
+      '小柚',
+    );
+    const missing = await ctx.request('GET', '/api/v1/app/staff/schedule', {
+      token: me.token,
+    });
+    expect(missing.status).toBe(400);
+    const bad = await ctx.request(
+      'GET',
+      '/api/v1/app/staff/schedule?date=2026/09/11',
+      { token: me.token },
+    );
+    expect(bad.status).toBe(400);
+  });
+
+  it('performance：默认当月；同事的单不计进我的业绩', async () => {
+    const me = await seedGrantedStaff('openid-wb-perf', '13800000037', '小柚');
+    const res = await ctx.request('GET', '/api/v1/app/staff/performance', {
+      token: me.token,
+    });
+    expect(res.status).toBe(200);
+    // 服务端按店内时区算当月，端上不传 period 也要有值
+    expect(res.body.period).toMatch(/^\d{6}$/);
+    expect(res.body.completedCount).toBe(0);
+    expect(res.body.commission).toEqual({
+      accrued: 0,
+      settled: 0,
+      reversed: 0,
+    });
+    expect(res.body.rating).toEqual({ count: 0, average: null });
+    expect(res.body.items).toEqual([]);
+  });
+
+  it('performance：period 格式错误 → 400', async () => {
+    const me = await seedGrantedStaff(
+      'openid-wb-perf-bad',
+      '13800000038',
+      '小柚',
+    );
+    const res = await ctx.request(
+      'GET',
+      '/api/v1/app/staff/performance?period=2026-09',
+      { token: me.token },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('reviews：只出本人已公开评价，隐藏的不给本人看（§20.1）', async () => {
+    const me = await seedGrantedStaff(
+      'openid-wb-review',
+      '13800000039',
+      '小柚',
+    );
+    const colleague = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, status, sort) VALUES ('同事小美', 'active', 2)`,
+    );
+    const mine = await seedBooking(me.staffId, '13800000040', 10);
+    const mineHidden = await seedBooking(me.staffId, '13800000060', 14);
+    const others = await seedBooking(colleague.insertId, '13800000041', 10);
+
+    await ctx.sql(
+      `INSERT INTO biz_review (booking_id, customer_id, staff_id, score, content, reply, status)
+       VALUES (?, ?, ?, 5, '很细心', '谢谢～', 'published'),
+              (?, ?, ?, 3, '一般般', NULL, 'hidden'),
+              (?, ?, ?, 1, '同事的单', NULL, 'published')`,
+      [
+        mine.bookingId,
+        mine.customerId,
+        me.staffId,
+        mineHidden.bookingId,
+        mineHidden.customerId,
+        me.staffId,
+        others.bookingId,
+        others.customerId,
+        colleague.insertId,
+      ],
+    );
+
+    const res = await ctx.request('GET', '/api/v1/app/staff/reviews', {
+      token: me.token,
+    });
+    expect(res.status).toBe(200);
+    const rows = itemsOf(res.body);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      bookingId: mine.bookingId,
+      score: 5,
+      content: '很细心',
+      reply: '谢谢～',
+    });
+  });
+
+  it('未开通 / 待确认 / 已失效的 app token → 403，一个字段都读不到', async () => {
+    // 申请了但店长还没批
+    await ctx.sql(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES ('待批小柚', '13800000042', 'active', 1)`,
+    );
+    const { token: pendingToken } = await seedAppUser('openid-wb-pending');
+    await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token: pendingToken,
+      body: { code: '13800000042' },
+    });
+    await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token: pendingToken,
+      body: {},
+    });
+
+    // 开通了但档案被停用 → 每请求复查，下次请求立刻失效
+    const disabled = await seedGrantedStaff(
+      'openid-wb-disabled',
+      '13800000043',
+      '停用小柚',
+    );
+    await ctx.sql(`UPDATE biz_staff SET status = 'disabled' WHERE id = ?`, [
+      disabled.staffId,
+    ]);
+
+    for (const token of [pendingToken, disabled.token]) {
+      for (const path of ['me', 'bookings', 'performance', 'reviews']) {
+        const res = await ctx.request('GET', `/api/v1/app/staff/${path}`, {
+          token,
+        });
+        expect(res.status, `${path}`).toBe(403);
+      }
+    }
+  });
+});
+
+describe('B6 美甲师工作台写操作（§12.5 S4 / money-invariants）', () => {
+  async function seedGrantedStaff(
+    openid: string,
+    phone: string,
+    nickname: string,
+  ) {
+    const staff = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES (?, ?, 'active', 1)`,
+      [nickname, phone],
+    );
+    const { appUserId, token } = await seedAppUser(openid);
+    await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: phone },
+    });
+    await ctx.request('POST', '/api/v1/app/staff/apply', { token, body: {} });
+    const approved = await ctx.request(
+      'POST',
+      `/api/v1/biz/app-staff-grants/${appUserId}/approve`,
+    );
+    expect(approved.status).toBe(201);
+    return { staffId: staff.insertId, token };
+  }
+
+  async function seedBooking(staffId: number, customerPhone: string) {
+    const item = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_service_item (name, category, duration_minutes, buffer_minutes, price, status, sort)
+       VALUES ('法式美甲', '基础', 60, 0, 19900, 'active', 1)`,
+    );
+    const customer = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_customer (name, phone, gender) VALUES ('李女士', ?, 'female')`,
+      [customerPhone],
+    );
+    await ctx.sql(
+      `INSERT INTO biz_staff_weekly_shift (staff_id, weekday, start_time, end_time)
+       SELECT ?, ?, '09:00:00', '21:00:00' FROM DUAL
+       WHERE NOT EXISTS (SELECT 1 FROM biz_staff_weekly_shift WHERE staff_id = ? AND weekday = ?)`,
+      [staffId, shopWeekday(date), staffId, shopWeekday(date)],
+    );
+    const created = await ctx.request('POST', '/api/v1/biz/bookings', {
+      body: {
+        customerId: customer.insertId,
+        staffId,
+        startAt: `${date}T10:00:00+08:00`,
+        serviceItemIds: [item.insertId],
+        payMode: 'full',
+        payments: [{ channel: 'cash', amount: 19900 }],
+      },
+    });
+    expect(created.status).toBe(201);
+    return Number(created.body.id);
+  }
+
+  /**
+   * 把单子的服务时间挪到过去（否则完成动作会被 §12.4-3 的时间护栏拦下）。
+   *
+   * 用 JS 的 Date 传参，不用 MySQL `NOW()`：写入与读取都由 mysql2 按连接时区
+   * 做同一套换算，传 `NOW()` 会让两端时区不一致、回读出来的时刻落在未来。
+   */
+  async function backdate(bookingId: number) {
+    const start = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    await ctx.sql(
+      `UPDATE biz_booking SET start_at = ?, end_at = ? WHERE id = ?`,
+      [start, end, bookingId],
+    );
+  }
+
+  async function commissionCount(bookingId: number): Promise<number> {
+    const rows = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM biz_commission_record WHERE booking_id = ?`,
+      [bookingId],
+    );
+    return Number(rows[0].total);
+  }
+
+  it('到店：本单可标记；重复点幂等（changed:false，不报错）', async () => {
+    const me = await seedGrantedStaff(
+      'openid-wb-arrive',
+      '13800000051',
+      '小柚',
+    );
+    const bookingId = await seedBooking(me.staffId, '13800000052');
+
+    const first = await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/arrived`,
+      { token: me.token },
+    );
+    expect(first.status).toBe(201);
+    expect(first.body.changed).toBe(true);
+
+    const again = await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/arrived`,
+      { token: me.token },
+    );
+    expect(again.status).toBe(201);
+    expect(again.body.changed).toBe(false);
+
+    const row = await ctx.sql<{ status: string; arrived_at: string | null }[]>(
+      `SELECT status, arrived_at FROM biz_booking WHERE id = ${bookingId}`,
+    );
+    expect(row[0].status).toBe('arrived');
+    expect(row[0].arrived_at).not.toBeNull();
+  });
+
+  it('到店 / 完成：改别人的单 → 403，且状态一栏不变', async () => {
+    const me = await seedGrantedStaff('openid-wb-403', '13800000053', '小柚');
+    const colleague = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, status, sort) VALUES ('同事小美', 'active', 2)`,
+    );
+    const othersBooking = await seedBooking(colleague.insertId, '13800000054');
+
+    for (const action of ['arrived', 'complete']) {
+      const res = await ctx.request(
+        'POST',
+        `/api/v1/app/staff/bookings/${othersBooking}/${action}`,
+        { token: me.token },
+      );
+      expect(res.status, action).toBe(403);
+    }
+    const row = await ctx.sql<{ status: string }[]>(
+      `SELECT status FROM biz_booking WHERE id = ${othersBooking}`,
+    );
+    expect(row[0].status).toBe('confirmed');
+  });
+
+  it('不存在的单 → 404（不泄露「这单是不是别人的」）', async () => {
+    const me = await seedGrantedStaff('openid-wb-404', '13800000055', '小柚');
+    const res = await ctx.request(
+      'POST',
+      '/api/v1/app/staff/bookings/999999/arrived',
+      { token: me.token },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('完成：早于 start_at → 400（§12.4-3 防提前刷提成）', async () => {
+    const me = await seedGrantedStaff('openid-wb-guard', '13800000056', '小柚');
+    const bookingId = await seedBooking(me.staffId, '13800000057');
+    await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/arrived`,
+      {
+        token: me.token,
+      },
+    );
+
+    const res = await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/complete`,
+      { token: me.token },
+    );
+    expect(res.status).toBe(400);
+
+    const row = await ctx.sql<{ status: string }[]>(
+      `SELECT status FROM biz_booking WHERE id = ${bookingId}`,
+    );
+    expect(row[0].status).toBe('arrived');
+    expect(await commissionCount(bookingId)).toBe(0);
+  });
+
+  it('完成：重复点击只计提一次（money-invariants §4 只追加 + 幂等）', async () => {
+    const me = await seedGrantedStaff(
+      'openid-wb-complete',
+      '13800000058',
+      '小柚',
+    );
+    const bookingId = await seedBooking(me.staffId, '13800000059');
+    await ctx.sql(
+      `INSERT INTO biz_commission_rule (name, scope, staff_id, permille, base, effective_from, status, sort)
+       VALUES ('小柚提成', 'staff', ?, 100, 'paid', '2026-01-01', 'active', 1)`,
+      [me.staffId],
+    );
+    await backdate(bookingId);
+    await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/arrived`,
+      {
+        token: me.token,
+      },
+    );
+
+    const first = await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/complete`,
+      { token: me.token },
+    );
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    expect(first.body.changed).toBe(true);
+    expect(await commissionCount(bookingId)).toBe(1);
+
+    // 双击 / 自动重试：状态已经是 completed，直接返回 changed:false，提成不双计
+    const again = await ctx.request(
+      'POST',
+      `/api/v1/app/staff/bookings/${bookingId}/complete`,
+      { token: me.token },
+    );
+    expect(again.status).toBe(201);
+    expect(again.body.changed).toBe(false);
+    expect(await commissionCount(bookingId)).toBe(1);
+
+    const row = await ctx.sql<{ status: string; finished_at: string | null }[]>(
+      `SELECT status, finished_at FROM biz_booking WHERE id = ${bookingId}`,
+    );
+    expect(row[0].status).toBe('completed');
+    expect(row[0].finished_at).not.toBeNull();
+
+    // 业绩立刻能看到这一单
+    const perf = await ctx.request('GET', '/api/v1/app/staff/performance', {
+      token: me.token,
+    });
+    expect(perf.status).toBe(200);
+    expect(perf.body.completedCount).toBe(1);
+    expect(perf.body.items).toHaveLength(1);
+    expect(perf.body.items[0]).toMatchObject({
+      bookingId,
+      amount: 1990, // 19900 × 100‰
+      status: 'accrued',
+    });
+    expect(perf.body.commission.accrued).toBe(1990);
   });
 });

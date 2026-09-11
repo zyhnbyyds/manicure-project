@@ -29,6 +29,7 @@ import {
   lte,
   ne,
   or,
+  sql,
 } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
 import {
@@ -47,6 +48,8 @@ import {
   CommissionPort,
   ServiceItemPort,
   StaffPort,
+  STAFF_COMMISSION_LIMIT,
+  type StaffCommissionItem,
 } from '../../common/ports.js';
 import {
   andConditions,
@@ -575,6 +578,64 @@ export class CommissionService extends CommissionPort {
         ),
       );
     if (!result[0]?.affectedRows) throw new NotFoundException('提成规则不存在');
+  }
+
+  /* ---------------- 计提记录（S3 美甲师业绩） ---------------- */
+
+  override async listByStaff(
+    staffId: number,
+    period?: string | undefined,
+  ): Promise<StaffCommissionItem[]> {
+    return this.database.db
+      .select({
+        id: bizCommissionRecords.id,
+        bookingId: bizCommissionRecords.bookingId,
+        bookingItemId: bizCommissionRecords.bookingItemId,
+        staffId: bizCommissionRecords.staffId,
+        baseAmount: bizCommissionRecords.baseAmount,
+        amount: bizCommissionRecords.amount,
+        period: bizCommissionRecords.period,
+        status: bizCommissionRecords.status,
+        settledAt: bizCommissionRecords.settledAt,
+        bookingNo: bizBookings.bookingNo,
+        serviceItemName: bizBookingItems.name,
+      })
+      .from(bizCommissionRecords)
+      .leftJoin(bizBookings, eq(bizCommissionRecords.bookingId, bizBookings.id))
+      .leftJoin(
+        bizBookingItems,
+        eq(bizCommissionRecords.bookingItemId, bizBookingItems.id),
+      )
+      .where(
+        andConditions([
+          eq(bizCommissionRecords.staffId, staffId),
+          period ? eq(bizCommissionRecords.period, period) : undefined,
+        ]),
+      )
+      .orderBy(desc(bizCommissionRecords.id))
+      .limit(STAFF_COMMISSION_LIMIT);
+  }
+
+  override async summarizeByStaff(
+    staffId: number,
+    period?: string | undefined,
+  ): Promise<{ accrued: number; settled: number; reversed: number }> {
+    const rows = await this.database.db
+      .select({
+        status: bizCommissionRecords.status,
+        total: sql<number>`COALESCE(SUM(${bizCommissionRecords.amount}), 0)`,
+      })
+      .from(bizCommissionRecords)
+      .where(
+        andConditions([
+          eq(bizCommissionRecords.staffId, staffId),
+          period ? eq(bizCommissionRecords.period, period) : undefined,
+        ]),
+      )
+      .groupBy(bizCommissionRecords.status);
+    const summary = { accrued: 0, settled: 0, reversed: 0 };
+    for (const row of rows) summary[row.status] = Number(row.total);
+    return summary;
   }
 
   /* ---------------- 计提记录 ---------------- */

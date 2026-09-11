@@ -15,6 +15,8 @@ import { AppMemberService } from './member/app-member.service.js';
 import { AppPaymentsController } from './payments/app-payments.controller.js';
 import { AppStaffGrantsController } from './staff/app-staff-grants.controller.js';
 import { AppStaffGrantsService } from './staff/app-staff-grants.service.js';
+import { AppStaffWorkbenchController } from './staff/app-staff-workbench.controller.js';
+import { AppStaffWorkbenchService } from './staff/app-staff-workbench.service.js';
 import { AppStaffController } from './staff/app-staff.controller.js';
 import { AppStaffService } from './staff/app-staff.service.js';
 import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
@@ -38,6 +40,7 @@ import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
     AppPaymentsController,
     AppStaffController,
     AppStaffGrantsController,
+    AppStaffWorkbenchController,
   ],
   providers: [
     AppAuthService,
@@ -45,6 +48,7 @@ import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
     AppMemberService,
     AppStaffService,
     AppStaffGrantsService,
+    AppStaffWorkbenchService,
     AppStaffScopeGuard,
     AppAccessTokenGuard,
     /**

@@ -23,7 +23,7 @@ const localDate = z
   .openapi({ example: '2026-09-11', description: '店内本地日 YYYY-MM-DD' });
 
 /** 带时区偏移的 ISO8601 时刻（UTC 存储，展示口径 +08:00） */
-const isoDateTime = z.string().openapi({
+export const isoDateTime = z.string().openapi({
   example: '2026-09-11T10:00:00+08:00',
   description: '带偏移的 ISO8601 时刻',
 });

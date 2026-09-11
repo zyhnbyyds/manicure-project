@@ -17,6 +17,7 @@ import {
   PaymentPort,
   RecurrencePort,
   RefundPort,
+  ReviewPort,
   SchedulePort,
   ServiceItemPort,
   SettlementPort,
@@ -30,6 +31,7 @@ import { MemberAccountsService } from './membership/member-accounts/member-accou
 import { MemberCardsService } from './membership/member-cards/member-cards.service.js';
 import { OperationsModule } from './operations/operations.module.js';
 import { NoticesService } from './operations/notices/notices.service.js';
+import { ReviewsService } from './operations/reviews/reviews.service.js';
 import { RecurrencesService } from './operations/recurrences/recurrences.service.js';
 import { PaymentModule } from './payment/payment.module.js';
 import { PaymentsService } from './payment/payments/payments.service.js';
@@ -82,6 +84,7 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     { provide: NoticePort, useExisting: NoticesService },
     { provide: CommissionPort, useExisting: CommissionService },
     { provide: RecurrencePort, useExisting: RecurrencesService },
+    { provide: ReviewPort, useExisting: ReviewsService },
   ],
   exports: [
     ServiceItemPort,
@@ -100,6 +103,7 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     NoticePort,
     CommissionPort,
     RecurrencePort,
+    ReviewPort,
     // 需要具体 service 时导出「模块」而不是 provider：Nest 不允许导出
     // 不属于当前模块的 provider（它们由 BookingModule 提供）
     BookingModule,

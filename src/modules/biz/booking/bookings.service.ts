@@ -11,12 +11,14 @@ import {
   desc,
   eq,
   inArray,
+  gte,
   isNull,
   lt,
   or,
   sql,
   type SQL,
 } from 'drizzle-orm';
+import type { MySqlColumn } from 'drizzle-orm/mysql-core';
 import { DatabaseService } from '../../../database/database.service';
 import {
   bizBookingItems,
@@ -38,7 +40,11 @@ import {
   type QuoteResult,
 } from '../common/money.js';
 import { andConditions, keywordLike, localDateRange } from '../common/query.js';
-import { formatShopDateTime, shopDateOf } from '../common/shop-time.js';
+import {
+  formatShopDateTime,
+  shopDateOf,
+  shopDayRange,
+} from '../common/shop-time.js';
 import type { BizTx } from '../common/tx.js';
 import { withoutUndefined } from '../common/tx.js';
 import {
@@ -357,6 +363,36 @@ export class BookingsService implements BookingPort {
     if (booking.startAt.getTime() > Date.now())
       throw new BadRequestException('服务尚未开始，不能提前标记完成');
     return this.runComplete(id, actorId ?? null);
+  }
+
+  async performanceByStaff(
+    staffId: number,
+    period?: string | undefined,
+  ): Promise<{ period: string; completedCount: number; paidAmount: number }> {
+    const tz = (await this.config.booking()).timezone;
+    // 不传 period 时按**店内本地日**取当月 —— 服务端跑在 UTC 上也不会跨月错位
+    const effectivePeriod =
+      period ?? shopDateOf(new Date(), tz).slice(0, 7).replace('-', '');
+    const rows = await this.database.db
+      .select({
+        count: sql<number>`COUNT(*)`,
+        paid: sql<number>`COALESCE(SUM(${bizBookings.paidAmount}), 0)`,
+      })
+      .from(bizBookings)
+      .where(
+        and(
+          eq(bizBookings.staffId, staffId),
+          eq(bizBookings.status, 'completed'),
+          isNull(bizBookings.deletedAt),
+          ...monthRange(effectivePeriod, tz, bizBookings.finishedAt),
+        ),
+      );
+    const row = rows[0];
+    return {
+      period: effectivePeriod,
+      completedCount: Number(row?.count ?? 0),
+      paidAmount: Number(row?.paid ?? 0),
+    };
   }
 
   /* ---------------------------------------------------------------- *
@@ -1392,6 +1428,24 @@ export class BookingsService implements BookingPort {
     if (staff && staff.id !== staffId)
       throw new ForbiddenException('只能查看自己的可约时段');
   }
+}
+
+/**
+ * `yyyyMM` → 店内时区的「本月」半开区间 `[月初, 次月初)`。
+ *
+ * 放在这里而不是 app 域：月份边界要按**店内时区**算，小程序端手机时区一变口径就漂。
+ */
+function monthRange(period: string, timeZone: string, column: MySqlColumn) {
+  const year = Number(period.slice(0, 4));
+  const month = Number(period.slice(4, 6));
+  const from = `${period.slice(0, 4)}-${period.slice(4, 6)}-01`;
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const to = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+  return [
+    gte(column, shopDayRange(from, timeZone).start),
+    lt(column, shopDayRange(to, timeZone).start),
+  ] as const;
 }
 
 /** 解析带偏移的 ISO8601；不接受的写法直接 400（避免 `new Date('2026-09-11')` 类误用） */

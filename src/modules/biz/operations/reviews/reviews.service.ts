@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, getTableColumns, isNull } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, isNull, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
   bizBookings,
@@ -13,7 +13,12 @@ import {
   bizStaffs,
 } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
-import { StaffPort } from '../../common/ports.js';
+import {
+  type PageResult,
+  ReviewPort,
+  StaffPort,
+  type StaffReviewItem,
+} from '../../common/ports.js';
 import {
   andConditions,
   localDateRange,
@@ -49,12 +54,73 @@ export type ReviewViewer = { userId: number; permissions: string[] };
  * - 隐藏（`published`/`hidden`）用于处理恶意评价，删除一律软删。
  */
 @Injectable()
-export class ReviewsService {
+export class ReviewsService extends ReviewPort {
   constructor(
     private readonly database: DatabaseService,
     private readonly config: BizConfigService,
     private readonly staffs: StaffPort,
-  ) {}
+  ) {
+    super();
+  }
+
+  /* ---------------- app 域端口（S3：本人评价） ---------------- */
+
+  override async listByStaff(
+    staffId: number,
+    page: number,
+    pageSize: number,
+  ): Promise<PageResult<StaffReviewItem>> {
+    const paging = parsePagination(page, pageSize);
+    const items = await this.database.db
+      .select({
+        id: bizReviews.id,
+        bookingId: bizReviews.bookingId,
+        score: bizReviews.score,
+        content: bizReviews.content,
+        reply: bizReviews.reply,
+        createdAt: bizReviews.createdAt,
+        bookingNo: bizBookings.bookingNo,
+      })
+      .from(bizReviews)
+      .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
+      .where(
+        and(
+          eq(bizReviews.staffId, staffId),
+          isNull(bizReviews.deletedAt),
+          // 被隐藏的评价不给本人看（§20.1：隐藏就是按下不表）
+          eq(bizReviews.status, 'published'),
+        ),
+      )
+      .orderBy(desc(bizReviews.id))
+      .limit(paging.pageSize)
+      .offset(paging.offset);
+    return { items, page: paging.page, pageSize: paging.pageSize };
+  }
+
+  override async averageScore(
+    staffId: number,
+  ): Promise<{ count: number; average: number | null }> {
+    const [row] = await this.database.db
+      .select({
+        count: sql<number>`COUNT(*)`,
+        total: sql<number>`COALESCE(SUM(${bizReviews.score}), 0)`,
+      })
+      .from(bizReviews)
+      .where(
+        and(
+          eq(bizReviews.staffId, staffId),
+          isNull(bizReviews.deletedAt),
+          eq(bizReviews.status, 'published'),
+        ),
+      );
+    const count = Number(row?.count ?? 0);
+    if (!count) return { count: 0, average: null };
+    return {
+      count,
+      // 保留一位小数：4.75 分显示成 4.8，比 4.7500000 好看
+      average: Math.round((Number(row?.total ?? 0) / count) * 10) / 10,
+    };
+  }
 
   async list(
     page: number,
