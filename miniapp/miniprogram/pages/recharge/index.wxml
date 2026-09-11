@@ -1,0 +1,73 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body recharge-body">
+    <!-- 账户余额（设计稿用渐变卡承载余额与累计充值） -->
+    <view class="balance">
+      <view class="balance__circle"></view>
+      <view class="balance__label">账户余额</view>
+      <view class="balance__value">
+        <text class="balance__number">{{balanceText}}</text>
+        <text class="balance__unit">元</text>
+      </view>
+      <view class="balance__split">本金 {{principalText}} 元 · 赠送 {{bonusText}} 元（赠送不可退）</view>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading">正在读取账户…</view>
+
+    <view wx:elif="{{needBind}}" class="empty">
+      <view class="empty__text">绑定手机号后才能充值</view>
+      <view class="empty__hint">手机号是会员与充值对账的唯一锚点</view>
+    </view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__text">{{errorText}}</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <!-- 选择充值金额 -->
+      <view class="section">
+        <view class="section__title">选择充值金额</view>
+      </view>
+      <view class="plans">
+        <view
+          wx:for="{{plans}}"
+          wx:key="amount"
+          class="plan {{activeIndex === index ? 'is-active' : ''}}"
+          data-index="{{index}}"
+          bindtap="onPickPlan"
+        >
+          <view class="plan__amount">{{item.label}}</view>
+          <view class="plan__bonus">赠 {{item.bonusText}} 元</view>
+        </view>
+      </view>
+
+      <!-- 自定义金额 -->
+      <view class="custom">
+        <input
+          class="custom__input"
+          type="number"
+          value="{{customAmount}}"
+          placeholder="输入自定义金额（元）"
+          placeholder-class="custom__placeholder"
+          bindinput="onCustomInput"
+        />
+      </view>
+
+      <view class="tips">
+        充值的本金用于店内消费；赠送金额同样可抵扣，但不可退款、不可提现。
+        实际到账以支付成功后系统结算为准。
+      </view>
+    </block>
+  </view>
+
+  <view class="action-bar">
+    <view class="grow">
+      <view class="text-weak">合计实付</view>
+      <view class="price">
+        <text class="price__symbol">¥</text>
+        <text class="price__yuan">{{payText}}</text>
+      </view>
+    </view>
+    <view class="btn btn--primary action-bar__submit" bindtap="onRecharge">立即充值</view>
+  </view>
+</view>

@@ -3,6 +3,7 @@ import { bindPhone, isBound } from '../../store/auth';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDiscount } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
+import { goRecharge } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
@@ -139,7 +140,7 @@ Page({
   },
 
   onRecharge() {
-    toast('充值中心开发中');
+    goRecharge();
   },
 
   onCards() {

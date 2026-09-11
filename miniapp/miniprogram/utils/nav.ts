@@ -78,6 +78,11 @@ export function goShop(): void {
   wx.navigateTo({ url: '/pages/shop/index' });
 }
 
+/** 充值中心 */
+export function goRecharge(): void {
+  wx.navigateTo({ url: '/pages/recharge/index' });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

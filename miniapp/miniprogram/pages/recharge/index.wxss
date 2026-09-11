@@ -1,0 +1,134 @@
+/* 充值中心 —— 对齐 docs/manicure-ui-batch4 第 1 屏 */
+
+.recharge-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 余额卡 ───────────────────────────────────────────────── */
+
+.balance {
+  position: relative;
+  overflow: hidden;
+  padding: 36rpx 32rpx;
+  border-radius: var(--r-lg);
+  background: var(--c-gradient);
+}
+
+.balance__circle {
+  position: absolute;
+  width: 240rpx;
+  height: 240rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  top: -80rpx;
+  right: -60rpx;
+}
+
+.balance__label {
+  position: relative;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+}
+
+.balance__value {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  margin-top: 10rpx;
+}
+
+.balance__number {
+  font-family: var(--font-serif);
+  font-size: 72rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.balance__unit {
+  margin-left: 8rpx;
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.balance__split {
+  position: relative;
+  margin-top: 18rpx;
+  font-size: 21rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 充值档位：两列网格 ───────────────────────────────────── */
+
+.plans {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.plan {
+  width: 48%;
+  margin-bottom: 20rpx;
+  padding: 26rpx 20rpx;
+  background: var(--c-card);
+  border-radius: var(--r-md);
+  border: 2rpx solid transparent;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* 用 margin 而非 flex gap（iOS 老版本 WKWebView 不支持 gap） */
+.plan:nth-child(odd) {
+  margin-right: 4%;
+}
+
+.plan.is-active {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.plan__amount {
+  font-family: var(--font-serif);
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.plan__bonus {
+  margin-top: 8rpx;
+  font-size: 21rpx;
+  color: var(--c-primary);
+}
+
+/* ── 自定义金额 ───────────────────────────────────────────── */
+
+.custom {
+  margin-top: 4rpx;
+}
+
+.custom__input {
+  height: 88rpx;
+  padding: 0 28rpx;
+  background: var(--c-card);
+  border-radius: var(--r-md);
+  font-size: 27rpx;
+  color: var(--c-text);
+}
+
+.custom__placeholder {
+  color: var(--c-text-weak);
+  font-size: 26rpx;
+}
+
+.tips {
+  margin-top: 22rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}
+
+.action-bar__submit {
+  width: 300rpx;
+  flex-shrink: 0;
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}
