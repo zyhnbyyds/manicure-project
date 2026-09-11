@@ -111,11 +111,13 @@ export class BookingSettlementService extends SettlementPort {
       payments.map((row) => row.channel),
     );
 
+    // 判定顺序要紧：全额退款后 `due_amount` 同样是 0，若先判 `due === 0`，
+    // `refunded` 的清空分支永远走不到，退款的单子会被一直标成「已结算」。
     let settledAt: Date | null = booking.settledAt;
-    if (dueAmount === 0 && paidAmount > 0) {
-      settledAt = booking.settledAt ?? new Date();
-    } else if (payStatus === 'refunded' || paidAmount === 0) {
+    if (payStatus === 'refunded' || paidAmount === 0) {
       settledAt = null;
+    } else if (dueAmount === 0) {
+      settledAt = booking.settledAt ?? new Date();
     }
 
     await tx
