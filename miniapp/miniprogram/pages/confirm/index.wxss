@@ -1,55 +1,64 @@
-/* 确认预约 */
+/* 确认预约 —— 严格对齐 docs/manicure-ui-batch5 第 3 屏（确认预约） */
 
 .confirm-body {
   padding-bottom: 200rpx;
 }
 
-.hero {
-  background: var(--c-gradient);
-}
+/* ── 预约摘要 ─────────────────────────────────────────────── */
 
-.hero__row {
+.summary__row {
   display: flex;
   align-items: center;
 }
 
-.hero__avatar {
-  width: 104rpx;
-  height: 104rpx;
-  margin-right: 20rpx;
+.summary__avatar {
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.summary__avatar--emoji {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48rpx;
+  background: var(--c-chip);
+  font-size: 44rpx;
 }
 
-.hero__staff {
+.summary__staff {
+  font-family: var(--font-serif);
   font-size: 32rpx;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.hero__date {
-  margin-top: 6rpx;
-  font-size: 26rpx;
+.summary__time {
+  margin-top: 8rpx;
+  font-size: 24rpx;
   color: var(--c-text-sub);
 }
 
-.confirm-strong {
-  font-weight: 700;
+.summary__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 2rpx solid var(--c-border);
 }
 
-/* 明细行 */
+.summary__duration {
+  font-size: 26rpx;
+  color: var(--c-primary);
+}
+
+/* ── 项目明细 ─────────────────────────────────────────────── */
+
 .item {
   display: flex;
   align-items: center;
-  padding: 16rpx 0;
-}
-
-.item__emoji {
-  width: 56rpx;
-  font-size: 36rpx;
+  padding: 18rpx 0;
 }
 
 .item__name {
@@ -58,55 +67,100 @@
 }
 
 .item__price {
+  font-family: var(--font-serif);
   font-size: 28rpx;
   color: var(--c-text-sub);
 }
 
-.total {
-  font-size: 36rpx;
-  font-weight: 800;
-  color: var(--c-primary);
+/* ── 抵扣三行 ─────────────────────────────────────────────── */
+
+.deduct {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 2rpx solid var(--c-border);
 }
 
-.total--bar {
-  font-size: 38rpx;
+.deduct--last {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.deduct__title {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.deduct__sub {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.deduct__pick {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.deduct__arrow {
+  margin-left: 6rpx;
+  font-size: 30rpx;
+}
+
+/* ── 优惠明细 ─────────────────────────────────────────────── */
+
+.fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10rpx 0;
+}
+
+.fee__value {
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.fee__value--strong {
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+.payable__label {
+  font-size: 28rpx;
+  font-weight: 600;
 }
 
 .price-note {
-  margin-top: 14rpx;
-  font-size: 22rpx;
-  color: var(--c-text-weak);
+  margin-top: 16rpx;
+  font-size: 21rpx;
   line-height: 1.6;
+  color: var(--c-text-weak);
 }
 
-/* 备注 */
+/* ── 备注 / 绑定提示 ─────────────────────────────────────── */
+
 .remark {
   width: 100%;
   min-height: 140rpx;
   margin-top: 16rpx;
-  padding: 20rpx;
+  padding: 24rpx;
   box-sizing: border-box;
   border-radius: var(--r-md);
-  background: var(--c-bg-soft);
+  background: var(--c-bg);
   font-size: 26rpx;
   color: var(--c-text);
 }
 
-/* 绑定提示 */
-.bind-tip {
-  display: flex;
-  align-items: flex-start;
-}
-
-.bind-tip__emoji {
-  font-size: 44rpx;
-  margin-right: 16rpx;
-  line-height: 1.2;
+.remark__placeholder {
+  color: var(--c-text-weak);
 }
 
 .bind-tip__title {
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .bind-tip__text {
@@ -116,13 +170,13 @@
   line-height: 1.6;
 }
 
-/* 授权按钮需要覆盖 button 默认样式 */
-.btn--bind {
-  margin: 0;
-  line-height: 88rpx;
-  border: none;
+/* ── 底部 ─────────────────────────────────────────────────── */
+
+.submit {
+  width: 300rpx;
+  flex-shrink: 0;
 }
 
-.btn--bind::after {
-  border: none;
+.empty__action {
+  margin-top: 28rpx;
 }
