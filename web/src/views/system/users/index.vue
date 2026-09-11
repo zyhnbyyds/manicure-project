@@ -11,6 +11,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import type { LewTableColumn } from 'lew-ui';
 import { createUser, deleteUser, updateUser } from '~/api/system/users';
 import { listDepts } from '~/api/system/depts';
@@ -180,7 +181,7 @@ const form = ref({
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'username',
     label: '用户名',
@@ -241,7 +242,7 @@ const formOptions: LewFormOption[] = [
     rule: 'Yup.array().nullable()',
     props: { options: roleOptions, multiple: true, placeholder: '请选择角色' },
   },
-];
+]);
 
 function openCreate() {
   editingId.value = null;

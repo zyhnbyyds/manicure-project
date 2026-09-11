@@ -3,6 +3,7 @@ import { nextTick, reactive, ref } from 'vue';
 import { Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import { LewButton, LewForm, LewMessage, LewModal, LewTable } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   createDept,
   deleteDept,
@@ -247,7 +248,7 @@ function handleDelete(row: Dept) {
           ref="formRef"
           v-model="form"
           label-width="80px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'parentId',
               label: '上级部门',
@@ -280,7 +281,7 @@ function handleDelete(row: Dept) {
               props: { placeholder: '选填', clearable: true },
             },
             { field: 'status', label: '状态', as: 'switch' },
-          ]"
+          ])"
         />
       </div>
     </LewModal>

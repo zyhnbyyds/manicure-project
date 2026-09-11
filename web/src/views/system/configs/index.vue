@@ -10,6 +10,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import { createConfig, deleteConfig, updateConfig } from '~/api/system/configs';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
@@ -220,7 +221,7 @@ function handleDelete(row: Config) {
           ref="formRef"
           v-model="form"
           label-width="72px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'name',
               label: '参数名称',
@@ -249,7 +250,7 @@ function handleDelete(row: Config) {
               as: 'textarea',
               props: { placeholder: '选填', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>

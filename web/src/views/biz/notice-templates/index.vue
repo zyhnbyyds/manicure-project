@@ -10,6 +10,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   NOTICE_VARIABLE_PRESETS,
   createNoticeTemplate,
@@ -177,7 +178,7 @@ const contentPreview = computed(() =>
   ),
 );
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'code',
     label: '模板编码',
@@ -232,7 +233,7 @@ const formOptions: LewFormOption[] = [
     as: 'textarea',
     props: { placeholder: '选填', rows: 2 },
   },
-];
+]);
 
 function currentValues() {
   return (formRef.value?.getForm?.() ?? form.value) as typeof form.value;

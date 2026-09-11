@@ -14,6 +14,7 @@ import {
   LewTextarea,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   createPointsGoods,
   deletePointsGoods,
@@ -156,7 +157,7 @@ const form = ref({
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'name',
     label: '兑换品名称',
@@ -200,7 +201,7 @@ const formOptions: LewFormOption[] = [
     as: 'textarea',
     props: { placeholder: '选填', rows: 2 },
   },
-];
+]);
 
 function openCreate() {
   editingId.value = null;

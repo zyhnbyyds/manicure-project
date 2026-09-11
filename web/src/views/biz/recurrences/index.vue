@@ -23,6 +23,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import { get } from '~/request';
 import type { PageResult } from '~/types/api';
 import {
@@ -352,7 +353,7 @@ const createResult = ref<RecurrenceCreateResult | null>(null);
 
 const isEditing = computed(() => editingId.value !== null);
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'name',
     label: '规则名',
@@ -433,7 +434,7 @@ const formOptions: LewFormOption[] = [
     as: 'textarea',
     props: { placeholder: '选填', rows: 2 },
   },
-];
+]);
 
 /** LewForm `@change` 回吐的实时值，用于「将要生成的日期」预览 */
 const live = ref<Record<string, unknown>>({});

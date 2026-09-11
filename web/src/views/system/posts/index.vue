@@ -10,6 +10,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import { createPost, deletePost, updatePost } from '~/api/system/posts';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
@@ -220,7 +221,7 @@ function handleDelete(row: Post) {
           ref="formRef"
           v-model="form"
           label-width="72px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'name',
               label: '岗位名称',
@@ -248,7 +249,7 @@ function handleDelete(row: Post) {
               as: 'textarea',
               props: { placeholder: '选填', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>

@@ -16,6 +16,7 @@ import type {
   LewModalFooterButtonItem,
   LewTableColumn,
 } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   approveRefund,
   createRefund,
@@ -775,7 +776,7 @@ async function handleApplySubmit() {
           ref="rejectFormRef"
           v-model="rejectForm"
           label-width="88px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'reason',
               label: '驳回原因',
@@ -783,7 +784,7 @@ async function handleApplySubmit() {
               rule: `Yup.string().required('不能为空')`,
               props: { placeholder: '必填，将记录在退款单上', rows: 3 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>

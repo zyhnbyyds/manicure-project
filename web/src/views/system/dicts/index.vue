@@ -11,6 +11,7 @@ import {
   LewTag,
 } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   createDictData,
   createDictType,
@@ -411,7 +412,7 @@ function handleDataDelete(row: DictData) {
           ref="typeFormRef"
           v-model="typeForm"
           label-width="72px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'name',
               label: '字典名称',
@@ -433,7 +434,7 @@ function handleDataDelete(row: DictData) {
               as: 'textarea',
               props: { placeholder: '选填', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>
@@ -472,7 +473,7 @@ function handleDataDelete(row: DictData) {
           ref="dataFormRef"
           v-model="dataForm"
           label-width="72px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'label',
               label: '标签',
@@ -506,7 +507,7 @@ function handleDataDelete(row: DictData) {
               as: 'input',
               props: { placeholder: '选填', clearable: true },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>

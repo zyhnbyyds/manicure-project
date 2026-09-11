@@ -11,6 +11,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   createMemberLevel,
   deleteMemberLevel,
@@ -140,7 +141,7 @@ const discountHint = computed(() => {
   return `≈ ${(permille / 100).toFixed(1)} 折`;
 });
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'name',
     label: '等级名',
@@ -177,7 +178,7 @@ const formOptions: LewFormOption[] = [
     as: 'textarea',
     props: { placeholder: '选填', rows: 2 },
   },
-];
+]);
 
 function openCreate() {
   editingId.value = null;

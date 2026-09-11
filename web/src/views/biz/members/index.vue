@@ -24,6 +24,7 @@ import {
   LewTabs,
 } from 'lew-ui';
 import type { LewTableColumn, LewTabsOption } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import type { PageResult } from '~/types/api';
 import {
   adjustMember,
@@ -1453,7 +1454,7 @@ const balanceTotal = computed(
           v-model="rechargeForm"
           label-width="110px"
           @change="onRechargeChange"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'planId',
               label: '充值方案',
@@ -1484,7 +1485,7 @@ const balanceTotal = computed(
               rule: `Yup.string().required('不能为空')`,
               props: { placeholder: '充值备注（必填）', rows: 2 },
             },
-          ]"
+          ])"
         />
         <div
           class="mt-3 rounded-8px border border-[var(--app-border)] p-3 text-13px"
@@ -1556,7 +1557,7 @@ const balanceTotal = computed(
           ref="refundFormRef"
           v-model="refundForm"
           label-width="110px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'amount',
               label: '退款金额(元)',
@@ -1578,7 +1579,7 @@ const balanceTotal = computed(
               rule: `Yup.string().required('不能为空')`,
               props: { placeholder: '冲正原因（必填）', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>
@@ -1622,7 +1623,7 @@ const balanceTotal = computed(
           ref="adjustFormRef"
           v-model="adjustForm"
           label-width="110px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'levelId',
               label: '目标等级',
@@ -1647,7 +1648,7 @@ const balanceTotal = computed(
               rule: `Yup.string().required('不能为空')`,
               props: { placeholder: '手工调整原因（必填）', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>
@@ -1686,7 +1687,7 @@ const balanceTotal = computed(
           ref="enrollFormRef"
           v-model="enrollForm"
           label-width="90px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'customerId',
               label: '顾客 ID',
@@ -1694,7 +1695,7 @@ const balanceTotal = computed(
               rule: `Yup.number().required('不能为空')`,
               props: { min: 1, placeholder: '已有顾客档案的 ID' },
             },
-          ]"
+          ])"
         />
         <p class="page-subtitle mb-0 mt-3">
           顾客必须已有手机号（会员的必填锚点）；入会后等级置为最低启用等级。
@@ -1737,7 +1738,7 @@ const balanceTotal = computed(
           v-model="issueForm"
           label-width="110px"
           @change="onIssueChange"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'cardTypeId',
               label: '卡种',
@@ -1767,7 +1768,7 @@ const balanceTotal = computed(
               as: 'textarea',
               props: { placeholder: '选填', rows: 2 },
             },
-          ]"
+          ])"
         />
         <p class="page-subtitle mb-0 mt-3">
           卡种默认售价 ¥{{
@@ -1818,7 +1819,7 @@ const balanceTotal = computed(
           v-model="redeemForm"
           label-width="110px"
           @change="onRedeemChange"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'goodsId',
               label: '兑换品',
@@ -1835,7 +1836,7 @@ const balanceTotal = computed(
               as: 'textarea',
               props: { placeholder: '选填', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>
@@ -1853,7 +1854,7 @@ const balanceTotal = computed(
           ref="pointsPreviewFormRef"
           v-model="pointsPreviewForm"
           label-width="110px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'serviceItemIds',
               label: '服务项目',
@@ -1865,7 +1866,7 @@ const balanceTotal = computed(
                 placeholder: '选择本单项目（可多选）',
               },
             },
-          ]"
+          ])"
         />
         <div class="mt-3 flex items-center gap-2">
           <LewButton

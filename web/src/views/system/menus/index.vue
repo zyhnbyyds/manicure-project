@@ -11,6 +11,7 @@ import {
 } from 'lucide-vue-next';
 import { LewButton, LewForm, LewMessage, LewModal, LewTable } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   createMenu,
   deleteMenu,
@@ -366,7 +367,7 @@ function onFormChange() {
   if (data?.type) formType.value = data.type;
 }
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'parentId',
     label: '上级菜单',
@@ -425,7 +426,7 @@ const formOptions: LewFormOption[] = [
   },
   { field: 'sort', label: '排序', as: 'input-number', props: { min: 0 } },
   { field: 'status', label: '状态', as: 'switch' },
-];
+]);
 
 async function handleSubmit() {
   const valid = await formRef.value?.validate();

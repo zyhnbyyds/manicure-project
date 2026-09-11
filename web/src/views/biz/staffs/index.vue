@@ -13,6 +13,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   createStaff,
   deleteStaff,
@@ -168,7 +169,7 @@ const form = ref<FormValues>(emptyForm());
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
 
-const formOptions = computed<LewFormOption[]>(() => [
+const formOptions = computed<LewFormOption[]>(() => withPassThroughRule([
   {
     field: 'nickname',
     label: '昵称',
@@ -222,7 +223,7 @@ const formOptions = computed<LewFormOption[]>(() => [
     as: 'textarea',
     props: { placeholder: '选填', rows: 2 },
   },
-]);
+]));
 
 function openCreate() {
   editingId.value = null;

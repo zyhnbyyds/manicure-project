@@ -10,6 +10,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
+import { withPassThroughRule } from '~/utils/form';
 import {
   clearJobLogs,
   createJob,
@@ -306,7 +307,7 @@ async function handleClearLogs() {
           ref="formRef"
           v-model="form"
           label-width="80px"
-          :options="[
+          :options="withPassThroughRule([
             {
               field: 'name',
               label: '任务名称',
@@ -336,7 +337,7 @@ async function handleClearLogs() {
               as: 'textarea',
               props: { placeholder: '选填', rows: 2 },
             },
-          ]"
+          ])"
         />
       </div>
     </LewModal>
