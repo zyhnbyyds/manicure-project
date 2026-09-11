@@ -137,3 +137,7 @@ body {
 .lew-table .lew-table-td > span {
   padding: 10px 8px !important;
 }
+
+.lew-modal-body-main {
+  max-height: 70vh;
+}
