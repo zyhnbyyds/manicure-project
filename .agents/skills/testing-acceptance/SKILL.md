@@ -94,9 +94,98 @@ metadata:
 3. 新表有迁移，菜单/权限点已 seed。
 4. 涉及的 `money-invariants` 红线逐条自检通过。
 
+## mock db 单测范式（服务层资金红线）
+
+集成测试跑不了的时候（CI 无库、要压条件更新的分支），服务层单测仍要能覆盖闸门逻辑。
+以下四件套是踩过坑后定下来的写法，直接照抄。
+
+**1. 查询链 mock：用 Promise 当节点，把链式方法挂在它身上**
+
+```ts
+function chainFor(result: unknown) {
+  const make = (): Record<string, unknown> => {
+    const node = Promise.resolve(result) as unknown as Record<string, unknown>;
+    node.from = make;
+    node.where = make;
+    node.leftJoin = make;
+    node.orderBy = make;
+    node.limit = make;
+    node.offset = make;
+    node.groupBy = make;
+    return node;
+  };
+  return make();
+}
+```
+
+- **不要**自定义 thenable（在普通对象上挂 `then`）——bun 下 `await` 拿不到结果。
+- `select().where()` 的返回值语义是**行数组**。`findOne` 场景要喂 `[[row]]`（一次查询返回一行），
+  不是 `[row]`。喂错会报 `TypeError: {} is not iterable`。
+- 用 `selectResults` 队列按调用顺序喂结果，`where` 的入参也顺手收集起来供 SQL 断言用。
+
+**2. 条件更新的唯一闸门：用 `affectedRows` 队列驱动分支**
+
+`update().set().where()` 的返回是 `[{ affectedRows }]`。写链单独做一个队列：
+
+```ts
+const set = vi.fn((payload) => ({
+  where: vi.fn((condition) => {
+    whereCalls.push(condition);
+    return Promise.resolve(updateResults.shift() ?? [{ affectedRows: 1 }]);
+  }),
+}));
+```
+
+- `affectedRows = 0` 的分支**必须**有用例（并发被抢、状态已变）。
+- 同时断言 `.update()` 的**第一个入参是哪张表**（`expect(mock.calls[i][0]).toBe(bizXxx)`），
+  比断言 SQL 文本更稳。
+- `set` 的调用下标要数准：`insert` 不算，只有 `update().set()` 才进 `set.mock.calls`。
+
+**3. 断言 SQL 片段的形态（条件表达式 / IF 分支）**
+
+drizzle 的 `sql` 模板拍平规则：**字面量文本包在 `StringChunk.value` 数组里，
+插值的列是带 `name` 的 `Column`，插值的值是 `Param`；而裸数字会被内联成字面量，不是 `Param`。**
+
+```ts
+function sqlText(node: unknown): string {
+  if (node === null || node === undefined) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (typeof node !== 'object') return '';
+  if (node instanceof Param) return '?';
+  const record = node as { value?: unknown; queryChunks?: unknown[]; name?: string };
+  if (Array.isArray(record.queryChunks)) return record.queryChunks.map(sqlText).join('');
+  if (Array.isArray(record.value)) return record.value.map(sqlText).join('');
+  if (typeof record.name === 'string') return record.name;
+  return '';
+}
+```
+
+用途：把「不许写成 `settled_amount + x >= amount`」这类**只能靠评审发现的顺序陷阱**变成可回归的断言。
+
+```ts
+expect(sqlText(set.status)).toBe("IF(settled_amount >= amount, 'settled', 'partial')");
+expect(sqlText(gateWhere)).toContain('settled_amount + 10000 <= amount'); // 裸数字内联
+```
+
+**4. 调用顺序断言：mock 里显式 push 日志**
+
+不要依赖 `mock.invocationCallOrder`（bun 未必实现）。在 mock 实现里往 `log: string[]` push 名字，
+再 `expect(log).toEqual([...])`。资金链路（库存 → 扣款 → 发卡 → 落记录 → 回填单号）必须锁死顺序。
+
+## 全局 mock 污染（`bun test` 不做文件级隔离）
+
+任意一个 spec 里的 `vi.mock('node:crypto', ...)` 会**全局生效**，污染其它文件。
+症状：单文件跑绿、全量跑红。
+
+- 源码里要生成唯一值，用 `globalThis.crypto.randomUUID()`，不要 `import { randomUUID } from 'node:crypto'`。
+- 已在 `doc-no.ts` / `payments.service` / `refunds.service` 上踩过。
+
 ## 常见坑
 
 - 用 mock db 测并发 → 永远测不出超订，必须真库。
 - 用"当前时间 + 1 小时"构造用例 → CI 在别的时区/时段跑会飘。
 - 只测正常路径，不测重放与并发 → 幂等缺陷上线后才暴露。
 - 手测过就算通过，没沉淀成集成用例 → 下次重构立刻退化。
+- 断言 `Math.trunc` 类归一化时把 `1.4` 当非法输入 → 取整后是 `1`，其实合法；要用 `0.4`。
+- 显式传 `tx` 的服务方法（如 `assertCreditAvailable`）在单测里传 `{}` → 报
+  `tx.select is not a function`，要从 harness 里拿那个 mock 出来的 `tx`。
