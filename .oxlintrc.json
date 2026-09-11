@@ -11,6 +11,7 @@
   "ignorePatterns": [
     "dist/**",
     "coverage/**",
+    "miniapp/typings/**",
     "src/app.controller.ts",
     "src/app.service.ts",
     "src/decorators/**",
