@@ -20,6 +20,7 @@ import type {
   BookingStatus,
   CreateBookingRequest,
   CreateReviewRequest,
+  BindPhoneVo,
   LoginVo,
   MemberCard,
   MemberMe,
@@ -27,6 +28,12 @@ import type {
   ServiceItem,
   SlotItem,
   Staff,
+  StaffApplyVo,
+  StaffBooking,
+  StaffMe,
+  StaffPerformance,
+  StaffReview,
+  StaffSchedule,
 } from './types';
 
 /* ── 基础数据 ──────────────────────────────────────────────── */
@@ -374,5 +381,172 @@ export function mockLogin(): LoginVo {
     tokenType: 'Bearer',
     expiresIn: '15m',
     customerId: MOCK_MEMBER.customerId,
+    staffId: MOCK_STAFF_ME.staffId,
+    staffStatus: 'active',
   };
+}
+
+export function mockBindPhone(): BindPhoneVo {
+  return {
+    customerId: MOCK_MEMBER.customerId,
+    created: false,
+    staffId: MOCK_STAFF_ME.staffId,
+    // 演示模式直接给 active，才能把工作台链路走完；真接口以服务端为准
+    staffStatus: 'active',
+    staffCandidate: { id: MOCK_STAFF_ME.staffId, nickname: MOCK_STAFF_ME.nickname },
+  };
+}
+
+/* ── 美甲师工作台（S3/S4）───────────────────────────────── */
+
+export const MOCK_STAFF_ME: StaffMe = {
+  staffId: 201,
+  nickname: '小柚',
+  avatar: null,
+  // 后端返回的就是脱敏后的号码，演示数据同样遵守（D11）
+  phone: '138****0021',
+  bio: '八年美甲师，擅长法式与晕染',
+  staffStatus: 'active',
+  allowedServiceItemIds: null,
+};
+
+let staffBookingStore: StaffBooking[] = [];
+
+/** 今日日程：按传入日期造 3 单，覆盖「待到店 / 已到店 / 已完成」三种状态 */
+function seedStaffBookings(date: string): StaffBooking[] {
+  if (staffBookingStore.length > 0) return staffBookingStore;
+  const base = [
+    {
+      hour: 10,
+      name: '王女士',
+      phone: '138****0001',
+      status: 'confirmed' as BookingStatus,
+      item: '基础养护美甲',
+      price: 12800,
+      minutes: 60,
+      remark: null,
+    },
+    {
+      hour: 13,
+      name: '李女士',
+      phone: '138****0002',
+      status: 'arrived' as BookingStatus,
+      item: '法式美甲',
+      price: 19900,
+      minutes: 60,
+      remark: '指甲薄，轻一点',
+    },
+    {
+      hour: 15,
+      name: '张女士',
+      phone: '138****0003',
+      status: 'completed' as BookingStatus,
+      item: '猫眼延长',
+      price: 26800,
+      minutes: 90,
+      remark: null,
+    },
+  ];
+  staffBookingStore = base.map((row, index) => ({
+    id: 900 + index,
+    bookingNo: `B${date.replace(/-/g, '')}${String(index + 1).padStart(3, '0')}`,
+    customerName: row.name,
+    customerPhoneMasked: row.phone,
+    startAt: toLocalIso(date, row.hour * 60),
+    endAt: toLocalIso(date, row.hour * 60 + row.minutes),
+    status: row.status,
+    payStatus: row.status === 'completed' ? 'paid' : 'unpaid',
+    payableAmount: row.price,
+    paidAmount: row.status === 'completed' ? row.price : 0,
+    dueAmount: row.status === 'completed' ? 0 : row.price,
+    remark: row.remark,
+    items: [
+      {
+        serviceItemId: index + 1,
+        name: row.item,
+        price: row.price,
+        durationMinutes: row.minutes,
+      },
+    ],
+  }));
+  return staffBookingStore;
+}
+
+export function mockStaffApply(): StaffApplyVo {
+  return {
+    staffId: MOCK_STAFF_ME.staffId,
+    staffStatus: 'pending',
+    staffRequestedAt: new Date().toISOString(),
+  };
+}
+
+export function mockStaffBookings(input: {
+  date?: string;
+  status?: BookingStatus;
+  page?: number;
+  pageSize?: number;
+}): Paged<StaffBooking> {
+  const date = input.date ?? toLocalDateString(new Date());
+  const all = seedStaffBookings(date);
+  const filtered = input.status
+    ? all.filter((booking) => booking.status === input.status)
+    : all;
+  return { items: filtered, page: input.page ?? 1, pageSize: input.pageSize ?? 20 };
+}
+
+export function mockStaffSchedule(date: string): StaffSchedule {
+  return {
+    date,
+    off: false,
+    segments: [{ startTime: '10:00', endTime: '19:00' }],
+    overrides: [],
+  };
+}
+
+export function mockStaffPerformance(period?: string): StaffPerformance {
+  const effective =
+    period ?? toLocalDateString(new Date()).slice(0, 7).replace('-', '');
+  const item: StaffPerformance['items'][number] = {
+    id: 5001,
+    bookingId: 902,
+    bookingNo: 'B20260911003',
+    serviceItemName: '猫眼延长',
+    baseAmount: 26800,
+    amount: 2680,
+    period: effective,
+    status: 'accrued',
+    settledAt: null,
+  };
+  return {
+    period: effective,
+    completedCount: 18,
+    paidAmount: 386400,
+    commission: { accrued: 2680, settled: 15200, reversed: 0 },
+    rating: { count: 12, average: 4.8 },
+    items: [item],
+  };
+}
+
+export function mockStaffReviews(page = 1, pageSize = 20): Paged<StaffReview> {
+  const items: StaffReview[] = [
+    {
+      id: 7001,
+      bookingId: 902,
+      bookingNo: 'B20260911003',
+      score: 5,
+      content: '小柚手很轻，法式画得很细腻～',
+      reply: '谢谢喜欢，下次早点来可以挑新色板～',
+      createdAt: '2026-09-10T18:20:00+08:00',
+    },
+    {
+      id: 7002,
+      bookingId: 901,
+      bookingNo: 'B20260911002',
+      score: 4,
+      content: '整体不错，等的时间稍长了一点',
+      reply: null,
+      createdAt: '2026-09-09T16:05:00+08:00',
+    },
+  ];
+  return { items, page, pageSize };
 }

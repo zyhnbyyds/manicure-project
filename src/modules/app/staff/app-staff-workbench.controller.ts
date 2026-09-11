@@ -168,6 +168,24 @@ export class AppStaffWorkbenchController {
     return this.workbench.reviews(this.staffIdOf(request), page, pageSize);
   }
 
+  @Get('bookings/:id/phone')
+  @ApiOperation({
+    summary: '取顾客真号（仅供拨号）',
+    description:
+      '列表里只给脱敏值（D11），真号**点一次取一次**且限本人单 —— ' +
+      '抓包 / 截图拿不到批量号码，只有真要打电话的那一瞬间才取。',
+  })
+  @ApiParam({ name: 'id', description: '预约ID' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 403, description: '只能查看本人的预约' })
+  @ApiResponse({ status: 404, description: '预约不存在' })
+  phone(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AppStaffRequest,
+  ) {
+    return this.bookingPort.phoneForStaff(id, this.staffIdOf(request));
+  }
+
   @Post('bookings/:id/arrived')
   @ApiOperation({
     summary: '标记顾客已到店',

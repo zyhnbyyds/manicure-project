@@ -1,0 +1,122 @@
+<view class="page page-with-tabbar" style="{{themeStyle}}">
+  <view class="page-body">
+    <!-- 身份 + 模式切换 -->
+    <view class="hero card">
+      <view class="row-between">
+        <view>
+          <view class="hero__name">{{nickname}}</view>
+          <view class="hero__bio ellipsis">{{bio || '美甲师工作台'}}</view>
+        </view>
+        <view class="btn btn--soft btn--sm" bindtap="onSwitchToCustomer">切回顾客</view>
+      </view>
+      <view class="hero__shift">
+        <view class="hero__date">{{today}}</view>
+        <view class="hero__shifttext {{off ? 'is-off' : ''}}">{{shiftText}}</view>
+      </view>
+    </view>
+
+    <!-- 业绩卡 -->
+    <view class="perf card">
+      <view class="row-between">
+        <view class="section__title">本月业绩 · {{periodText}}</view>
+        <view class="perf__more" bindtap="goStaffPerformance">明细 ›</view>
+      </view>
+      <view class="perf__grid">
+        <view class="perf__cell">
+          <view class="perf__num">{{completedCount}}</view>
+          <view class="perf__label">完成单量</view>
+        </view>
+        <view class="perf__cell">
+          <view class="perf__num">¥{{paidText}}</view>
+          <view class="perf__label">实收合计</view>
+        </view>
+        <view class="perf__cell">
+          <view class="perf__num">¥{{accruedText}}</view>
+          <view class="perf__label">待发提成</view>
+        </view>
+        <view class="perf__cell">
+          <view class="perf__num">¥{{settledText}}</view>
+          <view class="perf__label">已发提成</view>
+        </view>
+      </view>
+      <view class="perf__rating">评分：{{ratingText}}</view>
+    </view>
+
+    <view class="section">
+      <view class="row-between">
+        <view class="section__title">今日日程</view>
+        <view class="section__more" bindtap="goStaffBookings">全部 ›</view>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading">正在看今天的排期…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <view wx:elif="{{bookings.length === 0}}" class="empty">
+      <view class="empty__emoji">☕</view>
+      <view class="empty__text">今天还没有排到的单</view>
+      <view class="empty__hint">好好休息，或者去「我的预约」看看之后几天～</view>
+    </view>
+
+    <block wx:else>
+      <view wx:for="{{bookings}}" wx:key="id" class="job card">
+        <view class="row-between">
+          <view class="job__time">{{item.timeText}}</view>
+          <view class="job__status job__status--{{item.tone}}">
+            <view class="dot"></view>
+            {{item.statusText}}
+          </view>
+        </view>
+
+        <view class="job__row">
+          <view class="job__name">{{item.customerName}}</view>
+          <view
+            wx:if="{{item.customerPhoneMasked}}"
+            class="job__phone"
+            data-id="{{item.id}}"
+            bindtap="onCall"
+          >
+            📞 {{item.customerPhoneMasked}}
+          </view>
+          <view wx:else class="job__phone is-muted">未留电话</view>
+        </view>
+
+        <view class="job__items ellipsis-2">{{item.itemNames}} · {{item.durationText}}</view>
+        <view wx:if="{{item.remark}}" class="job__remark">备注：{{item.remark}}</view>
+
+        <view class="row-between job__foot">
+          <view class="text-weak">{{item.bookingNo}}</view>
+          <view class="job__amount">¥{{item.payableText}}</view>
+        </view>
+
+        <view wx:if="{{item.canArrive || item.canComplete}}" class="job__actions">
+          <view
+            wx:if="{{item.canArrive}}"
+            class="btn btn--soft btn--sm"
+            data-id="{{item.id}}"
+            bindtap="onArrive"
+          >
+            顾客已到店
+          </view>
+          <view
+            wx:if="{{item.canComplete}}"
+            class="btn btn--primary btn--sm"
+            data-id="{{item.id}}"
+            bindtap="onComplete"
+          >
+            服务完成
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="links">
+      <view class="links__item card card--press" bindtap="goStaffPerformance">业绩明细</view>
+      <view class="links__item card card--press" bindtap="goStaffReviews">我的评价</view>
+    </view>
+  </view>
+</view>

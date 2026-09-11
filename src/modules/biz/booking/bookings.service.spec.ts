@@ -226,5 +226,42 @@ describe('BookingsService —— app 域端口（S3 读 / S4 写）', () => {
       expect(h.accrueForBooking).not.toHaveBeenCalled();
       expect(h.onBookingCompleted).not.toHaveBeenCalled();
     });
+
+    describe('phoneForStaff（D11 按需取真号）', () => {
+      it('本人的单 → 返回明文手机号（拨号要真号，脱敏的拨不出去）', async () => {
+        const h = createHarness({
+          selectResults: [[booking()], [{ customerPhone: '13911112222' }]],
+        });
+        await expect(h.service.phoneForStaff(5, 7)).resolves.toEqual({
+          phone: '13911112222',
+        });
+        expect(h.update).not.toHaveBeenCalled();
+      });
+
+      it('顾客没留电话 → null，不臆造', async () => {
+        const h = createHarness({
+          selectResults: [[booking()], [{ customerPhone: null }]],
+        });
+        await expect(h.service.phoneForStaff(5, 7)).resolves.toEqual({
+          phone: null,
+        });
+      });
+
+      it('别人的单 → 403，一条号码都不给', async () => {
+        const h = createHarness({ selectResults: [[booking({ staffId: 8 })]] });
+        await expect(h.service.phoneForStaff(5, 7)).rejects.toThrow(
+          ForbiddenException,
+        );
+        // 归属校验那次之后不该再有第二次查询
+        expect(h.select).toHaveBeenCalledTimes(1);
+      });
+
+      it('预约不存在 → 404', async () => {
+        const h = createHarness({ selectResults: [[]] });
+        await expect(h.service.phoneForStaff(404, 7)).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+    });
   });
 });

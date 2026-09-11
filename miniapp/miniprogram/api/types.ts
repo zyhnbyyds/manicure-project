@@ -27,6 +27,24 @@ export interface LoginVo {
   expiresIn: string;
   /** `null` = 仅浏览（未授权手机号） */
   customerId: number | null;
+  /** 已绑定的美甲师 ID；`null` = 不是美甲师 */
+  staffId: number | null;
+  /** 工作台授权状态；只有 `active` 能进工作台 */
+  staffStatus: StaffGrantStatus;
+}
+
+/**
+ * 手机号绑定响应。
+ *
+ * `staffCandidate` 只表示「手机号命中了这位美甲师的档案」，**不代表已开通工作台**：
+ * 按既定策略必须由店长在后台确认（仅凭手机号提权等于提权漏洞）。
+ */
+export interface BindPhoneVo {
+  customerId: number;
+  created: boolean;
+  staffId: number | null;
+  staffStatus: StaffGrantStatus;
+  staffCandidate: { id: number; nickname: string } | null;
 }
 
 /* ── 目录：项目 / 美甲师 / 可约时段 ────────────────────────── */
@@ -171,4 +189,123 @@ export interface BookingDraft {
   date: string;
   startAt: string;
   endAt: string;
+}
+
+/* ── 美甲师工作台（S3 只读 / S4 写）─────────────────────
+ * 逐字段对齐后端 `src/modules/app/dto/app-staff-workbench.vo.ts`。
+ * 与顾客端一样：**后端没给的字段这里也不许有**（成本、内部备注一律不进来），
+ * 顾客手机号后端已脱敏（`138****0000`），这里只负责展示与拨号。
+ * -------------------------------------------------------- */
+
+/** 工作台开通状态：`none` 未申请 / `pending` 待店长确认 / `active` 已开通 / `rejected` 已驳回 */
+export type StaffGrantStatus = 'none' | 'pending' | 'active' | 'rejected';
+
+export interface StaffMe {
+  staffId: number;
+  nickname: string;
+  avatar: string | null;
+  /** 脱敏手机号（`138****0000`）；`null` = 未留电话 */
+  phone: string | null;
+  bio: string | null;
+  staffStatus: 'active';
+  /** `null` = 全部项目可做；数组 = 可做的项目白名单 */
+  allowedServiceItemIds: number[] | null;
+}
+
+export interface StaffBookingItem {
+  serviceItemId: number;
+  name: string;
+  price: number;
+  durationMinutes: number;
+}
+
+/** 美甲师视角的预约：比顾客端多了 `remark`（服务备注），**没有**任何成本字段 */
+export interface StaffBooking {
+  id: number;
+  bookingNo: string;
+  customerName: string;
+  /** 已脱敏，可直接展示与拨号 */
+  customerPhoneMasked: string | null;
+  startAt: string;
+  endAt: string;
+  status: BookingStatus;
+  payStatus: PayStatus;
+  payableAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  remark: string | null;
+  items: StaffBookingItem[];
+}
+
+export interface StaffScheduleOverride {
+  id: number;
+  date: string;
+  type: 'off' | 'custom';
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+}
+
+export interface StaffSchedule {
+  date: string;
+  /** `true` = 当天休息 */
+  off: boolean;
+  segments: { startTime: string; endTime: string }[];
+  overrides: StaffScheduleOverride[];
+}
+
+export interface StaffCommissionItem {
+  id: number;
+  bookingId: number;
+  bookingNo: string | null;
+  serviceItemName: string | null;
+  /** 计提基数（分） */
+  baseAmount: number;
+  /** 提成金额（分） */
+  amount: number;
+  period: string;
+  status: 'accrued' | 'settled' | 'reversed';
+  settledAt: string | null;
+}
+
+export interface StaffPerformance {
+  /** `yyyyMM` */
+  period: string;
+  completedCount: number;
+  /** 已完成预约的实收合计（分） */
+  paidAmount: number;
+  commission: { accrued: number; settled: number; reversed: number };
+  /** `average` 为 `null` = 暂无评分（不是 0 分） */
+  rating: { count: number; average: number | null };
+  /** 逐单明细全见（D9），按 id 倒序，最多 500 条 */
+  items: StaffCommissionItem[];
+}
+
+export interface StaffReview {
+  id: number;
+  bookingId: number;
+  bookingNo: string | null;
+  /** 1~5 */
+  score: number;
+  content: string | null;
+  reply: string | null;
+  createdAt: string;
+}
+
+/** `GET /app/staff/bookings/:id/phone`：按需取回的顾客真号 */
+export interface StaffPhone {
+  /** `null` = 顾客没留电话 */
+  phone: string | null;
+}
+
+/** 到店 / 完成的响应：`changed=false` = 已是目标状态（幂等，不是失败） */
+export interface StaffAction {
+  changed: boolean;
+  warning?: string | null;
+}
+
+export interface StaffApplyVo {
+  staffId: number;
+  staffStatus: 'pending' | 'active';
+  staffRequestedAt: string | null;
 }

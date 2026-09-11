@@ -143,6 +143,19 @@ export const appStaffReviewListVo = z.object({
 });
 registerComponent('AppStaffReviewListVo', appStaffReviewListVo);
 
+/**
+ * `GET /app/staff/bookings/:id/phone`：按需取顾客真号（D11 的另一半）。
+ *
+ * 列表 VO **没有**这个字段——真号只在真的要拨号时取一次，且只能是本人单。
+ */
+export const appStaffPhoneVo = z.object({
+  phone: z
+    .string()
+    .nullable()
+    .openapi({ description: '顾客手机号；null = 顾客没留电话' }),
+});
+registerComponent('AppStaffPhoneVo', appStaffPhoneVo);
+
 /** `POST /app/staff/bookings/:id/arrived|complete` 的响应 */
 export const appStaffActionVo = z.object({
   changed: z.boolean().openapi({ description: 'false = 已是目标状态（幂等）' }),

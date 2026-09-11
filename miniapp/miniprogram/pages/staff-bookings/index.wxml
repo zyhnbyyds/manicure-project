@@ -1,0 +1,94 @@
+<view class="page page-with-tabbar" style="{{themeStyle}}">
+  <!-- 日期条 -->
+  <scroll-view class="dates" scroll-x enable-flex>
+    <view
+      wx:for="{{dates}}"
+      wx:key="value"
+      class="dates__item {{activeDate === item.value ? 'is-active' : ''}}"
+      data-value="{{item.value}}"
+      bindtap="onDate"
+    >
+      {{item.label}}
+    </view>
+  </scroll-view>
+
+  <!-- 状态筛选 -->
+  <view class="filters">
+    <view
+      wx:for="{{filters}}"
+      wx:key="key"
+      class="filters__item {{activeFilter === item.key ? 'is-active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onFilter"
+    >
+      {{item.label}}
+    </view>
+  </view>
+
+  <view class="page-body">
+    <view wx:if="{{loading}}" class="loading">正在翻这一天的单…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <view wx:elif="{{bookings.length === 0}}" class="empty">
+      <view class="empty__emoji">☕</view>
+      <view class="empty__text">这一天没有排到的单</view>
+      <view class="empty__hint">换个日期，或者回去工作台看看今天～</view>
+    </view>
+
+    <block wx:else>
+      <view wx:for="{{bookings}}" wx:key="id" class="job card">
+        <view class="row-between">
+          <view class="job__time">{{item.timeText}}</view>
+          <view class="job__status job__status--{{item.tone}}">
+            <view class="dot"></view>
+            {{item.statusText}}
+          </view>
+        </view>
+
+        <view class="job__row">
+          <view class="job__name">{{item.customerName}}</view>
+          <view
+            wx:if="{{item.customerPhoneMasked}}"
+            class="job__phone"
+            data-id="{{item.id}}"
+            bindtap="onCall"
+          >
+            📞 {{item.customerPhoneMasked}}
+          </view>
+          <view wx:else class="job__phone is-muted">未留电话</view>
+        </view>
+
+        <view class="job__items ellipsis-2">{{item.itemNames}} · {{item.durationText}}</view>
+        <view wx:if="{{item.remark}}" class="job__remark">备注：{{item.remark}}</view>
+
+        <view class="row-between job__foot">
+          <view class="text-weak">{{item.payStatusText}}</view>
+          <view class="job__amount">¥{{item.payableText}}</view>
+        </view>
+
+        <view wx:if="{{item.canArrive || item.canComplete}}" class="job__actions">
+          <view
+            wx:if="{{item.canArrive}}"
+            class="btn btn--soft btn--sm"
+            data-id="{{item.id}}"
+            bindtap="onArrive"
+          >
+            顾客已到店
+          </view>
+          <view
+            wx:if="{{item.canComplete}}"
+            class="btn btn--primary btn--sm"
+            data-id="{{item.id}}"
+            bindtap="onComplete"
+          >
+            服务完成
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

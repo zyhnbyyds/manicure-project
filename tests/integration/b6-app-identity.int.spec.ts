@@ -1076,4 +1076,38 @@ describe('B6 美甲师工作台写操作（§12.5 S4 / money-invariants）', () 
     });
     expect(perf.body.commission.accrued).toBe(1990);
   });
+
+  it('真号按需取（D11）：列表只有脱敏，点拨号才取真号，别人的单 403', async () => {
+    const me = await seedGrantedStaff('openid-wb-phone', '13800000061', '小柚');
+    const bookingId = await seedBooking(me.staffId, '13800000062');
+
+    const list = await ctx.request('GET', '/api/v1/app/staff/bookings', {
+      token: me.token,
+    });
+    expect(list.status).toBe(200);
+    const row = itemsOf(list.body)[0] as Record<string, unknown>;
+    expect(row.customerPhoneMasked).toBe('138****0062');
+    // 明文手机号一个字段都不该出现在列表里，否则脱敏形同虚设
+    expect(row).not.toHaveProperty('customerPhone');
+    expect(row).not.toHaveProperty('customerPhoneRaw');
+
+    const phone = await ctx.request(
+      'GET',
+      `/api/v1/app/staff/bookings/${bookingId}/phone`,
+      { token: me.token },
+    );
+    expect(phone.status).toBe(200);
+    expect(phone.body.phone).toBe('13800000062');
+
+    const colleague = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, status, sort) VALUES ('同事小美', 'active', 2)`,
+    );
+    const othersBooking = await seedBooking(colleague.insertId, '13800000063');
+    const forbidden = await ctx.request(
+      'GET',
+      `/api/v1/app/staff/bookings/${othersBooking}/phone`,
+      { token: me.token },
+    );
+    expect(forbidden.status).toBe(403);
+  });
 });

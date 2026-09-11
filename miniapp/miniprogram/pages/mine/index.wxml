@@ -16,6 +16,23 @@
       </view>
     </view>
 
+    <!-- 美甲师工作台：没开通的人不该看到入口，开通了才给「切换」 -->
+    <view wx:if="{{staffText}}" class="card menu">
+      <view wx:if="{{granted}}" class="menu__item menu__item--last" bindtap="onEnterWorkbench">
+        <view class="menu__icon">💅</view>
+        <view class="grow">美甲师工作台</view>
+        <view class="menu__value">切换到工作台</view>
+        <view class="menu__arrow">›</view>
+      </view>
+      <view wx:else class="menu__item menu__item--last">
+        <view class="menu__icon">💅</view>
+        <view class="grow">美甲师工作台</view>
+        <view wx:if="{{applying}}" class="menu__value">提交中…</view>
+        <view wx:else class="menu__apply" bindtap="onApplyStaff">申请开通</view>
+      </view>
+      <view class="menu__hint">{{staffText}}</view>
+    </view>
+
     <!-- 功能入口 -->
     <view class="card menu">
       <view class="menu__item" bindtap="goBookings">

@@ -1,0 +1,47 @@
+/* 我的评价 */
+
+.count {
+  padding: 4rpx 8rpx 12rpx;
+  font-size: 24rpx;
+  color: var(--c-text-weak);
+}
+
+.review {
+  margin-bottom: 20rpx;
+}
+
+.review__stars {
+  font-size: 30rpx;
+  color: #ffb020;
+  letter-spacing: 4rpx;
+}
+
+.review__content {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.review__reply {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  border-radius: var(--r-sm);
+  background: var(--c-accent-soft);
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: var(--c-text-sub);
+}
+
+.review__reply-tag {
+  display: block;
+  margin-bottom: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+.review__no {
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}

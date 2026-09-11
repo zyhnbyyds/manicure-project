@@ -1,0 +1,196 @@
+/* 美甲师工作台 */
+
+.hero {
+  padding: 28rpx;
+}
+
+.hero__name {
+  font-size: 38rpx;
+  font-weight: 800;
+}
+
+.hero__bio {
+  margin-top: 8rpx;
+  max-width: 420rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__shift {
+  margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  padding-top: 20rpx;
+  border-top: 2rpx solid var(--c-border);
+}
+
+.hero__date {
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__shifttext {
+  margin-left: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--c-primary);
+}
+
+.hero__shifttext.is-off {
+  color: var(--c-text-weak);
+}
+
+/* 业绩卡 */
+
+.perf {
+  margin-top: 24rpx;
+  padding: 28rpx;
+}
+
+.perf__more {
+  font-size: 24rpx;
+  color: var(--c-primary);
+}
+
+.perf__grid {
+  margin-top: 24rpx;
+  display: flex;
+}
+
+.perf__cell {
+  flex: 1;
+  text-align: center;
+}
+
+.perf__num {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+
+.perf__label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.perf__rating {
+  margin-top: 22rpx;
+  padding-top: 18rpx;
+  border-top: 2rpx solid var(--c-border);
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+/* 今日日程 */
+
+.job {
+  margin-bottom: 24rpx;
+}
+
+.job__time {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.job__status {
+  display: inline-flex;
+  align-items: center;
+  height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: var(--r-pill);
+  font-size: 24rpx;
+  font-weight: 600;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+}
+
+.job__status--waiting {
+  background: var(--c-accent-soft);
+  color: var(--c-text-sub);
+}
+
+.job__status--done {
+  background: var(--c-bg-soft);
+  color: var(--c-text-sub);
+}
+
+.job__status--cancelled {
+  background: var(--c-bg-soft);
+  color: var(--c-text-weak);
+}
+
+.job__row {
+  margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+}
+
+.job__name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.job__phone {
+  margin-left: 20rpx;
+  font-size: 25rpx;
+  color: var(--c-primary);
+}
+
+.job__phone.is-muted {
+  color: var(--c-text-weak);
+}
+
+.job__items {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+}
+
+.job__remark {
+  margin-top: 10rpx;
+  padding: 12rpx 16rpx;
+  border-radius: var(--r-sm);
+  background: var(--c-accent-soft);
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.job__foot {
+  margin-top: 18rpx;
+}
+
+.job__amount {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+
+.job__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22rpx;
+}
+
+.job__actions .btn {
+  margin-left: 16rpx;
+}
+
+/* 底部入口 */
+
+.links {
+  display: flex;
+  margin-top: 8rpx;
+}
+
+.links__item {
+  flex: 1;
+  padding: 26rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.links__item + .links__item {
+  margin-left: 20rpx;
+}

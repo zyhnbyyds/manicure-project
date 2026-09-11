@@ -23,15 +23,23 @@ import {
   MOCK_MEMBER,
   MOCK_SERVICE_ITEMS,
   MOCK_STAFFS,
+  MOCK_STAFF_ME,
   mockAvailableSlots,
+  mockBindPhone,
   mockCancelBooking,
   mockCreateBooking,
   mockCreateReview,
   mockListBookings,
   mockLogin,
+  mockStaffApply,
+  mockStaffBookings,
+  mockStaffPerformance,
+  mockStaffReviews,
+  mockStaffSchedule,
 } from './mock';
 import type {
   AvailableSlots,
+  BindPhoneVo,
   Booking,
   BookingStatus,
   CreateBookingRequest,
@@ -44,6 +52,14 @@ import type {
   Paged,
   ServiceItem,
   Staff,
+  StaffAction,
+  StaffApplyVo,
+  StaffBooking,
+  StaffMe,
+  StaffPerformance,
+  StaffPhone,
+  StaffReview,
+  StaffSchedule,
 } from './types';
 
 let mockWarned = false;
@@ -74,10 +90,10 @@ export const authApi = {
     });
   },
 
-  /** 手机号绑定：后端 501（P2 实现），这里保持同样的失败语义 */
-  bindPhone(code: string): Promise<void> {
-    if (useMock()) return Promise.resolve();
-    return request<void>({
+  /** 手机号绑定。返回里带工作台候选与授权状态（候选 ≠ 已开通，要店长后台确认） */
+  bindPhone(code: string): Promise<BindPhoneVo> {
+    if (useMock()) return Promise.resolve(mockBindPhone());
+    return request<BindPhoneVo>({
       path: '/app/auth/phone',
       method: 'POST',
       data: { code },
@@ -193,6 +209,88 @@ export const bookingApi = {
       path: '/app/payments/wxpay/jsapi',
       method: 'POST',
       data: input as unknown as Record<string, unknown>,
+    });
+  },
+};
+
+/* ── 美甲师工作台（S3 只读 / S4 写）────────────────────────
+ * 全部走 `/app/staff/**`：后端按 `AppStaffScopeGuard` 硬限定本人，
+ * 前端**不传 staffId**（传了也没用，服务端不认），只传分页与过滤条件。
+ * -------------------------------------------------------- */
+
+export const staffApi = {
+  apply(): Promise<StaffApplyVo> {
+    if (useMock()) return Promise.resolve(mockStaffApply());
+    return request<StaffApplyVo>({ path: '/app/staff/apply', method: 'POST' });
+  },
+
+  me(): Promise<StaffMe> {
+    if (useMock()) return Promise.resolve(MOCK_STAFF_ME);
+    return request<StaffMe>({ path: '/app/staff/me' });
+  },
+
+  listBookings(input: {
+    date?: string;
+    status?: BookingStatus;
+    page?: number;
+    pageSize?: number;
+  } = {}): Promise<Paged<StaffBooking>> {
+    if (useMock()) return Promise.resolve(mockStaffBookings(input));
+    return request<Paged<StaffBooking>>({
+      path: '/app/staff/bookings',
+      data: {
+        date: input.date,
+        status: input.status,
+        page: input.page ?? 1,
+        pageSize: input.pageSize ?? 20,
+      },
+    });
+  },
+
+  getSchedule(date: string): Promise<StaffSchedule> {
+    if (useMock()) return Promise.resolve(mockStaffSchedule(date));
+    return request<StaffSchedule>({ path: '/app/staff/schedule', data: { date } });
+  },
+
+  getPerformance(period?: string): Promise<StaffPerformance> {
+    if (useMock()) return Promise.resolve(mockStaffPerformance(period));
+    return request<StaffPerformance>({
+      path: '/app/staff/performance',
+      data: period ? { period } : undefined,
+    });
+  },
+
+  listReviews(page = 1, pageSize = 20): Promise<Paged<StaffReview>> {
+    if (useMock()) return Promise.resolve(mockStaffReviews(page, pageSize));
+    return request<Paged<StaffReview>>({
+      path: '/app/staff/reviews',
+      data: { page, pageSize },
+    });
+  },
+
+  /** 按需取顾客真号（D11）：列表只给脱敏值，真号点拨号才取，且限本人单 */
+  getBookingPhone(bookingId: number): Promise<StaffPhone> {
+    if (useMock()) return Promise.resolve({ phone: '13800000002' });
+    return request<StaffPhone>({
+      path: `/app/staff/bookings/${bookingId}/phone`,
+    });
+  },
+
+  /** 标记顾客已到店；已在到店态返回 `changed:false`（幂等，不是失败） */
+  markArrived(bookingId: number): Promise<StaffAction> {
+    if (useMock()) return Promise.resolve({ changed: true });
+    return request<StaffAction>({
+      path: `/app/staff/bookings/${bookingId}/arrived`,
+      method: 'POST',
+    });
+  },
+
+  /** 标记服务完成（走后端既有完成动作：提成计提 + 到店次数 + 幂等闸门） */
+  markCompleted(bookingId: number): Promise<StaffAction> {
+    if (useMock()) return Promise.resolve({ changed: true });
+    return request<StaffAction>({
+      path: `/app/staff/bookings/${bookingId}/complete`,
+      method: 'POST',
     });
   },
 };

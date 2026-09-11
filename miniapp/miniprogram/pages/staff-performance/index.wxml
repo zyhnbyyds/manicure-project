@@ -1,0 +1,73 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body">
+    <!-- 月份切换 -->
+    <view class="switcher">
+      <view class="switcher__btn" bindtap="onPrev">‹ 上一月</view>
+      <view class="switcher__title">{{periodText}}</view>
+      <view class="switcher__btn {{canNext ? '' : 'is-muted'}}" bindtap="onNext">下一月 ›</view>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading">正在算这个月的账…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <block wx:else>
+      <!-- 汇总 -->
+      <view class="card summary">
+        <view class="summary__grid">
+          <view class="summary__cell">
+            <view class="summary__num">{{completedCount}}</view>
+            <view class="summary__label">完成单量</view>
+          </view>
+          <view class="summary__cell">
+            <view class="summary__num">¥{{paidText}}</view>
+            <view class="summary__label">实收合计</view>
+          </view>
+          <view class="summary__cell">
+            <view class="summary__num">¥{{accruedText}}</view>
+            <view class="summary__label">待发</view>
+          </view>
+          <view class="summary__cell">
+            <view class="summary__num">¥{{settledText}}</view>
+            <view class="summary__label">已发</view>
+          </view>
+        </view>
+        <view class="summary__foot">
+          <text>已冲销 ¥{{reversedText}}</text>
+          <text>评分 {{ratingText}}</text>
+        </view>
+      </view>
+
+      <!-- 逐单明细（D9 全见） -->
+      <view class="section">
+        <view class="section__title">逐单提成明细</view>
+      </view>
+
+      <view wx:if="{{rows.length === 0}}" class="empty">
+        <view class="empty__emoji">🧾</view>
+        <view class="empty__text">这个月还没有提成记录</view>
+        <view class="empty__hint">完成服务后会自动计提，冲销的单也会留在这里</view>
+      </view>
+
+      <view wx:for="{{rows}}" wx:key="id" class="row-card card">
+        <view class="row-between">
+          <view class="row-card__name ellipsis">{{item.serviceItemName}}</view>
+          <view class="row-card__status row-card__status--{{item.tone}}">
+            {{item.statusText}}
+          </view>
+        </view>
+        <view class="row-card__meta">
+          <text class="text-weak">{{item.bookingNo}}</text>
+          <text class="text-weak">结算于 {{item.settledText}}</text>
+        </view>
+        <view class="row-between row-card__money">
+          <view class="text-sub">基数 ¥{{item.baseText}}</view>
+          <view class="row-card__amount">+¥{{item.amountText}}</view>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

@@ -1,0 +1,36 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body">
+    <view wx:if="{{loading}}" class="loading">正在看顾客怎么夸你…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <view wx:elif="{{rows.length === 0}}" class="empty">
+      <view class="empty__emoji">⭐</view>
+      <view class="empty__text">还没有收到评价</view>
+      <view class="empty__hint">做完每一单都提醒顾客评价，攒起来很快～</view>
+    </view>
+
+    <block wx:else>
+      <view class="count">{{countText}}</view>
+
+      <view wx:for="{{rows}}" wx:key="id" class="review card">
+        <view class="row-between">
+          <view class="review__stars">{{item.stars}}</view>
+          <view class="text-weak">{{item.dateText}}</view>
+        </view>
+
+        <view class="review__content">{{item.content}}</view>
+
+        <view wx:if="{{item.reply}}" class="review__reply">
+          <text class="review__reply-tag">我的回复</text>
+          {{item.reply}}
+        </view>
+
+        <view class="review__no">{{item.bookingNo}}</view>
+      </view>
+    </block>
+  </view>
+</view>

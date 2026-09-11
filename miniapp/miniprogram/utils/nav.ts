@@ -28,6 +28,24 @@ export function goMine(): void {
   switchOrNavigate('/pages/mine/index');
 }
 
+/* ── 美甲师工作台（非 Tab 页走 navigateTo）───────────────── */
+
+export function goStaffWorkbench(): void {
+  switchOrNavigate('/pages/staff-workbench/index');
+}
+
+export function goStaffBookings(): void {
+  switchOrNavigate('/pages/staff-bookings/index');
+}
+
+export function goStaffPerformance(): void {
+  wx.navigateTo({ url: '/pages/staff-performance/index' });
+}
+
+export function goStaffReviews(): void {
+  wx.navigateTo({ url: '/pages/staff-reviews/index' });
+}
+
 export function goServices(): void {
   wx.navigateTo({ url: '/pages/services/index' });
 }

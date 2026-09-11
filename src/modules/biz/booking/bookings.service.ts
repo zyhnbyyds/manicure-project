@@ -311,6 +311,25 @@ export class BookingsService implements BookingPort {
    * 套上去只会得到错的范围。
    * ---------------------------------------------------------------- */
 
+  /**
+   * 顾客真号「点一次取一次」（D11）。
+   *
+   * 复用 `assertOwnedByStaff`，所以越权语义与到店/完成完全一致：非本人单 403、
+   * 不存在 404 —— 不单独实现一套，避免两边口径漂移。
+   */
+  async phoneForStaff(
+    id: number,
+    staffId: number,
+  ): Promise<{ phone: string | null }> {
+    await this.assertOwnedByStaff(id, staffId);
+    const [row] = await this.database.db
+      .select({ customerPhone: bizBookings.customerPhone })
+      .from(bizBookings)
+      .where(and(eq(bizBookings.id, id), isNull(bizBookings.deletedAt)))
+      .limit(1);
+    return { phone: row?.customerPhone ?? null };
+  }
+
   async listByStaff(
     staffId: number,
     page: number,

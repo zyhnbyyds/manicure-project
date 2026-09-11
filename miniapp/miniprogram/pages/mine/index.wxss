@@ -85,3 +85,22 @@
 .logout {
   margin-top: 40rpx;
 }
+
+/* 美甲师工作台入口 */
+
+.menu__apply {
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.menu__hint {
+  padding: 4rpx 28rpx 22rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}

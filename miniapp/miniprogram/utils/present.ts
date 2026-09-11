@@ -13,6 +13,7 @@ import type {
   ServiceItem,
   SlotItem,
   Staff,
+  StaffBooking,
 } from '../api/types';
 import {
   fenToYuan,
@@ -273,4 +274,78 @@ export function toBookingVM(booking: Booking): BookingVM {
     itemCount: booking.items.length,
     durationText: formatDuration(durationMinutes),
   };
+}
+
+/* ── 美甲师工作台 ──────────────────────────────────────────
+ * 与顾客端 `toBookingRow` 分开：美甲师视角要「拨号 + 到店/完成」，
+ * 且能看到服务备注；但同样**不出现任何成本字段**。
+ * -------------------------------------------------------- */
+
+/** 状态 → 主题色语义（与顾客端同一套 tone，颜色仍由主题令牌派生） */
+function staffToneOf(status: string): string {
+  if (status === 'pending' || status === 'confirmed') return 'waiting';
+  if (status === 'completed') return 'done';
+  if (status === 'cancelled' || status === 'no_show') return 'cancelled';
+  return '';
+}
+
+export interface StaffBookingRow {
+  id: number;
+  bookingNo: string;
+  customerName: string;
+  /** 已脱敏；`null` = 顾客没留电话，不显示拨号入口 */
+  customerPhoneMasked: string | null;
+  dateText: string;
+  timeText: string;
+  durationText: string;
+  itemNames: string;
+  statusText: string;
+  payStatusText: string;
+  tone: string;
+  payableText: string;
+  dueText: string;
+  remark: string | null;
+  /** 与后端状态机一致：只有「已确认」能到店，只有「已到店」能完成 */
+  canArrive: boolean;
+  canComplete: boolean;
+}
+
+export function toStaffBookingRow(booking: StaffBooking): StaffBookingRow {
+  const durationMinutes =
+    booking.items.reduce((sum, item) => sum + item.durationMinutes, 0) || 60;
+  return {
+    id: booking.id,
+    bookingNo: booking.bookingNo,
+    customerName: booking.customerName,
+    customerPhoneMasked: booking.customerPhoneMasked,
+    dateText: formatDateTimeLabel(booking.startAt).replace(/\s\d{2}:\d{2}$/, ''),
+    timeText: formatTimeRange(booking.startAt, booking.endAt),
+    durationText: formatDuration(durationMinutes),
+    itemNames: booking.items.map((item) => item.name).join(' + '),
+    statusText: formatBookingStatus(booking.status),
+    payStatusText: formatPayStatus(booking.payStatus),
+    tone: staffToneOf(booking.status),
+    payableText: fenToYuan(booking.payableAmount),
+    dueText: fenToYuan(booking.dueAmount),
+    remark: booking.remark,
+    canArrive: booking.status === 'confirmed',
+    canComplete: booking.status === 'arrived',
+  };
+}
+
+/** 提成状态 → 文案 */
+const COMMISSION_STATUS_TEXT: Record<string, string> = {
+  accrued: '待发',
+  settled: '已发',
+  reversed: '已冲销',
+};
+
+export function formatCommissionStatus(status: string): string {
+  return COMMISSION_STATUS_TEXT[status] ?? status;
+}
+
+/** `202609` → `2026年9月` */
+export function formatPeriod(period: string): string {
+  if (!/^\d{6}$/.test(period)) return period;
+  return `${period.slice(0, 4)}年${Number(period.slice(4))}月`;
 }

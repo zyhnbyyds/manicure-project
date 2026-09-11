@@ -33,7 +33,7 @@ Page({
   /** 只在 onShow 拉取：首次进入 onShow 也会触发；下单后返回本页能立刻看到新单 */
   onShow() {
     this.setData(basePageData());
-    syncTabBar(this, 1);
+    syncTabBar(this);
     this.load();
   },
 

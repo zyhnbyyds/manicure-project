@@ -13,7 +13,9 @@
 // 必须写显式文件路径：小程序的模块解析不认目录导入（`'../api'` 编译成 require('../api') 会报
 // module 'api.js' is not defined），这点和 Node/TS 的默认行为不同。
 import { authApi } from '../api/index';
+import type { BindPhoneVo } from '../api/types';
 import { DEMO_CUSTOMER_ID, isMockEnabled } from '../config';
+import { clearMode, rememberStaffStatus } from './mode';
 import { setBoundCustomerId, clearAuth, getBoundCustomerId, getToken, setToken } from '../utils/token';
 
 let loginPromise: Promise<void> | null = null;
@@ -57,6 +59,8 @@ export function ensureLogin(): Promise<void> {
     const result = await authApi.login({ code });
     setToken(result.accessToken);
     setBoundCustomerId(result.customerId);
+    // 授权状态每请求都在服务端复查，这里只是决定「要不要显示工作台入口」
+    rememberStaffStatus(result.staffStatus);
   })();
 
   // 失败后允许下次重试，否则一次网络抖动会把用户永久卡在未登录
@@ -70,13 +74,17 @@ export function ensureLogin(): Promise<void> {
 /**
  * 绑定手机号。`code` 来自 `<button open-type="getPhoneNumber">` 的回调。
  *
- * 演示模式下直接把身份置为已绑定，方便把「会员中心 / 下单」链路走完；
- * 真实模式下**不在前端臆造 customerId**——绑定结果以服务端为准，
- * 由调用方紧接着拉一次 `GET /app/member/me` 再 `rememberCustomerId()` 回填。
+ * 返回服务端给的绑定结果（含工作台候选与授权状态）：
+ * - `staffCandidate` 非空只说明手机号命中了某位美甲师的档案，**不代表已开通**，
+ *   必须由店长在后台确认（仅凭手机号提权 = 提权漏洞）；
+ * - 演示模式下 `staffStatus` 直接是 `active`，好把工作台链路走完。
  */
-export async function bindPhone(code: string): Promise<void> {
-  await authApi.bindPhone(code);
+export async function bindPhone(code: string): Promise<BindPhoneVo> {
+  const result = await authApi.bindPhone(code);
+  setBoundCustomerId(result.customerId);
+  rememberStaffStatus(result.staffStatus);
   if (isMockEnabled()) setBoundCustomerId(DEMO_CUSTOMER_ID);
+  return result;
 }
 
 /** 用服务端返回的 customerId 回填本地绑定状态（`/app/member/me` 的响应里带） */
@@ -84,7 +92,8 @@ export function rememberCustomerId(customerId: number): void {
   setBoundCustomerId(customerId);
 }
 
-/** 退出登录（清 token 与绑定状态，不动主题偏好） */
+/** 退出登录（清 token、绑定状态与工作台模式，不动主题偏好） */
 export function logout(): void {
   clearAuth();
+  clearMode();
 }

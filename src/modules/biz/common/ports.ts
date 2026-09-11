@@ -616,6 +616,17 @@ export abstract class BookingPort {
    * `period` 是 `yyyyMM`，按**店内时区**的 `finished_at` 划月 —— 不能让小程序端
    * 自己算月份边界，手机时区一变口径就漂。
    */
+  /**
+   * 按需取顾客真号（D11「默认脱敏 + 拨号按钮」的另一半）。
+   *
+   * 列表里**永远只给脱敏值**；真号要「点一次取一次」，且只能是本人单。
+   * 这样截图 / 日志 / 抓包都拿不到批量号码，只有真正要拨号的那一瞬间才取一次，
+   * 也就不需要在列表 VO 里同时塞明文和脱敏两个字段（那等于没脱敏）。
+   */
+  abstract phoneForStaff(
+    id: number,
+    staffId: number,
+  ): Promise<{ phone: string | null }>;
   abstract performanceByStaff(
     staffId: number,
     /** 不传 = 当月（按**店内时区**算，不能让调用方自己定月份边界） */

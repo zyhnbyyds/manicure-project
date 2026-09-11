@@ -1,0 +1,107 @@
+/* 业绩明细 */
+
+.switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 8rpx 4rpx;
+}
+
+.switcher__btn {
+  min-width: 150rpx;
+  font-size: 26rpx;
+  color: var(--c-primary);
+}
+
+.switcher__btn.is-muted {
+  color: var(--c-text-weak);
+}
+
+.switcher__title {
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.summary {
+  padding: 28rpx;
+}
+
+.summary__grid {
+  display: flex;
+}
+
+.summary__cell {
+  flex: 1;
+  text-align: center;
+}
+
+.summary__num {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+
+.summary__label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.summary__foot {
+  margin-top: 22rpx;
+  padding-top: 18rpx;
+  border-top: 2rpx solid var(--c-border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.row-card {
+  margin-bottom: 20rpx;
+}
+
+.row-card__name {
+  font-size: 29rpx;
+  font-weight: 600;
+  max-width: 400rpx;
+}
+
+.row-card__status {
+  height: 44rpx;
+  line-height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: var(--r-pill);
+  font-size: 23rpx;
+  font-weight: 600;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+}
+
+.row-card__status--settled {
+  background: var(--c-bg-soft);
+  color: var(--c-text-sub);
+}
+
+.row-card__status--reversed {
+  background: var(--c-bg-soft);
+  color: var(--c-text-weak);
+}
+
+.row-card__meta {
+  margin-top: 12rpx;
+  display: flex;
+  justify-content: space-between;
+  font-size: 23rpx;
+}
+
+.row-card__money {
+  margin-top: 14rpx;
+  align-items: baseline;
+}
+
+.row-card__amount {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}

@@ -9,7 +9,11 @@
     "pages/bookings/index",
     "pages/member/index",
     "pages/mine/index",
-    "pages/theme/index"
+    "pages/theme/index",
+    "pages/staff-workbench/index",
+    "pages/staff-bookings/index",
+    "pages/staff-performance/index",
+    "pages/staff-reviews/index"
   ],
   "window": {
     "navigationStyle": "default",
@@ -29,6 +33,8 @@
     "list": [
       { "pagePath": "pages/index/index", "text": "首页" },
       { "pagePath": "pages/bookings/index", "text": "预约" },
+      { "pagePath": "pages/staff-workbench/index", "text": "工作台" },
+      { "pagePath": "pages/staff-bookings/index", "text": "我的预约" },
       { "pagePath": "pages/mine/index", "text": "我的" }
     ]
   },

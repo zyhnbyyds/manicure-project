@@ -26,7 +26,7 @@ Page({
   /** 主题在 onShow 重新取：从主题页返回时恰好触发，无需订阅 */
   onShow() {
     this.setData(basePageData());
-    syncTabBar(this, 0);
+    syncTabBar(this);
   },
 
   async load() {
