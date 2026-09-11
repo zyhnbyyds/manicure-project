@@ -30,6 +30,7 @@ import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import type { EntityStatus } from '~/types/api';
 import { renderStatus } from '~/utils/render';
+import { withPassThroughRule } from '~/utils/form';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
 
@@ -258,7 +259,7 @@ function emptyForm(): FormValues {
   };
 }
 
-const formOptions: LewFormOption[] = [
+const formOptions: LewFormOption[] = withPassThroughRule([
   {
     field: 'name',
     label: '项目名称',
@@ -328,7 +329,7 @@ const formOptions: LewFormOption[] = [
     as: 'textarea',
     props: { placeholder: '选填', rows: 2 },
   },
-];
+]);
 
 function openCreate() {
   editingId.value = null;
