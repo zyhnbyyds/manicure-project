@@ -94,6 +94,11 @@ export function goPoints(): void {
   wx.navigateTo({ url: '/pages/points/index' });
 }
 
+/** 我的收藏 */
+export function goFavorites(): void {
+  wx.navigateTo({ url: '/pages/favorites/index' });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

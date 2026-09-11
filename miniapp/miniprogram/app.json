@@ -15,6 +15,7 @@
     "pages/recharge/index",
     "pages/card-detail/index",
     "pages/points/index",
+    "pages/favorites/index",
     "pages/member/index",
     "pages/mine/index",
     "pages/theme/index",

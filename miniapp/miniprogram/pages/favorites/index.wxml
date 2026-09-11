@@ -1,0 +1,30 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body fav-body">
+    <view class="head">共收藏 {{total}} 款</view>
+
+    <!-- 分类胶囊（设计稿有；数据未接入前仅作视觉骨架） -->
+    <scroll-view class="cats" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view class="cats__row">
+        <view
+          wx:for="{{categories}}"
+          wx:key="*this"
+          class="chip {{activeCategory === item ? 'is-active' : ''}}"
+          data-name="{{item}}"
+          bindtap="onCategory"
+        >
+          {{item}}
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 收藏为空：不塞假数据，如实引导去挑款式 -->
+    <view class="empty">
+      <view class="empty__badge">
+        <image class="empty__heart" src="{{icons.heart}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">还没有收藏的款式</view>
+      <view class="empty__hint">在款式详情点「收藏」，喜欢的款式就会出现在这里</view>
+      <view class="btn btn--primary empty__action" bindtap="goServices">去挑款式</view>
+    </view>
+  </view>
+</view>

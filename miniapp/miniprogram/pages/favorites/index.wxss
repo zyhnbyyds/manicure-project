@@ -1,0 +1,61 @@
+/* 我的收藏 —— 对齐 docs/manicure-ui-batch4 第 4 屏（数据未接入，先还原骨架） */
+
+.fav-body {
+  padding-bottom: 60rpx;
+}
+
+.head {
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.cats {
+  width: 100%;
+  white-space: nowrap;
+  margin-top: 22rpx;
+}
+
+.cats__row {
+  display: flex;
+}
+
+.chip {
+  flex-shrink: 0;
+  height: 58rpx;
+  line-height: 58rpx;
+  padding: 0 26rpx;
+  margin-right: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-card);
+  color: var(--c-text-sub);
+  font-size: 24rpx;
+}
+
+.chip.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+/* ── 空态 ─────────────────────────────────────────────────── */
+
+.empty__badge {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty__heart {
+  width: 68rpx;
+  height: 68rpx;
+  opacity: 0.5;
+}
+
+.empty__action {
+  margin-top: 32rpx;
+}

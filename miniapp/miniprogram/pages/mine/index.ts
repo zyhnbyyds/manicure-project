@@ -6,6 +6,7 @@ import { getThemeState, getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
 import {
   goBookings,
+  goFavorites,
   goMember,
   goStaffWorkbench,
   goTheme,
@@ -160,7 +161,11 @@ Page({
       goBookings();
       return;
     }
-    toast(key === 'favorite' ? '收藏功能开发中' : '优惠券功能开发中');
+    if (key === 'favorite') {
+      goFavorites();
+      return;
+    }
+    toast('优惠券功能开发中');
   },
 
   onMenuTap(event: WechatMiniprogram.TouchEvent) {
