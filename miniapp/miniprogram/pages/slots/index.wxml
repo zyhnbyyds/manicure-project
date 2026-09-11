@@ -1,0 +1,72 @@
+<view class="page" style="{{themeStyle}}">
+  <!-- 上下文摘要，避免用户忘了约的是谁 / 做什么 -->
+  <view class="summary">
+    <view class="summary__staff">
+      <text class="summary__name">{{staffName}}</text>
+      <text class="summary__dot">·</text>
+      <text class="summary__dur">{{durationText}}</text>
+    </view>
+    <view class="summary__items ellipsis">{{itemNames}}</view>
+  </view>
+
+  <!-- 日期条 -->
+  <scroll-view class="dates" scroll-x enable-flex show-scrollbar="{{false}}">
+    <view class="dates__row">
+      <view
+        wx:for="{{dateChips}}"
+        wx:key="value"
+        class="dates__item {{activeDate === item.value ? 'is-active' : ''}}"
+        data-date="{{item.value}}"
+        bindtap="onDate"
+      >
+        <view class="dates__weekday">{{item.label}}</view>
+        <view class="dates__day">{{item.day}}</view>
+        <view class="dates__week">{{item.weekday}}</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="page-body">
+    <view wx:if="{{loading}}" class="loading">正在看 {{staffName}} 的空档…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <view wx:elif="{{slots.length === 0}}" class="empty">
+      <view class="empty__emoji">🫧</view>
+      <view class="empty__text">{{reasonText}}</view>
+      <view class="empty__hint">换个日期或换位美甲师试试</view>
+    </view>
+
+    <block wx:else>
+      <view class="section__title slots__title">可选时间</view>
+      <view class="slots">
+        <view
+          wx:for="{{slots}}"
+          wx:key="startAt"
+          class="slots__item {{selectedStart === item.startAt ? 'is-active' : ''}}"
+          data-start="{{item.startAt}}"
+          bindtap="onSlot"
+        >
+          {{item.timeText}}
+        </view>
+      </view>
+      <view class="text-weak slots__tip">共 {{slots.length}} 个时段可选，服务时长约 {{durationText}}</view>
+    </block>
+  </view>
+
+  <view class="action-bar">
+    <view class="grow">
+      <view class="text-weak">已选时间</view>
+      <view class="action-bar__time">{{selectedTimeText ? selectedTimeText : '还没选'}}</view>
+    </view>
+    <view
+      class="btn {{selectedStart ? 'btn--primary' : 'btn--disabled'}}"
+      bindtap="goNext"
+    >
+      下一步
+    </view>
+  </view>
+</view>

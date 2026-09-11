@@ -1,0 +1,90 @@
+<view class="page" style="{{themeStyle}}">
+  <view wx:if="{{!ready}}" class="loading">正在整理预约信息…</view>
+
+  <block wx:else>
+    <view class="page-body confirm-body">
+      <!-- 时间与美甲师 -->
+      <view class="card hero">
+        <view class="hero__row">
+          <view class="hero__avatar thumb">{{staffEmoji}}</view>
+          <view class="grow">
+            <view class="hero__staff">{{staffName}}</view>
+            <view class="hero__date">{{dateText}}</view>
+          </view>
+          <view class="tag">{{timeText}}</view>
+        </view>
+        <view class="divider"></view>
+        <view class="row-between">
+          <view class="text-sub">预计时长</view>
+          <view class="text-primary confirm-strong">{{durationText}}</view>
+        </view>
+      </view>
+
+      <!-- 项目明细 -->
+      <view class="card">
+        <view class="section__title">款式明细</view>
+        <view wx:for="{{items}}" wx:key="id" class="item">
+          <view class="item__emoji">{{item.emoji}}</view>
+          <view class="grow">
+            <view class="item__name ellipsis">{{item.name}}</view>
+            <view class="text-weak">{{item.durationText}}</view>
+          </view>
+          <view class="item__price">¥{{item.priceText}}</view>
+        </view>
+        <view class="divider"></view>
+        <view class="row-between">
+          <view class="text-sub">项目原价合计</view>
+          <view class="total">¥{{totalText}}</view>
+        </view>
+        <view class="price-note">
+          会员折扣与积分抵扣将在提交后由系统统一结算，最终金额以订单为准。
+        </view>
+      </view>
+
+      <!-- 备注 -->
+      <view class="card">
+        <view class="section__title">想跟美甲师说的话</view>
+        <textarea
+          class="remark"
+          value="{{remark}}"
+          placeholder="比如：想要更短一点 / 对某款甲油过敏 / 第一次做"
+          maxlength="200"
+          bindinput="onRemarkInput"
+        />
+      </view>
+
+      <!-- 未绑手机号提示 -->
+      <view wx:if="{{needBind}}" class="card card--tint bind-tip">
+        <view class="bind-tip__emoji">📱</view>
+        <view class="grow">
+          <view class="bind-tip__title">还需要绑定手机号</view>
+          <view class="bind-tip__text">
+            手机号用于匹配你的会员信息（余额 / 积分 / 次卡）和到店联系，只用于本店服务。
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="action-bar">
+      <view class="grow">
+        <view class="text-weak">项目原价</view>
+        <view class="total total--bar">¥{{totalText}}</view>
+      </view>
+      <button
+        wx:if="{{needBind}}"
+        class="btn btn--primary btn--bind"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="onGetPhone"
+      >
+        授权手机号
+      </button>
+      <view
+        wx:else
+        class="btn {{submitting ? 'btn--disabled' : 'btn--primary'}}"
+        bindtap="onSubmit"
+      >
+        {{submitting ? '提交中…' : '提交预约'}}
+      </view>
+    </view>
+  </block>
+</view>

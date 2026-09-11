@@ -1,0 +1,128 @@
+/* 确认预约 */
+
+.confirm-body {
+  padding-bottom: 200rpx;
+}
+
+.hero {
+  background: var(--c-gradient);
+}
+
+.hero__row {
+  display: flex;
+  align-items: center;
+}
+
+.hero__avatar {
+  width: 104rpx;
+  height: 104rpx;
+  margin-right: 20rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+}
+
+.hero__staff {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.hero__date {
+  margin-top: 6rpx;
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.confirm-strong {
+  font-weight: 700;
+}
+
+/* 明细行 */
+.item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.item__emoji {
+  width: 56rpx;
+  font-size: 36rpx;
+}
+
+.item__name {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.item__price {
+  font-size: 28rpx;
+  color: var(--c-text-sub);
+}
+
+.total {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+
+.total--bar {
+  font-size: 38rpx;
+}
+
+.price-note {
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+  line-height: 1.6;
+}
+
+/* 备注 */
+.remark {
+  width: 100%;
+  min-height: 140rpx;
+  margin-top: 16rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  border-radius: var(--r-md);
+  background: var(--c-bg-soft);
+  font-size: 26rpx;
+  color: var(--c-text);
+}
+
+/* 绑定提示 */
+.bind-tip {
+  display: flex;
+  align-items: flex-start;
+}
+
+.bind-tip__emoji {
+  font-size: 44rpx;
+  margin-right: 16rpx;
+  line-height: 1.2;
+}
+
+.bind-tip__title {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.bind-tip__text {
+  margin-top: 6rpx;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+  line-height: 1.6;
+}
+
+/* 授权按钮需要覆盖 button 默认样式 */
+.btn--bind {
+  margin: 0;
+  line-height: 88rpx;
+  border: none;
+}
+
+.btn--bind::after {
+  border: none;
+}

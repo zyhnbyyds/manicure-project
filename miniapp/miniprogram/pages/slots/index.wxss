@@ -1,0 +1,129 @@
+/* 选时段 */
+
+.summary {
+  padding: 20rpx 24rpx;
+  background: var(--c-bg-soft);
+}
+
+.summary__staff {
+  display: flex;
+  align-items: baseline;
+}
+
+.summary__name {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.summary__dot {
+  margin: 0 10rpx;
+  color: var(--c-text-weak);
+}
+
+.summary__dur {
+  font-size: 24rpx;
+  color: var(--c-primary);
+}
+
+.summary__items {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+/* 日期条 */
+.dates {
+  width: 100%;
+  white-space: nowrap;
+  padding: 20rpx 0 10rpx;
+}
+
+.dates__row {
+  display: flex;
+  padding: 0 24rpx;
+}
+
+.dates__item {
+  flex-shrink: 0;
+  width: 116rpx;
+  padding: 16rpx 0;
+  margin-right: 16rpx;
+  border-radius: var(--r-md);
+  background: var(--c-card);
+  text-align: center;
+  box-shadow: 0 4rpx 12rpx var(--c-shadow);
+  transition: transform 0.15s ease;
+}
+
+.dates__item.is-active {
+  background: var(--c-primary);
+  transform: translateY(-4rpx);
+}
+
+.dates__weekday {
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.dates__day {
+  font-size: 36rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dates__week {
+  font-size: 20rpx;
+  color: var(--c-text-weak);
+}
+
+.dates__item.is-active .dates__weekday,
+.dates__item.is-active .dates__day,
+.dates__item.is-active .dates__week {
+  color: var(--c-on-primary);
+}
+
+/* 时段网格：3 列（用百分比 + margin 而不是 gap） */
+.slots__title {
+  margin: 12rpx 4rpx 20rpx;
+}
+
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.slots__item {
+  width: 31.3%;
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  margin-bottom: 18rpx;
+  border-radius: var(--r-md);
+  background: var(--c-card);
+  color: var(--c-text);
+  font-size: 28rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx var(--c-shadow);
+  transition: transform 0.15s ease;
+}
+
+.slots__item:nth-child(3n + 2) {
+  margin: 0 3% 18rpx;
+}
+
+.slots__item.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  transform: scale(1.04);
+}
+
+.slots__tip {
+  margin-top: 8rpx;
+  text-align: center;
+}
+
+.action-bar__time {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--c-primary);
+}

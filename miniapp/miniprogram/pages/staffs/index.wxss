@@ -1,0 +1,92 @@
+/* 选美甲师 */
+
+.summary {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 20rpx 24rpx;
+  background: var(--c-bg-soft);
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.summary__row {
+  display: flex;
+  align-items: center;
+}
+
+.summary__label {
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.summary__items {
+  margin-top: 4rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.summary__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 16rpx;
+}
+
+.summary__meta {
+  font-size: 24rpx;
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+.summary__change {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+  text-decoration: underline;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 24rpx;
+  margin-bottom: 20rpx;
+  border-radius: var(--r-md);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  font-size: 24rpx;
+}
+
+.hint__emoji {
+  margin-right: 10rpx;
+}
+
+.staff {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.staff__avatar {
+  width: 120rpx;
+  height: 120rpx;
+  margin-right: 24rpx;
+  border-radius: 50%;
+}
+
+.staff__img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  font-size: 56rpx;
+}
+
+.staff__name {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.staff__bio {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}

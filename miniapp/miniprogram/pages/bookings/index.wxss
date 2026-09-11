@@ -1,0 +1,124 @@
+/* 我的预约 */
+
+.filters {
+  display: flex;
+  padding: 20rpx 24rpx 8rpx;
+  background: var(--c-bg);
+}
+
+.filters__item {
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 26rpx;
+  margin-right: 16rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-card);
+  color: var(--c-text-sub);
+  font-size: 26rpx;
+  box-shadow: 0 4rpx 12rpx var(--c-shadow);
+}
+
+.filters__item.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-weight: 600;
+}
+
+.booking {
+  margin-bottom: 24rpx;
+}
+
+.booking__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 状态胶囊：用 tone 区分，颜色仍由主题令牌派生 */
+.booking__status {
+  display: inline-flex;
+  align-items: center;
+  height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: var(--r-pill);
+  font-size: 24rpx;
+  font-weight: 600;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+}
+
+.booking__status--waiting {
+  background: var(--c-accent-soft);
+  color: var(--c-text-sub);
+}
+
+.booking__status--done {
+  background: var(--c-bg-soft);
+  color: var(--c-text-sub);
+}
+
+.booking__status--cancelled {
+  background: var(--c-bg-soft);
+  color: var(--c-text-weak);
+}
+
+.booking__when {
+  margin-top: 22rpx;
+  display: flex;
+  align-items: baseline;
+}
+
+.booking__date {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.booking__time {
+  margin-left: 16rpx;
+  font-size: 30rpx;
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+.booking__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14rpx;
+}
+
+.booking__staff {
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.booking__items {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+  line-height: 1.5;
+}
+
+.booking__due {
+  color: var(--c-primary);
+}
+
+.booking__amount {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+
+.booking__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22rpx;
+}
+
+.booking__actions .btn {
+  margin-left: 16rpx;
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}

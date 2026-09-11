@@ -1,0 +1,82 @@
+<view class="page page-with-tabbar" style="{{themeStyle}}">
+  <!-- 状态筛选 -->
+  <view class="filters">
+    <view
+      wx:for="{{filters}}"
+      wx:key="key"
+      class="filters__item {{activeFilter === item.key ? 'is-active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onFilter"
+    >
+      {{item.label}}
+    </view>
+  </view>
+
+  <view class="page-body">
+    <view wx:if="{{loading}}" class="loading">正在翻你的预约…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <view wx:elif="{{bookings.length === 0}}" class="empty">
+      <view class="empty__emoji">📅</view>
+      <view class="empty__text">这里还空空的</view>
+      <view class="empty__hint">约一次美甲，给自己一点小奖励～</view>
+      <view class="btn btn--primary empty__action" bindtap="goServices">去挑款式</view>
+    </view>
+
+    <block wx:else>
+      <view wx:for="{{bookings}}" wx:key="id" class="booking card">
+        <view class="booking__head">
+          <view class="booking__status booking__status--{{item.tone}}">
+            <view class="dot"></view>
+            {{item.statusText}}
+          </view>
+          <view class="text-weak">{{item.bookingNo}}</view>
+        </view>
+
+        <view class="booking__when">
+          <view class="booking__date">{{item.dateText}}</view>
+          <view class="booking__time">{{item.timeText}}</view>
+        </view>
+
+        <view class="booking__meta">
+          <view class="booking__staff">{{item.staffEmoji}} {{item.staffName}}</view>
+          <view class="text-weak">{{item.durationText}}</view>
+        </view>
+
+        <view class="booking__items ellipsis-2">{{item.itemNames}}</view>
+
+        <view class="divider"></view>
+
+        <view class="row-between">
+          <view class="text-sub">
+            {{item.payStatusText}}
+            <text wx:if="{{item.dueText !== '0.00'}}" class="booking__due">· 待付 ¥{{item.dueText}}</text>
+          </view>
+          <view class="booking__amount">¥{{item.payableText}}</view>
+        </view>
+
+        <view wx:if="{{item.cancellable || item.reviewable}}" class="booking__actions">
+          <view
+            wx:if="{{item.reviewable}}"
+            class="btn btn--soft btn--sm"
+            bindtap="onReview"
+          >
+            去评价
+          </view>
+          <view
+            wx:if="{{item.cancellable}}"
+            class="btn btn--ghost btn--sm"
+            data-id="{{item.id}}"
+            bindtap="onCancel"
+          >
+            取消预约
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

@@ -1,0 +1,76 @@
+<view class="page" style="{{themeStyle}}">
+  <!-- 分类横滑 -->
+  <scroll-view class="cats" scroll-x enable-flex show-scrollbar="{{false}}">
+    <view class="cats__row">
+      <view
+        wx:for="{{categories}}"
+        wx:key="*this"
+        class="cats__item {{activeCategory === item ? 'is-active' : ''}}"
+        data-name="{{item}}"
+        bindtap="onCategory"
+      >
+        {{item}}
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="page-body">
+    <view wx:if="{{loading}}" class="loading">正在挑选好看的款式…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__emoji">🥺</view>
+      <view class="empty__text">{{errorText}}</view>
+    </view>
+
+    <view wx:elif="{{items.length === 0}}" class="empty">
+      <view class="empty__emoji">🌸</view>
+      <view class="empty__text">这个分类下还没有款式</view>
+      <view class="empty__hint">换个分类看看～</view>
+    </view>
+
+    <block wx:else>
+      <view
+        wx:for="{{items}}"
+        wx:key="id"
+        class="row-item card card--press {{item.checked ? 'is-checked' : ''}}"
+      >
+        <view class="row-item__main" data-id="{{item.id}}" bindtap="toggle">
+          <view class="thumb row-item__thumb">
+            <image wx:if="{{item.image}}" class="row-item__img" src="{{item.image}}" mode="aspectFill" />
+            <view wx:else class="image-placeholder row-item__img">{{item.emoji}}</view>
+          </view>
+          <view class="grow">
+            <view class="row-item__name ellipsis">{{item.name}}</view>
+            <view class="text-weak row-item__meta">{{item.durationText}} · {{item.category}}</view>
+            <view class="row-item__desc ellipsis-2">{{item.description}}</view>
+          </view>
+        </view>
+
+        <view class="row-item__right">
+          <view class="price">
+            <text class="price__symbol">¥</text>
+            <text class="price__yuan">{{item.priceYuan}}</text>
+            <text class="price__cent">.{{item.priceCent}}</text>
+          </view>
+          <view class="check {{item.checked ? 'is-checked' : ''}}" data-id="{{item.id}}" bindtap="toggle">
+            {{item.checked ? '✓' : '+'}}
+          </view>
+          <view class="row-item__detail" data-id="{{item.id}}" bindtap="openDetail">详情</view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 底部下一步：只在选了项目后出现，避免占位遮挡 -->
+  <view wx:if="{{selectedCount > 0}}" class="action-bar">
+    <view class="grow">
+      <view class="action-bar__sum">
+        已选 {{selectedCount}} 项 · {{durationText}}
+      </view>
+      <view class="action-bar__price">
+        合计 <text class="action-bar__amount">¥{{totalText}}</text>
+      </view>
+    </view>
+    <view class="btn btn--primary" bindtap="goNext">选美甲师</view>
+  </view>
+</view>

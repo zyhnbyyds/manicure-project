@@ -1,0 +1,56 @@
+<view class="page" style="{{themeStyle}}">
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+
+  <view wx:elif="{{!item}}" class="empty">
+    <view class="empty__emoji">🫧</view>
+    <view class="empty__text">{{errorText}}</view>
+  </view>
+
+  <block wx:else>
+    <view class="page-body">
+      <!-- 主视觉 -->
+      <view class="hero">
+        <view class="bubble bubble--a"></view>
+        <view class="hero__tile thumb">
+          <image wx:if="{{item.image}}" class="hero__img" src="{{item.image}}" mode="aspectFill" />
+          <view wx:else class="image-placeholder hero__img">{{item.emoji}}</view>
+        </view>
+        <view class="hero__name">{{item.name}}</view>
+        <view class="hero__tags">
+          <view class="tag">{{item.category}}</view>
+          <view class="tag tag--accent">{{item.durationText}}</view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="section__title">款式说明</view>
+        <view class="desc">{{item.description}}</view>
+      </view>
+
+      <view class="card card--tint">
+        <view class="tip-row">
+          <view class="tip-row__emoji">💡</view>
+          <view class="grow">
+            <view class="tip-row__title">关于价格</view>
+            <view class="tip-row__text">
+              这里显示的是项目原价。会员折扣、积分抵扣会在提交后由系统统一结算，
+              最终金额以订单为准。
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="action-bar">
+      <view class="grow">
+        <view class="action-bar__label">项目原价</view>
+        <view class="price">
+          <text class="price__symbol">¥</text>
+          <text class="price__yuan">{{item.priceYuan}}</text>
+          <text class="price__cent">.{{item.priceCent}}</text>
+        </view>
+      </view>
+      <view class="btn btn--primary" bindtap="goBook">立即预约</view>
+    </view>
+  </block>
+</view>

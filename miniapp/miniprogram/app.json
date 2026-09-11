@@ -1,5 +1,13 @@
 {
-  "pages": ["pages/index/index"],
+  "pages": [
+    "pages/index/index",
+    "pages/services/index",
+    "pages/service-detail/index",
+    "pages/staffs/index",
+    "pages/slots/index",
+    "pages/confirm/index",
+    "pages/bookings/index"
+  ],
   "window": {
     "navigationStyle": "default",
     "navigationBarTextStyle": "white",

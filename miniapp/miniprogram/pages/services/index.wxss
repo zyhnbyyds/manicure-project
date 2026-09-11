@@ -1,0 +1,138 @@
+/* 项目列表 */
+
+.cats {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  width: 100%;
+  white-space: nowrap;
+  background: var(--c-bg);
+  padding: 20rpx 0 8rpx;
+}
+
+.cats__row {
+  display: flex;
+  padding: 0 24rpx;
+}
+
+.cats__item {
+  flex-shrink: 0;
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 28rpx;
+  margin-right: 16rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-card);
+  color: var(--c-text-sub);
+  font-size: 26rpx;
+  box-shadow: 0 4rpx 12rpx var(--c-shadow);
+}
+
+.cats__item.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-weight: 600;
+}
+
+/* 列表项 */
+.row-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding: 20rpx;
+  border: 2rpx solid transparent;
+}
+
+.row-item.is-checked {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.row-item__main {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-item__thumb {
+  width: 148rpx;
+  height: 148rpx;
+  margin-right: 20rpx;
+}
+
+.row-item__img {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--r-md);
+  font-size: 56rpx;
+}
+
+.row-item__name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.row-item__meta {
+  margin: 4rpx 0;
+}
+
+.row-item__desc {
+  color: var(--c-text-weak);
+  font-size: 22rpx;
+}
+
+.row-item__right {
+  width: 132rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 12rpx;
+}
+
+.row-item__detail {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+  text-decoration: underline;
+}
+
+/* 勾选按钮 */
+.check {
+  width: 52rpx;
+  height: 52rpx;
+  margin-top: 10rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--c-border);
+  color: var(--c-text-weak);
+  font-size: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.check.is-checked {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+  transform: scale(1.08);
+}
+
+/* 底部条 */
+.action-bar__sum {
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.action-bar__price {
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+  margin-top: 4rpx;
+}
+
+.action-bar__amount {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--c-primary);
+}
