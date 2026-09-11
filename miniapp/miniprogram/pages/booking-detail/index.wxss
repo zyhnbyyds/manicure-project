@@ -1,0 +1,154 @@
+/* 订单详情 —— 对齐 docs/manicure-ui-batch1 第 2 屏 */
+
+.detail-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 顶部状态卡 ───────────────────────────────────────────── */
+
+.hero {
+  padding: 32rpx;
+  border-radius: var(--r-lg);
+  background: var(--c-gradient);
+}
+
+.hero__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero__pill {
+  height: 44rpx;
+  line-height: 44rpx;
+  padding: 0 22rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 22rpx;
+}
+
+.hero__pill--done {
+  background: var(--c-card);
+  color: var(--c-text-sub);
+}
+
+.hero__pill--muted {
+  background: var(--c-card);
+  color: var(--c-text-weak);
+}
+
+.hero__no {
+  font-size: 21rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__when {
+  margin-top: 26rpx;
+  font-family: var(--font-serif);
+  font-size: 40rpx;
+  font-weight: 600;
+}
+
+.hero__staff {
+  display: flex;
+  align-items: center;
+  margin-top: 14rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__staff-emoji {
+  margin-right: 8rpx;
+}
+
+.hero__duration {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+/* ── 项目明细行 ───────────────────────────────────────────── */
+
+.row-item {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 0;
+}
+
+.row-item__name {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.row-item__meta {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.row-item__price {
+  font-family: var(--font-serif);
+  font-size: 28rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 支付信息 ─────────────────────────────────────────────── */
+
+.fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+
+.fee__value {
+  font-family: var(--font-serif);
+  font-size: 28rpx;
+  color: var(--c-text-sub);
+}
+
+.fee__value--due {
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+.remark-box__text {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--c-text-sub);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.link__arrow {
+  width: 24rpx;
+  height: 24rpx;
+  margin-left: 4rpx;
+}
+
+/* ── 底部操作 ─────────────────────────────────────────────── */
+
+.cancel-btn {
+  height: 76rpx;
+  padding: 0 28rpx;
+  font-size: 26rpx;
+  margin-left: 12rpx;
+}
+
+.pay-btn {
+  height: 76rpx;
+  padding: 0 36rpx;
+  font-size: 27rpx;
+  margin-left: 12rpx;
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}

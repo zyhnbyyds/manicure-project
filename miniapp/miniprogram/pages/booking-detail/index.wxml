@@ -1,0 +1,80 @@
+<view class="page" style="{{themeStyle}}">
+  <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
+
+  <view wx:elif="{{errorText}}" class="empty">
+    <view class="empty__text">{{errorText}}</view>
+    <view class="btn btn--primary btn--sm empty__action" bindtap="load">重新加载</view>
+  </view>
+
+  <block wx:else>
+    <view class="page-body detail-body">
+      <!-- 顶部状态卡（设计稿用浅玫瑰渐变卡承载状态与预约信息） -->
+      <view class="hero">
+        <view class="hero__top">
+          <view class="hero__pill hero__pill--{{statusTone}}">{{statusText}}</view>
+          <view class="hero__no">{{booking.bookingNo}}</view>
+        </view>
+        <view class="hero__when">{{dateText}} · {{timeText}}</view>
+        <view class="hero__staff">
+          <text class="hero__staff-emoji">{{staffEmojiText}}</text>
+          {{booking.staffName}}
+          <text class="hero__duration">共 {{durationText}}</text>
+        </view>
+      </view>
+
+      <!-- 项目明细 -->
+      <view class="card">
+        <view class="section__title">项目明细</view>
+        <view wx:for="{{items}}" wx:key="id" class="row-item">
+          <view class="grow">
+            <view class="row-item__name ellipsis">{{item.name}}</view>
+            <view class="row-item__meta">{{item.durationText}}</view>
+          </view>
+          <view class="row-item__price">{{item.priceText}}元</view>
+        </view>
+        <view class="divider"></view>
+        <view class="row-between">
+          <view class="text-sub">应付金额</view>
+          <view class="row-item__price">{{payableText}}元</view>
+        </view>
+      </view>
+
+      <!-- 支付信息（设计稿的「支付卡」：含定金与尾款） -->
+      <view class="card">
+        <view class="section__title">支付信息</view>
+        <view class="fee">
+          <view class="text-sub">已支付</view>
+          <view class="fee__value">{{paidText}}元</view>
+        </view>
+        <view class="fee">
+          <view class="text-sub">待支付</view>
+          <view class="fee__value fee__value--due">{{dueText}}元</view>
+        </view>
+        <view wx:if="{{booking.remark}}" class="divider"></view>
+        <view wx:if="{{booking.remark}}" class="remark-box">
+          <view class="text-weak">备注</view>
+          <view class="remark-box__text">{{booking.remark}}</view>
+        </view>
+        <view class="divider"></view>
+        <view class="link" bindtap="onService">
+          改期或疑问？联系门店
+          <image class="link__arrow" src="{{icons.chevron}}" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部：金额 + 按状态显隐的操作 -->
+    <view class="action-bar">
+      <view class="grow">
+        <view class="text-weak">应付金额</view>
+        <view class="price">
+          <text class="price__symbol">¥</text>
+          <text class="price__yuan">{{payableText}}</text>
+        </view>
+      </view>
+      <view wx:if="{{canCancel}}" class="btn btn--ghost cancel-btn" bindtap="onCancel">取消预约</view>
+      <view wx:if="{{canReview}}" class="btn btn--soft cancel-btn" bindtap="onReview">去评价</view>
+      <view wx:if="{{canPay}}" class="btn btn--primary pay-btn" bindtap="onPay">去支付</view>
+    </view>
+  </block>
+</view>

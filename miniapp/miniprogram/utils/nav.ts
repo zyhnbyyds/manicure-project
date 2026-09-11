@@ -63,8 +63,12 @@ export function goPay(bookingId: number): void {
   wx.navigateTo({ url: `/pages/pay/index?bookingId=${bookingId}` });
 }
 
-/** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */
-export function goPayResult(input: {
+/** 订单详情：同样以 bookingId 直达 */
+export function goBookingDetail(bookingId: number): void {
+  wx.navigateTo({ url: `/pages/booking-detail/index?bookingId=${bookingId}` });
+}
+
+/** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;
   amount?: number;
