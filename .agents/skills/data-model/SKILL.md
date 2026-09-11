@@ -3,7 +3,7 @@ name: data-model
 description: 32 张表的分组清单、命名与索引约定、软删与物理删豁免、Drizzle 迁移流程与派生字段口径。新增/修改表、生成迁移、设计索引、排查唯一索引与软删冲突时加载本技能。
 whenToUse: 建表或改表、跑 db:generate/db:migrate、加索引、处理唯一约束、弄清楚某张表归哪个模块时。
 metadata:
-  version: '1.0.0'
+  version: '1.1.0'
   spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §3 / §4.1~§4.6
 ---
@@ -72,6 +72,11 @@ metadata:
 | `biz_member_card.used_times` / `status`                                                    | 核销 service（条件更新）                     |
 | `biz_credit_account.used_amount`                                                           | 挂账 / 销账 service                          |
 | `biz_receivable.settled_amount` / `status`                                                 | 销账 service（条件更新）                     |
+| `biz_service_item.image`（封面）                                                           | `ServiceItemsService.imagesPatch`（= `images[0]`） |
+
+> `biz_service_item` 是「图集 + 派生封面」两个字段：`images` json 是唯一事实来源，
+> `image` 只是给列表页 / 小程序目录省一次解析的派生缓存，写入接口**不接受** `image`。
+> 同类需求（多图）优先照这个范式做，不要建关联表 —— 图片只做展示，不参与查询与引用完整性。
 
 对账修复入口：`POST /biz/customers/:id/recount`、`/biz/members/:id/recount`、预约与应收的同名 recount。
 
@@ -88,6 +93,13 @@ bun run db:migrate
 - schema 是**单文件**，新增表要同时导出并加入 `defineRelations`，否则关系查询不可用。
 - 加字段一律**可空或带默认值**（表已上线后再加 NOT NULL 会让迁移失败）。
 - 金额字段用 `int unsigned`（分）；折扣率/提成比例用千分比整数；比例类上限用 `*_permille`。
+- json 列要写 `$type<T>()` 带上类型（如 `json('images').$type<string[]>()`），
+  否则读出来是 `unknown`，调用方到处要 cast；可空列的类型里**不要**再手写 `| null`，
+  `notNull` 与否由 select 推断时自动叠加。
+- 生成迁移后**可以**在 `migration.sql` 里追加数据回填语句（`--> statement-breakpoint` 分隔），
+  但只能在**尚未执行**之前追加 —— drizzle 按文件内容算 hash 记入 `drizzle` 表，执行后再改会导致重复执行。
+  例：加 `images` 时补 `UPDATE ... SET images = JSON_ARRAY(image) WHERE image IS NOT NULL AND images IS NULL`，
+  免得历史单图在改版后从界面上消失。
 
 ## 检查清单
 

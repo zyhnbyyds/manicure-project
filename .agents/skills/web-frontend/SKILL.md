@@ -1,9 +1,9 @@
 ---
 name: web-frontend
-description: 后台前端：24 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
-whenToUse: 新增/修改 web/src/views/biz 页面、API 封装、表单与权限按钮；实现收银台、退款审批、对账、报表页。
+description: 后台前端：24 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、文件与图片上传（LewForm `as:'upload'` + uploadHelper）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
+whenToUse: 新增/修改 web/src/views/biz 页面、API 封装、表单与权限按钮；做文件/图片上传与预览；实现收银台、退款审批、对账、报表页。
 metadata:
-  version: '1.0.0'
+  version: '1.1.0'
   spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §10 / §9 / §3
 ---
@@ -53,6 +53,49 @@ metadata:
 | 会员详情   | 四个 Tab：档案 / 账务流水 / 次卡 / 预约历史；流水只读，充值退款按钮按权限显示                             |
 | 预约弹窗   | 选顾客后显示等级、折扣率、余额、可用次卡 → 服务端算价；**不在弹窗里新建顾客**                             |
 
+## 文件 / 图片上传（别自己造上传组件）
+
+统一文件接口在 `web/src/api/files.ts`：`uploadFile(file)` → `FileItem`，
+`filePreviewUrl(id)` = `.../files/:id/download?inline=1`（可直接塞 `<img src>`，下载接口是 `@Public()`），
+`fileDownloadUrl(id)` 走附件下载。上传接口只要登录态，不需要额外权限点。
+
+**LewForm 原生支持 `as: 'upload'`**（底层就是 `LewUpload`），一步拿到多选、拖拽、缩略图、
+点击放大预览、删除，不用自己写 `input[type=file]`：
+
+```ts
+{
+  field: 'images',
+  label: '图片',
+  as: 'upload',
+  props: {
+    multiple: true,
+    limit: 9,
+    accept: 'image/*',
+    viewMode: 'card',            // card = 宫格缩略图；list = 列表
+    maxFileSize: 10 * 1024 * 1024,
+    uploadHelper: uploadImage,   // 见下
+  },
+}
+```
+
+契约（`props` 原样透传给组件，表单值经 `v-model` 绑定）：
+
+- `v-model` 的值是 `LewUploadFileItem[]`（`{ key, name?, url?, status?, percent?, file? }`）。
+- `uploadHelper({ fileItem, setFileItem })` 被调用时自己上传，然后
+  `setFileItem({ key: fileItem.key, status: 'complete', percent: 100, url })` 回填。
+  失败置 `status: 'fail'`（`'complete' | 'success'` 才会被当成已上传渲染缩略图）。
+- **表单内部存 `LewUploadFileItem[]`，接口收发的是 url 数组**，两端各写一个转换函数
+  （`toUploadItems` / `toImageUrls`），提交前只挑 `status === 'complete' | 'success'` 的项。
+
+列表要展示图片时，用 `customRender` 渲染缩略图 + 剩余张数徽标，点击新窗口预览：
+
+```ts
+h('a', { href: cover, target: '_blank', rel: 'noopener noreferrer' }, [
+  h('img', { src: cover, class: 'w-32px h-32px rounded object-cover border border-[var(--app-border)]' }),
+  urls.length > 1 ? h('span', { class: 'text-[var(--app-text-muted)] text-xs' }, `+${urls.length - 1}`) : null,
+]);
+```
+
 ## 交互约定
 
 - 预约创建返回 409（时段被占）→ **保留表单内容**、提示并自动刷新可约时段。
@@ -73,3 +116,7 @@ metadata:
 - 前端算折扣/抵扣 → 与服务端结果不一致；必须以服务端返回为准。
 - 手改 `router/index.ts` → 菜单驱动的路由会与之冲突。
 - 时间不做时区转换直接展示 → 偏 8 小时。
+- 把 `LewUploadFileItem[]` 直接丢给接口 → 库里存进组件内部结构（`key` / `percent` / `file`）。
+  必须转成 url 数组再提交。
+- 提交时不过滤上传状态 → `pending` / `fail` / `wrong_size` 的半成品也会入库。
+  只挑 `complete` / `success`。
