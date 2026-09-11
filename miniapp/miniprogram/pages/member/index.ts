@@ -3,7 +3,7 @@ import { bindPhone, isBound } from '../../store/auth';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDiscount } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goRecharge } from '../../utils/nav';
+import { goCardDetail, goRecharge } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
@@ -144,7 +144,7 @@ Page({
   },
 
   onCards() {
-    toast('次卡详情开发中');
+    goCardDetail();
   },
 
   onPoints() {

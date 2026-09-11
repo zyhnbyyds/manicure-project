@@ -1,0 +1,65 @@
+<view class="page" style="{{themeStyle}}">
+  <view wx:if="{{loading}}" class="loading">正在读取次卡…</view>
+
+  <view wx:elif="{{errorText}}" class="empty">
+    <view class="empty__text">{{errorText}}</view>
+    <view class="empty__hint">办卡后就能在这里查看剩余次数</view>
+  </view>
+
+  <block wx:else>
+    <view class="page-body card-body">
+      <!-- 卡头：名称 + 有效期 + 剩余次数 -->
+      <view class="head">
+        <view class="head__top">
+          <view class="head__name">{{card.cardName}}</view>
+          <view class="head__status">{{card.statusText}}</view>
+        </view>
+        <view class="head__expire">{{card.expireText}}</view>
+        <view class="head__remain">
+          <text class="head__remain-label">剩余</text>
+          <text class="head__remain-value">{{card.remainTimes}}</text>
+          <text class="head__remain-unit">次</text>
+        </view>
+        <view class="head__used">已用 {{card.usedTimes}} 次 · 共 {{card.totalTimes}} 次</view>
+        <view class="head__bar">
+          <view class="head__bar-inner" style="width: {{card.percent}}%"></view>
+        </view>
+      </view>
+
+      <!-- 到店核销码 -->
+      <view class="section">
+        <view class="section__title">到店核销码</view>
+      </view>
+      <view class="card code" bindtap="onCodeTap">
+        <view class="code__frame">
+          <!-- 不伪造二维码：假码扫出来是错的，比没有更糟 -->
+          <view class="code__placeholder">
+            <view class="code__no">{{card.cardNo}}</view>
+            <view class="code__hint">出示卡号给美甲师核销</view>
+          </view>
+        </view>
+        <view class="code__tip">核销码应由服务端生成（带时效签名），避免客户端离线造码</view>
+      </view>
+
+      <!-- 使用记录 -->
+      <view class="section">
+        <view class="section__title">使用记录</view>
+      </view>
+      <view class="card">
+        <view wx:if="{{records.length === 0}}" class="records-empty">
+          还没有核销记录
+        </view>
+        <view wx:for="{{records}}" wx:key="id" class="record">
+          <view class="grow">
+            <view class="record__name ellipsis">{{item.name}}</view>
+            <view class="record__date">{{item.dateText}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="action-bar">
+      <view class="btn btn--ghost btn--block" bindtap="onMoreRecords">查看全部记录</view>
+    </view>
+  </block>
+</view>

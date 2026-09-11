@@ -1,0 +1,150 @@
+/* 次卡详情 —— 对齐 docs/manicure-ui-batch4 第 2 屏 */
+
+.card-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 卡头 ─────────────────────────────────────────────────── */
+
+.head {
+  padding: 32rpx;
+  border-radius: var(--r-lg);
+  background: var(--c-gradient);
+}
+
+.head__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.head__name {
+  font-family: var(--font-serif);
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.head__status {
+  height: 40rpx;
+  line-height: 40rpx;
+  padding: 0 18rpx;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--c-primary-deep);
+  font-size: 20rpx;
+}
+
+.head__expire {
+  margin-top: 10rpx;
+  font-size: 21rpx;
+  color: var(--c-text-sub);
+}
+
+.head__remain {
+  display: flex;
+  align-items: baseline;
+  margin-top: 26rpx;
+}
+
+.head__remain-label {
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+  margin-right: 10rpx;
+}
+
+/* 剩余次数是本页最重的数字 */
+.head__remain-value {
+  font-family: var(--font-serif);
+  font-size: 72rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.head__remain-unit {
+  margin-left: 6rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.head__used {
+  margin-top: 12rpx;
+  font-size: 21rpx;
+  color: var(--c-text-sub);
+}
+
+.head__bar {
+  height: 10rpx;
+  margin-top: 20rpx;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.head__bar-inner {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+}
+
+/* ── 核销码 ───────────────────────────────────────────────── */
+
+.code {
+  text-align: center;
+  padding: 32rpx;
+}
+
+.code__frame {
+  padding: 40rpx 24rpx;
+  border: 3rpx dashed var(--c-border);
+  border-radius: var(--r-md);
+}
+
+.code__no {
+  font-family: var(--font-serif);
+  font-size: 36rpx;
+  font-weight: 600;
+  letter-spacing: 3rpx;
+}
+
+.code__hint {
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.code__tip {
+  margin-top: 20rpx;
+  font-size: 20rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}
+
+/* ── 使用记录 ─────────────────────────────────────────────── */
+
+.records-empty {
+  padding: 40rpx 0;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--c-text-weak);
+}
+
+.record {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.record:last-child {
+  border-bottom: none;
+}
+
+.record__name {
+  font-size: 27rpx;
+}
+
+.record__date {
+  margin-top: 6rpx;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}

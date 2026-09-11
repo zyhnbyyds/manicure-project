@@ -83,6 +83,12 @@ export function goRecharge(): void {
   wx.navigateTo({ url: '/pages/recharge/index' });
 }
 
+/** 次卡详情（可带 cardId；不带则取第一张在用卡） */
+export function goCardDetail(cardId?: number): void {
+  const query = cardId ? `?cardId=${cardId}` : '';
+  wx.navigateTo({ url: `/pages/card-detail/index${query}` });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

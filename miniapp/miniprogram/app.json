@@ -13,6 +13,7 @@
     "pages/review/index",
     "pages/shop/index",
     "pages/recharge/index",
+    "pages/card-detail/index",
     "pages/member/index",
     "pages/mine/index",
     "pages/theme/index",
