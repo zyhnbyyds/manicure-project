@@ -78,6 +78,14 @@ export abstract class StaffPort {
   abstract requireActive(id: number, tx?: BizTx): Promise<StaffRow>;
   abstract listActive(): Promise<StaffRow[]>;
   abstract findByUserId(userId: number): Promise<StaffRow | null>;
+  /**
+   * 手机号匹配美甲师档案（小程序工作台开通用）。
+   *
+   * 与 `CustomerPort.findByPhone` 同一口径：**不过滤软删、也不过滤停用**——
+   * 调用方要能区分「查无此人 / 已停用 / 已删除」并给出不同提示；
+   * 若这里先过滤掉，调用方只能看到「找不到」，无法解释原因。
+   */
+  abstract findByPhone(phone: string): Promise<StaffRow | null>;
   /** null = 可做全部项目；数组 = 白名单（§22） */
   abstract allowedServiceItemIds(
     staffId: number,

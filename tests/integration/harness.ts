@@ -72,6 +72,10 @@ async function applyTestEnv(testUrl: string): Promise<void> {
   process.env.SWAGGER_ENABLED = 'false';
   process.env.AI_ENABLED = 'false';
   process.env.SMS_PROVIDER = 'none';
+  // 微信能力固定走假实现：集成测试不可能连微信域名（见 app/auth/wx-miniapp.provider.ts）。
+  // 放在这里而不是 `.env.test`：`.env.test` 未入库（.gitignore 忽略 `.env.*`），
+  // 只有写进 harness 才能保证任何机器上跑出来的行为一致。
+  process.env.WX_MINIAPP_FAKE = 'true';
   // Redis 是可选依赖：留空字符串会让 z.url() 校验失败，必须删除变量
   delete process.env.REDIS_URL;
 }

@@ -166,6 +166,17 @@ export class StaffsService extends StaffPort {
     return staff ?? null;
   }
 
+  /** 手机号匹配：**不过滤软删与停用**，由调用方判断（见 ports.ts 的说明） */
+  async findByPhone(phone: string): Promise<StaffRow | null> {
+    const [staff] = await this.database.db
+      .select()
+      .from(bizStaffs)
+      .where(eq(bizStaffs.phone, phone))
+      .orderBy(asc(bizStaffs.id))
+      .limit(1);
+    return staff ?? null;
+  }
+
   /** null = 可做全部项目；数组 = 白名单（§22） */
   async allowedServiceItemIds(
     staffId: number,

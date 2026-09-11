@@ -1,7 +1,13 @@
 import { Module } from '@nestjs/common';
+import { AppConfigService } from '../../config/app-config.service.js';
 import { AppAccessTokenGuard } from './auth/app-access-token.guard.js';
 import { AppAuthController } from './auth/app-auth.controller.js';
 import { AppAuthService } from './auth/app-auth.service.js';
+import {
+  FakeWxMiniappProvider,
+  HttpWxMiniappProvider,
+  WxMiniappProvider,
+} from './auth/wx-miniapp.provider.js';
 import { AppCatalogController } from './catalog/app-catalog.controller.js';
 import { AppCatalogService } from './catalog/app-catalog.service.js';
 import { AppMemberController } from './member/app-member.controller.js';
@@ -31,6 +37,22 @@ import { AppPaymentsController } from './payments/app-payments.controller.js';
     AppCatalogService,
     AppMemberService,
     AppAccessTokenGuard,
+    /**
+     * 微信能力端口：按配置二选一。
+     *
+     * 默认走真实实现（直连微信开放接口）；`WX_MINIAPP_FAKE=true` 且**非生产环境**时走假实现，
+     * 让「凭据没到位」不阻塞业务开发与自动化测试。
+     * `AppConfigService.wxMiniappFake` 已在生产环境强制返回 false，
+     * `FakeWxMiniappProvider` 的构造函数还有第二道拒绝，避免误配把提权口子开到线上。
+     */
+    {
+      provide: WxMiniappProvider,
+      inject: [AppConfigService],
+      useFactory: (config: AppConfigService): WxMiniappProvider =>
+        config.wxMiniappFake
+          ? new FakeWxMiniappProvider()
+          : new HttpWxMiniappProvider(config),
+    },
   ],
   exports: [AppAccessTokenGuard],
 })

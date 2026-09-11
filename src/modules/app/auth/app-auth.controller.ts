@@ -1,8 +1,9 @@
 import {
   Body,
   Controller,
-  NotImplementedException,
   Post,
+  Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { RouteConfig } from '@nestjs/platform-fastify';
@@ -17,8 +18,9 @@ import { Public } from '../../../common/auth/public.decorator.js';
 import {
   appBindPhoneRequestSchema,
   appLoginRequestSchema,
+  type AppBindPhoneVo,
 } from '../dto/app-vo.js';
-import { AppAccessTokenGuard } from './app-access-token.guard.js';
+import { AppAccessTokenGuard, type AppRequest } from './app-access-token.guard.js';
 import { AppAuthService } from './app-auth.service.js';
 
 /**
@@ -63,20 +65,38 @@ export class AppAuthController {
   @UseGuards(AppAccessTokenGuard)
   @ApiBearerAuth('app-token')
   @ApiOperation({
-    summary: '手机号绑定（契约骨架，本期返回 501）',
+    summary: '手机号绑定（getPhoneNumber 的 code 换手机号并绑定顾客档案）',
     description:
-      'getPhoneNumber 的 code 换手机号 → 匹配 / 创建 biz_customer（命中软删走恢复确认）' +
-      ' → 回填 app_wx_user.customer_id 与 phone。本期只落契约，不落库。',
+      'getPhoneNumber 的 code 换手机号 → 匹配 / 创建 biz_customer → 回填 ' +
+      'app_wx_user.customer_id 与 phone（换绑覆盖旧关系）。' +
+      '命中**已删除**的顾客档案时返回 409 + `needRestoreConfirm`，' +
+      '由门店在后台恢复后再绑定（不在 C 端自动恢复）。' +
+      '同时会探测手机号是否对应美甲师档案，只返回候选 `staffCandidate`，' +
+      '**开通工作台必须由店长在后台确认**。',
   })
   @ApiBody({ schema: { $ref: '#/components/schemas/AppBindPhoneRequest' } })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppBindPhoneVo' },
+  })
   @ApiResponse({
     status: 401,
     description: '未登录（缺少 / 非法的 app token）',
   })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  phone(@Body() body: unknown): never {
-    // 契约校验照常执行（保证 Swagger 文档与实际入参一致），然后返回 501
-    appBindPhoneRequestSchema.parse(body);
-    throw new NotImplementedException('手机号绑定将在 P2 小程序端实现');
+  @ApiResponse({
+    status: 409,
+    description: '手机号命中已删除的顾客档案，需门店恢复',
+  })
+  phone(
+    @Req() request: AppRequest,
+    @Body() body: unknown,
+  ): Promise<AppBindPhoneVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.auth.bindPhone(
+      appUser.id,
+      appBindPhoneRequestSchema.parse(body),
+    );
   }
 }

@@ -586,24 +586,38 @@ erDiagram
 
 #### `app_wx_user` 微信身份（小程序侧，`app_` 域）
 
-| 字段            | 类型                 | 说明                                                     |
-| --------------- | -------------------- | -------------------------------------------------------- |
-| `id`            | int unsigned PK      |                                                          |
-| `openid`        | varchar(64) NOT NULL | 小程序内唯一标识                                         |
-| `unionid`       | varchar(64) NULL     | 开放平台打通后可用（同主体多小程序/公众号唯一）          |
-| `customer_id`   | int unsigned NULL    | → `biz_customer.id`，**授权手机号后绑定**；NULL = 仅浏览 |
-| `nickname`      | varchar(50) NULL     | 微信昵称（授权时快照）                                   |
-| `avatar`        | varchar(500) NULL    | 微信头像                                                 |
-| `phone`         | varchar(20) NULL     | 微信授权手机号快照                                       |
-| `last_login_at` | datetime NULL        | 最近登录                                                 |
-| —               |                      | `...auditColumns`                                        |
+| 字段                 | 类型                                                     | 说明                                                                                             |
+| -------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `id`                 | int unsigned PK                                          |                                                                                                  |
+| `openid`             | varchar(64) NOT NULL                                     | 小程序内唯一标识                                                                                 |
+| `unionid`            | varchar(64) NULL                                         | 开放平台打通后可用（同主体多小程序/公众号唯一）                                                  |
+| `customer_id`        | int unsigned NULL                                        | → `biz_customer.id`，**授权手机号后绑定**；NULL = 仅浏览                                         |
+| `staff_id`           | int unsigned NULL                                        | → `biz_staff.id`，**美甲师工作台**身份（v1.4 新增）                                              |
+| `staff_status`       | enum(`none,pending,active,rejected`) DEFAULT `none`      | 工作台授权状态；**只有 `active` 能进工作台**（v1.4 新增）                                        |
+| `staff_requested_at` | datetime NULL                                            | 手机号命中美甲师档案、提交开通申请的时间（v1.4 新增）                                            |
+| `staff_decided_at`   | datetime NULL                                            | 店长确认 / 驳回时间（v1.4 新增）                                                                 |
+| `staff_decided_by`   | int unsigned NULL                                        | 决策人 `sys_user.id`，用于追溯是谁开的权（v1.4 新增）                                            |
+| `nickname`           | varchar(50) NULL                                         | 微信昵称（授权时快照）                                                                           |
+| `avatar`             | varchar(500) NULL                                        | 微信头像                                                                                         |
+| `phone`              | varchar(20) NULL                                         | 微信授权手机号快照                                                                               |
+| `last_login_at`      | datetime NULL                                            | 最近登录                                                                                         |
+| —                    |                                                          | `...auditColumns`                                                                                |
 
 索引：`uq_wx_openid` **UNIQUE** on `(openid)`；`idx_wx_unionid` on `(unionid)`；
-`idx_wx_customer` on `(customer_id)`
-外键：`fk_wx_user_customer` `customer_id → biz_customer.id` `ON DELETE SET NULL`
+`idx_wx_customer` on `(customer_id)`；`idx_wx_staff` on `(staff_id, staff_status)`
+外键：`fk_wx_user_customer` `customer_id → biz_customer.id` `ON DELETE SET NULL`；
+`fk_wx_user_staff` `staff_id → biz_staff.id` `ON DELETE SET NULL`
 
 > 微信身份必须独立于顾客档案：小程序**先有 openid 才能浏览**，手机号授权后才匹配/创建 `biz_customer`。
 > 把 openid 直接塞进 `biz_customer` 会导致「只逛过没留手机号的访客」污染顾客档案。
+
+> **同一个微信号可以同时是顾客和美甲师**（店员自己也会来做指甲），所以两种身份各占一组列。
+> **工作台开通必须店长确认**（`pending → active`，v1.4）：
+> 仅凭手机号自动开通等于提权漏洞——§16.2 允许「手机号属于他人 openid 也允许绑定」，
+> 号码一旦被复用即可看到该美甲师的预约与业绩。
+> **角色不进 token**：`staff_status` 每请求从库校验，
+> 这样停用（`biz_staff.status=disabled`）或撤权后**下一次请求立即失效**，而不是等 token 过期。
+> 开通/驳回接口与权限点见 §9.11「美甲师工作台授权」。
 
 ### 4.5 支付与账务表结构（v1.3 新增）
 
@@ -1580,7 +1594,7 @@ force          boolean?    顾客同时段已有预约时是否强行创建（�
 
 ### 9.7 小程序端接口（`/api/v1/app/**`，v1.2 预留）
 
-**本期真实现（登录 + 4 个只读接口）**
+**本期真实现（登录 + 手机号绑定 + 4 个只读接口）**
 
 | 方法 | 路径                          | 认证      | 说明                                                                         |
 | ---- | ----------------------------- | --------- | ---------------------------------------------------------------------------- |
@@ -1590,11 +1604,23 @@ force          boolean?    顾客同时段已有预约时是否强行创建（�
 | GET  | `/api/v1/app/available-slots` | app token | 复用 §5 算法：`staffId` + `date` + `serviceItemIds[]` → `{ slots, reason? }` |
 | GET  | `/api/v1/app/member/me`       | app token | 会员信息：等级、折扣率、积分、余额、次卡；未绑定手机号返回 401 + `needBind`  |
 
+| POST | `/api/v1/app/auth/phone`      | app token | 手机号绑定（**v1.4 转真实现**）：`code` → 手机号 → 匹配/创建 `biz_customer` → 绑定锚点；同时探测美甲师档案 |
+
+> **手机号绑定的两个分支（v1.4）**：
+>
+> 1. 命中**软删**顾客档案 → **409 + `needRestoreConfirm` + `customerId`**。
+>    手机号快照照落（`app_wx_user.phone`），但 `customer_id` **不写**、档案**不恢复**：
+>    恢复会带回余额/积分/次卡历史，属数据完整性动作，由门店在后台确认（§4.3）。
+> 2. 命中在职美甲师档案 → 响应给 `staffCandidate`，**不写 `staff_id`、不置 `staff_status`**；
+>    工作台开通必须经店长确认（§4.4 / §9.11）。
+>
+> 顺序上先落手机号快照再绑顾客，是为了让分支 1 不必让用户再弹一次微信授权
+> ——`getPhoneNumber` 的 code 是一次性的，**不能**设计成「先换号、等用户确认、再用同一个 code 继续」。
+
 **本期只留契约骨架（路由 + DTO + Swagger 已定，业务返回 501 / TODO）**
 
 | 方法 | 路径                                | 说明                                                           |
 | ---- | ----------------------------------- | -------------------------------------------------------------- |
-| POST | `/api/v1/app/auth/phone`            | `getPhoneNumber` 的 `code` 换手机号 → 绑定/创建 `biz_customer` |
 | GET  | `/api/v1/app/bookings`              | 我的预约列表（仅本人）                                         |
 | POST | `/api/v1/app/bookings`              | 自助下单（**预留微信支付**：`wxpay_online` + 预支付单号）      |
 | POST | `/api/v1/app/bookings/:id/cancel`   | 自助取消（是否退按 §15.6 的人工规则，先返回 501）              |

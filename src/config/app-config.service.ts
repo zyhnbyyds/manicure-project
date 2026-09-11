@@ -37,6 +37,8 @@ const envSchema = z.object({
   // 小程序（B6 预留）：未配置时 app 域登录返回「小程序端未启用」，不影响进程启动
   WX_MINIAPP_APPID: z.string().optional(),
   WX_MINIAPP_SECRET: z.string().optional(),
+  // 未拿到凭据时的开发/测试开关：走假微信实现（**生产强制失效**，见 wxMiniappFake）
+  WX_MINIAPP_FAKE: z.enum(['true', 'false']).default('false'),
   // 微信支付 Native 扫码（B3）：未配置时通道返回「未启用」
   WXPAY_APPID: z.string().optional(),
   WXPAY_MCHID: z.string().optional(),
@@ -160,11 +162,25 @@ export class AppConfigService {
     appId: string | undefined;
     secret: string | undefined;
     configured: boolean;
+    /** 是否使用假微信实现（仅本地/测试可用） */
+    fake: boolean;
   } {
-    return complete({
-      appId: this.values.WX_MINIAPP_APPID,
-      secret: this.values.WX_MINIAPP_SECRET,
-    });
+    return {
+      ...complete({
+        appId: this.values.WX_MINIAPP_APPID,
+        secret: this.values.WX_MINIAPP_SECRET,
+      }),
+      // fake 不参与 configured 计算：开了假实现也不需要真凭据
+      fake: this.wxMiniappFake,
+    };
+  }
+  /**
+   * 假微信实现开关：**生产环境一律返回 false**。
+   * 这不是「方便开关」而是安全底线——假实现下任意手机号都能登录成任意顾客/美甲师。
+   */
+  get wxMiniappFake(): boolean {
+    if (this.environment === 'production') return false;
+    return this.values.WX_MINIAPP_FAKE === 'true';
   }
   /** 微信支付 Native：`configured=false` 时通道返回「未启用」 */
   get wxpay(): {

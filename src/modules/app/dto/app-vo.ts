@@ -80,6 +80,13 @@ export const appLoginVo = z.object({
     example: null,
     description: '已绑定的顾客 ID；null = 仅浏览（未授权手机号）',
   }),
+  staffId: z.number().int().nullable().openapi({
+    example: null,
+    description: '已绑定的美甲师 ID；null = 非美甲师',
+  }),
+  staffStatus: z
+    .enum(['none', 'pending', 'active', 'rejected'])
+    .openapi({ description: '美甲师工作台授权状态；只有 active 能进工作台' }),
 });
 registerComponent('AppLoginVo', appLoginVo);
 export type AppLoginVo = z.infer<typeof appLoginVo>;
@@ -92,6 +99,25 @@ export const appBindPhoneRequestSchema = z.object({
 });
 registerComponent('AppBindPhoneRequest', appBindPhoneRequestSchema);
 export type AppBindPhoneRequest = z.infer<typeof appBindPhoneRequestSchema>;
+
+/**
+ * 手机号绑定响应。
+ *
+ * `staffCandidate` 只表示「手机号命中了这位美甲师的档案」，**不代表已开通工作台**：
+ * 按既定策略必须由店长在后台确认（仅凭手机号提权等于提权漏洞，见 `app_wx_user` 表注释）。
+ */
+export const appBindPhoneVo = z.object({
+  customerId: z.number().int(),
+  created: z.boolean().openapi({ description: '本次是否新建了顾客档案' }),
+  staffId: z.number().int().nullable(),
+  staffStatus: z.enum(['none', 'pending', 'active', 'rejected']),
+  staffCandidate: z
+    .object({ id: z.number().int(), nickname: z.string() })
+    .nullable()
+    .openapi({ description: '命中的美甲师档案（仅候选，需店长后台确认）' }),
+});
+registerComponent('AppBindPhoneVo', appBindPhoneVo);
+export type AppBindPhoneVo = z.infer<typeof appBindPhoneVo>;
 
 /* ------------------------------------------------------------------ *
  * 目录（catalog）：服务项目 / 美甲师 / 可约时段
