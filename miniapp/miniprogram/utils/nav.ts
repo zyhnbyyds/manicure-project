@@ -119,6 +119,11 @@ export function goFeedback(): void {
   wx.navigateTo({ url: '/pages/feedback/index' });
 }
 
+/** 登录页（未绑定时的引导入口） */
+export function goLogin(): void {
+  wx.navigateTo({ url: '/pages/login/index' });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

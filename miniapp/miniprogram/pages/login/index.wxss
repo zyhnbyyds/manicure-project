@@ -1,0 +1,139 @@
+/* 登录页 —— 对齐 docs/manicure-ui-batch5 第 1 屏 */
+
+.login {
+  background: var(--c-bg);
+}
+
+/* ── 顶部门店照 ───────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  width: 100%;
+  height: 620rpx;
+}
+
+.hero__img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 图片右下角压一层奶油渐变，让下面的内容自然接上 */
+.hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 160rpx;
+  background: linear-gradient(to bottom, rgba(251, 245, 240, 0) 0%, var(--c-bg) 100%);
+}
+
+.hero__back {
+  position: absolute;
+  left: 28rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: rgba(45, 34, 30, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.hero__back-icon {
+  color: #ffffff;
+  font-size: 40rpx;
+  line-height: 1;
+}
+
+/* ── 品牌区 ───────────────────────────────────────────────── */
+
+.body {
+  padding: 0 48rpx 60rpx;
+  text-align: center;
+}
+
+.brand {
+  margin-top: -20rpx;
+}
+
+.brand__name {
+  font-family: var(--font-serif);
+  font-size: 48rpx;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+}
+
+.brand__en {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  letter-spacing: 6rpx;
+  color: var(--c-text-weak);
+}
+
+.brand__slogan {
+  margin-top: 16rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 三个入口 ─────────────────────────────────────────────── */
+
+.entries {
+  display: flex;
+  margin-top: 48rpx;
+}
+
+.entries__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.entries__icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.entries__label {
+  margin-top: 14rpx;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 登录按钮 ─────────────────────────────────────────────── */
+
+.actions {
+  margin-top: 56rpx;
+}
+
+.phone-btn {
+  margin-top: 20rpx;
+  line-height: 88rpx;
+  border: none;
+}
+
+.phone-btn::after {
+  border: none;
+}
+
+/* ── 协议与跳过 ───────────────────────────────────────────── */
+
+.agree {
+  margin-top: 28rpx;
+  font-size: 20rpx;
+  color: var(--c-text-weak);
+}
+
+.agree__link {
+  color: var(--c-primary);
+}
+
+.skip {
+  margin-top: 36rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}

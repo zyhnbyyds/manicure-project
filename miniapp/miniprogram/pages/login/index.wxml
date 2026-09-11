@@ -1,0 +1,58 @@
+<view class="page login" style="{{themeStyle}}">
+  <!-- 顶部门店照（沉浸式，压在状态栏下） -->
+  <view class="hero">
+    <image class="hero__img" src="{{shop.image}}" mode="aspectFill" />
+    <view class="hero__back" style="top:{{statusBarHeight}}px" bindtap="onSkip">
+      <text class="hero__back-icon">×</text>
+    </view>
+  </view>
+
+  <view class="body">
+    <view class="brand">
+      <view class="brand__name">{{shop.name}}</view>
+      <view class="brand__en">{{shop.nameEn}}</view>
+      <view class="brand__slogan">{{shop.slogan}}</view>
+    </view>
+
+    <!-- 三个入口：未登录也能看 -->
+    <view class="entries">
+      <view
+        wx:for="{{entries}}"
+        wx:key="key"
+        class="entries__item"
+        data-key="{{item.key}}"
+        bindtap="onEntry"
+      >
+        <image class="entries__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+        <view class="entries__label">{{item.label}}</view>
+      </view>
+    </view>
+
+    <!-- 登录动作 -->
+    <view class="actions">
+      <view
+        class="btn btn--primary btn--block"
+        bindtap="onWechatLogin"
+      >
+        {{logging ? '处理中…' : '微信一键登录'}}
+      </view>
+
+      <button
+        class="btn btn--ghost btn--block phone-btn"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="onGetPhone"
+      >
+        手机号登录 / 绑定
+      </button>
+    </view>
+
+    <view class="agree">
+      登录即表示同意
+      <text class="agree__link" data-kind="terms" bindtap="onAgreement">用户协议</text>
+      和
+      <text class="agree__link" data-kind="privacy" bindtap="onAgreement">隐私政策</text>
+    </view>
+
+    <view class="skip" bindtap="onSkip">先逛逛 ›</view>
+  </view>
+</view>
