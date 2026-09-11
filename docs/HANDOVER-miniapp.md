@@ -95,7 +95,7 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 | - | ---- | ----------- | ---- |
 | 1 | ✅ **恢复软删顾客**（`CustomerPort.restore` + 服务实现 + 后台顾客页入口） | 已完成：`GET /biz/customers?status=deleted` 找回，`POST /biz/customers/:id/restore` 幂等恢复；恢复后小程序可重新绑定。见提交 `50120dd` | 无 |
 | 2 | ✅ **`/app/staff/apply` + staff 作用域校验** | 已完成：手机号匹配在职档案后置 `pending`；重复 / rejected 重申幂等；请求体不可提权；`AppStaffScopeGuard` 每请求查 `app_wx_user + biz_staff`，要求授权 active、档案 active 且未软删。见提交 `2a975d4` | 无（表已就绪） |
-| 3 | **新增 `BookingPort`** | `bookings.service.ts` 存在但**未端口化**；app 域禁止 import 业务模块，所以 A10（自助下单）与 S4（美甲师改状态）**都卡在这个前置** | 无 |
+| 3 | ✅ **新增 `BookingPort`** | 已完成：`BookingPort`（`listByStaff` / `listByCustomer` / `arriveForStaff` / `completeForStaff`）由 `BizModule` 用 `useExisting` 绑到 `BookingsService`，`BookingsService implements BookingPort` 让契约在编译期就受检；S4 复用既有完成动作（`runComplete`），带本人闸门 + `start_at` 时间护栏 + 幂等。12 条单测（含变异验证）。见提交 `fe75c18` | 无 |
 | 4 | **`wxpay_jsapi` 加进 `biz_payment.channel` 枚举** | spec §16.4 声称「已预留」，实际全库 0 命中。不迁移则接 JSAPI 支付时预支付单**落不了库** | `bun run db:generate` |
 
 ### P1 —— 美甲师工作台主线（施工单 §12.6 的 S2~S5）
