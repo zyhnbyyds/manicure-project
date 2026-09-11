@@ -1,18 +1,16 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body">
+  <view class="page-body theme-body">
     <!-- 当前主题 -->
-    <view class="card hero">
-      <view class="hero__row">
-        <view class="hero__emoji">{{themeEmoji}}</view>
-        <view class="grow">
-          <view class="hero__label">当前主题</view>
-          <view class="hero__name">{{themeName}}</view>
-        </view>
-        <view class="tag">{{isCustom ? '自定义' : '预设'}}</view>
+    <view class="current">
+      <view class="current__dot"></view>
+      <view class="grow">
+        <view class="current__label">当前主题</view>
+        <view class="current__name">{{themeName}}</view>
       </view>
+      <view class="current__tag">{{isCustom ? '自定义' : '预设'}}</view>
     </view>
 
-    <!-- 实时预览：放真实组件，避免「换了色但不知道长啥样」 -->
+    <!-- 效果预览：放真实组件，避免「换了色但不知道长啥样」 -->
     <view class="section">
       <view class="section__title">效果预览</view>
     </view>
@@ -20,7 +18,7 @@
       <view class="row-between">
         <view>
           <view class="preview__title">法式优雅白边</view>
-          <view class="text-weak">90分钟 · 款式</view>
+          <view class="preview__meta">90分钟 · 款式</view>
         </view>
         <view class="price">
           <text class="price__symbol">¥</text>
@@ -29,8 +27,8 @@
         </view>
       </view>
       <view class="preview__tags">
-        <view class="tag">会员 9.5 折</view>
-        <view class="tag tag--accent">可用 1280 积分</view>
+        <view class="tag-chip">会员 9.5 折</view>
+        <view class="tag-chip">可用 1280 积分</view>
       </view>
       <view class="btn btn--primary btn--block preview__btn">立即预约</view>
       <view class="btn btn--ghost btn--block preview__btn">加入次卡</view>
@@ -44,20 +42,20 @@
       <view
         wx:for="{{presets}}"
         wx:key="id"
-        class="preset card card--press {{activePresetId === item.id && !isCustom ? 'is-active' : ''}}"
+        class="preset {{activePresetId === item.id && !isCustom ? 'is-active' : ''}}"
         data-id="{{item.id}}"
         bindtap="onPreset"
       >
         <view class="preset__head">
-          <view class="preset__emoji">{{item.emoji}}</view>
+          <view class="preset__dot" style="background: {{item.primary}}"></view>
           <view wx:if="{{activePresetId === item.id && !isCustom}}" class="preset__check">✓</view>
         </view>
         <view class="preset__name">{{item.name}}</view>
         <view class="preset__desc ellipsis-2">{{item.desc}}</view>
         <view class="preset__swatch">
-          <view class="preset__dot" style="background: {{item.primary}}"></view>
-          <view class="preset__dot" style="background: {{item.accent}}"></view>
-          <view class="preset__dot preset__dot--bg" style="background: {{item.bg}}"></view>
+          <view class="preset__mini" style="background: {{item.primary}}"></view>
+          <view class="preset__mini" style="background: {{item.accent}}"></view>
+          <view class="preset__mini preset__mini--bg" style="background: {{item.bg}}"></view>
         </view>
       </view>
     </view>
@@ -80,12 +78,11 @@
         </view>
       </view>
       <view class="palette__hint">
-        限定色板而非任意取色：这些颜色配白卡片和深色文字都能看清，
-        自由取色容易挑出「字看不清」的主色。
+        限定色板而非任意取色：这些颜色配白卡片和深色文字都能看清，自由取色容易挑出「字看不清」的主色。
       </view>
     </view>
 
-    <view class="btn btn--ghost btn--block reset-btn" bindtap="onReset">恢复默认主题</view>
+    <view class="btn btn--ghost btn--block reset" bindtap="onReset">恢复默认主题</view>
     <view class="safe-bottom"></view>
   </view>
 </view>

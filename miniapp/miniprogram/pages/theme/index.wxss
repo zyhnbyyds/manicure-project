@@ -1,57 +1,86 @@
-/* 主题设置 */
+/* 主题设置 —— 设计稿没有这一页，用设计稿的语言装功能 */
 
-.hero {
+.theme-body {
+  padding-bottom: 60rpx;
+}
+
+/* ── 当前主题 ─────────────────────────────────────────────── */
+
+.current {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  border-radius: var(--r-lg);
   background: var(--c-gradient);
 }
 
-.hero__row {
-  display: flex;
-  align-items: center;
-}
-
-.hero__emoji {
-  width: 96rpx;
-  height: 96rpx;
-  margin-right: 20rpx;
+.current__dot {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 22rpx;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48rpx;
+  background: var(--c-primary);
+  flex-shrink: 0;
 }
 
-.hero__label {
-  font-size: 22rpx;
+.current__label {
+  font-size: 21rpx;
   color: var(--c-text-sub);
 }
 
-.hero__name {
-  margin-top: 4rpx;
+.current__name {
+  margin-top: 6rpx;
+  font-family: var(--font-serif);
   font-size: 36rpx;
-  font-weight: 800;
+  font-weight: 600;
 }
 
-/* 预览 */
+.current__tag {
+  height: 40rpx;
+  line-height: 40rpx;
+  padding: 0 18rpx;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--c-primary-deep);
+  font-size: 20rpx;
+}
+
+/* ── 预览 ─────────────────────────────────────────────────── */
+
 .preview__title {
-  font-size: 30rpx;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.preview__meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
 }
 
 .preview__tags {
   display: flex;
-  margin: 18rpx 0 6rpx;
+  margin-top: 18rpx;
 }
 
-.preview__tags .tag {
-  margin-right: 12rpx;
+.tag-chip {
+  height: 48rpx;
+  line-height: 48rpx;
+  padding: 0 20rpx;
+  margin-right: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  color: var(--c-text-sub);
+  font-size: 21rpx;
 }
 
 .preview__btn {
   margin-top: 18rpx;
 }
 
-/* 预设网格 */
+/* ── 预设主题：两列 ───────────────────────────────────────── */
+
 .presets {
   display: flex;
   flex-wrap: wrap;
@@ -61,9 +90,13 @@
   width: 48%;
   margin-bottom: 20rpx;
   padding: 22rpx 20rpx;
+  background: var(--c-card);
+  border-radius: var(--r-md);
   border: 2rpx solid transparent;
+  box-sizing: border-box;
 }
 
+/* 用 margin 而非 flex gap（iOS 老版本 WKWebView 不支持 gap） */
 .preset:nth-child(odd) {
   margin-right: 4%;
 }
@@ -79,29 +112,32 @@
   justify-content: space-between;
 }
 
-.preset__emoji {
-  font-size: 44rpx;
-  line-height: 1;
+/* 用色板圆点代替 emoji 表达主题差异 */
+.preset__dot {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
 }
 
 .preset__check {
   font-size: 24rpx;
-  color: var(--c-primary);
   font-weight: 700;
+  color: var(--c-primary);
 }
 
 .preset__name {
-  margin-top: 12rpx;
+  margin-top: 14rpx;
+  font-family: var(--font-serif);
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .preset__desc {
-  margin-top: 4rpx;
-  font-size: 21rpx;
-  color: var(--c-text-weak);
+  margin-top: 6rpx;
   min-height: 56rpx;
+  font-size: 20rpx;
   line-height: 1.4;
+  color: var(--c-text-weak);
 }
 
 .preset__swatch {
@@ -109,27 +145,28 @@
   margin-top: 12rpx;
 }
 
-.preset__dot {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
+.preset__mini {
+  width: 28rpx;
+  height: 28rpx;
   margin-right: 10rpx;
+  border-radius: 50%;
   border: 2rpx solid rgba(0, 0, 0, 0.04);
 }
 
-.preset__dot--bg {
+.preset__mini--bg {
   border: 2rpx solid var(--c-border);
 }
 
-/* 色板 */
+/* ── 自定义色板 ───────────────────────────────────────────── */
+
 .palette {
   display: flex;
   flex-wrap: wrap;
 }
 
 .palette__item {
-  width: 92rpx;
-  height: 92rpx;
+  width: 88rpx;
+  height: 88rpx;
   margin: 0 18rpx 18rpx 0;
   border-radius: 50%;
   display: flex;
@@ -145,17 +182,17 @@
 
 .palette__check {
   color: #ffffff;
-  font-size: 34rpx;
+  font-size: 32rpx;
   font-weight: 700;
 }
 
 .palette__hint {
   margin-top: 6rpx;
-  font-size: 22rpx;
-  color: var(--c-text-weak);
+  font-size: 21rpx;
   line-height: 1.6;
+  color: var(--c-text-weak);
 }
 
-.reset-btn {
-  margin-top: 32rpx;
+.reset {
+  margin-top: 36rpx;
 }
