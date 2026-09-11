@@ -1,196 +1,253 @@
-/* 美甲师工作台 */
+/* 美甲师工作台 —— 对齐 docs/manicure-ui-batch2 第 3 屏 */
 
-.hero {
-  padding: 28rpx;
+.wb-body {
+  padding-bottom: 40rpx;
 }
 
-.hero__name {
-  font-size: 38rpx;
-  font-weight: 800;
+/* ── 身份卡（设计稿的渐变卡：这里承载身份与今日班次）───────── */
+
+.idcard {
+  position: relative;
+  overflow: hidden;
+  padding: 36rpx 32rpx 30rpx;
+  border-radius: var(--r-lg);
+  background: var(--c-gradient);
 }
 
-.hero__bio {
-  margin-top: 8rpx;
-  max-width: 420rpx;
-  font-size: 24rpx;
+.idcard__circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.idcard__circle--a {
+  width: 240rpx;
+  height: 240rpx;
+  top: -90rpx;
+  right: -60rpx;
+}
+
+.idcard__circle--b {
+  width: 110rpx;
+  height: 110rpx;
+  bottom: -40rpx;
+  left: -30rpx;
+}
+
+.idcard__mark {
+  position: absolute;
+  right: 40rpx;
+  top: 36rpx;
+  font-family: var(--font-serif);
+  font-size: 120rpx;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.idcard__brand {
+  position: relative;
+  font-size: 21rpx;
+  letter-spacing: 3rpx;
   color: var(--c-text-sub);
 }
 
-.hero__shift {
-  margin-top: 24rpx;
-  display: flex;
-  align-items: center;
-  padding-top: 20rpx;
-  border-top: 2rpx solid var(--c-border);
-}
-
-.hero__date {
-  font-size: 26rpx;
-  color: var(--c-text-sub);
-}
-
-.hero__shifttext {
-  margin-left: 16rpx;
-  font-size: 26rpx;
+.idcard__name {
+  position: relative;
+  margin-top: 12rpx;
+  font-family: var(--font-serif);
+  font-size: 48rpx;
   font-weight: 600;
-  color: var(--c-primary);
 }
 
-.hero__shifttext.is-off {
-  color: var(--c-text-weak);
-}
-
-/* 业绩卡 */
-
-.perf {
-  margin-top: 24rpx;
-  padding: 28rpx;
-}
-
-.perf__more {
-  font-size: 24rpx;
-  color: var(--c-primary);
-}
-
-.perf__grid {
-  margin-top: 24rpx;
-  display: flex;
-}
-
-.perf__cell {
-  flex: 1;
-  text-align: center;
-}
-
-.perf__num {
-  font-size: 34rpx;
-  font-weight: 800;
-  color: var(--c-primary);
-}
-
-.perf__label {
+.idcard__bio {
+  position: relative;
   margin-top: 8rpx;
+  max-width: 400rpx;
   font-size: 22rpx;
   color: var(--c-text-sub);
 }
 
-.perf__rating {
-  margin-top: 22rpx;
-  padding-top: 18rpx;
-  border-top: 2rpx solid var(--c-border);
+.idcard__foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 44rpx;
+}
+
+.idcard__shift {
   font-size: 24rpx;
+  color: var(--c-text);
+}
+
+.idcard__date {
+  font-size: 21rpx;
+  letter-spacing: 2rpx;
   color: var(--c-text-sub);
 }
 
-/* 今日日程 */
+/* ── 业绩三列 ─────────────────────────────────────────────── */
 
-.job {
-  margin-bottom: 24rpx;
+.stats {
+  display: flex;
+  padding: 30rpx 0;
 }
 
-.job__time {
-  font-size: 34rpx;
-  font-weight: 800;
+.stats__item {
+  flex: 1;
+  text-align: center;
 }
 
-.job__status {
-  display: inline-flex;
+.stats__value {
+  font-family: var(--font-serif);
+  font-size: 40rpx;
+  font-weight: 600;
+}
+
+.stats__label {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.stats__note {
+  margin-top: 14rpx;
+  text-align: center;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+/* ── 功能入口 ─────────────────────────────────────────────── */
+
+.entries {
+  display: flex;
+  padding: 28rpx 0;
+}
+
+.entries__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  height: 44rpx;
+}
+
+.entries__icon {
+  width: 46rpx;
+  height: 46rpx;
+}
+
+.entries__label {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 待服务订单 ───────────────────────────────────────────── */
+
+.order {
+  margin-bottom: 20rpx;
+}
+
+.order__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.order__time {
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.order__status {
+  height: 40rpx;
+  line-height: 40rpx;
   padding: 0 18rpx;
   border-radius: var(--r-pill);
-  font-size: 24rpx;
-  font-weight: 600;
   background: var(--c-primary-soft);
   color: var(--c-primary-deep);
+  font-size: 20rpx;
 }
 
-.job__status--waiting {
-  background: var(--c-accent-soft);
+.pill--waiting {
+  background: var(--c-chip);
   color: var(--c-text-sub);
 }
 
-.job__status--done {
-  background: var(--c-bg-soft);
+.pill--done {
+  background: var(--c-bg);
   color: var(--c-text-sub);
 }
 
-.job__status--cancelled {
-  background: var(--c-bg-soft);
+.pill--cancelled {
+  background: var(--c-bg);
   color: var(--c-text-weak);
 }
 
-.job__row {
-  margin-top: 18rpx;
-  display: flex;
-  align-items: center;
-}
-
-.job__name {
-  font-size: 30rpx;
+.order__customer {
+  margin-top: 16rpx;
+  font-size: 28rpx;
   font-weight: 600;
 }
 
-.job__phone {
-  margin-left: 20rpx;
-  font-size: 25rpx;
-  color: var(--c-primary);
-}
-
-.job__phone.is-muted {
+.order__phone {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  font-weight: 400;
   color: var(--c-text-weak);
 }
 
-.job__items {
-  margin-top: 10rpx;
-  font-size: 25rpx;
-  color: var(--c-text-sub);
-}
-
-.job__remark {
-  margin-top: 10rpx;
-  padding: 12rpx 16rpx;
-  border-radius: var(--r-sm);
-  background: var(--c-accent-soft);
+.order__items {
+  margin-top: 8rpx;
   font-size: 24rpx;
+  line-height: 1.5;
   color: var(--c-text-sub);
 }
 
-.job__foot {
-  margin-top: 18rpx;
+.order__meta {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
 }
 
-.job__amount {
-  font-size: 30rpx;
-  font-weight: 800;
+.order__due {
   color: var(--c-primary);
 }
 
-.job__actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 22rpx;
-}
-
-.job__actions .btn {
-  margin-left: 16rpx;
-}
-
-/* 底部入口 */
-
-.links {
-  display: flex;
-  margin-top: 8rpx;
-}
-
-.links__item {
-  flex: 1;
-  padding: 26rpx 0;
-  text-align: center;
-  font-size: 26rpx;
+.order__remark {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
   color: var(--c-text-sub);
 }
 
-.links__item + .links__item {
-  margin-left: 20rpx;
+.order__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18rpx;
+}
+
+.mini-btn {
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 26rpx;
+  margin-left: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 23rpx;
+}
+
+.mini-btn--ghost {
+  background: transparent;
+  border: 2rpx solid var(--c-primary);
+  color: var(--c-primary);
+  line-height: 52rpx;
+}
+
+.empty--inline {
+  padding: 60rpx 40rpx;
+  background: var(--c-card);
+  border-radius: var(--r-lg);
 }

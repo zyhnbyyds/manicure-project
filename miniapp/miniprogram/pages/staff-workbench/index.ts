@@ -8,10 +8,19 @@
  *    否则凌晨会整体偏一天（后端铁律 §3 的同一件事）；
  * 2. 进页面先自查一次授权：403 说明店长已经撤权 / 停用了档案，这时**主动退回顾客模式**
  *    并说明原因 —— 否则用户只会看到一片「加载失败」，不知道自己被撤权了。
+ *
+ * 视觉按 docs/manicure-ui-batch2 第 3 屏重做（原版是 emoji + 旧配色）：
+ * 渐变卡承载身份与今日班次、三列业绩、四个功能入口、今日待服务列表。
+ *
+ * **一处对设计稿的解释**：那屏的渐变卡上写的是「会员卡」（生成时把顾客侧的卡串了过来）。
+ * 美甲师工作台上放「会员卡」没有意义，所以同一张卡承载**身份 + 今日班次**，
+ * 视觉形态（渐变 + 水印 + 卡号位）保持不变。
  */
 import { staffApi } from '../../api/index';
 import { demoteToCustomer, setMode } from '../../store/mode';
+import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, toLocalDateString } from '../../utils/format';
+import { buildIcons, type IconName } from '../../utils/icons';
 import {
   goStaffBookings,
   goStaffPerformance,
@@ -24,9 +33,20 @@ import { isApiFailure } from '../../utils/request';
 import { syncTabBar } from '../../utils/tabbar';
 import { confirm, toast } from '../../utils/ui';
 
+const PAGE_ICONS: IconName[] = ['calendar', 'card', 'star', 'person', 'headset', 'clock'];
+
+const ENTRIES = [
+  { key: 'bookings', label: '我的预约', icon: 'calendar' as IconName },
+  { key: 'performance', label: '业绩明细', icon: 'card' as IconName },
+  { key: 'reviews', label: '我的评价', icon: 'star' as IconName },
+  { key: 'customer', label: '顾客模式', icon: 'person' as IconName },
+];
+
 Page({
   data: {
     ...basePageData(),
+    icons: buildIcons(PAGE_ICONS, '#2D221E'),
+    entries: ENTRIES,
     loading: true,
     errorText: '',
     today: '',
@@ -44,7 +64,10 @@ Page({
   },
 
   onShow() {
-    this.setData({ ...basePageData() });
+    this.setData({
+      ...basePageData(),
+      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
+    });
     syncTabBar(this);
     void this.load();
   },
@@ -97,7 +120,7 @@ Page({
           content: '你的美甲师工作台已被关闭（档案停用或授权被撤），已切回顾客模式。',
           showCancel: false,
           confirmText: '知道啦',
-          confirmColor: '#FF8BA7',
+          confirmColor: '#B45F6B',
         });
         wx.switchTab({ url: '/pages/index/index' });
         return;
@@ -112,6 +135,24 @@ Page({
   goStaffBookings,
   goStaffPerformance,
   goStaffReviews,
+
+  /** 功能入口：前三个跳页，第四个切回顾客模式 */
+  onEntryTap(event: WechatMiniprogram.TouchEvent) {
+    const key = String(event.currentTarget.dataset.key);
+    if (key === 'bookings') {
+      goStaffBookings();
+      return;
+    }
+    if (key === 'performance') {
+      goStaffPerformance();
+      return;
+    }
+    if (key === 'reviews') {
+      goStaffReviews();
+      return;
+    }
+    this.onSwitchToCustomer();
+  },
 
   /** 切回顾客模式（TabBar 会跟着换成「首页/预约/我的」） */
   onSwitchToCustomer() {

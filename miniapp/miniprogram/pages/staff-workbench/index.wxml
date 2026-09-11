@@ -1,122 +1,115 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <view class="page-body">
-    <!-- 身份 + 模式切换 -->
-    <view class="hero card">
-      <view class="row-between">
-        <view>
-          <view class="hero__name">{{nickname}}</view>
-          <view class="hero__bio ellipsis">{{bio || '美甲师工作台'}}</view>
-        </view>
-        <view class="btn btn--soft btn--sm" bindtap="onSwitchToCustomer">切回顾客</view>
-      </view>
-      <view class="hero__shift">
-        <view class="hero__date">{{today}}</view>
-        <view class="hero__shifttext {{off ? 'is-off' : ''}}">{{shiftText}}</view>
-      </view>
-    </view>
-
-    <!-- 业绩卡 -->
-    <view class="perf card">
-      <view class="row-between">
-        <view class="section__title">本月业绩 · {{periodText}}</view>
-        <view class="perf__more" bindtap="goStaffPerformance">明细 ›</view>
-      </view>
-      <view class="perf__grid">
-        <view class="perf__cell">
-          <view class="perf__num">{{completedCount}}</view>
-          <view class="perf__label">完成单量</view>
-        </view>
-        <view class="perf__cell">
-          <view class="perf__num">¥{{paidText}}</view>
-          <view class="perf__label">实收合计</view>
-        </view>
-        <view class="perf__cell">
-          <view class="perf__num">¥{{accruedText}}</view>
-          <view class="perf__label">待发提成</view>
-        </view>
-        <view class="perf__cell">
-          <view class="perf__num">¥{{settledText}}</view>
-          <view class="perf__label">已发提成</view>
-        </view>
-      </view>
-      <view class="perf__rating">评分：{{ratingText}}</view>
-    </view>
-
-    <view class="section">
-      <view class="row-between">
-        <view class="section__title">今日日程</view>
-        <view class="section__more" bindtap="goStaffBookings">全部 ›</view>
+  <view class="page-body wb-body">
+    <!-- 身份与今日班次：设计稿里那张渐变卡 -->
+    <view class="idcard">
+      <view class="idcard__circle idcard__circle--a"></view>
+      <view class="idcard__circle idcard__circle--b"></view>
+      <view class="idcard__mark">S</view>
+      <view class="idcard__brand">美甲师工作台</view>
+      <view class="idcard__name">{{nickname}}</view>
+      <view class="idcard__bio ellipsis">{{bio}}</view>
+      <view class="idcard__foot">
+        <view class="idcard__shift">{{shiftText}}</view>
+        <view class="idcard__date">{{today}}</view>
       </view>
     </view>
 
-    <view wx:if="{{loading}}" class="loading">正在看今天的排期…</view>
+    <view wx:if="{{loading}}" class="loading">正在读取今日安排…</view>
 
     <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
-    <view wx:elif="{{bookings.length === 0}}" class="empty">
-      <view class="empty__emoji">☕</view>
-      <view class="empty__text">今天还没有排到的单</view>
-      <view class="empty__hint">好好休息，或者去「我的预约」看看之后几天～</view>
-    </view>
-
     <block wx:else>
-      <view wx:for="{{bookings}}" wx:key="id" class="job card">
-        <view class="row-between">
-          <view class="job__time">{{item.timeText}}</view>
-          <view class="job__status job__status--{{item.tone}}">
-            <view class="dot"></view>
-            {{item.statusText}}
-          </view>
+      <!-- 今日业绩 -->
+      <view class="section">
+        <view class="section__title">今日业绩</view>
+        <view class="section__more" bindtap="goStaffPerformance">{{periodText}}</view>
+      </view>
+      <view class="card stats">
+        <view class="stats__item" bindtap="goStaffPerformance">
+          <view class="stats__value">{{paidText}}</view>
+          <view class="stats__label">服务收入</view>
         </view>
+        <view class="stats__item" bindtap="goStaffPerformance">
+          <view class="stats__value">{{completedCount}}</view>
+          <view class="stats__label">完成单量</view>
+        </view>
+        <view class="stats__item" bindtap="goStaffPerformance">
+          <view class="stats__value">{{accruedText}}</view>
+          <view class="stats__label">已计提成</view>
+        </view>
+      </view>
+      <view class="stats__note">已结算 {{settledText}} 元 · 评分 {{ratingText}}</view>
 
-        <view class="job__row">
-          <view class="job__name">{{item.customerName}}</view>
+      <!-- 功能入口 -->
+      <view class="card entries">
+        <view
+          wx:for="{{entries}}"
+          wx:key="key"
+          class="entries__item"
+          data-key="{{item.key}}"
+          bindtap="onEntryTap"
+        >
+          <image class="entries__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+          <view class="entries__label">{{item.label}}</view>
+        </view>
+      </view>
+
+      <!-- 今日待服务 -->
+      <view class="section">
+        <view class="section__title">今日待服务</view>
+        <view class="section__more" bindtap="goStaffBookings">全部 ›</view>
+      </view>
+
+      <view wx:if="{{bookings.length === 0}}" class="empty empty--inline">
+        <view class="empty__text">{{off ? '今天休息，好好放松一下' : '今天还没有预约'}}</view>
+        <view class="empty__hint">有新的预约会出现在这里</view>
+      </view>
+
+      <view wx:for="{{bookings}}" wx:key="id" class="card order">
+        <view class="order__head">
+          <view class="order__time">{{item.timeText}}</view>
+          <view class="order__status pill--{{item.tone}}">{{item.statusText}}</view>
+        </view>
+        <view class="order__customer">
+          {{item.customerName}}
+          <text class="order__phone">{{item.customerPhoneMasked || '未留电话'}}</text>
+        </view>
+        <view class="order__items ellipsis-2">{{item.itemNames}}</view>
+        <view class="order__meta">
+          共 {{item.durationText}} · 应付 {{item.payableText}} 元
+          <text wx:if="{{item.dueText !== '0.00'}}" class="order__due">（待付 {{item.dueText}}）</text>
+        </view>
+        <view wx:if="{{item.remark}}" class="order__remark">备注：{{item.remark}}</view>
+
+        <view class="order__actions">
           <view
             wx:if="{{item.customerPhoneMasked}}"
-            class="job__phone"
+            class="mini-btn mini-btn--ghost"
             data-id="{{item.id}}"
             bindtap="onCall"
           >
-            📞 {{item.customerPhoneMasked}}
+            拨号
           </view>
-          <view wx:else class="job__phone is-muted">未留电话</view>
-        </view>
-
-        <view class="job__items ellipsis-2">{{item.itemNames}} · {{item.durationText}}</view>
-        <view wx:if="{{item.remark}}" class="job__remark">备注：{{item.remark}}</view>
-
-        <view class="row-between job__foot">
-          <view class="text-weak">{{item.bookingNo}}</view>
-          <view class="job__amount">¥{{item.payableText}}</view>
-        </view>
-
-        <view wx:if="{{item.canArrive || item.canComplete}}" class="job__actions">
           <view
             wx:if="{{item.canArrive}}"
-            class="btn btn--soft btn--sm"
+            class="mini-btn mini-btn--ghost"
             data-id="{{item.id}}"
             bindtap="onArrive"
           >
-            顾客已到店
+            已到店
           </view>
           <view
             wx:if="{{item.canComplete}}"
-            class="btn btn--primary btn--sm"
+            class="mini-btn"
             data-id="{{item.id}}"
             bindtap="onComplete"
           >
-            服务完成
+            完成服务
           </view>
         </view>
       </view>
     </block>
-
-    <view class="links">
-      <view class="links__item card card--press" bindtap="goStaffPerformance">业绩明细</view>
-      <view class="links__item card card--press" bindtap="goStaffReviews">我的评价</view>
-    </view>
   </view>
 </view>
