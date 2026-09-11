@@ -2,12 +2,11 @@ import { bookingApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
 import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goPay, goReview, goServices } from '../../utils/nav';
+import { goCancel, goPay, goReview, goServices } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { syncTabBar } from '../../utils/tabbar';
-import { confirm, toast } from '../../utils/ui';
 
 interface FilterItem {
   /** 空串 = 不传 status（全部） */
@@ -124,21 +123,9 @@ Page({
     });
   },
 
-  async onCancel(event: WechatMiniprogram.TouchEvent) {
-    const id = Number(event.currentTarget.dataset.id);
-    const agreed = await confirm({
-      title: '取消预约',
-      content: '取消后这个时间段会释放给其他顾客，是否继续？',
-      confirmText: '确定取消',
-    });
-    if (!agreed) return;
-    try {
-      await bookingApi.cancel(id, '顾客自主取消');
-      toast('已取消', 'success');
-      this.load();
-    } catch (error) {
-      toast(isApiFailure(error) ? error.message : '取消失败，请稍后再试');
-    }
+  onCancel(event: WechatMiniprogram.TouchEvent) {
+    // 取消是「钱的规则」：先进说明页看规则再确认，不用原生 confirm 一句话带过
+    goCancel(Number(event.currentTarget.dataset.id));
   },
 
   onReview(event: WechatMiniprogram.TouchEvent) {

@@ -21,6 +21,7 @@
     "pages/notices/index",
     "pages/feedback/index",
     "pages/login/index",
+    "pages/cancel/index",
     "pages/member/index",
     "pages/mine/index",
     "pages/theme/index",

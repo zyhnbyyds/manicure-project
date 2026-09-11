@@ -3,11 +3,10 @@ import type { Booking } from '../../api/types';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration, formatTimeRange, formatDateTimeLabel } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goPay, goReview } from '../../utils/nav';
+import { goCancel, goPay, goReview } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { resolveStaffAvatar } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
-import { confirm, toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['calendar', 'clock', 'person', 'card', 'chevron'];
 
@@ -122,20 +121,9 @@ Page({
     goPay(this.bookingId);
   },
 
-  async onCancel() {
-    const agreed = await confirm({
-      title: '取消预约',
-      content: '取消后这个时间段会释放给其他顾客，是否继续？',
-      confirmText: '确定取消',
-    });
-    if (!agreed) return;
-    try {
-      await bookingApi.cancel(this.bookingId, '顾客自主取消');
-      toast('已取消', 'success');
-      this.load();
-    } catch (error) {
-      toast(isApiFailure(error) ? error.message : '取消失败，请稍后再试');
-    }
+  onCancel() {
+    // 取消是「钱的规则」：先进说明页看规则再确认
+    goCancel(this.bookingId);
   },
 
   onReview() {

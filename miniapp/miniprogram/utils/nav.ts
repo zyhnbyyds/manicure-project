@@ -124,6 +124,11 @@ export function goLogin(): void {
   wx.navigateTo({ url: '/pages/login/index' });
 }
 
+/** 取消预约说明（带 bookingId）：先看规则再确认，替换原来的原生 confirm */
+export function goCancel(bookingId: number): void {
+  wx.navigateTo({ url: `/pages/cancel/index?bookingId=${bookingId}` });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

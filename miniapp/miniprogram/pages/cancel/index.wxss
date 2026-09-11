@@ -1,0 +1,89 @@
+/* 取消说明 —— 对齐 docs/manicure-ui-batch3 第 5 屏 */
+
+.cancel-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 订单摘要 ─────────────────────────────────────────────── */
+
+.target__name {
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.target__when {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+}
+
+.target__fee {
+  padding-top: 4rpx;
+}
+
+.target__value {
+  font-family: var(--font-serif);
+  font-size: 27rpx;
+  color: var(--c-text-sub);
+}
+
+.target__value--due {
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+/* ── 规则 ─────────────────────────────────────────────────── */
+
+.rule {
+  display: flex;
+  align-items: flex-start;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.rule:last-child {
+  border-bottom: none;
+}
+
+.rule__icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.rule__title {
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.rule__text {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--c-text-sub);
+}
+
+.tips {
+  margin-top: 20rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}
+
+/* ── 底部 ─────────────────────────────────────────────────── */
+
+.cancel-again {
+  width: 240rpx;
+  flex-shrink: 0;
+}
+
+.confirm-btn {
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}

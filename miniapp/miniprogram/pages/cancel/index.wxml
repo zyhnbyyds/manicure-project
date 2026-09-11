@@ -1,0 +1,58 @@
+<view class="page" style="{{themeStyle}}">
+  <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
+
+  <view wx:elif="{{errorText}}" class="empty">
+    <view class="empty__text">{{errorText}}</view>
+    <view class="btn btn--primary btn--sm empty__action" bindtap="onThinkAgain">返回</view>
+  </view>
+
+  <block wx:else>
+    <view class="page-body cancel-body">
+      <!-- 被取消的订单摘要 -->
+      <view class="card target">
+        <view class="target__name ellipsis">{{itemNames}}</view>
+        <view class="target__when">{{whenText}}</view>
+        <view class="divider"></view>
+        <view class="target__fee">
+          <view class="row-between">
+            <view class="text-sub">已支付</view>
+            <view class="target__value">{{paidText}} 元</view>
+          </view>
+          <view class="row-between">
+            <view class="text-sub">待支付</view>
+            <view class="target__value target__value--due">{{dueText}} 元</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 取消规则 -->
+      <view class="section">
+        <view class="section__title">取消说明</view>
+      </view>
+      <view class="card">
+        <view wx:for="{{rules}}" wx:key="title" class="rule">
+          <image class="rule__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+          <view class="grow">
+            <view class="rule__title">{{item.title}}</view>
+            <view class="rule__text">{{item.text}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="tips">
+        具体扣费以门店判责规则为准。提交取消后，实际可退金额会在「我的预约」中体现；
+        若有异议可直接联系门店协商。
+      </view>
+    </view>
+
+    <view class="action-bar">
+      <view class="btn btn--ghost cancel-again" bindtap="onThinkAgain">我再想想</view>
+      <view
+        class="btn {{submitting ? 'btn--disabled' : 'btn--primary'}} confirm-btn"
+        bindtap="onConfirm"
+      >
+        {{submitting ? '取消中…' : '确认取消'}}
+      </view>
+    </view>
+  </block>
+</view>
