@@ -7,6 +7,7 @@ import { SlotsService } from './booking/slots.service.js';
 import { BizCommonModule } from './common/biz-common.module.js';
 import {
   BookingOpsPort,
+  BookingPort,
   CommissionPort,
   CreditPort,
   CustomerPort,
@@ -72,6 +73,7 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     { provide: SlotPort, useExisting: SlotsService },
     { provide: SettlementPort, useExisting: BookingSettlementService },
     { provide: BookingOpsPort, useExisting: BookingsService },
+    { provide: BookingPort, useExisting: BookingsService },
     { provide: MemberAccountPort, useExisting: MemberAccountsService },
     { provide: MemberCardPort, useExisting: MemberCardsService },
     { provide: PaymentPort, useExisting: PaymentsService },
@@ -89,6 +91,7 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     SlotPort,
     SettlementPort,
     BookingOpsPort,
+    BookingPort,
     MemberAccountPort,
     MemberCardPort,
     PaymentPort,

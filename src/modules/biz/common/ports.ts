@@ -8,7 +8,9 @@
  * 方法签名是冻结契约，见 `docs/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`。
  */
 import type {
+  bizBookingItems,
   bizBookingRecurrences,
+  bizBookings,
   bizCreditAccounts,
   bizCustomers,
   bizMemberCards,
@@ -19,6 +21,8 @@ import type {
 import type { BizTx } from './tx.js';
 
 export type ServiceItemRow = typeof bizServiceItems.$inferSelect;
+export type BookingRow = typeof bizBookings.$inferSelect;
+export type BookingItemRow = typeof bizBookingItems.$inferSelect;
 export type StaffRow = typeof bizStaffs.$inferSelect;
 export type CustomerRow = typeof bizCustomers.$inferSelect;
 export type MemberCardRow = typeof bizMemberCards.$inferSelect;
@@ -524,6 +528,86 @@ export abstract class NoticePort {
   abstract retryFailed(): Promise<{ retried: number; succeeded: number }>;
   /** 次日预约提醒（定时任务 `sendBookingReminders`，必须幂等） */
   abstract sendBookingReminders(): Promise<{ sent: number; skipped: number }>;
+}
+
+/* ------------------------------------------------------------------ *
+ * 预约（B1）：app 域（小程序）消费面
+ *
+ * `BookingOpsPort` 只给定时任务用（自动完成 / 自动爽约）；本端口给 app 域用。
+ * app 域禁止 import 业务模块，所以工作 readonly 读取与「到店 / 完成」动作
+ * 都必须从这里进（§12.4-1）。
+ * ------------------------------------------------------------------ */
+
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'arrived'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
+
+export type BookingPayStatus =
+  | 'unpaid'
+  | 'partial'
+  | 'paid'
+  | 'refunded'
+  | 'credit';
+
+/** 预约 + 项目明细快照（明细是下单时的快照，不回查服务项目表） */
+export type BookingWithItems = BookingRow & { items: BookingItemRow[] };
+
+export type StaffBookingFilter = {
+  /** 店内本地日 YYYY-MM-DD */
+  date?: string | undefined;
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
+  status?: BookingStatus | undefined;
+};
+
+export abstract class BookingPort {
+  /**
+   * 美甲师本人的预约（S3）。
+   *
+   * 硬限定 `staff_id`，**不提供任何跨美甲师查询**（含排行榜，§12.4-2）。
+   * 手机号原样返回 —— 脱敏是展示层规则（D11），端口不替展示层做决定。
+   */
+  abstract listByStaff(
+    staffId: number,
+    page: number,
+    pageSize: number,
+    filter: StaffBookingFilter,
+  ): Promise<PageResult<BookingWithItems>>;
+  /** 顾客本人的预约（「我的预约」，A10） */
+  abstract listByCustomer(
+    customerId: number,
+    page: number,
+    pageSize: number,
+  ): Promise<PageResult<BookingWithItems>>;
+  /**
+   * 到店（S4）：非本人单 → 403；**已经是 arrived → `changed:false`**（幂等）。
+   *
+   * 「已到位」刻意不报错：小程序双击 / 自动重试很常见，报 409 会让人以为失败了。
+   * 其它非法起始状态（已取消 / 已完成）仍然报 409。
+   *
+   * `actorId` 允许为 null：小程序端没有后台账号，`updated_by` 记为 null 即可。
+   */
+  abstract arriveForStaff(
+    id: number,
+    staffId: number,
+    actorId?: number | null,
+  ): Promise<{ changed: boolean }>;
+  /**
+   * 完成（S4）：非本人单 → 403；早于 `start_at` → 400（§12.4-3，防提前刷提成）；
+   * 已经是 completed → `changed:false`（幂等）。
+   *
+   * 必须走既有动作 service 的完成逻辑：提成计提、顾客到店次数累加、
+   * `affectedRows` 幂等闸门都在里面 —— app 域**禁止**自己 UPDATE 预约状态。
+   */
+  abstract completeForStaff(
+    id: number,
+    staffId: number,
+    actorId?: number | null,
+  ): Promise<{ changed: boolean; warning?: string | undefined }>;
 }
 
 /* ------------------------------------------------------------------ *

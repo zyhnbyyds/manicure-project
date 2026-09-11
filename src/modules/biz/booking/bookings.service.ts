@@ -42,6 +42,12 @@ import { formatShopDateTime, shopDateOf } from '../common/shop-time.js';
 import type { BizTx } from '../common/tx.js';
 import { withoutUndefined } from '../common/tx.js';
 import {
+  type BookingItemRow,
+  type BookingPayStatus,
+  BookingPort,
+  type BookingRow,
+  type BookingStatus,
+  type BookingWithItems,
   CommissionPort,
   CreditPort,
   CustomerPort,
@@ -52,24 +58,13 @@ import {
   RefundPort,
   ServiceItemPort,
   SettlementPort,
+  type StaffBookingFilter,
   StaffPort,
 } from '../common/ports.js';
 import { SlotsService } from './slots.service.js';
 
-export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'arrived'
-  | 'completed'
-  | 'cancelled'
-  | 'no_show';
-
-export type BookingPayStatus =
-  | 'unpaid'
-  | 'partial'
-  | 'paid'
-  | 'refunded'
-  | 'credit';
+/** 状态枚举定义在端口层（app 域要用，且不能 import 业务模块），此处原样导出 */
+export type { BookingStatus, BookingPayStatus };
 
 export type PaymentInput = {
   channel: PayChannel;
@@ -162,7 +157,7 @@ type QuoteItem = {
  * 本服务不自己写 `paid_amount` / `due_amount` / `pay_status`。
  */
 @Injectable()
-export class BookingsService {
+export class BookingsService implements BookingPort {
   constructor(
     private readonly database: DatabaseService,
     private readonly config: BizConfigService,
@@ -300,6 +295,68 @@ export class BookingsService {
       .limit(1);
     if (!row) throw new NotFoundException('顾客不存在');
     return row;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * app 域（小程序）端口实现（S3 读 / S4 写）
+   *
+   * 与后台方法的差别：**不做 admin 数据权限收敛**，改成硬限定「本人」。
+   * 后台那个 `resolveScope` 走的是角色 / 部门，小程序端没有 sys_user，
+   * 套上去只会得到错的范围。
+   * ---------------------------------------------------------------- */
+
+  async listByStaff(
+    staffId: number,
+    page: number,
+    pageSize: number,
+    filter: StaffBookingFilter,
+  ): Promise<{ items: BookingWithItems[]; page: number; pageSize: number }> {
+    const rows = await this.selectByScope(
+      eq(bizBookings.staffId, staffId),
+      filter,
+      page,
+      pageSize,
+    );
+    return { items: await this.attachItems(rows), page, pageSize };
+  }
+
+  async listByCustomer(
+    customerId: number,
+    page: number,
+    pageSize: number,
+  ): Promise<{ items: BookingWithItems[]; page: number; pageSize: number }> {
+    const rows = await this.selectByScope(
+      eq(bizBookings.customerId, customerId),
+      {},
+      page,
+      pageSize,
+    );
+    return { items: await this.attachItems(rows), page, pageSize };
+  }
+
+  async arriveForStaff(
+    id: number,
+    staffId: number,
+    actorId?: number | null,
+  ): Promise<{ changed: boolean }> {
+    const booking = await this.assertOwnedByStaff(id, staffId);
+    if (booking.status === 'arrived') return { changed: false };
+    return this.transition(id, 'arrived', 'arrive', actorId ?? null, {
+      arrivedAt: new Date(),
+    });
+  }
+
+  async completeForStaff(
+    id: number,
+    staffId: number,
+    actorId?: number | null,
+  ): Promise<{ changed: boolean; warning?: string | undefined }> {
+    const booking = await this.assertOwnedByStaff(id, staffId);
+    if (booking.status === 'completed') return { changed: false };
+    // §12.4-3 时间护栏：早于 start_at 标记完成 = 可以提前刷提成
+    if (booking.startAt.getTime() > Date.now())
+      throw new BadRequestException('服务尚未开始，不能提前标记完成');
+    return this.runComplete(id, actorId ?? null);
   }
 
   /* ---------------------------------------------------------------- *
@@ -700,18 +757,32 @@ export class BookingsService {
    * ---------------------------------------------------------------- */
 
   async confirm(id: number, actor: RequestActor) {
-    return this.transition(id, 'confirmed', 'confirm', actor, {
+    return this.transition(id, 'confirmed', 'confirm', actor.id, {
       confirmedAt: new Date(),
     });
   }
 
   async arrive(id: number, actor: RequestActor) {
-    return this.transition(id, 'arrived', 'arrive', actor, {
+    return this.transition(id, 'arrived', 'arrive', actor.id, {
       arrivedAt: new Date(),
     });
   }
 
   async complete(id: number, actor: RequestActor) {
+    return this.runComplete(id, actor.id);
+  }
+
+  /**
+   * 完成动作的唯一实现（后台与小程序共用）。
+   *
+   * `actorId` 可为 null：小程序端没有 sys_user 账号，`updated_by` 记 null。
+   * 提成计提 / 顾客到店次数 / `affectedRows` 幂等闸门全在这里，
+   * 任何调用方（含 app 域）都必须走它，禁止自己 UPDATE 状态（§12.4-1）。
+   */
+  private async runComplete(
+    id: number,
+    actorId: number | null,
+  ): Promise<{ changed: boolean; warning?: string | undefined }> {
     const outcome = await this.database.db.transaction(async (tx) => {
       const booking = await this.lockBooking(tx, id);
       this.assertTransition(booking.status, 'complete');
@@ -720,7 +791,7 @@ export class BookingsService {
         .set({
           status: 'completed',
           finishedAt: new Date(),
-          updatedBy: actor.id,
+          updatedBy: actorId,
         })
         .where(
           and(
@@ -732,7 +803,7 @@ export class BookingsService {
       // affectedRows=0 → 别人已经改过，直接跳过，统计不双计
       if (!affected[0].affectedRows) return null;
       await this.customers.onBookingCompleted(tx, booking.customerId);
-      await this.commissions.accrueForBooking(tx, id, actor.id);
+      await this.commissions.accrueForBooking(tx, id, actorId);
       return booking;
     });
     if (!outcome) return { changed: false };
@@ -754,7 +825,7 @@ export class BookingsService {
 
   async noShow(id: number, reason: string, actor: RequestActor) {
     if (!reason?.trim()) throw new BadRequestException('爽约必须填写原因');
-    return this.transition(id, 'no_show', 'no-show', actor, {
+    return this.transition(id, 'no_show', 'no-show', actor.id, {
       cancelReason: reason,
       cancelledAt: new Date(),
     });
@@ -763,7 +834,7 @@ export class BookingsService {
   async cancel(id: number, reason: string, actor: RequestActor) {
     if (!reason?.trim()) throw new BadRequestException('取消必须填写原因');
     const booking = await this.findOne(id, actor);
-    const result = await this.transition(id, 'cancelled', 'cancel', actor, {
+    const result = await this.transition(id, 'cancelled', 'cancel', actor.id, {
       cancelReason: reason,
       cancelledAt: new Date(),
     });
@@ -1043,13 +1114,14 @@ export class BookingsService {
     id: number,
     target: BookingStatus,
     action: TransitionAction,
-    actor: RequestActor,
+    /** null = 非后台来源（小程序端没有 sys_user） */
+    actorId: number | null,
     extra: TransitionPatch,
   ): Promise<{ changed: boolean }> {
     const allowed = TRANSITIONS[action];
     const affected = await this.database.db
       .update(bizBookings)
-      .set({ status: target, updatedBy: actor.id, ...extra })
+      .set({ status: target, updatedBy: actorId, ...extra })
       .where(
         and(
           eq(bizBookings.id, id),
@@ -1076,6 +1148,86 @@ export class BookingsService {
     const allowed = TRANSITIONS[action] as readonly BookingStatus[];
     if (!allowed.includes(from))
       throw new ConflictException(`当前状态（${from}）不允许该操作`);
+  }
+
+  /** app 域列表：按「本人」硬限定 + 本地日区间，不做 admin 数据权限收敛 */
+  private async selectByScope(
+    ownerCondition: SQL,
+    filter: StaffBookingFilter,
+    page: number,
+    pageSize: number,
+  ) {
+    const bookingConfig = await this.config.booking();
+    const where = andConditions([
+      isNull(bizBookings.deletedAt),
+      ownerCondition,
+      filter.status ? eq(bizBookings.status, filter.status) : undefined,
+      filter.date
+        ? localDateRange(
+            bizBookings.startAt,
+            filter.date,
+            filter.date,
+            bookingConfig.timezone,
+          )
+        : localDateRange(
+            bizBookings.startAt,
+            filter.dateFrom,
+            filter.dateTo,
+            bookingConfig.timezone,
+          ),
+    ]);
+    return this.database.db
+      .select()
+      .from(bizBookings)
+      .where(where)
+      .orderBy(asc(bizBookings.startAt), asc(bizBookings.id))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+  }
+
+  /** 批量补项目明细快照（一次查询，避免 N+1） */
+  private async attachItems(rows: BookingRow[]): Promise<BookingWithItems[]> {
+    if (!rows.length) return [];
+    const items = await this.database.db
+      .select()
+      .from(bizBookingItems)
+      .where(
+        inArray(
+          bizBookingItems.bookingId,
+          rows.map((row) => row.id),
+        ),
+      )
+      .orderBy(asc(bizBookingItems.sort), asc(bizBookingItems.id));
+    const grouped = new Map<number, BookingItemRow[]>();
+    for (const item of items) {
+      const list = grouped.get(item.bookingId) ?? [];
+      list.push(item);
+      grouped.set(item.bookingId, list);
+    }
+    return rows.map((row) => ({ ...row, items: grouped.get(row.id) ?? [] }));
+  }
+
+  /**
+   * S4 越权闸门：预约不存在 → 404；不属于该美甲师 → 403。
+   *
+   * 注意这里**不复用** `assertBookingVisible` —— 那是 admin 的角色/部门口径，
+   * 小程序端传不出 `RequestActor`。
+   */
+  private async assertOwnedByStaff(id: number, staffId: number) {
+    const [row] = await this.database.db
+      .select({
+        id: bizBookings.id,
+        staffId: bizBookings.staffId,
+        startAt: bizBookings.startAt,
+        status: bizBookings.status,
+      })
+      .from(bizBookings)
+      .where(and(eq(bizBookings.id, id), isNull(bizBookings.deletedAt)))
+      .limit(1);
+    if (!row) throw new NotFoundException('预约不存在');
+    if (row.staffId !== staffId)
+      throw new ForbiddenException('只能操作本人的预约');
+    return row;
   }
 
   private async lockBooking(tx: BizTx, id: number) {
