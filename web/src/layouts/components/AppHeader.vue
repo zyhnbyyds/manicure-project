@@ -72,7 +72,7 @@ function toggleDark() {
       <!-- GitHub 链接 -->
       <a
         class="icon-btn"
-        href="https://github.com/zyhnbyyds/nest-admin-ts"
+        href="https://github.com/zyhnbyyds/manicure-project"
         target="_blank"
         rel="noopener noreferrer"
         title="GitHub 仓库"

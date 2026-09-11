@@ -198,17 +198,17 @@ async function handleRegister() {
     >
       <div class="mb-7 text-center">
         <img
-          src="/image/logo.png"
-          alt="Nest Admin Logo"
+          src="/image/logo.svg"
+          alt="美甲管理系统 Logo"
           class="w-56px h-56px mx-auto mb-3 object-contain"
         />
         <h1
           class="m-0 text-26px font-800 tracking--2% text-[var(--lew-color-primary)]"
         >
-          Nest Admin
+          美甲管理系统
         </h1>
         <p class="mt-1.5 mb-0 text-13px text-[var(--app-text-muted)]">
-          通用后台管理系统
+          美甲店到店预约与经营管理
         </p>
       </div>
 

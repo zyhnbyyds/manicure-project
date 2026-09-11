@@ -11,6 +11,7 @@
     "dompurify",
     "echostr",
     "loginlog",
+    "miniapp",
     "newpassword",
     "operlog",
     "rollbacking",

@@ -4,11 +4,11 @@ import { useDark, useToggle } from '@vueuse/core';
 import type { ColorMode, RadiusLevel } from '~/types/app';
 import { buildPrimaryPalette } from '~/utils/color';
 
-const MODE_KEY = 'nest-admin:color-mode';
-const PRIMARY_KEY = 'nest-admin:primary-color';
-const RADIUS_KEY = 'nest-admin:radius';
+const MODE_KEY = 'manicure:color-mode';
+const PRIMARY_KEY = 'manicure:primary-color';
+const RADIUS_KEY = 'manicure:radius';
 // useDark 内部布尔存储 key（与 mode 的枚举存储分离，避免互相覆盖）
-const DARK_FLAG_KEY = 'nest-admin:dark-flag';
+const DARK_FLAG_KEY = 'manicure:dark-flag';
 
 /** 可选主题色（与 lew-ui 色板对齐） */
 export const THEME_COLORS: { label: string; value: string }[] = [

@@ -4,7 +4,7 @@ import type { JwtPayload, Profile } from '~/types/api';
 import { getProfile as fetchProfileApi } from '~/api/auth';
 
 /** refreshToken 在 localStorage 中的存储 key（request.ts 刷新逻辑也会读取，保持单一来源） */
-export const REFRESH_TOKEN_KEY = 'nest-admin:refresh-token';
+export const REFRESH_TOKEN_KEY = 'manicure:refresh-token';
 
 function decodeJwt(token: string): JwtPayload | null {
   try {

@@ -4,11 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nest Admin</title>
+    <title>美甲管理系统</title>
     <script>
+      // 旧版本 localStorage 前缀迁移：nest-admin:* → manicure:*（一次性，早于所有模块执行）
+      (function () {
+        var legacy = 'nest-admin:';
+        var prefix = 'manicure:';
+        for (var i = localStorage.length - 1; i >= 0; i--) {
+          var key = localStorage.key(i);
+          if (!key || key.indexOf(legacy) !== 0) continue;
+          var next = prefix + key.slice(legacy.length);
+          if (localStorage.getItem(next) === null) {
+            localStorage.setItem(next, localStorage.getItem(key));
+          }
+          localStorage.removeItem(key);
+        }
+      })();
       // 首屏防闪烁：在应用挂载前同步应用暗色模式
       (function () {
-        var mode = localStorage.getItem('nest-admin:color-mode') || 'auto';
+        var mode = localStorage.getItem('manicure:color-mode') || 'auto';
         var dark;
         if (mode === 'dark') dark = true;
         else if (mode === 'light') dark = false;

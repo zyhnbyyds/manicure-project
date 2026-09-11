@@ -58,6 +58,6 @@ export function setupGuard(router: Router) {
 
   router.afterEach((to) => {
     const title = to.meta.title as string | undefined;
-    document.title = title ? `${title} - Nest Admin` : 'Nest Admin';
+    document.title = title ? `${title} - 美甲管理系统` : '美甲管理系统';
   });
 }

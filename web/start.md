@@ -2,7 +2,7 @@
 
 ## 项目背景
 
-- 后端仓库 `nest-admin-ts`（NestJS + Fastify + Drizzle ORM(MySQL) + Zod 校验，JWT 双 Token 鉴权 + RBAC 权限模型）已经开发完成，是一套通用后台管理系统，涵盖：用户/角色/菜单/部门/岗位/字典/参数配置管理、登录日志、操作日志、在线用户、定时任务、文件管理、代码生成器。
+- 后端仓库 `manicure-project`（NestJS + Fastify + Drizzle ORM(MySQL) + Zod 校验，JWT 双 Token 鉴权 + RBAC 权限模型）已经开发完成，是一套通用后台管理系统，涵盖：用户/角色/菜单/部门/岗位/字典/参数配置管理、登录日志、操作日志、在线用户、定时任务、文件管理、代码生成器。
 - 现在要在该仓库下新建的 `web/` 目录里实现对应前端，仓库其余部分不要动。
 - 前端脚手架以 `https://github.com/zyhnbyyds/VueBase.git` 为模板。
 - UI 组件库用 `lew-ui`（github.com/lewkamtao/lew-ui，本地已克隆在 `D:\project\github\lew-ui`，线上文档/demo：`https://app.tngeek.com/web/lew_ui/#/`），基于 Vue3 + TS，依赖 VueUse / Lucide 图标 / Day.js / Yup / Tippy.js / vue-virt-list，用法大致是 `import 'lew-ui/style'` 引入样式 + 按需具名导入组件（如 `import { LewButton } from 'lew-ui'`）。

@@ -1,5 +1,5 @@
 {
-  "name": "nest-admin-web",
+  "name": "manicure-web",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.0",
