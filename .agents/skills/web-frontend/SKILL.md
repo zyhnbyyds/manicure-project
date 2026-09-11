@@ -3,7 +3,7 @@ name: web-frontend
 description: 后台前端：24 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、文件与图片上传（LewForm `as:'upload'` + uploadHelper）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
 whenToUse: 新增/修改 web/src/views/biz 页面、API 封装、表单与权限按钮；做文件/图片上传与预览；实现收银台、退款审批、对账、报表页。
 metadata:
-  version: '1.1.0'
+  version: '1.2.0'
   spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §10 / §9 / §3
 ---
@@ -86,6 +86,8 @@ metadata:
   失败置 `status: 'fail'`（`'complete' | 'success'` 才会被当成已上传渲染缩略图）。
 - **表单内部存 `LewUploadFileItem[]`，接口收发的是 url 数组**，两端各写一个转换函数
   （`toUploadItems` / `toImageUrls`），提交前只挑 `status === 'complete' | 'success'` 的项。
+- **`formOptions` 必须用 `withPassThroughRule(...)` 包一层**（`~/utils/form`），
+  否则控制台会刷 `The schema does not contain the path: images`。原因见「常见坑」。
 
 列表要展示图片时，用 `customRender` 渲染缩略图 + 剩余张数徽标，点击新窗口预览：
 
@@ -120,3 +122,10 @@ h('a', { href: cover, target: '_blank', rel: 'noopener noreferrer' }, [
   必须转成 url 数组再提交。
 - 提交时不过滤上传状态 → `pending` / `fail` / `wrong_size` 的半成品也会入库。
   只挑 `complete` / `success`。
+- **`formOptions` 里没写 `rule` 的字段 → 控制台刷 `Uncaught Error: The schema does not contain the path: xxx`。**
+  链条：`LewForm` 只把带 `rule` 的字段放进 yup schema → `LewFormItem` 的字段级校验
+  走 `Yup.reach(formSchema, field)`，path 不存在时**同步抛错**，而它只挂了 `.catch()`，
+  接不住同步异常。触发条件是「非必填 **且** 当前值为真值」——**空数组 `[]` 也是真值**，
+  所以 `as: 'upload'` 必踩，`as: 'switch'`（值 `true`）同理。
+  修法：`const formOptions = withPassThroughRule([...])`（`~/utils/form`，补 `Yup.mixed()`）。
+  写新页面时直接包上，别等报错。
