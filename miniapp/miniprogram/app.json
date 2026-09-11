@@ -6,6 +6,7 @@
     "pages/staffs/index",
     "pages/slots/index",
     "pages/confirm/index",
+    "pages/pay/index",
     "pages/bookings/index",
     "pages/member/index",
     "pages/mine/index",
@@ -17,17 +18,17 @@
   ],
   "window": {
     "navigationStyle": "default",
-    "navigationBarTextStyle": "white",
+    "navigationBarTextStyle": "black",
     "navigationBarTitleText": "美甲小铺",
-    "navigationBarBackgroundColor": "#FF8BA7",
-    "backgroundColor": "#FFF5F8",
-    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#FBF5F0",
+    "backgroundColor": "#FBF5F0",
+    "backgroundTextStyle": "dark",
     "enablePullDownRefresh": false
   },
   "tabBar": {
     "custom": true,
-    "color": "#BDA3AC",
-    "selectedColor": "#FF8BA7",
+    "color": "#B9B3AE",
+    "selectedColor": "#B45F6B",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [

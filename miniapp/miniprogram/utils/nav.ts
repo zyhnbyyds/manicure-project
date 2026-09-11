@@ -58,6 +58,11 @@ export function goSlots(): void {
   wx.navigateTo({ url: '/pages/slots/index' });
 }
 
+/** 收银台：以 bookingId 为入参（已下单，不依赖草稿） */
+export function goPay(bookingId: number): void {
+  wx.navigateTo({ url: `/pages/pay/index?bookingId=${bookingId}` });
+}
+
 export function goConfirm(): void {
   wx.navigateTo({ url: '/pages/confirm/index' });
 }

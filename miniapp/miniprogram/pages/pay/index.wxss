@@ -1,0 +1,138 @@
+/* 收银台 —— 严格对齐 docs/manicure-ui-batch5 第 6 屏 */
+
+.pay-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 待付金额 ─────────────────────────────────────────────── */
+
+.amount {
+  padding: 40rpx 0 32rpx;
+  text-align: center;
+}
+
+.amount__label {
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.amount__value {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+/* 金额是整页最重的元素：衬线体 + 大字 */
+.amount__number {
+  font-family: var(--font-serif);
+  font-size: 88rpx;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--c-text);
+}
+
+.amount__unit {
+  margin-left: 8rpx;
+  font-size: 28rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 订单摘要 ─────────────────────────────────────────────── */
+
+.order {
+  display: flex;
+  align-items: center;
+}
+
+.order__name {
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.order__meta {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: var(--c-text-weak);
+}
+
+.order__arrow {
+  margin-left: 12rpx;
+  font-size: 34rpx;
+  color: var(--c-text-weak);
+}
+
+/* ── 支付方式 ─────────────────────────────────────────────── */
+
+.methods {
+  padding: 4rpx 28rpx;
+}
+
+.method {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 0;
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.method:last-child {
+  border-bottom: none;
+}
+
+.method.is-disabled {
+  opacity: 0.45;
+}
+
+.method__title {
+  font-size: 29rpx;
+}
+
+.method.is-active .method__title {
+  font-weight: 600;
+}
+
+.method__sub {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+/* 单选圈 */
+.radio {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--c-border);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.radio.is-checked {
+  border-color: var(--c-primary);
+}
+
+.radio__dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.radio.is-checked .radio__dot {
+  background: var(--c-primary);
+}
+
+.tips {
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}
