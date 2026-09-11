@@ -33,6 +33,7 @@ import {
   appMemberCardsQuerySchema,
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
+  type AppReviewVo,
 } from '../dto/app-vo.js';
 import { AppMemberService } from './app-member.service.js';
 
@@ -166,15 +167,33 @@ export class AppMemberController {
 
   @Post('reviews')
   @ApiOperation({
-    summary: '提交服务评价（契约骨架，本期返回 501）',
-    description: '复用后台 biz_review 的一单一评约束。',
+    summary: '提交服务评价',
+    description:
+      '三道约束全在服务端：**仅本人**（按预约事实校验归属）→ **仅已完成**（未完成 400）' +
+      '→ **一单一评**（二次提交 409）。客户端只能决定打分与文字，' +
+      '`customer_id` / `staff_id` 由预约事实带出。',
   })
   @ApiBody({ schema: { $ref: '#/components/schemas/AppCreateReviewRequest' } })
+  @ApiResponse({
+    status: 201,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppReviewVo' },
+  })
+  @ApiResponse({ status: 400, description: '预约不是已完成状态' })
   @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  createReview(@Body() body: unknown): never {
-    appCreateReviewRequestSchema.parse(body);
-    throw new NotImplementedException('小程序端评价将在 P2 实现');
+  @ApiResponse({ status: 403, description: '这不是本人的预约' })
+  @ApiResponse({ status: 404, description: '预约不存在' })
+  @ApiResponse({ status: 409, description: '该预约已评价（一单一评）' })
+  createReview(
+    @Req() request: AppRequest,
+    @Body() body: unknown,
+  ): Promise<AppReviewVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.createReview(
+      appUser.id,
+      appCreateReviewRequestSchema.parse(body),
+    );
   }
 
   @Post('payments/wxpay/jsapi')

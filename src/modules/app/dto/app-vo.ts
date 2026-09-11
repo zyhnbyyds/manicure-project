@@ -422,6 +422,7 @@ export const appReviewVo = z.object({
   createdAt: z.string(),
 });
 registerComponent('AppReviewVo', appReviewVo);
+export type AppReviewVo = z.infer<typeof appReviewVo>;
 
 /** 小程序内 JSAPI 支付（P2；本期后台在线支付走 Native 扫码） */
 export const appWxpayJsapiRequestSchema = z.object({

@@ -23,7 +23,7 @@ let date: string;
 /**
  * 骨架端点清单：**必须与 spec §16.1 的 501 清单逐条对应**（G5 的口径落点）。
  *
- * `GET /app/member/cards` 已由 A9 换成真实现，从清单里移出（8 → 7）。
+ * `GET /app/member/cards` 已由 A9、`POST /app/reviews` 已由 A11 换成真实现，从清单里移出（8 → 6）。
  * 每实现一个 P2 端点，这里就少一条——条数即进度。
  */
 const SKELETON_ROUTES: {
@@ -47,13 +47,6 @@ const SKELETON_ROUTES: {
     method: 'POST',
     path: '/api/v1/app/bookings/1/cancel',
     body: { reason: '临时有事' },
-    guarded: true,
-  },
-  {
-    name: '提交服务评价',
-    method: 'POST',
-    path: '/api/v1/app/reviews',
-    body: { bookingId: 1, rating: 5, content: '很好' },
     guarded: true,
   },
   {
@@ -190,10 +183,10 @@ afterAll(async () => {
 /* ------------------------------------------------------------------ */
 
 describe('B6 契约骨架：501 端点清单（G4 / G5）', () => {
-  it('清单条数与 spec §16.1 一致（8 个），且全部返回 501', async () => {
+  it('清单条数与 spec §16.1 一致（6 个），且全部返回 501', async () => {
     // 口径锚点：spec §12 原写 5 个、§16.1 列 8 个、代码 9 个（含已转真实现的 auth/phone）。
-    // 统一到 8 之后，`POST /app/auth/phone`（A8）与 `GET /app/member/cards`（A9）又各自转成真实现 → 7。
-    expect(SKELETON_ROUTES).toHaveLength(7);
+    // 统一到 8 之后，`POST /app/auth/phone`（A8）、`GET /app/member/cards`（A9）、`POST /app/reviews`（A11）又各自转成真实现 → 6。
+    expect(SKELETON_ROUTES).toHaveLength(6);
 
     const { token } = await seedBoundAppUser('openid-skeleton', null);
     for (const route of SKELETON_ROUTES) {
@@ -538,6 +531,110 @@ describe('B6 我的次卡 /app/member/cards（A9）', () => {
     });
     expect(denied.status).toBe(401);
     expect(denied.body.needBind).toBe(true);
+  });
+});
+
+describe('B6 提交评价 /app/reviews（A11）', () => {
+  /** 造一单；`status` 决定是否可评价 */
+  async function seedBooking(
+    customerId: number,
+    name: string,
+    status: 'pending' | 'completed',
+  ): Promise<number> {
+    const staffs = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, status, sort) VALUES (?, 'active', 1)`,
+      [`美甲师-${name}`],
+    );
+    const inserted = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_booking
+         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+          original_price, payable_amount, paid_amount, due_amount, status, pay_status,
+          customer_name, customer_phone)
+       VALUES (?, ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, ?, 'paid', ?, '13800000000')`,
+      [
+        `B-${name}`,
+        customerId,
+        staffs.insertId,
+        `${date} 10:00:00`,
+        `${date} 11:00:00`,
+        status,
+        name,
+      ],
+    );
+    return inserted.insertId;
+  }
+
+  it('本人已完成的单可以评价；customer_id / staff_id 由预约事实带出', async () => {
+    const customerId = await seedCustomer('周女士', '13800000041');
+    const bookingId = await seedBooking(customerId, '周女士', 'completed');
+    const { token } = await seedBoundAppUser('openid-review-ok', customerId);
+
+    const response = await ctx.request('POST', '/api/v1/app/reviews', {
+      token,
+      body: { bookingId, rating: 5, content: '非常满意' },
+    });
+    expect(response.status).toBe(201);
+    expect(response.body.bookingId).toBe(bookingId);
+    expect(response.body.rating).toBe(5);
+
+    const rows = await ctx.sql<
+      { customer_id: number; staff_id: number; score: number; content: string }[]
+    >(`SELECT customer_id, staff_id, score, content FROM biz_review WHERE booking_id = ?`, [
+      bookingId,
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].customer_id).toBe(customerId);
+    expect(rows[0].score).toBe(5);
+    expect(rows[0].content).toBe('非常满意');
+  });
+
+  it('别人的单 → 403，且一条评价都不落', async () => {
+    const mineId = await seedCustomer('吴女士', '13800000042');
+    const otherId = await seedCustomer('郑女士', '13800000043');
+    const otherBooking = await seedBooking(otherId, '郑女士', 'completed');
+    const { token } = await seedBoundAppUser('openid-review-403', mineId);
+
+    const response = await ctx.request('POST', '/api/v1/app/reviews', {
+      token,
+      body: { bookingId: otherBooking, rating: 1, content: '差评' },
+    });
+    expect(response.status).toBe(403);
+
+    const rows = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM biz_review`,
+    );
+    expect(Number(rows[0].total)).toBe(0);
+  });
+
+  it('未完成的单 → 400；一单一评，二次提交 → 409', async () => {
+    const customerId = await seedCustomer('冯女士', '13800000044');
+    const pending = await seedBooking(customerId, '冯女士', 'pending');
+    const done = await seedBooking(customerId, '冯女士2', 'completed');
+    const { token } = await seedBoundAppUser('openid-review-400', customerId);
+
+    const notCompleted = await ctx.request('POST', '/api/v1/app/reviews', {
+      token,
+      body: { bookingId: pending, rating: 5 },
+    });
+    expect(notCompleted.status).toBe(400);
+
+    const first = await ctx.request('POST', '/api/v1/app/reviews', {
+      token,
+      body: { bookingId: done, rating: 4 },
+    });
+    expect(first.status).toBe(201);
+
+    const second = await ctx.request('POST', '/api/v1/app/reviews', {
+      token,
+      body: { bookingId: done, rating: 2 },
+    });
+    expect(second.status).toBe(409);
+
+    const rows = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM biz_review WHERE booking_id = ?`,
+      [done],
+    );
+    expect(Number(rows[0].total)).toBe(1);
   });
 });
 

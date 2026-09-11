@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -180,10 +181,13 @@ export class ReviewsService extends ReviewPort {
   }
 
   /** 后台代录：仍受「一单一评」约束（§9.11） */
-  async create(
-    input: CreateReviewInput,
-    actorId: number,
-  ): Promise<{ id: number }> {
+  /** 可评价的预约：存在 + 已完成（§20.1） */
+  private async requireReviewableBooking(bookingId: number): Promise<{
+    id: number;
+    customerId: number;
+    staffId: number;
+    status: string;
+  }> {
     const [booking] = await this.database.db
       .select({
         id: bizBookings.id,
@@ -192,18 +196,54 @@ export class ReviewsService extends ReviewPort {
         status: bizBookings.status,
       })
       .from(bizBookings)
-      .where(
-        and(eq(bizBookings.id, input.bookingId), isNull(bizBookings.deletedAt)),
-      )
+      .where(and(eq(bizBookings.id, bookingId), isNull(bizBookings.deletedAt)))
       .limit(1);
     if (!booking) throw new NotFoundException('预约不存在');
     if (booking.status !== 'completed')
       throw new BadRequestException('只能对状态为 completed 的预约评价');
-    await this.assertBookingNotReviewed(input.bookingId);
+    return booking;
+  }
 
+  async create(
+    input: CreateReviewInput,
+    actorId: number,
+  ): Promise<{ id: number }> {
+    const booking = await this.requireReviewableBooking(input.bookingId);
+    const { id } = await this.insertReview(booking, input, actorId);
+    return { id };
+  }
+
+  override async createForCustomer(
+    customerId: number,
+    input: {
+      bookingId: number;
+      score: number;
+      content?: string | undefined;
+      images?: string[] | undefined;
+    },
+    actorId: number | null,
+  ): Promise<{ id: number; createdAt: Date }> {
+    const booking = await this.requireReviewableBooking(input.bookingId);
+    // 归属在服务端按预约事实判定：`customer_id` 绝不取自客户端入参
+    if (booking.customerId !== customerId)
+      throw new ForbiddenException('只能评价自己的预约');
+    return this.insertReview(
+      booking,
+      { ...input, isPublic: true },
+      actorId ?? 0,
+    );
+  }
+
+  /** 落库：一单一评由「显式查重 + 唯一索引」双保险（§20.1） */
+  private async insertReview(
+    booking: { id: number; customerId: number; staffId: number },
+    input: CreateReviewInput,
+    actorId: number | null,
+  ): Promise<{ id: number; createdAt: Date }> {
+    await this.assertBookingNotReviewed(booking.id);
     try {
       const [result] = await this.database.db.insert(bizReviews).values({
-        bookingId: input.bookingId,
+        bookingId: booking.id,
         customerId: booking.customerId,
         staffId: booking.staffId,
         score: input.score,
@@ -214,7 +254,14 @@ export class ReviewsService extends ReviewPort {
         createdBy: actorId,
         updatedBy: actorId,
       });
-      return { id: Number(result.insertId) };
+      const id = Number(result.insertId);
+      // 回读 created_at 而不是用 JS 的 now：时间以库里那一份为准
+      const [row] = await this.database.db
+        .select({ createdAt: bizReviews.createdAt })
+        .from(bizReviews)
+        .where(eq(bizReviews.id, id))
+        .limit(1);
+      return { id, createdAt: row?.createdAt ?? new Date() };
     } catch (error) {
       // 并发下靠唯一索引兜底（§20.1 一单一评）
       if (isDuplicateKeyError(error))

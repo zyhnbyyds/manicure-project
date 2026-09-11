@@ -791,6 +791,23 @@ export abstract class ReviewPort {
   abstract averageScore(
     staffId: number,
   ): Promise<{ count: number; average: number | null }>;
+  /**
+   * C 端提交评价（A11）：**仅本人 + 仅已完成 + 一单一评**。
+   *
+   * `customerId` 由调用方从 token 对应的身份解析，端口内部**再校验一次归属**：
+   * 评价要落 `biz_review.customer_id`，这个值必须由服务端按预约事实决定，
+   * 不能有任何「客户端说是谁就是谁」的余地。`actorId` 传 null 表示无后台操作者（小程序自建）。
+   */
+  abstract createForCustomer(
+    customerId: number,
+    input: {
+      bookingId: number;
+      score: number;
+      content?: string | undefined;
+      images?: string[] | undefined;
+    },
+    actorId: number | null,
+  ): Promise<{ id: number; createdAt: Date }>;
 }
 
 /* ------------------------------------------------------------------ *

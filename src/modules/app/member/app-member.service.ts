@@ -11,12 +11,14 @@ import {
   MemberAccountPort,
   MemberCardPort,
   type MemberCardRow,
+  ReviewPort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
 import type {
   AppMemberCardListVo,
   AppMemberCardVo,
   AppMemberMeVo,
+  AppReviewVo,
 } from '../dto/app-vo.js';
 
 /** 未绑定手机号：401 且响应体带 `needBind: true`（小程序据此拉起授权弹窗，§16.2） */
@@ -42,6 +44,7 @@ export class AppMemberService {
     private readonly database: DatabaseService,
     private readonly members: MemberAccountPort,
     private readonly memberCards: MemberCardPort,
+    private readonly reviews: ReviewPort,
   ) {}
 
   /**
@@ -155,6 +158,42 @@ export class AppMemberService {
         .map((row) => mapCard(row, displayCardStatus(row))),
       page,
       pageSize,
+    };
+  }
+
+  /**
+   * 提交服务评价（A11）。
+   *
+   * 三道约束全在服务端：**仅本人**（`ReviewPort.createForCustomer` 按预约事实校验归属）、
+   * **仅已完成**（未完成 → 400）、**一单一评**（二次 → 409）。
+   * 客户端能决定的只有「打分与文字」，`customer_id` / `staff_id` 一律由预约事实带出。
+   */
+  async createReview(
+    appUserId: number,
+    input: {
+      bookingId: number;
+      rating: number;
+      content?: string | undefined;
+      images?: string[] | undefined;
+    },
+  ): Promise<AppReviewVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const created = await this.reviews.createForCustomer(
+      customerId,
+      {
+        bookingId: input.bookingId,
+        score: input.rating,
+        ...(input.content === undefined ? {} : { content: input.content }),
+        ...(input.images === undefined ? {} : { images: input.images }),
+      },
+      null,
+    );
+    return {
+      id: created.id,
+      bookingId: input.bookingId,
+      rating: input.rating,
+      content: input.content ?? null,
+      createdAt: created.createdAt.toISOString(),
     };
   }
 }
