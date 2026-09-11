@@ -10,3 +10,5 @@ uploads/
 src/modules/generated/
 .playwright-mcp/
 output/
+.workbuddy-ai/
+docs/superpowers/
