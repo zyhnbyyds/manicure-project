@@ -1,0 +1,87 @@
+/* 门店信息 —— 对齐 docs/manicure-ui-batch1 第 6 屏 */
+
+.shop-body {
+  padding-bottom: 200rpx;
+}
+
+.hero {
+  width: 100%;
+  height: 380rpx;
+  border-radius: var(--r-lg);
+  display: block;
+}
+
+/* ── 门店名 ───────────────────────────────────────────────── */
+
+.head {
+  margin-top: 28rpx;
+}
+
+.head__name {
+  font-family: var(--font-serif);
+  font-size: 44rpx;
+  font-weight: 600;
+}
+
+.head__slogan {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.head__tag {
+  display: inline-block;
+  margin-top: 16rpx;
+  height: 42rpx;
+  line-height: 42rpx;
+  padding: 0 20rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  font-size: 21rpx;
+}
+
+/* ── 信息行 ───────────────────────────────────────────────── */
+
+.rows {
+  margin-top: 28rpx;
+  padding: 4rpx 28rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  height: 104rpx;
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.row--last {
+  border-bottom: none;
+}
+
+.row__icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 22rpx;
+  flex-shrink: 0;
+}
+
+.row__label {
+  width: 150rpx;
+  font-size: 27rpx;
+}
+
+.row__value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.tips {
+  margin-top: 22rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}

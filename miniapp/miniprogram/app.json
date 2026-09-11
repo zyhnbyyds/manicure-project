@@ -11,6 +11,7 @@
     "pages/bookings/index",
     "pages/booking-detail/index",
     "pages/review/index",
+    "pages/shop/index",
     "pages/member/index",
     "pages/mine/index",
     "pages/theme/index",

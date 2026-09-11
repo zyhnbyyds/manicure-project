@@ -1,0 +1,34 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body shop-body">
+    <!-- 门店照片 -->
+    <image class="hero" src="{{shopImage}}" mode="aspectFill" />
+
+    <!-- 门店名与一句话 -->
+    <view class="head">
+      <view class="head__name">{{shop.name}}</view>
+      <view class="head__slogan">{{shop.slogan}}</view>
+      <view class="head__tag">营业中 · {{shop.hours}}</view>
+    </view>
+
+    <!-- 信息行：导航 / 拨号 / 复制微信号都是真实动作 -->
+    <view class="card rows">
+      <view
+        wx:for="{{rows}}"
+        wx:key="key"
+        class="row {{index === rows.length - 1 ? 'row--last' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="onRowTap"
+      >
+        <image class="row__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+        <view class="row__label">{{item.label}}</view>
+        <view class="row__value ellipsis">{{item.value}}</view>
+      </view>
+    </view>
+
+    <view class="tips">到店前可以先跟客服约时间，我们会帮你留位。</view>
+  </view>
+
+  <view class="action-bar">
+    <view class="btn btn--primary btn--block" bindtap="goBooking">预约到店</view>
+  </view>
+</view>

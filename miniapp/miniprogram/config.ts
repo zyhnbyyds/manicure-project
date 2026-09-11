@@ -45,3 +45,24 @@ export const MOCK_BADGE_TEXT = '演示数据';
  * 放在 config 而不是 mock 里，是为了让 `store/auth.ts` 不必反向依赖 mock 模块。
  */
 export const DEMO_CUSTOMER_ID = 1001;
+
+/**
+ * 门店信息（门店信息页、客服、导航、拨号都用这一份）。
+ *
+ * ⚠️ **应该来自后端**：app 域目前没有「门店档案」接口（如 `GET /app/shop`），
+ * 所以先集中在这里 —— 改一处即可全局生效；等后端补了接口再换成请求。
+ */
+export const SHOP = {
+  name: '美甲小铺',
+  /** 英文副标题（设计稿里有这个字样） */
+  nameEn: 'BEAUTY NAILS',
+  slogan: '把喜欢的样子，做在手上',
+  hours: '10:00 - 20:00',
+  phone: '13800000000',
+  wechat: 'nailshop001',
+  address: '上海市静安区南京西路 1788 号 3 楼 355 室',
+  latitude: 31.229,
+  longitude: 121.455,
+  /** 门店照片（本地占位素材，正式应由门店档案提供） */
+  image: '/assets/hero.png',
+};

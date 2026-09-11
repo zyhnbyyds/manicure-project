@@ -5,6 +5,7 @@ import {
   goBookings,
   goServiceDetail,
   goServices,
+  goShop,
   goStaffs,
 } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
@@ -148,12 +149,7 @@ Page({
   },
 
   onNavShop() {
-    wx.showModal({
-      title: '美甲小铺',
-      content: '营业时间 10:00 - 20:00\n地址与电话请咨询门店',
-      showCancel: false,
-      confirmText: '知道啦',
-    });
+    goShop();
   },
 
   onNavChat() {

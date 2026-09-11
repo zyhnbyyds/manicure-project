@@ -73,6 +73,11 @@ export function goReview(bookingId: number): void {
   wx.navigateTo({ url: `/pages/review/index?bookingId=${bookingId}` });
 }
 
+/** 门店信息（首页导航栏的门店图标、各处「联系门店」都走这里） */
+export function goShop(): void {
+  wx.navigateTo({ url: '/pages/shop/index' });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;
