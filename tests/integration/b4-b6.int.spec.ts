@@ -629,25 +629,40 @@ describe('B6 小程序预留（§16）', () => {
     expect(skeleton.status).toBe(501);
   });
 
-  // 这个用例必须「当天还剩足够时间」才有意义：它比的是「未来 1 小时内能不能约」，
-  // 深夜跑时当天已经没有可约时段，硬跑只会得到空集（假绿）。所以时间不够就跳过。
+  // 这个用例必须「当天还剩足够时间、且已经过了零点一会儿」才有意义：它比的是
+  // 「未来 1 小时内能不能约」，深夜跑时当天已经没有可约时段，硬跑只会得到空集（假绿）。
+  // 两个方向都要留量：
+  // - 剩余不足 2.5h：排不出「now+1h 之后」的时段，比不出差异；
+  // - 已过不足 1h：班次起点 now-30min 会跨到前一天，区间变成空。
   const todayForLead = shopToday();
-  const remainingMs =
-    shopLocalToUtc(addLocalDays(todayForLead, 1), '00:00:00').getTime() -
-    Date.now();
-  it.skipIf(remainingMs < 150 * 60 * 1000)(
+  const startOfTomorrowMs = shopLocalToUtc(
+    addLocalDays(todayForLead, 1),
+    '00:00:00',
+  ).getTime();
+  const remainingMs = startOfTomorrowMs - Date.now();
+  const elapsedMs =
+    Date.now() - shopLocalToUtc(todayForLead, '00:00:00').getTime();
+  it.skipIf(remainingMs < 150 * 60 * 1000 || elapsedMs < 60 * 60 * 1000)(
     'G7：小程序端 60 分钟提前期 ≠ 后台 0 分钟（同一时刻两种口径）',
     async () => {
     const row = await seed();
     const now = Date.now();
     // 班次**相对当前时间**铺开（不写死 10:00-20:00）：
     // 写死的话「未来 1 小时内」可能根本不在班次里，断言就变成空转。
+    // 终点必须**截断在当天 24:00 之前**：`end_time` 是 TIME 列，跨夜的班次
+    // （如 19:52 → 00:22）在 slots.service 里会被算成「结束早于开始」，排出 0 个时段。
+    // 正常写入不会造出这种数据（`scheduling.service` 的 `validateWeeklyShifts` 里
+    // `startTime >= endTime` 直接 400），是这里用裸 SQL 绕过了那道校验才踩到。
+    const shiftEndMs = Math.min(
+      now + 4 * 60 * 60 * 1000,
+      startOfTomorrowMs - 60 * 1000,
+    );
     await ctx.sql(
       `UPDATE biz_staff_weekly_shift SET weekday = ?, start_time = ?, end_time = ? WHERE staff_id = ?`,
       [
         shopWeekday(todayForLead),
         shopLocalClock(now - 30 * 60 * 1000),
-        shopLocalClock(now + 4 * 60 * 60 * 1000),
+        shopLocalClock(shiftEndMs),
         row.staffId,
       ],
     );

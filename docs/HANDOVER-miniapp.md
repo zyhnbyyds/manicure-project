@@ -11,9 +11,9 @@
 - **小程序端**：10 个页面已落地，主题系统可用，模拟器里跑得起来（截图验证过 3 页），**接的是演示数据**。
 - **后端**：app 域身份域扩出「美甲师工作台」数据层，微信能力已端口化，手机号绑定转真实现，**10 条集成用例全绿**。
 - **美甲师工作台（S2 ~ S5）已全线完成**：后端只读 5 接口 + 写 2 接口 + 真号端点，后台授权页、小程序 4 个工作台页面与双模式 TabBar 都已落地。
-- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；A9 我的次卡、A11 评价已转真实现；剩 A12、A13（触钱）、A14 与 A19 devtools 脚本。
+- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；A9 我的次卡、A11 评价、A12 订阅消息授权已转真实现（501 骨架 9 → 5）；剩 A13（触钱）、A14 与 A19 devtools 脚本。
 - **P0-1 已完成**：后台可筛选 / 恢复软删顾客，小程序手机号绑定 409 分支已闭环，恢复后可重新绑定；
-- 全量测试：**907 pass / 0 fail**；后端 typecheck / lint、前端 typecheck / lint 通过；工作区干净（无未提交改动）。
+- 全量测试：**1011 pass / 0 fail**（86 文件 / 2561 expect）；后端 typecheck / lint、前端 typecheck / lint 通过；工作区干净（无未提交改动）。
 
 ---
 
@@ -115,12 +115,12 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 | #   | 任务                                               | 说明                                                                                                           |
 | --- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | 9   | ✅ **G2**：补「未配置凭据 → 503」用例             | 已完成：`harness.createTestContext` 新增 `providers` 覆盖位，注入「空凭据」的 `HttpWxMiniappProvider` → 登录/绑手机号都 503 且不落身份；另加 `wx-miniapp.provider.spec.ts` 8 条单测（含 `configured=false` 但有值、半套凭据、以及**反证**：凭据齐全时不 503）。**集成环境永远走假实现，这条分支只能靠注入真实现来验** |
-| 10  | ✅ **G4**：6 个 501 骨架端点用例 + 不落库断言     | 已完成：常量 `SKELETON_ROUTES`（与 spec §16.1 逐条对应）逐个断言 501 + 调用前后 6 张表行数不变 + 非法入参仍是 400（不是「一律 501」）+ 除支付回调外都要 app token。新增 `tests/integration/b6-app-contract.int.spec.ts`。**每实现一个 P2 端点这里就少一条，条数即进度**（A9、A11 后 8 → 6） |
-| 11  | ✅ **G5**：修 spec 骨架条数口径                   | 已统一为 **6 条**（auth/phone、member/cards、reviews 转真实现后移出）：spec §12 B6 / §16.1 / 施工单 §2.1 + G4 + A3/A7 全部改为 **6**，并写明 auth/phone（A8）、member/cards（A9）、reviews（A11）已转真实现、移出骨架清单（原「9」是前两者都算进 501）。口径现在由 G4 用例的 `SKELETON_ROUTES` 长度钉住 |
+| 10  | ✅ **G4**：5 个 501 骨架端点用例 + 不落库断言     | 已完成：常量 `SKELETON_ROUTES`（与 spec §16.1 逐条对应）逐个断言 501 + 调用前后 6 张表行数不变 + 非法入参仍是 400（不是「一律 501」）+ 除支付回调外都要 app token。新增 `tests/integration/b6-app-contract.int.spec.ts`。**每实现一个 P2 端点这里就少一条，条数即进度**（A9、A11、A12 后 8 → 5） |
+| 11  | ✅ **G5**：修 spec 骨架条数口径                   | 已统一为 **5 条**（auth/phone、member/cards、reviews、subscribe 转真实现后移出）：spec §12 B6 / §16.1 / 施工单 §2.1 + G4 + A3/A7 全部改为 **5**，并写明 auth/phone（A8）、member/cards（A9）、reviews（A11）、subscribe（A12）已转真实现、移出骨架清单（原「9」是前三者都算进 501）。口径现在由 G4 用例的 `SKELETON_ROUTES` 长度钉住 |
 | 12  | ✅ **G6/G7**：收紧 `available-slots` 一致性断言   | 已完成：去掉「两边都非空才比对」的空集豁免，未来某天两边**必须完全相等**；新增 G7 用例断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟（班次相对当前时间铺开 + `Intl` 算店内墙钟，深夜自动 skip）。已做变异验证：把小程序渠道的 `minLeadMinutes` 换成 0，用例立刻红 |
 | 13  | ✅ **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 已完成：9 个顶层字段 + 7 个次卡字段字面量锁定（无成本/无 `memberNo`/无 `remark`）；换 openid 只看到自己、等级与折扣率各不相同，`?customerId=` 入参被忽略；顾客档案软删 → 401 + `needBind` |
 | 14  | ✅ **G9**：限流 429 + Swagger app 分组断言        | **已完成并修出一个真 bug**：`@fastify/rate-limit` 抛的是「普通 `Error` + `statusCode=429`」，`GlobalExceptionFilter` 只认 `HttpException`，于是限流**静默降级成 500**（还每次打一条 ERROR 堆栈）。已在过滤器加「Fastify 4xx 透传」分支（5xx 仍兜底 500），现在第 11 次登录真返回 429 + `retry-after`。Swagger 侧断言 app 端点都归「小程序端」分组、回调端点不挂 app-token |
-| 15  | 🟡 **A9/A11/A12/A13/A14**                          | **A9 `/app/member/cards` 已完成**（`MemberCardPort.listByCustomer`；状态按「到店是否真能用」现算，与 `assertUsable` 同规则；字段 7 个；分页 + 状态过滤；集成 3 条）。**A11 `/app/reviews` 已完成**（`ReviewPort.createForCustomer`：仅本人 403 / 仅已完成 400 / 一单一评 409；`customer_id`、`staff_id` 由预约事实带出；集成 3 条）。剩 `subscribe`(A12)、支付回调业务层(A13，**触钱**)、`app_wx_user_bind_log`(A14，需新表 + 迁移) |
+| 15  | 🟡 **A9/A11/A12/A13/A14**                          | **A9 `/app/member/cards` 已完成**（`MemberCardPort.listByCustomer`；状态按「到店是否真能用」现算，与 `assertUsable` 同规则；字段 7 个；分页 + 状态过滤；集成 3 条）。**A11 `/app/reviews` 已完成**（`ReviewPort.createForCustomer`：仅本人 403 / 仅已完成 400 / 一单一评 409；`customer_id`、`staff_id` 由预约事实带出；集成 3 条）。**A12 `/app/subscribe` 已完成**（新表 `app_wx_subscribe_grant`：`(app_wx_user_id, template_id)` 唯一，额度按 `granted_count` 累加而非覆盖；`bookingId` 他人单 403 / 不存在 404；未绑定 401 + `needBind`；集成 3 条）。剩 支付回调业务层(A13，**触钱**)、`app_wx_user_bind_log`(A14，需新表 + 迁移)。**D12 三个取舍见文末** |
 | 16  | **A19**：`scripts/devtools.mjs` 自证脚本           | 封装「绝对路径调 wechatide + 首次授权轮询 + 编译→跳页→截图→拉 console」。**注意截图返回 `.png` 但内容是 JPEG** |
 
 ---
@@ -211,8 +211,31 @@ cd miniapp/miniprogram && ../../node_modules/typescript/bin/tsc --noEmit -p tsco
 4. **#10 G4**：9 个 501 骨架端点用例 + 不落库断言。
 5. **#12 G6/G7**：收紧 `available-slots` 一致性断言（含 miniapp 60 分钟提前期 ≠ 后台 0 分钟）。
 6. **#14 G9**：限流 429 + Swagger app 分组断言（`rateLimit` 组合从未验证过是否真生效）。
-7. **#15 A9/A11/A12/A13/A14**（最大一块）：`member/cards`、`reviews`、`subscribe`、支付回调业务层、`app_wx_user_bind_log`。
+7. **#15 A9/A11/A12/A13/A14**（最大一块）：`member/cards` ✅、`reviews` ✅、`subscribe` ✅，剩 支付回调业务层(A13，**触钱**)、`app_wx_user_bind_log`(A14)。
 8. **#16 A19**：`scripts/devtools.mjs` 自证脚本（Windows 上 agent-browser 不可用，只能靠它做小程序冒烟）。
 
 **动触钱代码前必须加载 `money-invariants`**：S4 已完成，`biz_commission_record` 只追加 + 幂等的断言写在
 `tests/integration/b6-app-identity.int.spec.ts` 里；A13 支付回调同样触钱，动手前照做。
+
+### D12：`/app/subscribe`（A12）的三个取舍
+
+1. **授权额度单独建表 `app_wx_subscribe_grant`，没有塞进 `sys_notice_log`。**
+   spec §16.4 那句「`sys_notice_log.channel` 预留枚举值」在代码里其实**没有预留**（枚举只有 `sms` / `site`），
+   而 `sys_notice_log` 是「已发生的一次发送」的日志（带 `provider` / `provider_msg_id` / `retry_count` / `sent_at`），
+   把「获得了一次下发额度」塞进去会污染发送成功率统计。真正要发的时候再决定要不要扩 `channel`。
+2. **按 `(app_wx_user_id, template_id)` 聚合累加，而不是记 append-only 流水。**
+   微信一次性订阅的语义就是「点一次允许 = 一次额度，可累积」，流水查不出「还能发几次」。
+   累加走 `ON DUPLICATE KEY UPDATE granted_count + 1`，并发重放是累加不是覆盖。
+3. **不校验模板 ID 白名单，也不做「模板 ID ↔ 内部 templateCode」映射。**
+   微信模板 ID 是**公开的**（写死在小程序包里），白名单拦不住任何攻击者，只能挡客户端拼写错误；
+   映射要等 **H10 申请到真实模板 ID** 才有得可填。H10 落地时要补三件事：白名单（或映射表）、
+   消费额度的发送段（`granted_count` 减去已用、并落 `sys_notice_log`）、以及「额度用完就不再发」的判定。
+
+### 踩坑：drizzle-orm 1.0.0-rc 生成的 `DEFAULT (CURRENT_TIMESTAMP)` 会让 MySQL 8.0.23 炸
+
+新增表只要用到 `auditColumns`，生成的 `created_at` / `updated_at` 默认值就是**带括号**的表达式写法。
+MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE INDEX` / `ALTER TABLE`）会报
+`Invalid default value for 'created_at'`，而且 DDL 不回滚——迁移会停在半应用状态
+（表建好了、索引没建、`__drizzle_migrations` 没记录，下次跑直接 `already exists`）。
+手工把括号去掉即可，`drizzle-kit generate` 不会因此认为有漂移。已在 `src/database/schema/index.ts`
+的 `auditColumns` 上方写了警示注释。**每次 `db:generate` 之后都要肉眼扫一遍新 SQL。**

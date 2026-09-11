@@ -512,3 +512,4 @@ export const appSubscribeVo = z.object({
   templateIds: z.array(z.string()),
 });
 registerComponent('AppSubscribeVo', appSubscribeVo);
+export type AppSubscribeVo = z.infer<typeof appSubscribeVo>;

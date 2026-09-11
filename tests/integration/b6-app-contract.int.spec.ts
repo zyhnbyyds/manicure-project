@@ -23,8 +23,8 @@ let date: string;
 /**
  * 骨架端点清单：**必须与 spec §16.1 的 501 清单逐条对应**（G5 的口径落点）。
  *
- * `GET /app/member/cards` 已由 A9、`POST /app/reviews` 已由 A11 换成真实现，从清单里移出（8 → 6）。
- * 每实现一个 P2 端点，这里就少一条——条数即进度。
+ * `GET /app/member/cards` 已由 A9、`POST /app/reviews` 已由 A11、`POST /app/subscribe`
+ * 已由 A12 换成真实现，从清单里移出（8 → 5）。每实现一个 P2 端点，这里就少一条——条数即进度。
  */
 const SKELETON_ROUTES: {
   name: string;
@@ -54,13 +54,6 @@ const SKELETON_ROUTES: {
     method: 'POST',
     path: '/api/v1/app/payments/wxpay/jsapi',
     body: { bookingId: 1, purpose: 'deposit' },
-    guarded: true,
-  },
-  {
-    name: '订阅消息授权',
-    method: 'POST',
-    path: '/api/v1/app/subscribe',
-    body: { templateIds: ['TEMPLATE_ID'] },
     guarded: true,
   },
   {
@@ -149,6 +142,35 @@ async function seedRichCustomer(
   return customerId;
 }
 
+/** 造一单；`status` 决定是否可评价 / 可作为授权的关联上下文 */
+async function seedBooking(
+  customerId: number,
+  name: string,
+  status: 'pending' | 'completed',
+): Promise<number> {
+  const staffs = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO biz_staff (nickname, status, sort) VALUES (?, 'active', 1)`,
+    [`美甲师-${name}`],
+  );
+  const inserted = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO biz_booking
+       (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+        original_price, payable_amount, paid_amount, due_amount, status, pay_status,
+        customer_name, customer_phone)
+     VALUES (?, ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, ?, 'paid', ?, '13800000000')`,
+    [
+      `B-${name}`,
+      customerId,
+      staffs.insertId,
+      `${date} 10:00:00`,
+      `${date} 11:00:00`,
+      status,
+      name,
+    ],
+  );
+  return inserted.insertId;
+}
+
 beforeAll(async () => {
   ctx = await createTestContext();
   date = addLocalDays(shopToday(), 3);
@@ -183,10 +205,11 @@ afterAll(async () => {
 /* ------------------------------------------------------------------ */
 
 describe('B6 契约骨架：501 端点清单（G4 / G5）', () => {
-  it('清单条数与 spec §16.1 一致（6 个），且全部返回 501', async () => {
+  it('清单条数与 spec §16.1 一致（5 个），且全部返回 501', async () => {
     // 口径锚点：spec §12 原写 5 个、§16.1 列 8 个、代码 9 个（含已转真实现的 auth/phone）。
-    // 统一到 8 之后，`POST /app/auth/phone`（A8）、`GET /app/member/cards`（A9）、`POST /app/reviews`（A11）又各自转成真实现 → 6。
-    expect(SKELETON_ROUTES).toHaveLength(6);
+    // 统一到 8 之后，`POST /app/auth/phone`（A8）、`GET /app/member/cards`（A9）、
+    // `POST /app/reviews`（A11）、`POST /app/subscribe`（A12）又各自转成真实现 → 5。
+    expect(SKELETON_ROUTES).toHaveLength(5);
 
     const { token } = await seedBoundAppUser('openid-skeleton', null);
     for (const route of SKELETON_ROUTES) {
@@ -535,35 +558,6 @@ describe('B6 我的次卡 /app/member/cards（A9）', () => {
 });
 
 describe('B6 提交评价 /app/reviews（A11）', () => {
-  /** 造一单；`status` 决定是否可评价 */
-  async function seedBooking(
-    customerId: number,
-    name: string,
-    status: 'pending' | 'completed',
-  ): Promise<number> {
-    const staffs = await ctx.sql<{ insertId: number }>(
-      `INSERT INTO biz_staff (nickname, status, sort) VALUES (?, 'active', 1)`,
-      [`美甲师-${name}`],
-    );
-    const inserted = await ctx.sql<{ insertId: number }>(
-      `INSERT INTO biz_booking
-         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
-          original_price, payable_amount, paid_amount, due_amount, status, pay_status,
-          customer_name, customer_phone)
-       VALUES (?, ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, ?, 'paid', ?, '13800000000')`,
-      [
-        `B-${name}`,
-        customerId,
-        staffs.insertId,
-        `${date} 10:00:00`,
-        `${date} 11:00:00`,
-        status,
-        name,
-      ],
-    );
-    return inserted.insertId;
-  }
-
   it('本人已完成的单可以评价；customer_id / staff_id 由预约事实带出', async () => {
     const customerId = await seedCustomer('周女士', '13800000041');
     const bookingId = await seedBooking(customerId, '周女士', 'completed');
@@ -635,6 +629,93 @@ describe('B6 提交评价 /app/reviews（A11）', () => {
       [done],
     );
     expect(Number(rows[0].total)).toBe(1);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 订阅消息授权 /app/subscribe（A12）', () => {
+  it('上报已授权的模板 → 落库累加额度；同一模板再授权是累加不是覆盖', async () => {
+    const customerId = await seedCustomer('孙女士', '13800000051');
+    const bookingId = await seedBooking(customerId, '孙女士', 'pending');
+    const { token } = await seedBoundAppUser('openid-sub-ok', customerId);
+
+    const first = await ctx.request('POST', '/api/v1/app/subscribe', {
+      token,
+      body: { templateIds: ['TID-A', 'TID-B'], bookingId },
+    });
+    expect(first.status).toBe(201);
+    expect(first.body.accepted).toBe(true);
+    expect(first.body.templateIds).toEqual(['TID-A', 'TID-B']);
+
+    // 同一模板再授权一次：微信一次性订阅可累积，所以 granted_count 要 +1，
+    // 而不是覆盖成 1，也不是插出第二行
+    const second = await ctx.request('POST', '/api/v1/app/subscribe', {
+      token,
+      body: { templateIds: ['TID-A'] },
+    });
+    expect(second.status).toBe(201);
+
+    const rows = await ctx.sql<
+      {
+        template_id: string;
+        granted_count: number;
+        customer_id: number;
+        last_booking_id: number | null;
+      }[]
+    >(
+      `SELECT template_id, granted_count, customer_id, last_booking_id
+         FROM app_wx_subscribe_grant WHERE customer_id = ? ORDER BY template_id`,
+      [customerId],
+    );
+    expect(rows.map((row) => [row.template_id, row.granted_count])).toEqual([
+      ['TID-A', 2],
+      ['TID-B', 1],
+    ]);
+    // bookingId 只是上下文：第二次没带，不能把第一次带的抹掉
+    expect(rows.find((row) => row.template_id === 'TID-A')?.last_booking_id).toBe(
+      bookingId,
+    );
+  });
+
+  it('bookingId 是别人的单 → 403，不存在的单 → 404，且一条额度都不落', async () => {
+    const mineId = await seedCustomer('钱女士', '13800000052');
+    const otherId = await seedCustomer('孔女士', '13800000053');
+    const otherBooking = await seedBooking(otherId, '孔女士', 'pending');
+    const { token } = await seedBoundAppUser('openid-sub-403', mineId);
+
+    const forbidden = await ctx.request('POST', '/api/v1/app/subscribe', {
+      token,
+      body: { templateIds: ['TID-A'], bookingId: otherBooking },
+    });
+    expect(forbidden.status).toBe(403);
+
+    const missing = await ctx.request('POST', '/api/v1/app/subscribe', {
+      token,
+      body: { templateIds: ['TID-A'], bookingId: 9_999_999 },
+    });
+    expect(missing.status).toBe(404);
+
+    const rows = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM app_wx_subscribe_grant`,
+    );
+    expect(Number(rows[0].total)).toBe(0);
+  });
+
+  it('未绑定手机号 → 401 + needBind；额度归属只认 token，不认客户端传什么', async () => {
+    const { token } = await seedBoundAppUser('openid-sub-nobind', null);
+
+    const response = await ctx.request('POST', '/api/v1/app/subscribe', {
+      token,
+      body: { templateIds: ['TID-A'] },
+    });
+    expect(response.status).toBe(401);
+    expect(response.body.needBind).toBe(true);
+
+    const rows = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM app_wx_subscribe_grant`,
+    );
+    expect(Number(rows[0].total)).toBe(0);
   });
 });
 

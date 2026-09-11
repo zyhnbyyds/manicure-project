@@ -11,6 +11,7 @@ import {
   MemberAccountPort,
   MemberCardPort,
   type MemberCardRow,
+  NoticePort,
   ReviewPort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
@@ -19,6 +20,7 @@ import type {
   AppMemberCardVo,
   AppMemberMeVo,
   AppReviewVo,
+  AppSubscribeVo,
 } from '../dto/app-vo.js';
 
 /** 未绑定手机号：401 且响应体带 `needBind: true`（小程序据此拉起授权弹窗，§16.2） */
@@ -45,6 +47,7 @@ export class AppMemberService {
     private readonly members: MemberAccountPort,
     private readonly memberCards: MemberCardPort,
     private readonly reviews: ReviewPort,
+    private readonly notices: NoticePort,
   ) {}
 
   /**
@@ -195,6 +198,30 @@ export class AppMemberService {
       content: input.content ?? null,
       createdAt: created.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * 订阅消息授权（A12）。
+   *
+   * 客户端在 `wx.requestSubscribeMessage` 的回调里**只上报用户点了「允许」的模板**，
+   * 用户拒绝时根本不会调这个接口 —— 所以这里没有「授权失败」这种错误，
+   * 永远返回 200。订阅消息是增强，不是业务前置条件，**绝不能因为没授权就拦住下单**。
+   *
+   * 服务端只做两件事：按 token 定归属（`bookingId` 传了就必须是本人的单）、
+   * 按 `(用户, 模板)` 累加额度。额度怎么消费是发送段的事（等 H10 模板 ID）。
+   */
+  async subscribe(
+    appUserId: number,
+    input: { templateIds: string[]; bookingId?: number | undefined },
+  ): Promise<AppSubscribeVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const { accepted } = await this.notices.recordSubscribeGrant({
+      appWxUserId: appUserId,
+      customerId,
+      templateIds: input.templateIds,
+      bookingId: input.bookingId ?? null,
+    });
+    return { accepted: accepted.length > 0, templateIds: accepted };
   }
 }
 

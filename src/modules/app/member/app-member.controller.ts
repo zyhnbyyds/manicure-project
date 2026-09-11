@@ -34,6 +34,7 @@ import {
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
   type AppReviewVo,
+  type AppSubscribeVo,
 } from '../dto/app-vo.js';
 import { AppMemberService } from './app-member.service.js';
 
@@ -214,16 +215,32 @@ export class AppMemberController {
 
   @Post('subscribe')
   @ApiOperation({
-    summary: '订阅消息授权（契约骨架，本期返回 501）',
+    summary: '订阅消息授权',
     description:
-      '订阅消息需由小程序客户端授权；本期只在 sys_notice_log.channel 预留枚举位，' +
-      'P2 加模板 ID 映射即可。',
+      '客户端在 `wx.requestSubscribeMessage` 回调里**只上报用户点了「允许」的模板**，' +
+      '用户拒绝时不要调用本接口。服务端按 `(用户, 模板)` 累加微信下发额度' +
+      '（一次性订阅可累积），**未授权不报错、不阻塞业务**——订阅消息是增强而非前置条件。' +
+      '`bookingId` 为可选上下文，传了就必须是本人的预约。' +
+      '额度的消费（真正下发服务通知）依赖 H10 的模板 ID 申请，见交接文档 D12。',
   })
   @ApiBody({ schema: { $ref: '#/components/schemas/AppSubscribeRequest' } })
+  @ApiResponse({
+    status: 201,
+    description: '已受理；`accepted=false` 表示没有可记录的模板',
+    schema: { $ref: '#/components/schemas/AppSubscribeVo' },
+  })
   @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  subscribe(@Body() body: unknown): never {
-    appSubscribeRequestSchema.parse(body);
-    throw new NotImplementedException('订阅消息将在 P2 实现');
+  @ApiResponse({ status: 403, description: 'bookingId 不是本人的预约' })
+  @ApiResponse({ status: 404, description: '预约不存在' })
+  subscribe(
+    @Req() request: AppRequest,
+    @Body() body: unknown,
+  ): Promise<AppSubscribeVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.subscribe(
+      appUser.id,
+      appSubscribeRequestSchema.parse(body),
+    );
   }
 }

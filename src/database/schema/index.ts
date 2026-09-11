@@ -18,6 +18,13 @@ import {
   varchar,
 } from 'drizzle-orm/mysql-core';
 
+/**
+ * 审计列。**新增表用到它时必须检查生成的迁移 SQL**：drizzle-orm 1.0.0-rc 会把
+ * `.default(sql\`CURRENT_TIMESTAMP\`)` 渲染成 `DEFAULT (CURRENT_TIMESTAMP)`，
+ * MySQL 8.0.23 建表时放行、但随后任何重建表的语句（`CREATE INDEX` / `ALTER`）
+ * 会报 `Invalid default value for 'created_at'`。手工去掉括号即可，
+ * 且 `drizzle-kit generate` 不会因此认为有漂移（快照里存的是表达式，不是字面量）。
+ */
 const auditColumns = {
   createdAt: timestamp('created_at')
     .default(sql`CURRENT_TIMESTAMP`)
@@ -1257,6 +1264,44 @@ export const appWxUsers = mysqlTable(
   ],
 );
 
+/**
+ * 小程序订阅消息授权台账（P2 / A12）。
+ *
+ * 微信订阅消息的真实语义是**额度**：用户在客户端点一次「允许」，开发者就获得
+ * 该模板的一次下发权限，且可累积。所以按 `(用户, 模板)` 聚合成一行计数，而不是
+ * 记成 append-only 流水——后者做不了「还能发几次」的查询。
+ *
+ * 两条约束：
+ * 1. 只记**客户端上报为已授权**的模板；用户拒绝/拒收时客户端不上报，也就不会落库
+ *    ——这就是「未授权不报错、不阻塞业务」；
+ * 2. 额度消费（发送段）依赖 H10 的模板 ID 申请，本期不做，见交接文档 D12。
+ *
+ * 这里**故意不建外键**：台账行本身就是要留证的，`app_wx_user` 是软删，
+ * 真删时孤儿行比「删不掉」更有用；另外 drizzle-kit 在 `CREATE TABLE` 里内联
+ * 生成的外键会丢掉 `ON DELETE`（全项目只有这里会内联），留着会变成一个
+ * 「看起来级联、实际不级联」的坑。
+ */
+export const appWxSubscribeGrants = mysqlTable(
+  'app_wx_subscribe_grant',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    appWxUserId: int('app_wx_user_id', { unsigned: true }).notNull(),
+    /** 顾客 ID 快照：授权之后绑定关系可能被换绑，这里留证 */
+    customerId: int('customer_id', { unsigned: true }),
+    templateId: varchar('template_id', { length: 64 }).notNull(),
+    /** 累计授权次数（微信一次性订阅可累积） */
+    grantedCount: int('granted_count', { unsigned: true }).default(0).notNull(),
+    /** 最近一次授权的关联预约（仅上下文，可为空） */
+    lastBookingId: int('last_booking_id', { unsigned: true }),
+    grantedAt: datetime('granted_at').notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_wx_subscribe_grant').on(table.appWxUserId, table.templateId),
+    index('idx_wx_subscribe_customer').on(table.customerId),
+  ],
+);
+
 /* ------------------------------------------------------------------ *
  * C. 支付与账务（§4.5、§17、§18）
  * ------------------------------------------------------------------ */
@@ -1957,6 +2002,7 @@ export const relations = defineRelations(
     sysNoticeTemplates,
     sysNoticeLogs,
     appWxUsers,
+    appWxSubscribeGrants,
   },
   ({
     departments,
@@ -2008,15 +2054,17 @@ export const relations = defineRelations(
     sysNoticeTemplates,
     sysNoticeLogs,
     appWxUsers,
+    appWxSubscribeGrants,
     one,
     many,
   }) => ({
-    // 这三张表本期只需要注册（保证 db.query.* 可用），没有关系查询需求；
+    // 这些表本期只需要注册（保证 db.query.* 可用），没有关系查询需求；
     // 显式引用一次，避免「解构未使用」被判为 lint 错误。
     ...(() => {
       void bizPaymentDiffs;
       void sysNoticeTemplates;
       void sysNoticeLogs;
+      void appWxSubscribeGrants;
       return {};
     })(),
     users: {

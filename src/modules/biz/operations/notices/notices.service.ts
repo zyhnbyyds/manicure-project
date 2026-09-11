@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,11 +19,13 @@ import {
   lt,
   ne,
   or,
+  sql,
   type SQL,
 } from 'drizzle-orm';
 import { AppConfigService } from '../../../../config/app-config.service.js';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
+  appWxSubscribeGrants,
   bizBookingItems,
   bizBookings,
   bizCustomers,
@@ -35,7 +38,11 @@ import {
   BizConfigService,
   type NoticeConfig,
 } from '../../common/biz-config.service.js';
-import { NoticePort, type NoticeSendInput } from '../../common/ports.js';
+import {
+  NoticePort,
+  type NoticeSendInput,
+  type SubscribeGrantInput,
+} from '../../common/ports.js';
 import {
   andConditions,
   localDateRange,
@@ -744,6 +751,75 @@ export class NoticesService extends NoticePort {
       if (result.sent === 0) skipped += 1;
     }
     return { sent, skipped };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 小程序订阅消息授权台账（A12）
+   * ------------------------------------------------------------------ */
+
+  /**
+   * 记录小程序订阅消息授权（`NoticePort.recordSubscribeGrant`）。
+   *
+   * 额度累加走 `ON DUPLICATE KEY UPDATE`：**并发重复上报是累加而不是覆盖**，
+   * 唯一索引 `uq_wx_subscribe_grant` 保证 (用户, 模板) 只有一行。
+   *
+   * 刻意不校验模板 ID 白名单：微信模板 ID 是**公开的**（写死在小程序包里），
+   * 白名单拦不住任何攻击者，只能挡住客户端的拼写错误；真正的「字段映射」
+   * 要等 H10 拿到真实模板 ID 再补（见交接文档 D12）。
+   */
+  async recordSubscribeGrant(
+    input: SubscribeGrantInput,
+  ): Promise<{ accepted: string[] }> {
+    if (input.bookingId !== null) {
+      const [booking] = await this.database.db
+        .select({ id: bizBookings.id, customerId: bizBookings.customerId })
+        .from(bizBookings)
+        .where(
+          and(
+            eq(bizBookings.id, input.bookingId),
+            isNull(bizBookings.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!booking) throw new NotFoundException('预约不存在');
+      if (booking.customerId !== input.customerId)
+        throw new ForbiddenException('这不是本人的预约');
+    }
+
+    // 去重 + 去空：客户端重放 / 多模板重复上报只算一次额度
+    const templateIds = Array.from(
+      new Set(
+        input.templateIds
+          .map((item) => item.trim())
+          .filter((item) => item !== ''),
+      ),
+    );
+    if (!templateIds.length) return { accepted: [] };
+
+    const now = new Date();
+    for (const templateId of templateIds) {
+      await this.database.db
+        .insert(appWxSubscribeGrants)
+        .values({
+          appWxUserId: input.appWxUserId,
+          customerId: input.customerId,
+          templateId,
+          grantedCount: 1,
+          lastBookingId: input.bookingId,
+          grantedAt: now,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            grantedCount: sql`${appWxSubscribeGrants.grantedCount} + 1`,
+            customerId: input.customerId,
+            grantedAt: now,
+            ...(input.bookingId === null
+              ? {}
+              : { lastBookingId: input.bookingId }),
+          },
+        });
+    }
+    return { accepted: templateIds };
   }
 
   /* ------------------------------------------------------------------ *

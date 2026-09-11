@@ -538,7 +538,37 @@ export abstract class NoticePort {
   abstract retryFailed(): Promise<{ retried: number; succeeded: number }>;
   /** 次日预约提醒（定时任务 `sendBookingReminders`，必须幂等） */
   abstract sendBookingReminders(): Promise<{ sent: number; skipped: number }>;
+
+  /* ---------------------------------------------------------------- *
+   * 小程序订阅消息授权台账（A12）
+   * ---------------------------------------------------------------- */
+
+  /**
+   * 记录小程序订阅消息授权。
+   *
+   * 微信订阅消息的真实语义是**额度**：用户在客户端点一次「允许」，开发者就得到
+   * 该模板一次下发权限，且可累积。所以按 `(app_wx_user_id, template_id)` 聚合累加，
+   * 而不是记成 append-only 流水——后者查不出「还能发几次」。
+   *
+   * 两条硬约束：
+   * 1. **未授权不报错、不阻塞业务**：客户端只上报用户点了「允许」的模板，
+   *    拒绝 / 拒收根本不会走到这里，所以这个端口没有「授权失败」这种错误；
+   * 2. `bookingId` 传了就必须属于该顾客（不存在 → 404，他人单 → 403），
+   *    归属一律按预约事实判定，不听客户端的。
+   */
+  abstract recordSubscribeGrant(
+    input: SubscribeGrantInput,
+  ): Promise<{ accepted: string[] }>;
 }
+
+export type SubscribeGrantInput = {
+  appWxUserId: number;
+  customerId: number;
+  /** 客户端上报的、用户已点「允许」的模板；微信限制单次最多 3 个（入参 schema 已兜） */
+  templateIds: string[];
+  /** 这次授权是为了哪张单（仅上下文，可空） */
+  bookingId: number | null;
+};
 
 /* ------------------------------------------------------------------ *
  * 预约（B1）：app 域（小程序）消费面
