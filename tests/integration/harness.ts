@@ -9,6 +9,7 @@
  *    让整个 Nest 依赖图（含 `BizModule` 的端口绑定）都指向测试库；
  * 4. 用 Fastify 的 `app.inject()` 打真实 HTTP，validation / guard / 事务全是真的。
  */
+import { generateKeyPairSync } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { migrate } from 'drizzle-orm/mysql2/migrator';
 import { drizzle } from 'drizzle-orm/mysql2';
@@ -76,8 +77,59 @@ async function applyTestEnv(testUrl: string): Promise<void> {
   // 放在这里而不是 `.env.test`：`.env.test` 未入库（.gitignore 忽略 `.env.*`），
   // 只有写进 harness 才能保证任何机器上跑出来的行为一致。
   process.env.WX_MINIAPP_FAKE = 'true';
+  // 微信支付（A13 回调）：离线也要能跑真验签，见 wxpayTestCredential 的说明。
+  // 注意 WXPAY_PLATFORM_PUBLIC_KEY **不参与** `configured` 判定（app-config 里刻意放在
+  // complete() 之外），所以配它不会因为「某个字段没填」把通道变成未启用。
+  const wxpay = wxpayTestCredential();
+  process.env.WXPAY_APPID = 'wx_test_appid';
+  process.env.WXPAY_MCHID = '1900000000';
+  process.env.WXPAY_SERIAL_NO = wxpay.serialNo;
+  process.env.WXPAY_PRIVATE_KEY = escapePem(wxpay.privateKeyPem);
+  process.env.WXPAY_API_V3_KEY = wxpay.apiV3Key;
+  process.env.WXPAY_NOTIFY_URL = 'https://example.test/api/v1/app/payments/wxpay/notify';
+  process.env.WXPAY_PLATFORM_PUBLIC_KEY = escapePem(wxpay.publicKeyPem);
   // Redis 是可选依赖：留空字符串会让 z.url() 校验失败，必须删除变量
   delete process.env.REDIS_URL;
+}
+
+export type WxpayTestCredential = {
+  serialNo: string;
+  apiV3Key: string;
+  /** 造回调签名用（对应「微信平台」的私钥） */
+  privateKeyPem: string;
+  /** 塞给 provider 免联网拉平台证书（对应的公钥） */
+  publicKeyPem: string;
+};
+
+let cachedWxpay: WxpayTestCredential | null = null;
+
+/**
+ * 测试用微信支付凭据：**每次进程现造一对 RSA 密钥**，不入任何配置文件。
+ *
+ * 有了它，回调集成测试就能跑**真验签 + 真 AES-GCM 解密**，而不是拿个假 provider 绕过——
+ * 验签是回调的唯一入口闸门，不真跑一遍等于没验。公钥通过 `WXPAY_PLATFORM_PUBLIC_KEY`
+ * 注入 provider（那条配置本来就是为「离网/内网」留的），私钥留给测试造签名。
+ */
+export function wxpayTestCredential(): WxpayTestCredential {
+  if (cachedWxpay) return cachedWxpay;
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+  });
+  cachedWxpay = {
+    serialNo: 'TEST_SERIAL_NO',
+    // APIv3 密钥必须正好 32 字节
+    apiV3Key: '0123456789abcdef0123456789abcdef',
+    privateKeyPem: privateKey
+      .export({ type: 'pkcs8', format: 'pem' })
+      .toString(),
+    publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  };
+  return cachedWxpay;
+}
+
+/** env 里塞不进真实换行，按 `toPem` 的约定转义成字面 `\n` */
+function escapePem(pem: string): string {
+  return pem.replaceAll('\n', '\\n');
 }
 
 /** 建库（若不存在）+ 执行迁移 */
@@ -162,6 +214,9 @@ export async function createTestContext(
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter({ logger: false }),
+    // 与 `src/main.ts` 保持一致：微信支付 V3 回调验签必须拿**原样报文**。
+    // 少了它，回调测试会退化成 `JSON.stringify(body)`，测不出真实环境的验签失败。
+    { rawBody: true },
   );
   const { AppConfigService } =
     await import('../../src/config/app-config.service.js');

@@ -46,6 +46,12 @@ const envSchema = z.object({
   WXPAY_PRIVATE_KEY: z.string().optional(),
   WXPAY_API_V3_KEY: z.string().optional(),
   WXPAY_NOTIFY_URL: z.string().optional(),
+  /**
+   * 平台证书公钥（**可选**）：不配就走 `/v3/certificates` 联网下载。
+   * 给离线环境（集成测试 / 内网）留的注入点，内容可以是 SPKI 公钥 PEM 或 X509 证书 PEM。
+   * ⚠️ **绝不参与 `configured` 判定**——配它只是「免联网」，配不配都不该影响通道能否启用。
+   */
+  WXPAY_PLATFORM_PUBLIC_KEY: z.string().optional(),
   // 支付宝当面付（B3）
   ALIPAY_APP_ID: z.string().optional(),
   ALIPAY_PRIVATE_KEY: z.string().optional(),
@@ -191,8 +197,13 @@ export class AppConfigService {
     apiV3Key: string | undefined;
     notifyUrl: string | undefined;
     configured: boolean;
+    /**
+     * 平台证书公钥（可选，**不参与 `configured`**）：有值就免联网下载。
+     * 内容可以是 SPKI 公钥 PEM，也可以是 X509 证书 PEM（会自动取其中的公钥）。
+     */
+    platformPublicKey: string | undefined;
   } {
-    return complete({
+    const base = complete({
       appId: this.values.WXPAY_APPID,
       mchId: this.values.WXPAY_MCHID,
       serialNo: this.values.WXPAY_SERIAL_NO,
@@ -200,6 +211,8 @@ export class AppConfigService {
       apiV3Key: this.values.WXPAY_API_V3_KEY,
       notifyUrl: this.values.WXPAY_NOTIFY_URL,
     });
+    // 放在 complete() 之外：配不配它都不该让通道「未启用」
+    return { ...base, platformPublicKey: this.values.WXPAY_PLATFORM_PUBLIC_KEY };
   }
   /** 支付宝当面付：`configured=false` 时通道返回「未启用」 */
   get alipay(): {

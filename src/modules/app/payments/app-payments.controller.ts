@@ -1,9 +1,4 @@
-import {
-  Body,
-  Controller,
-  NotImplementedException,
-  Post,
-} from '@nestjs/common';
+import { Controller, Inject, Post, Req, Res } from '@nestjs/common';
 import {
   ApiBody,
   ApiHeader,
@@ -11,8 +6,17 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { FastifyReply } from 'fastify';
 import { Public } from '../../../common/auth/public.decorator.js';
+import { PaymentPort } from '../../biz/common/ports.js';
 import { appWxpayNotifyRequestSchema } from '../dto/app-vo.js';
+
+/** 渠道回调请求：必须有 `rawBody`（验签用的是原样报文，`JSON.stringify` 会改变键顺序） */
+type NotifyRequest = {
+  headers: Record<string, string | string[] | undefined>;
+  body: unknown;
+  rawBody?: string | undefined;
+};
 
 /**
  * 小程序端支付回调契约骨架（`/api/v1/app/payments/wxpay`，spec §9.7 / §16.1）。
@@ -41,22 +45,32 @@ import { appWxpayNotifyRequestSchema } from '../dto/app-vo.js';
  * 6. **3 秒内应答**：HTTP 200 + `{ code: 'SUCCESS', message: 'OK' }`；处理失败应答
  *    `{ code: 'FAIL', message }`（微信按策略重试），**不要**返回 HTTP 4xx/5xx。
  *
- * > 复用建议：后台 `PaymentsService.handleNotify(channel, raw)`（实施计划 §2.3）已是同一套
- * > 验签/幂等/发货流程，P2 应把它挂到端口上（当前 `PaymentPort` 没有 `handleNotify`，
- * > 需在 `ports.ts` 补一个方法或在 `BizModule` 导出 `PaymentsService`），避免小程序侧再写一份。
+ * ## A13 已按上面的「复用建议」落地
+ *
+ * 资金逻辑**一行都没重写**：`PaymentPort.handleNotify`（A13 新增）直接复用后台
+ * `PaymentsService.handleNotify`，即同一套验签 / 金额校验 / 幂等条件更新 / 同事务发货。
+ * 这里只做三件事：取原样报文、调端口、原样透传渠道应答（含 content-type）。
+ *
+ * 通道用的是 `wxpay_native` 的 provider：JSAPI 与 Native 的 **V3 回调报文完全一致**
+ * （同一商户号、同一平台证书），验签与解密逻辑通用；等 JSAPI 下单端点落地时再决定是否
+ * 拆出独立的 `wxpay_jsapi` 通道。
  */
 @ApiTags('小程序端')
 @Public()
 @Controller('app/payments/wxpay')
 export class AppPaymentsController {
+  constructor(@Inject(PaymentPort) private readonly payments: PaymentPort) {}
+
   @Post('notify')
   @ApiOperation({
-    summary: '微信支付回调（契约骨架，本期返回 501）',
+    summary: '微信支付回调（公开端点，自行验签 + 幂等）',
     description:
-      '渠道回调：不带 app token，靠验签保证真伪。本期只冻结报文与应答契约，不落库、不发货。' +
-      'P2 实现：验签（V3 平台证书）→ 解密 → 金额校验 → ' +
-      "`WHERE out_trade_no=? AND status='pending'` 幂等条件更新 → 同事务发货 → 3 秒内应答 " +
-      "`{code:'SUCCESS',message:'OK'}` / 失败 `{code:'FAIL',message}`。",
+      '渠道回调：不带 app token，靠验签保证真伪。' +
+      '验签（V3 平台证书，用原样报文）→ 解密 → **金额必须等于订单金额**（否则记 ' +
+      "`callback_invalid` 并拒绝，绝不按回调金额改账）→ `WHERE out_trade_no=? AND status='pending'` " +
+      '幂等条件更新（重复通知直接答成功，不重复发货）→ 同事务发货 → 3 秒内应答。' +
+      '**HTTP 恒为 200**，成败看应答体 `{code:"SUCCESS"}` / `{code:"FAIL"}`，' +
+      '返回 4xx/5xx 只会招来无意义重试。',
   })
   @ApiHeader({
     name: 'Wechatpay-Signature',
@@ -77,15 +91,24 @@ export class AppPaymentsController {
   @ApiBody({ schema: { $ref: '#/components/schemas/AppWxpayNotifyRequest' } })
   @ApiResponse({
     status: 200,
-    description:
-      '渠道应答（P2：`{code:"SUCCESS",message:"OK"}` 或 `{code:"FAIL",message}`）',
+    description: '渠道应答 `{code:"SUCCESS",message:"OK"}` 或 `{code:"FAIL",message}`',
     schema: { $ref: '#/components/schemas/AppWxpayNotifyVo' },
   })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  notify(@Body() body: unknown): never {
-    // 报文形态只做契约自检（safeParse）：真伪由验签决定，失败也必须回渠道应答而不是 HTTP 400。
-    // 本期无论内容一律 501，且不写任何表。
-    appWxpayNotifyRequestSchema.safeParse(body);
-    throw new NotImplementedException('微信支付回调将在 P2 接入支付通道时实现');
+  async notify(
+    @Req() request: NotifyRequest,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    // 报文形态只做契约自检（safeParse）：真伪由验签决定，形态不对也必须回渠道应答而不是 HTTP 400。
+    appWxpayNotifyRequestSchema.safeParse(request.body);
+    const result = await this.payments.handleNotify('wxpay_native', {
+      headers: request.headers,
+      body: request.body,
+      // 必须原样：验签串是 `timestamp\nnonce\nrawBody\n`，重新序列化会变键顺序导致验签失败
+      rawBody: request.rawBody,
+    });
+    reply
+      .status(result.statusCode)
+      .header('content-type', 'application/json; charset=utf-8')
+      .send(result.body);
   }
 }

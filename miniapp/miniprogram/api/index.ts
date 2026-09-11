@@ -14,6 +14,7 @@
  * - 真实现：login、auth/phone、service-items、staffs、available-slots、member/me、
  *   member/cards、reviews、subscribe
  * - 501 骨架：bookings(GET/POST)、bookings/:id/cancel、payments/wxpay/jsapi
+ *   （payments/wxpay/notify 已由 A13 转真实现：渠道回调，靠验签、不带 token）
  * 骨架接口在真接口模式下会抛「这个功能马上就来啦～」（`utils/request.ts` 里把 501 收敛了）。
  */
 import { isMockEnabled } from '../config';

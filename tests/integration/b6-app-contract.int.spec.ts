@@ -23,8 +23,8 @@ let date: string;
 /**
  * 骨架端点清单：**必须与 spec §16.1 的 501 清单逐条对应**（G5 的口径落点）。
  *
- * `GET /app/member/cards` 已由 A9、`POST /app/reviews` 已由 A11、`POST /app/subscribe`
- * 已由 A12 换成真实现，从清单里移出（8 → 5）。每实现一个 P2 端点，这里就少一条——条数即进度。
+ * `GET /app/member/cards` 已由 A9、`POST /app/reviews` 已由 A11、`POST /app/subscribe` 已由 A12、`POST /app/payments/wxpay/notify` 已由 A13
+ * 换成真实现，从清单里移出（8 → 4）。每实现一个 P2 端点，这里就少一条——条数即进度。
  */
 const SKELETON_ROUTES: {
   name: string;
@@ -55,22 +55,6 @@ const SKELETON_ROUTES: {
     path: '/api/v1/app/payments/wxpay/jsapi',
     body: { bookingId: 1, purpose: 'deposit' },
     guarded: true,
-  },
-  {
-    name: '微信支付回调',
-    method: 'POST',
-    path: '/api/v1/app/payments/wxpay/notify',
-    body: {
-      id: 'EV-2026-09-11-001',
-      event_type: 'TRANSACTION.SUCCESS',
-      resource: {
-        algorithm: 'AEAD_AES_256_GCM',
-        ciphertext: 'ciphertext-placeholder',
-        nonce: 'nonce-placeholder',
-        original_type: 'transaction',
-      },
-    },
-    guarded: false,
   },
 ];
 
@@ -205,11 +189,12 @@ afterAll(async () => {
 /* ------------------------------------------------------------------ */
 
 describe('B6 契约骨架：501 端点清单（G4 / G5）', () => {
-  it('清单条数与 spec §16.1 一致（5 个），且全部返回 501', async () => {
+  it('清单条数与 spec §16.1 一致（4 个），且全部返回 501', async () => {
     // 口径锚点：spec §12 原写 5 个、§16.1 列 8 个、代码 9 个（含已转真实现的 auth/phone）。
     // 统一到 8 之后，`POST /app/auth/phone`（A8）、`GET /app/member/cards`（A9）、
-    // `POST /app/reviews`（A11）、`POST /app/subscribe`（A12）又各自转成真实现 → 5。
-    expect(SKELETON_ROUTES).toHaveLength(5);
+    // `POST /app/reviews`（A11）、`POST /app/subscribe`（A12）、
+    // `POST /app/payments/wxpay/notify`（A13）又各自转成真实现 → 4。
+    expect(SKELETON_ROUTES).toHaveLength(4);
 
     const { token } = await seedBoundAppUser('openid-skeleton', null);
     for (const route of SKELETON_ROUTES) {
@@ -303,15 +288,16 @@ describe('B6 契约骨架：501 端点清单（G4 / G5）', () => {
     expect(badSubscribe.status).toBe(400);
   });
 
-  it('除支付回调外的骨架都要 app token；回调是渠道方向，本就不带 token', async () => {
+  it('剩下的骨架全部都要 app token（回调已转真实现，见 b6-app-wxpay-notify）', async () => {
+    // 之前唯一一个 `guarded:false` 的是支付回调（渠道方向，本就不带 token），
+    // A13 之后它已经是真接口了，清单里剩下的都是 C 端点，一律要 token。
+    expect(SKELETON_ROUTES.every((route) => route.guarded)).toBe(true);
     for (const route of SKELETON_ROUTES) {
       const response = await ctx.request(route.method, route.path, {
         token: null,
         body: route.body,
       });
-      expect(response.status, `${route.name} ${route.path}`).toBe(
-        route.guarded ? 401 : 501,
-      );
+      expect(response.status, `${route.name} ${route.path}`).toBe(401);
     }
   });
 });

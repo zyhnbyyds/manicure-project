@@ -12,6 +12,7 @@
     "dompurify",
     "echostr",
     "loginlog",
+    "MCHID",
     "miniapp",
     "newpassword",
     "operlog",
@@ -19,6 +20,7 @@
     "rollbacking",
     "TOCTOU",
     "undoable",
-    "varchar"
+    "varchar",
+    "WXPAY"
   ]
 }

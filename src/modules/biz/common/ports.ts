@@ -485,6 +485,28 @@ export abstract class PaymentPort {
   abstract closeExpired(): Promise<{ closed: number }>;
   abstract queryPending(): Promise<{ checked: number; settled: number }>;
   abstract reconcile(billDate: string): Promise<{ diffs: number }>;
+
+  /**
+   * 渠道回调（A13）。app 域自己**不准**再写一份支付逻辑，一律走这里。
+   *
+   * 内部顺序（见 `money-invariants` §3 / §7 / §8）：
+   * 验签 → 支付单存在 → **金额与订单一致**（不一致写 `callback_invalid` 日志并拒绝，
+   * 绝不按回调金额改账）→ `WHERE out_trade_no=? AND status='pending'` 条件更新
+   * （`affectedRows=0` = 已处理过，直接答成功，不重复发货）→ **同事务发货**
+   * → 事务提交后才发通知 → 3 秒内应答渠道。
+   *
+   * 返回的 `statusCode` 恒为 200：渠道按**应答体**判断成败（`{code:'SUCCESS'}` /
+   * `{code:'FAIL'}`），返回 4xx/5xx 只会触发无意义的重试。
+   */
+  abstract handleNotify(
+    channel: 'wxpay_native' | 'alipay_qr',
+    raw: {
+      headers: Record<string, string | string[] | undefined>;
+      body: unknown;
+      /** 必须传原样报文：验签的字符串对键顺序敏感 */
+      rawBody?: string | undefined;
+    },
+  ): Promise<{ statusCode: number; body: string }>;
 }
 
 /* ------------------------------------------------------------------ *

@@ -182,7 +182,7 @@
 | **A10** | `/app/bookings` GET/POST + `/:id/cancel` 真实现 | app 域 service + 控制器 | **复用后台算法**；落 `channel=miniapp`+`status=pending`；**未绑定手机号拒单**；服务端重算金额；列表 `{items,page,pageSize}` 无 `total`；**并发 10 单同美甲师同段 → 恰好 1 成功**；仅本人可取消 | 🤖 |
 | **A11** | `/app/reviews` 真实现 ✅ 已完成（H2 未定，按「都做」预留结构执行） | `app-member.service.ts` + `ReviewPort.createForCustomer` | 仅本人（归属按预约事实校验 → 他人单 403）+ 仅已完成（未完成 400）；**一单一评**（二次 409）；`customer_id`/`staff_id` 由预约事实带出；集成 3 条 | 🤖 |
 | **A12** | `/app/subscribe` 真实现 | ✅ 已完成（2026-09-11） | **偏离原方案**：不塞 `sys_notice_log`（它是「已发生的一次发送」的日志，会污染发送统计），改为新表 `app_wx_subscribe_grant`，按 `(app_wx_user_id, template_id)` 唯一 + `granted_count` 累加额度；`bookingId` 他人单 403 / 不存在 404；未绑定 401 + `needBind`；集成 3 条。**发送段仍等 H10 模板 ID**（届时补：模板 ID 映射、额度消费、`granted_count` 扣减）。取舍见交接文档 D12 |
-| **A13** | 支付回调业务层（幂等 + 金额校验 + 同事务发货）用**假验签器**实现 | `app-payments.service.ts` + 注入的 verifier 端口 | 自造回调报文：重放 3 次只生效 1 次；金额不符 → 拒 + 写 `callback_invalid`；关单后回调不改账 | 🤖 |
+| **A13** | 支付回调业务层 | ✅ 已完成（2026-09-11） | 资金逻辑**一行没重写**：新增 `PaymentPort.handleNotify`，app 端点直接复用后台 `PaymentsService.handleNotify`（验签→金额校验→条件更新→同事务发货）。为跑真验签加了 `WXPAY_PLATFORM_PUBLIC_KEY`（**不参与 `configured`**，只是免联网拉平台证书）+ harness 现造 RSA 密钥对；集成 6 条（含 2 次变异验证），顺带补上后台回调的集成覆盖 |
 | **A14** | `app_wx_user_bind_log` 表 + 迁移 | ✅ 已完成（2026-09-11） | 新表 `app_wx_user_bind_log`（`before/after` 两个 customer_id + openid/phone 快照，只追加不删）；写入点在 `app-auth.service.bindPhone`，**换绑与留痕放同一事务**（留痕落不下去的换绑比不换绑更危险）；绑定失败（409 软删顾客）不留痕；集成 3 条 |
 
 ### 4.2 前端泳道（A15~A17，门 H1）

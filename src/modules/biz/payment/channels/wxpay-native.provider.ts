@@ -7,6 +7,7 @@ import {
 import {
   X509Certificate,
   createDecipheriv,
+  createPublicKey,
   createSign,
   createVerify,
   randomUUID,
@@ -348,6 +349,20 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
 
   private async loadPlatformKeys(): Promise<void> {
     const credential = this.credential();
+
+    // 本地注入优先：内网 / 集成测试拿不到微信的 `/v3/certificates`，
+    // 配了 `WXPAY_PLATFORM_PUBLIC_KEY` 就完全不走网络。
+    const localPem = this.appConfig.wxpay.platformPublicKey;
+    if (localPem) {
+      const spki = toSpkiPublicKey(unescapePem(localPem));
+      if (spki) {
+        this.platformKeys = new Map([[credential.serialNo, spki]]);
+        this.platformLoadedAt = Date.now();
+        return;
+      }
+      this.logger.warn('WXPAY_PLATFORM_PUBLIC_KEY 不是合法的公钥/证书，回退到联网下载');
+    }
+
     const { status, data } = await this.request('GET', '/v3/certificates');
     if (status >= 400)
       throw new ConflictException(
@@ -397,6 +412,32 @@ function headerValue(
 }
 
 /** 把可能的 base64 / 单行密钥补成 PEM */
+/** env 里塞不进真实换行，约定用字面 `\n` 转义 */
+function unescapePem(raw: string): string {
+  return raw.includes('\\n') ? raw.replaceAll('\\n', '\n') : raw;
+}
+
+/**
+ * 把「X509 证书 PEM」或「SPKI 公钥 PEM」统一成 SPKI 公钥 PEM。
+ * 两者都收：微信官方给的是证书，自己造测试密钥时只有公钥。
+ */
+function toSpkiPublicKey(pem: string): string | null {
+  try {
+    return new X509Certificate(pem)
+      .publicKey.export({ type: 'spki', format: 'pem' })
+      .toString();
+  } catch {
+    // 不是证书，按公钥再试一次
+  }
+  try {
+    return createPublicKey(pem)
+      .export({ type: 'spki', format: 'pem' })
+      .toString();
+  } catch {
+    return null;
+  }
+}
+
 function toPem(raw: string, type: string): string {
   const value = raw.includes('\\n') ? raw.replaceAll('\\n', '\n') : raw;
   if (value.includes('-----BEGIN')) return value;
