@@ -3,7 +3,7 @@ name: web-frontend
 description: 后台前端：24 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、文件与图片上传（LewForm `as:'upload'` + uploadHelper）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
 whenToUse: 新增/修改 web/src/views/biz 页面、API 封装、表单与权限按钮；做文件/图片上传与预览；实现收银台、退款审批、对账、报表页。
 metadata:
-  version: '1.2.0'
+  version: '1.3.0'
   spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §10 / §9 / §3
 ---
@@ -128,4 +128,6 @@ h('a', { href: cover, target: '_blank', rel: 'noopener noreferrer' }, [
   接不住同步异常。触发条件是「非必填 **且** 当前值为真值」——**空数组 `[]` 也是真值**，
   所以 `as: 'upload'` 必踩，`as: 'switch'`（值 `true`）同理。
   修法：`const formOptions = withPassThroughRule([...])`（`~/utils/form`，补 `Yup.mixed()`）。
-  写新页面时直接包上，别等报错。
+  两种写法都要包：脚本里的 `formOptions`，以及模板里内联的
+  `:options="withPassThroughRule([...])"`。写新页面时直接包上，别等报错。
+  （全项目 22 个文件 / 29 处已统一包好，2026-09-11。）
