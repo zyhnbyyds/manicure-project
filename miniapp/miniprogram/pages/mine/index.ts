@@ -9,6 +9,7 @@ import {
   goBookings,
   goCoupons,
   goFavorites,
+  goFeedback,
   goMember,
   goStaffWorkbench,
   goTheme,
@@ -175,11 +176,15 @@ Page({
       goAddress();
       return;
     }
+    if (key === 'feedback') {
+      goFeedback();
+      return;
+    }
     if (key === 'about') {
       this.onAbout();
       return;
     }
-    toast('意见反馈开发中');
+    toast('该功能开发中');
   },
 
   onMenuTap(event: WechatMiniprogram.TouchEvent) {

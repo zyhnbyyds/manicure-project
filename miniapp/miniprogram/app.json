@@ -18,6 +18,8 @@
     "pages/favorites/index",
     "pages/coupons/index",
     "pages/address/index",
+    "pages/notices/index",
+    "pages/feedback/index",
     "pages/member/index",
     "pages/mine/index",
     "pages/theme/index",

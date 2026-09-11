@@ -3,6 +3,7 @@ import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
 import {
   goBookings,
+  goNotices,
   goServiceDetail,
   goServices,
   goShop,
@@ -153,11 +154,6 @@ Page({
   },
 
   onNavChat() {
-    wx.showModal({
-      title: '联系门店',
-      content: '客服微信：nailshop001\n到店前可先发款式图，我们帮你估时长～',
-      showCancel: false,
-      confirmText: '好',
-    });
+    goNotices();
   },
 });

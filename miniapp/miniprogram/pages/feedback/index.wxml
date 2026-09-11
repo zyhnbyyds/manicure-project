@@ -1,0 +1,71 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body fb-body">
+    <!-- 反馈类型 -->
+    <view class="section">
+      <view class="section__title">反馈类型</view>
+    </view>
+    <view class="card">
+      <view class="types">
+        <view
+          wx:for="{{types}}"
+          wx:key="*this"
+          class="type {{activeType === item ? 'is-active' : ''}}"
+          data-type="{{item}}"
+          bindtap="onType"
+        >
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 详细描述 -->
+    <view class="section">
+      <view class="section__title">详细描述</view>
+    </view>
+    <view class="card">
+      <textarea
+        class="content"
+        value="{{content}}"
+        placeholder="请详细描述你遇到的问题或建议，我们会认真处理每一条反馈"
+        placeholder-class="content__placeholder"
+        maxlength="500"
+        bindinput="onContentInput"
+      />
+      <view class="counter">{{content.length}}/500</view>
+
+      <view class="images">
+        <view wx:for="{{imageSlots}}" wx:key="*this" class="images__slot" bindtap="onAddImage">
+          <view class="images__plus">+</view>
+        </view>
+      </view>
+      <view class="images__hint">上传图片（选填）×3，图片功能开发中</view>
+    </view>
+
+    <!-- 联系方式与匿名 -->
+    <view class="section">
+      <view class="section__title">联系方式（选填）</view>
+    </view>
+    <view class="card">
+      <input
+        class="contact"
+        value="{{contact}}"
+        placeholder="手机号或微信，方便我们联系你"
+        placeholder-class="contact__placeholder"
+        bindinput="onContactInput"
+      />
+      <view class="anon">
+        <view class="grow">
+          <view class="anon__title">匿名提交</view>
+          <view class="anon__sub">开启后不记录你的个人信息</view>
+        </view>
+        <switch checked="{{anonymous}}" color="{{themePrimary}}" bindchange="onAnonymous" />
+      </view>
+    </view>
+
+    <view class="tips">反馈会由门店客服跟进处理；紧急问题建议直接联系门店。</view>
+  </view>
+
+  <view class="action-bar">
+    <view class="btn btn--primary btn--block" bindtap="onSubmit">提交反馈</view>
+  </view>
+</view>

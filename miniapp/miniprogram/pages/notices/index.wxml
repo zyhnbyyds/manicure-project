@@ -1,0 +1,43 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body notice-body">
+    <!-- 页签 + 全部已读 -->
+    <view class="bar">
+      <scroll-view class="bar__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+        <view class="bar__row">
+          <view
+            wx:for="{{tabs}}"
+            wx:key="key"
+            class="chip {{activeTab === item.key ? 'is-active' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onTab"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </scroll-view>
+      <view class="bar__read" bindtap="onReadAll">全部已读</view>
+    </view>
+
+    <!-- 空态：缺的是读取接口，不是没有这个能力 -->
+    <view class="empty">
+      <view class="empty__badge">
+        <image class="empty__icon" src="{{icons.chat}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">暂时没有消息</view>
+      <view class="empty__hint">预约提醒与门店通知会出现在这里</view>
+    </view>
+
+    <view wx:for="{{notices}}" wx:key="id" class="card notice">
+      <view class="notice__icon-wrap">
+        <image class="notice__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+      </view>
+      <view class="grow">
+        <view class="notice__title">{{item.title}}</view>
+        <view class="notice__time">{{item.timeText}}</view>
+        <view class="notice__text ellipsis-2">{{item.text}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{notices.length > 0}}" class="end">没有更多了</view>
+  </view>
+</view>

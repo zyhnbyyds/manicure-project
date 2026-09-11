@@ -1,0 +1,124 @@
+/* 意见反馈 —— 对齐 docs/manicure-ui-batch5 第 4 屏 */
+
+.fb-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 类型（多选外观、单选语义）────────────────────────────── */
+
+.types {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.type {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 30rpx;
+  margin: 0 16rpx 16rpx 0;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  color: var(--c-text-sub);
+  font-size: 25rpx;
+}
+
+.type.is-active {
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  border: 2rpx solid var(--c-primary);
+  line-height: 60rpx;
+}
+
+/* ── 描述 ─────────────────────────────────────────────────── */
+
+.content {
+  width: 100%;
+  min-height: 220rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+  border-radius: var(--r-md);
+  background: var(--c-bg);
+  font-size: 26rpx;
+  color: var(--c-text);
+}
+
+.content__placeholder {
+  color: var(--c-text-weak);
+  line-height: 1.6;
+}
+
+.counter {
+  margin-top: 8rpx;
+  text-align: right;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+.images {
+  display: flex;
+  margin-top: 20rpx;
+}
+
+.images__slot {
+  width: 150rpx;
+  height: 150rpx;
+  margin-right: 20rpx;
+  border-radius: var(--r-md);
+  border: 2rpx dashed var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.images__plus {
+  font-size: 52rpx;
+  line-height: 1;
+  color: var(--c-text-weak);
+}
+
+.images__hint {
+  margin-top: 16rpx;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+/* ── 联系方式与匿名 ───────────────────────────────────────── */
+
+.contact {
+  height: 88rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-md);
+  background: var(--c-bg);
+  font-size: 26rpx;
+  color: var(--c-text);
+}
+
+.contact__placeholder {
+  color: var(--c-text-weak);
+  font-size: 25rpx;
+}
+
+.anon {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid var(--c-border);
+}
+
+.anon__title {
+  font-size: 27rpx;
+}
+
+.anon__sub {
+  margin-top: 6rpx;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+.tips {
+  margin-top: 20rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}

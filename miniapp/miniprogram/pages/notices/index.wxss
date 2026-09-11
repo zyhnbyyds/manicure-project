@@ -1,0 +1,115 @@
+/* 消息中心 —— 对齐 docs/manicure-ui-batch5 第 2 屏（缺读取接口，先还原骨架） */
+
+.notice-body {
+  padding-bottom: 60rpx;
+}
+
+/* ── 页签条 ───────────────────────────────────────────────── */
+
+.bar {
+  display: flex;
+  align-items: center;
+}
+
+.bar__scroll {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.bar__row {
+  display: flex;
+}
+
+.chip {
+  flex-shrink: 0;
+  height: 58rpx;
+  line-height: 58rpx;
+  padding: 0 24rpx;
+  margin-right: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-card);
+  color: var(--c-text-sub);
+  font-size: 24rpx;
+}
+
+.chip.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+.bar__read {
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 消息卡（有数据时用；当前为空态）──────────────────────── */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 20rpx;
+}
+
+.notice__icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 20rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notice__icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.notice__title {
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.notice__time {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: var(--c-text-weak);
+}
+
+.notice__text {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: var(--c-text-sub);
+}
+
+.end {
+  margin-top: 30rpx;
+  text-align: center;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+/* ── 空态 ─────────────────────────────────────────────────── */
+
+.empty__badge {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty__icon {
+  width: 68rpx;
+  height: 68rpx;
+  opacity: 0.5;
+}
