@@ -9,16 +9,18 @@
  */
 import { staffApi } from '../../api/index';
 import { demoteToCustomer } from '../../store/mode';
+import { getThemeTokens } from '../../theme/theme';
+import { buildIcons, type IconName } from '../../utils/icons';
 import { basePageData } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
+
+const PAGE_ICONS: IconName[] = ['star'];
 
 interface ReviewRow {
   id: number;
   bookingNo: string;
   score: number;
-  /** 五颗星的文本表示，WXML 里没法做循环取余 */
-  stars: string;
   content: string;
   reply: string | null;
   dateText: string;
@@ -37,7 +39,6 @@ function toRow(item: {
     id: item.id,
     bookingNo: item.bookingNo ?? '—',
     score,
-    stars: '★★★★★'.slice(0, score) + '☆☆☆☆☆'.slice(0, 5 - score),
     content: item.content ?? '（这位顾客只打了分，没写评价）',
     reply: item.reply,
     dateText: item.createdAt.slice(0, 10),
@@ -47,6 +48,10 @@ function toRow(item: {
 Page({
   data: {
     ...basePageData(),
+    /** 星级用图标画：原来的 ★☆ 是文本字符，属要清掉的残留（同 ♡ 那类） */
+    iconsStarOn: buildIcons(PAGE_ICONS, getThemeTokens().primary, 24, true),
+    iconsStarOff: buildIcons(PAGE_ICONS, getThemeTokens().border),
+    starSlots: [1, 2, 3, 4, 5],
     loading: true,
     errorText: '',
     rows: [] as ReviewRow[],

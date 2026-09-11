@@ -385,6 +385,33 @@ page {
   margin-bottom: 24rpx;
 }
 
+/**
+ * 空态装饰：**替代原来的 emoji**。
+ *
+ * 为什么用几何图形而不是图标：空态在多个页面反复出现，若每页都塞一个图标
+ * 就得给各页的 data 增加 `icons`，成本高且容易漏；设计稿里的空态插画
+ * （线稿手部等）也无法凭空生成。用「柔和圆 + 内部小点」既统一、又不误导。
+ * 需要更强表达力的页面（如「我的预约」）可自行覆盖 `.empty__badge` 并放真实图标。
+ */
+.empty__badge {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty__badge-dot {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: var(--c-primary);
+  opacity: 0.25;
+}
+
 .empty__text {
   color: var(--c-text-sub);
   font-size: 28rpx;

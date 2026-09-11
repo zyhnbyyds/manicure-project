@@ -29,12 +29,12 @@
     <view wx:if="{{loading}}" class="loading">正在翻这一天的单…</view>
 
     <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
     <view wx:elif="{{bookings.length === 0}}" class="empty">
-      <view class="empty__emoji">☕</view>
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">这一天没有排到的单</view>
       <view class="empty__hint">换个日期，或者回去工作台看看今天～</view>
     </view>
@@ -57,7 +57,7 @@
             data-id="{{item.id}}"
             bindtap="onCall"
           >
-            📞 {{item.customerPhoneMasked}}
+            拨打 {{item.customerPhoneMasked}}
           </view>
           <view wx:else class="job__phone is-muted">未留电话</view>
         </view>

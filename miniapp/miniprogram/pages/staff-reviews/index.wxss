@@ -45,3 +45,15 @@
   font-size: 22rpx;
   color: var(--c-text-weak);
 }
+
+/* 星级：改用图标绘制（原来用 ★☆ 文本字符） */
+.review__stars {
+  display: flex;
+  align-items: center;
+}
+
+.review__star {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 6rpx;
+}

@@ -10,7 +10,7 @@
     <view wx:if="{{loading}}" class="loading">正在算这个月的账…</view>
 
     <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
@@ -47,7 +47,7 @@
       </view>
 
       <view wx:if="{{rows.length === 0}}" class="empty">
-        <view class="empty__emoji">🧾</view>
+        <view class="empty__badge"><view class="empty__badge-dot"></view></view>
         <view class="empty__text">这个月还没有提成记录</view>
         <view class="empty__hint">完成服务后会自动计提，冲销的单也会留在这里</view>
       </view>

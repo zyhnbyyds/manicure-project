@@ -17,18 +17,18 @@
     <view wx:if="{{loading}}" class="loading">正在叫美甲师们过来…</view>
 
     <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
     <view wx:elif="{{staffs.length === 0}}" class="empty">
-      <view class="empty__emoji">🌸</view>
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">暂时没有可预约的美甲师</view>
     </view>
 
     <block wx:else>
       <view class="hint" wx:if="{{!hasItems}}">
-        <text class="hint__emoji">👆</text>
+        <text class="hint__emoji"></text>
         <text>先选款式，再挑美甲师会更准哦</text>
       </view>
 
@@ -41,7 +41,7 @@
       >
         <view class="staff__avatar thumb">
           <image wx:if="{{item.avatar}}" class="staff__img" src="{{item.avatar}}" mode="aspectFill" />
-          <view wx:else class="image-placeholder staff__img">{{item.emoji}}</view>
+          <view wx:else class="image-placeholder staff__img">{{item.initial}}</view>
         </view>
         <view class="grow">
           <view class="staff__name">{{item.nickname}}</view>
