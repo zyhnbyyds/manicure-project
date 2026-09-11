@@ -5,6 +5,7 @@ import { hashPassword } from '../../common/password/password.service';
 import { roles, userRoles, users } from '../schema/index';
 import { seedBiz } from './biz.js';
 import { seedMenus } from './menus.js';
+import { seedNail } from './nail.js';
 
 async function seed(): Promise<void> {
   const url = Bun.env.DATABASE_URL;
@@ -44,9 +45,13 @@ async function seed(): Promise<void> {
     .values({ userId: user.id, roleId: role.id })
     .onDuplicateKeyUpdate({ set: { roleId: role.id } });
 
-  // 管理员就绪后再灌菜单 / 权限点与业务初始数据（两者都幂等），最后统一收连接池
+  // 管理员就绪后再灌菜单 / 权限点与业务初始数据（全部幂等），最后统一收连接池
   await seedMenus(pool);
+  // 配置类初始数据（会员等级 / 退款规则 / 通知模板 / 定时任务）
   await seedBiz(pool);
+  // 美甲基础资料（服务项目 / 美甲师 / 排班 / 卡种 / 充值方案 / 积分兑换品 / 挂账主体 / 提成规则）
+  await seedNail(pool);
+  // 演示顾客档案是**可选**的，不在这里灌；需要时单独跑 `bun run db:seed:demo`
 
   await pool.end();
 }

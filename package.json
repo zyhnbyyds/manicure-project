@@ -24,6 +24,9 @@
     "db:migrate": "bun src/database/migrate.ts",
     "db:seed": "bun src/database/seed/index.ts",
     "db:seed:menus": "bun src/database/seed/menus.ts",
+    "db:seed:biz": "bun src/database/seed/biz.ts",
+    "db:seed:nail": "bun src/database/seed/nail.ts",
+    "db:seed:demo": "bun src/database/seed/demo.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
