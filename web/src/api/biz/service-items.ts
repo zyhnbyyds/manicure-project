@@ -13,7 +13,13 @@ export interface ServiceItem {
   /** 价格（分） */
   price: number;
   description: string | null;
+  /**
+   * 封面图：**服务端派生字段**，恒等于 `images[0] ?? null`。
+   * 只读，提交时不要带（后端 zod 会直接丢掉）。
+   */
   image: string | null;
+  /** 展示图集，顺序即展示顺序；最多 9 张 */
+  images: string[] | null;
   status: EntityStatus;
   sort: number;
   remark: string | null;
@@ -32,7 +38,8 @@ export interface CreateServiceItemBody {
   /** 单位「分」，前端表单用元输入后 ×100 */
   price?: number;
   description?: string | null;
-  image?: string | null;
+  /** 展示图集（最多 9 张，首图即封面）；封面 `image` 由后端派生，不要传 */
+  images?: string[] | null;
   status?: EntityStatus;
   sort?: number;
   remark?: string | null;

@@ -11,12 +11,17 @@ import {
   LewSelect,
   LewTable,
 } from 'lew-ui';
-import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import type {
+  LewFormOption,
+  LewTableColumn,
+  LewUploadFileItem,
+} from 'lew-ui';
 import {
   createServiceItem,
   deleteServiceItem,
   updateServiceItem,
 } from '~/api/biz/service-items';
+import { filePreviewUrl, uploadFile } from '~/api/files';
 import type {
   CreateServiceItemBody,
   ServiceItem,
@@ -43,6 +48,56 @@ function renderMoney(cents: number | null | undefined) {
     { class: 'tabular-nums' },
     `¥ ${((cents ?? 0) / 100).toFixed(2)}`,
   );
+}
+
+// ---------- 图集上传 ----------
+/** 图集张数上限：与后端 zod 的 `.max(9)`、`normalizeImages` 的截断保持一致 */
+const MAX_IMAGES = 9;
+/** 单张图片大小上限：与后端 `MAX_FILE_SIZE` 对齐 */
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
+/**
+ * 表单里存的是上传组件的 `LewUploadFileItem[]`，接口收发的是 url 数组，
+ * 这两个函数负责两侧互转；**不要**把 `LewUploadFileItem` 透传给接口。
+ */
+function toUploadItems(urls: string[] | null | undefined): LewUploadFileItem[] {
+  return (urls ?? []).map((url, index) => ({
+    key: `saved-${index}-${url}`,
+    name: `图片 ${index + 1}`,
+    url,
+    status: 'complete' as const,
+    percent: 100,
+  }));
+}
+
+/** 只取上传成功的那些：`pending` / `fail` / `wrong_*` 不该进库 */
+function toImageUrls(items: LewUploadFileItem[] | null | undefined): string[] {
+  return (items ?? [])
+    .filter((item) => item.status === 'complete' || item.status === 'success')
+    .map((item) => item.url)
+    .filter((url): url is string => Boolean(url));
+}
+
+/** 交给 LewUpload 的上传实现：走统一文件接口，成功后回填可直接预览的地址 */
+async function uploadImage(params: {
+  fileItem: LewUploadFileItem;
+  setFileItem: (patch: Partial<LewUploadFileItem>) => void;
+}) {
+  const { fileItem, setFileItem } = params;
+  const file = fileItem.file;
+  if (!file) return;
+  try {
+    const uploaded = await uploadFile(file);
+    setFileItem({
+      key: fileItem.key,
+      status: 'complete',
+      percent: 100,
+      url: filePreviewUrl(uploaded.id),
+    });
+  } catch {
+    // 失败原因（类型 / 体积 / 网络）已由 request 拦截器统一提示，这里只标记状态
+    setFileItem({ key: fileItem.key, status: 'fail', percent: 0 });
+  }
 }
 
 // ---------- 列表 ----------
@@ -98,6 +153,42 @@ const columns: LewTableColumn[] = [
       renderMoney((row as unknown as ServiceItem).price),
   },
   {
+    title: '图片',
+    field: 'images',
+    width: 96,
+    customRender: ({ row }) => {
+      const urls = (row as unknown as ServiceItem).images ?? [];
+      const cover = urls[0];
+      if (!cover)
+        return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
+      // 新窗口打开即预览（下载地址带 inline=1，不会触发下载）
+      return h(
+        'a',
+        {
+          href: cover,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          class: 'inline-flex items-center gap-1',
+          title: '点击预览',
+        },
+        [
+          h('img', {
+            src: cover,
+            alt: '封面',
+            class: 'w-32px h-32px rounded object-cover border border-[var(--app-border)]',
+          }),
+          urls.length > 1
+            ? h(
+                'span',
+                { class: 'text-[var(--app-text-muted)] text-xs' },
+                `+${urls.length - 1}`,
+              )
+            : null,
+        ],
+      );
+    },
+  },
+  {
     title: '说明',
     field: 'description',
     customRender: ({ row }) => {
@@ -138,7 +229,8 @@ type FormValues = {
   /** 表单是「元」，提交前转「分」 */
   priceYuan: number;
   description: string;
-  image: string;
+  /** 上传组件的内部形态；提交时经 `toImageUrls` 转成 url 数组 */
+  images: LewUploadFileItem[];
   status: boolean;
   sort: number;
   remark: string;
@@ -159,7 +251,7 @@ function emptyForm(): FormValues {
     bufferMinutes: 0,
     priceYuan: 0,
     description: '',
-    image: '',
+    images: [],
     status: true,
     sort: 0,
     remark: '',
@@ -204,10 +296,18 @@ const formOptions: LewFormOption[] = [
     props: { min: 0, step: 1, align: 'left' },
   },
   {
-    field: 'image',
+    field: 'images',
     label: '图片',
-    as: 'input',
-    props: { placeholder: '选填，图片地址', clearable: true },
+    as: 'upload',
+    tips: '第一张作为封面',
+    props: {
+      multiple: true,
+      limit: MAX_IMAGES,
+      accept: 'image/*',
+      viewMode: 'card',
+      maxFileSize: MAX_IMAGE_SIZE,
+      uploadHelper: uploadImage,
+    },
   },
   {
     field: 'description',
@@ -251,7 +351,7 @@ function openEdit(row: ServiceItem) {
       bufferMinutes: row.bufferMinutes,
       priceYuan: centsToYuan(row.price),
       description: row.description ?? '',
-      image: row.image ?? '',
+      images: toUploadItems(row.images),
       status: row.status === 'active',
       sort: row.sort,
       remark: row.remark ?? '',
@@ -271,7 +371,8 @@ async function handleSubmit() {
     // 表单「元」→ 接口「分」
     price: yuanToCents(Number(values.priceYuan)),
     description: values.description || null,
-    image: values.image || null,
+    // 上传组件的内部结构不能直接进接口，只挑上传成功的 url
+    images: toImageUrls(values.images),
     status: values.status ? 'active' : 'disabled',
     sort: Number(values.sort) || 0,
     remark: values.remark || null,
@@ -400,7 +501,7 @@ function handleReset() {
     <LewModal
       v-model:visible="modalVisible"
       :title="editingId === null ? '新增服务项目' : '编辑服务项目'"
-      width="520px"
+      width="640px"
       :footer-buttons="[
         {
           props: {
