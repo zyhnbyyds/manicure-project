@@ -1,10 +1,11 @@
 import { isStaffMode } from '../store/mode';
 import { getThemeTokens, themeStyle } from '../theme/theme';
+import { buildIcons, type IconName } from '../utils/icons';
 
 interface TabItem {
   pagePath: string;
   text: string;
-  emoji: string;
+  icon: IconName;
 }
 
 /**
@@ -15,16 +16,18 @@ interface TabItem {
  * 但一次只渲染其中一个子集。
  */
 const CUSTOMER_TABS: TabItem[] = [
-  { pagePath: 'pages/index/index', text: '首页', emoji: '🏠' },
-  { pagePath: 'pages/bookings/index', text: '预约', emoji: '📅' },
-  { pagePath: 'pages/mine/index', text: '我的', emoji: '🎀' },
+  { pagePath: 'pages/index/index', text: '首页', icon: 'home' },
+  { pagePath: 'pages/bookings/index', text: '预约', icon: 'calendar' },
+  { pagePath: 'pages/mine/index', text: '我的', icon: 'person' },
 ];
 
 const STAFF_TABS: TabItem[] = [
-  { pagePath: 'pages/staff-workbench/index', text: '工作台', emoji: '💅' },
-  { pagePath: 'pages/staff-bookings/index', text: '我的预约', emoji: '📅' },
-  { pagePath: 'pages/mine/index', text: '我的', emoji: '🎀' },
+  { pagePath: 'pages/staff-workbench/index', text: '工作台', icon: 'grid' },
+  { pagePath: 'pages/staff-bookings/index', text: '我的预约', icon: 'calendar' },
+  { pagePath: 'pages/mine/index', text: '我的', icon: 'person' },
 ];
+
+const TAB_ICONS: IconName[] = ['home', 'calendar', 'person', 'grid'];
 
 /**
  * 自定义 TabBar（而非 app.json 原生 TabBar）的理由：
@@ -41,6 +44,9 @@ Component({
     themeStyle: '',
     idleColor: '',
     staffMode: false,
+    /** 细线图标两态：未选灰、选中主色（设计稿底部即线框图标，不用 emoji） */
+    iconsIdle: buildIcons(TAB_ICONS, '#B9B3AE'),
+    iconsActive: buildIcons(TAB_ICONS, '#B45F6B'),
   },
 
   lifetimes: {
@@ -65,9 +71,12 @@ Component({
 
   methods: {
     applyTheme() {
+      const tokens = getThemeTokens();
       this.setData({
         themeStyle: themeStyle(),
-        idleColor: getThemeTokens().textWeak,
+        idleColor: tokens.textWeak,
+        iconsIdle: buildIcons(TAB_ICONS, tokens.textWeak),
+        iconsActive: buildIcons(TAB_ICONS, tokens.primary),
       });
     },
 

@@ -1,101 +1,96 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <view class="page-body">
-    <!-- 欢迎卡：主题渐变 + 漂浮气泡，整站「主题色为主」的第一眼 -->
-    <view class="hero fade-up">
-      <view class="bubble bubble--a"></view>
-      <view class="bubble bubble--b"></view>
-      <view class="bubble bubble--c"></view>
-      <view class="hero__head">
-        <view class="grow">
-          <view class="hero__hi">你好呀 👋</view>
-          <view class="hero__title">今天想做什么款？</view>
-        </view>
-        <view class="hero__emoji">💅</view>
-      </view>
-      <view class="hero__meta">
-        <view class="tag tag--outline">{{themeEmoji}} {{themeName}}</view>
-        <view wx:if="{{isMock}}" class="mock-badge">{{mockBadge}}</view>
+  <!-- 自定义导航栏（设计稿：标题左对齐 + 右侧两个细线图标；右侧留出胶囊按钮的位） -->
+  <view
+    class="navbar"
+    style="padding-top:{{statusBarHeight}}px;height:{{navBarHeight}}px;padding-right:{{navRightGap}}px"
+  >
+    <view class="navbar__title">美甲小铺</view>
+    <view class="navbar__actions">
+      <image class="navbar__icon" src="{{icons.shop}}" bindtap="onNavShop" mode="aspectFit" />
+      <image class="navbar__icon" src="{{icons.chat}}" bindtap="onNavChat" mode="aspectFit" />
+    </view>
+  </view>
+
+  <!-- 头图：大幅作品照 + 底部压深渐变 + 白色衬线标题 -->
+  <view class="hero">
+    <image class="hero__img" src="{{hero}}" mode="aspectFill" />
+    <view class="hero__mask"></view>
+    <view class="hero__text">
+      <view class="hero__title">今日灵感</view>
+      <view class="hero__sub">把喜欢的样子，做在手上</view>
+    </view>
+  </view>
+
+  <!-- 快捷入口：四张白卡 + 细线图标（设计稿没有 emoji） -->
+  <view class="quick">
+    <view
+      wx:for="{{quickEntries}}"
+      wx:key="label"
+      class="quick__item"
+      data-action="{{item.action}}"
+      bindtap="onQuickTap"
+    >
+      <image class="quick__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+      <view class="quick__label">{{item.label}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">正在准备今天的好心情…</view>
+
+  <view wx:elif="{{errorText}}" class="empty">
+    <view class="empty__text">{{errorText}}</view>
+    <view class="btn btn--soft btn--sm empty__action" bindtap="onRetry">再试一次</view>
+  </view>
+
+  <block wx:else>
+    <!-- 人气款式 -->
+    <view class="section">
+      <view class="section__title">人气款式</view>
+      <view class="section__more" bindtap="goServices">
+        全部
+        <image class="section__arrow" src="{{icons.chevron}}" mode="aspectFit" />
       </view>
     </view>
-
-    <!-- 快捷入口 -->
-    <view class="quick fade-up">
-      <view class="quick__item card card--press" bindtap="goServices">
-        <view class="quick__emoji">💅</view>
-        <view class="quick__text">预约美甲</view>
-      </view>
-      <view class="quick__item card card--press" bindtap="goStaffs">
-        <view class="quick__emoji">🌸</view>
-        <view class="quick__text">美甲师</view>
-      </view>
-      <view class="quick__item card card--press" bindtap="goBookings">
-        <view class="quick__emoji">📅</view>
-        <view class="quick__text">我的预约</view>
-      </view>
-      <view class="quick__item card card--press" bindtap="goServices">
-        <view class="quick__emoji">🎀</view>
-        <view class="quick__text">全部款式</view>
-      </view>
-    </view>
-
-    <view wx:if="{{loading}}" class="loading">正在准备今天的好心情…</view>
-
-    <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
-      <view class="empty__text">{{errorText}}</view>
-      <view class="btn btn--soft btn--sm empty__action" bindtap="onRetry">再试一次</view>
-    </view>
-
-    <block wx:else>
-      <!-- 热门推荐 -->
-      <view class="section">
-        <view class="section__title">热门推荐</view>
-        <view class="section__more" bindtap="goServices">全部 ›</view>
-      </view>
-      <view class="grid">
+    <scroll-view class="popular" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view class="popular__row">
         <view
           wx:for="{{services}}"
           wx:key="id"
-          class="grid__cell card card--press"
+          class="popular__card"
           data-id="{{item.id}}"
           bindtap="openService"
         >
-          <view class="thumb grid__thumb">
-            <image wx:if="{{item.image}}" class="grid__img" src="{{item.image}}" mode="aspectFill" />
-            <view wx:else class="image-placeholder grid__img">{{item.emoji}}</view>
-          </view>
-          <view class="grid__name ellipsis">{{item.name}}</view>
-          <view class="grid__meta text-weak">{{item.durationText}} · {{item.category}}</view>
-          <view class="price">
-            <text class="price__symbol">¥</text>
-            <text class="price__yuan">{{item.priceYuan}}</text>
-            <text class="price__cent">.{{item.priceCent}}</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 美甲师 -->
-      <view class="section">
-        <view class="section__title">我们的美甲师</view>
-        <view class="section__more" bindtap="goStaffs">全部 ›</view>
-      </view>
-      <scroll-view class="staff-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
-        <view class="staff-row">
-          <view wx:for="{{staffs}}" wx:key="id" class="staff card card--press" bindtap="goStaffs">
-            <view class="staff__avatar thumb">
-              <image
-                wx:if="{{item.avatar}}"
-                class="staff__img"
-                src="{{item.avatar}}"
-                mode="aspectFill"
-              />
-              <view wx:else class="image-placeholder staff__img">{{item.emoji}}</view>
+          <image class="popular__photo" src="{{item.imageResolved}}" mode="aspectFill" />
+          <view class="popular__body">
+            <view class="popular__name ellipsis">{{item.name}}</view>
+            <view class="popular__meta ellipsis">{{item.durationText}} · {{item.category}}</view>
+            <view class="price popular__price">
+              <text class="price__symbol">¥</text>
+              <text class="price__yuan">{{item.priceYuan}}</text>
             </view>
-            <view class="staff__name ellipsis">{{item.nickname}}</view>
-            <view class="staff__bio ellipsis-2">{{item.bio}}</view>
           </view>
         </view>
-      </scroll-view>
-    </block>
-  </view>
+      </view>
+    </scroll-view>
+
+    <!-- 我们的美甲师 -->
+    <view class="section">
+      <view class="section__title">我们的美甲师</view>
+      <view class="section__more" bindtap="goStaffs">
+        全部
+        <image class="section__arrow" src="{{icons.chevron}}" mode="aspectFit" />
+      </view>
+    </view>
+    <view class="staffs">
+      <view wx:for="{{staffs}}" wx:key="id" class="staffs__item" bindtap="goStaffs">
+        <view class="staffs__ring {{index === 0 ? 'is-featured' : ''}}">
+          <image class="staffs__avatar" src="{{item.avatarResolved}}" mode="aspectFill" />
+        </view>
+        <view class="staffs__name">{{item.nickname}}</view>
+        <view class="staffs__bio ellipsis">{{item.bio}}</view>
+      </view>
+    </view>
+  </block>
+
+  <view class="safe-bottom"></view>
 </view>

@@ -1,188 +1,236 @@
-/* 首页 */
+/* 首页 —— 严格对齐 docs/design.png 第 1 屏 */
+
+/* ── 自定义导航栏 ─────────────────────────────────────────── */
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 28rpx;
+  box-sizing: content-box;
+}
+
+.navbar__title {
+  font-family: var(--font-serif);
+  font-size: 40rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+}
+
+.navbar__actions {
+  display: flex;
+  align-items: center;
+}
+
+.navbar__icon {
+  width: 48rpx;
+  height: 48rpx;
+  margin-left: 30rpx;
+}
+
+/* ── 头图 ─────────────────────────────────────────────────── */
 
 .hero {
   position: relative;
+  margin: 0 28rpx;
+  height: 408rpx;
+  border-radius: var(--r-lg);
   overflow: hidden;
-  border-radius: var(--r-xl);
-  padding: 40rpx 36rpx 32rpx;
-  background: var(--c-gradient);
-  box-shadow: 0 12rpx 32rpx var(--c-shadow);
 }
 
-.hero__head {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
+.hero__img {
+  width: 100%;
+  height: 100%;
 }
 
-.hero__hi {
-  font-size: 26rpx;
-  color: var(--c-text-sub);
+.hero__mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 240rpx;
+  background: linear-gradient(
+    to top,
+    rgba(45, 34, 30, 0.55) 0%,
+    rgba(45, 34, 30, 0) 100%
+  );
+}
+
+.hero__text {
+  position: absolute;
+  left: 36rpx;
+  bottom: 30rpx;
 }
 
 .hero__title {
+  font-family: var(--font-serif);
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 3rpx;
+}
+
+.hero__sub {
   margin-top: 8rpx;
-  font-size: 44rpx;
-  font-weight: 800;
-  letter-spacing: 1rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.88);
 }
 
-.hero__emoji {
-  font-size: 84rpx;
-  line-height: 1;
-  margin-left: 16rpx;
-}
+/* ── 快捷入口 ─────────────────────────────────────────────── */
 
-.hero__meta {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  margin-top: 28rpx;
-}
-
-.hero__meta .mock-badge {
-  margin-left: 16rpx;
-}
-
-/* 装饰气泡 */
-.bubble--a {
-  width: 140rpx;
-  height: 140rpx;
-  top: -40rpx;
-  right: 90rpx;
-}
-
-.bubble--b {
-  width: 70rpx;
-  height: 70rpx;
-  bottom: 20rpx;
-  right: 30rpx;
-}
-
-.bubble--c {
-  width: 44rpx;
-  height: 44rpx;
-  bottom: 90rpx;
-  left: 20rpx;
-}
-
-/* 快捷入口 */
 .quick {
   display: flex;
-  justify-content: space-between;
-  margin-top: 24rpx;
+  padding: 24rpx 28rpx 0;
 }
 
 .quick__item {
-  width: 23%;
-  padding: 24rpx 8rpx;
+  flex: 1;
+  padding: 22rpx 0 18rpx;
+  background: var(--c-card);
+  border-radius: var(--r-md);
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.quick__item + .quick__item {
+  margin-left: 16rpx;
+}
+
+.quick__icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.quick__label {
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 区块标题 ─────────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 30rpx 28rpx 0;
+}
+
+.section__more {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: var(--c-text-weak);
+}
+
+.section__arrow {
+  width: 24rpx;
+  height: 24rpx;
+  margin-left: 4rpx;
+}
+
+/* ── 人气款式（横向滑动，一屏露出约 2.5 张）────────────────── */
+
+.popular {
+  width: 100%;
+  white-space: nowrap;
+  margin-top: 20rpx;
+}
+
+.popular__row {
+  display: flex;
+  padding: 0 28rpx;
+}
+
+.popular__card {
+  width: 284rpx;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+  background: var(--c-card);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.popular__card:last-child {
+  margin-right: 0;
+}
+
+.popular__photo {
+  width: 100%;
+  height: 166rpx;
+  display: block;
+}
+
+.popular__body {
+  padding: 16rpx 18rpx 20rpx;
+}
+
+.popular__name {
+  font-family: var(--font-serif);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.popular__meta {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.popular__price {
+  margin-top: 10rpx;
+}
+
+/* ── 美甲师 ───────────────────────────────────────────────── */
+
+.staffs {
+  display: flex;
+  padding: 18rpx 28rpx 0;
+}
+
+.staffs__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 圆环与头像分两层：外层画环，内层裁圆，避免图片圆角与描边打架 */
+.staffs__ring {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  border: 3rpx solid var(--c-border);
+  padding: 4rpx;
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.quick__emoji {
-  font-size: 48rpx;
-  line-height: 1;
+/* 设计稿第一位美甲师用主色圆环突出 */
+.staffs__ring.is-featured {
+  border-color: var(--c-primary);
 }
 
-.quick__text {
-  margin-top: 12rpx;
-  font-size: 22rpx;
-  color: var(--c-text-sub);
-}
-
-/* 两列网格：用 margin 而不是 flex gap（gap 在 iOS 老 WKWebView 上不生效） */
-.grid {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.grid__cell {
-  width: 48%;
-  margin-bottom: 20rpx;
-  padding: 20rpx;
-}
-
-.grid__cell:nth-child(odd) {
-  margin-right: 4%;
-}
-
-.grid__thumb {
-  width: 100%;
-  height: 200rpx;
-}
-
-.grid__img {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--r-md);
-}
-
-.grid__name {
-  margin-top: 16rpx;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.grid__meta {
-  margin-top: 4rpx;
-  margin-bottom: 10rpx;
-}
-
-/* 美甲师横向滚动 */
-.staff-scroll {
-  width: 100%;
-  white-space: nowrap;
-}
-
-.staff-row {
-  display: flex;
-  padding-bottom: 8rpx;
-}
-
-.staff {
-  width: 240rpx;
-  flex-shrink: 0;
-  margin-right: 20rpx;
-  padding: 24rpx 20rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.staff:last-child {
-  margin-right: 0;
-}
-
-.staff__avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-}
-
-.staff__img {
+.staffs__avatar {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  font-size: 56rpx;
 }
 
-.staff__name {
+.staffs__name {
   margin-top: 14rpx;
-  font-size: 28rpx;
+  font-size: 24rpx;
   font-weight: 600;
 }
 
-.staff__bio {
-  margin-top: 6rpx;
-  font-size: 22rpx;
+.staffs__bio {
+  margin-top: 4rpx;
+  max-width: 150rpx;
+  font-size: 20rpx;
   color: var(--c-text-weak);
-  text-align: center;
-  white-space: normal;
 }
 
 .empty__action {
