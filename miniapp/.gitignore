@@ -1,0 +1,12 @@
+# 小程序端忽略规则（模块内自管，避免和仓库根 .gitignore 的其它改动混在一起）
+
+node_modules/
+miniprogram_npm/
+
+# 微信开发者工具的「个人配置」：本机 urlCheck / 端口 / 编译偏好等，
+# 属于开发者私有设置，微信官方建议不入库（appid 在 project.config.json 里，已入库）。
+project.private.config.json
+
+# 构建与导出产物
+dist/
+*.log
