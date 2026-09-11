@@ -1,0 +1,207 @@
+/* 会员中心 */
+
+.bind {
+  text-align: center;
+  padding: 48rpx 36rpx;
+}
+
+.bind__emoji {
+  font-size: 88rpx;
+  line-height: 1;
+}
+
+.bind__title {
+  margin-top: 20rpx;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.bind__text {
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+  line-height: 1.7;
+}
+
+.bind__btn {
+  margin-top: 32rpx;
+  line-height: 88rpx;
+  border: none;
+}
+
+.bind__btn::after {
+  border: none;
+}
+
+/* 会员卡头 */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--c-gradient);
+}
+
+.hero__bubble {
+  width: 180rpx;
+  height: 180rpx;
+  top: -60rpx;
+  right: -40rpx;
+}
+
+.hero__row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.hero__avatar {
+  width: 96rpx;
+  height: 96rpx;
+  margin-right: 20rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+}
+
+.hero__name {
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.hero__phone {
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__level {
+  padding: 8rpx 18rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.hero__stats {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  margin-top: 30rpx;
+  padding-top: 26rpx;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.6);
+}
+
+.hero__stat {
+  flex: 1;
+  text-align: center;
+}
+
+.hero__stat-value {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.hero__stat-label {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+/* 余额 */
+.balance {
+  display: flex;
+  align-items: baseline;
+  margin-top: 12rpx;
+  color: var(--c-primary);
+}
+
+.balance__yuan {
+  font-size: 64rpx;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.balance__split {
+  display: flex;
+  margin-top: 24rpx;
+}
+
+.balance__cell {
+  flex: 1;
+  padding: 20rpx;
+  margin-right: 16rpx;
+  border-radius: var(--r-md);
+  background: var(--c-bg-soft);
+}
+
+.balance__cell:last-child {
+  margin-right: 0;
+}
+
+.balance__cell-value {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.balance__cell-label {
+  margin-top: 4rpx;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+/* 次卡 */
+.card-item {
+  margin-bottom: 20rpx;
+}
+
+.card-item.is-dim {
+  opacity: 0.62;
+}
+
+.card-item__name {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.card-item__no {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.card-item__bar {
+  height: 12rpx;
+  margin-top: 20rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary-soft);
+  overflow: hidden;
+}
+
+.card-item__bar-inner {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+}
+
+.card-item__foot {
+  margin-top: 14rpx;
+}
+
+.card-item__remain {
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.card-item__times {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+
+.empty--compact {
+  padding: 60rpx 40rpx;
+}

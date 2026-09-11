@@ -1,0 +1,87 @@
+/* 我的 */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--c-gradient);
+}
+
+.hero__bubble {
+  width: 200rpx;
+  height: 200rpx;
+  top: -70rpx;
+  right: -50rpx;
+}
+
+.hero__row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.hero__avatar {
+  width: 104rpx;
+  height: 104rpx;
+  margin-right: 22rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52rpx;
+}
+
+.hero__title {
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.hero__sub {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__login {
+  position: relative;
+  z-index: 1;
+  margin-top: 26rpx;
+  width: 220rpx;
+}
+
+/* 功能列表 */
+.menu {
+  padding: 8rpx 28rpx;
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  height: 108rpx;
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.menu__item--last {
+  border-bottom: none;
+}
+
+.menu__icon {
+  width: 56rpx;
+  font-size: 36rpx;
+}
+
+.menu__value {
+  margin-right: 12rpx;
+  font-size: 24rpx;
+  color: var(--c-text-weak);
+}
+
+.menu__arrow {
+  color: var(--c-text-weak);
+  font-size: 34rpx;
+}
+
+.logout {
+  margin-top: 40rpx;
+}

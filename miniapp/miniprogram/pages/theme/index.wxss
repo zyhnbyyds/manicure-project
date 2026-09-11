@@ -1,0 +1,161 @@
+/* 主题设置 */
+
+.hero {
+  background: var(--c-gradient);
+}
+
+.hero__row {
+  display: flex;
+  align-items: center;
+}
+
+.hero__emoji {
+  width: 96rpx;
+  height: 96rpx;
+  margin-right: 20rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+}
+
+.hero__label {
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.hero__name {
+  margin-top: 4rpx;
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+/* 预览 */
+.preview__title {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.preview__tags {
+  display: flex;
+  margin: 18rpx 0 6rpx;
+}
+
+.preview__tags .tag {
+  margin-right: 12rpx;
+}
+
+.preview__btn {
+  margin-top: 18rpx;
+}
+
+/* 预设网格 */
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.preset {
+  width: 48%;
+  margin-bottom: 20rpx;
+  padding: 22rpx 20rpx;
+  border: 2rpx solid transparent;
+}
+
+.preset:nth-child(odd) {
+  margin-right: 4%;
+}
+
+.preset.is-active {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.preset__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.preset__emoji {
+  font-size: 44rpx;
+  line-height: 1;
+}
+
+.preset__check {
+  font-size: 24rpx;
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.preset__name {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.preset__desc {
+  margin-top: 4rpx;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+  min-height: 56rpx;
+  line-height: 1.4;
+}
+
+.preset__swatch {
+  display: flex;
+  margin-top: 12rpx;
+}
+
+.preset__dot {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  margin-right: 10rpx;
+  border: 2rpx solid rgba(0, 0, 0, 0.04);
+}
+
+.preset__dot--bg {
+  border: 2rpx solid var(--c-border);
+}
+
+/* 色板 */
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.palette__item {
+  width: 92rpx;
+  height: 92rpx;
+  margin: 0 18rpx 18rpx 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid transparent;
+  box-sizing: border-box;
+}
+
+.palette__item.is-active {
+  border-color: var(--c-text);
+}
+
+.palette__check {
+  color: #ffffff;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.palette__hint {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+  line-height: 1.6;
+}
+
+.reset-btn {
+  margin-top: 32rpx;
+}

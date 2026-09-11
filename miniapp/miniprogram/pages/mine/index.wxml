@@ -1,0 +1,48 @@
+<view class="page page-with-tabbar" style="{{themeStyle}}">
+  <view class="page-body">
+    <!-- 用户卡 -->
+    <view class="card hero">
+      <view class="bubble hero__bubble"></view>
+      <view class="hero__row">
+        <view class="hero__avatar">{{themeEmoji}}</view>
+        <view class="grow">
+          <view class="hero__title">你好，小仙女</view>
+          <view class="hero__sub">{{bindText}}</view>
+        </view>
+        <view wx:if="{{isMock}}" class="mock-badge">{{mockBadge}}</view>
+      </view>
+      <view wx:if="{{!bound}}" class="hero__login btn btn--primary btn--sm" bindtap="onLogin">
+        {{logging ? '登录中…' : '立即登录'}}
+      </view>
+    </view>
+
+    <!-- 功能入口 -->
+    <view class="card menu">
+      <view class="menu__item" bindtap="goBookings">
+        <view class="menu__icon">📅</view>
+        <view class="grow">我的预约</view>
+        <view class="menu__arrow">›</view>
+      </view>
+      <view class="menu__item" bindtap="goMember">
+        <view class="menu__icon">🎀</view>
+        <view class="grow">会员中心</view>
+        <view class="menu__value" wx:if="{{bound}}">余额 · 积分 · 次卡</view>
+        <view class="menu__arrow">›</view>
+      </view>
+      <view class="menu__item" bindtap="goTheme">
+        <view class="menu__icon">🎨</view>
+        <view class="grow">主题设置</view>
+        <view class="menu__value">{{themeLine}}</view>
+        <view class="menu__arrow">›</view>
+      </view>
+      <view class="menu__item menu__item--last" bindtap="onAbout">
+        <view class="menu__icon">💬</view>
+        <view class="grow">关于我们</view>
+        <view class="menu__arrow">›</view>
+      </view>
+    </view>
+
+    <view wx:if="{{bound}}" class="btn btn--ghost btn--block logout" bindtap="onLogout">退出登录</view>
+    <view class="safe-bottom"></view>
+  </view>
+</view>

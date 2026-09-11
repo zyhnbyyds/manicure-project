@@ -6,7 +6,10 @@
     "pages/staffs/index",
     "pages/slots/index",
     "pages/confirm/index",
-    "pages/bookings/index"
+    "pages/bookings/index",
+    "pages/member/index",
+    "pages/mine/index",
+    "pages/theme/index"
   ],
   "window": {
     "navigationStyle": "default",
@@ -16,6 +19,18 @@
     "backgroundColor": "#FFF5F8",
     "backgroundTextStyle": "light",
     "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#BDA3AC",
+    "selectedColor": "#FF8BA7",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页" },
+      { "pagePath": "pages/bookings/index", "text": "预约" },
+      { "pagePath": "pages/mine/index", "text": "我的" }
+    ]
   },
   "style": "v2",
   "componentFramework": "glass-easel",

@@ -1,0 +1,46 @@
+/* 自定义 TabBar：白底 + 上方大圆角 + 主题色淡阴影，选中项轻微上浮 */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 12rpx 12rpx calc(12rpx + env(safe-area-inset-bottom));
+  background: var(--c-card, #ffffff);
+  box-shadow: 0 -6rpx 24rpx var(--c-shadow, rgba(255, 139, 167, 0.16));
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+}
+
+.tabbar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabbar__icon {
+  font-size: 42rpx;
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.tabbar__label {
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  color: var(--c-text-weak, #bda3ac);
+  transition: color 0.18s ease;
+}
+
+.is-active .tabbar__icon {
+  transform: translateY(-4rpx) scale(1.14);
+}
+
+.is-active .tabbar__label {
+  color: var(--c-primary, #ff8ba7);
+  font-weight: 600;
+}

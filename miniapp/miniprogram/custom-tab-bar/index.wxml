@@ -1,0 +1,13 @@
+<view class="tabbar" style="{{themeStyle}}">
+  <view
+    wx:for="{{tabs}}"
+    wx:key="pagePath"
+    class="tabbar__item {{selected === index ? 'is-active' : ''}}"
+    data-index="{{index}}"
+    bindtap="onTap"
+    hover-class="none"
+  >
+    <view class="tabbar__icon">{{item.emoji}}</view>
+    <view class="tabbar__label" style="{{selected === index ? '' : 'color:' + idleColor}}">{{item.text}}</view>
+  </view>
+</view>
