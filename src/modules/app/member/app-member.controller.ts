@@ -75,12 +75,13 @@ export class AppMemberController {
     return this.member.me(appUser.id);
   }
 
-  /* ------------------------------------------------------------------ *
-   * 以下为契约骨架：路由 + Zod schema + Swagger 已冻结，业务返回 501（不落库）
-   * ------------------------------------------------------------------ */
-
   @Get('member/cards')
-  @ApiOperation({ summary: '我的次卡列表（契约骨架，本期返回 501）' })
+  @ApiOperation({
+    summary: '我的次卡列表',
+    description:
+      '仅本人卡；状态按「到店是否真能用」现算（与后台 `assertUsable` 同一套规则），' +
+      '不依赖定时任务是否已把 `expire_at` 翻成 expired。字段只有卡面信息，无成本 / 无备注。',
+  })
   @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
   @ApiQuery({
     name: 'pageSize',
@@ -93,12 +94,21 @@ export class AppMemberController {
     required: false,
     description: '按状态过滤 active/used_up/expired/refunded',
   })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppMemberCardListVo' },
+  })
   @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
-  @ApiResponse({ status: 501, description: '本期未实现' })
-  cards(@Query() query: Record<string, unknown>): never {
-    appMemberCardsQuerySchema.parse(query);
-    throw new NotImplementedException('我的次卡列表将在 P2 小程序端实现');
+  cards(@Req() request: AppRequest, @Query() query: Record<string, unknown>) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.cards(appUser.id, appMemberCardsQuerySchema.parse(query));
   }
+
+  /* ------------------------------------------------------------------ *
+   * 以下为契约骨架：路由 + Zod schema + Swagger 已冻结，业务返回 501（不落库）
+   * ------------------------------------------------------------------ */
 
   @Get('bookings')
   @ApiOperation({ summary: '我的预约列表（契约骨架，本期返回 501）' })

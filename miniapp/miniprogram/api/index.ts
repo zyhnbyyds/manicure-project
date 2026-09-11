@@ -10,10 +10,10 @@
  *   mock 开 → 返回演示数据；否则 → 打真实 `/api/v1/app/**`。
  * 两边的返回类型完全相同（`api/types.ts`），所以页面代码在切换时零改动。
  *
- * 本期后端的状态（spec §9.7）：
- * - 真实现：login、service-items、staffs、available-slots、member/me
- * - 501 骨架：auth/phone、bookings(GET/POST)、bookings/:id/cancel、member/cards、
- *   reviews、payments/wxpay/jsapi、subscribe
+ * 后端当前状态（spec §9.7 + 施工单 A8/A9）：
+ * - 真实现：login、auth/phone、service-items、staffs、available-slots、member/me、member/cards
+ * - 501 骨架：bookings(GET/POST)、bookings/:id/cancel、reviews、
+ *   payments/wxpay/jsapi、subscribe
  * 骨架接口在真接口模式下会抛「这个功能马上就来啦～」（`utils/request.ts` 里把 501 收敛了）。
  */
 import { isMockEnabled } from '../config';

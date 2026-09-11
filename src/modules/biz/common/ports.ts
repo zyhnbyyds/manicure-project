@@ -427,6 +427,14 @@ export abstract class MemberCardPort {
     serviceItemIds: number[],
   ): Promise<MemberCardRow>;
   abstract expireCards(): Promise<{ expired: number }>;
+  /**
+   * 某顾客名下的次卡（app 域「我的次卡」A9 用），按 id 倒序、不含软删。
+   *
+   * 上限 200 条：次卡是低频资产，C 端也不该无限翻页。
+   * **只返回卡本身**：可用与否由调用方按 `assertUsable` 的同一套规则判定
+   * （见 `app-member.service.ts` 的 `displayCardStatus`），端口不替调用方下结论。
+   */
+  abstract listByCustomer(customerId: number): Promise<MemberCardRow[]>;
 }
 
 /* ------------------------------------------------------------------ *

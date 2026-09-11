@@ -256,7 +256,14 @@ export const appMemberCardVo = z.object({
 registerComponent('AppMemberCardVo', appMemberCardVo);
 export type AppMemberCardVo = z.infer<typeof appMemberCardVo>;
 
-export const appMemberCardsQuerySchema = z.object({
+/**
+ * 「我的次卡」入参。
+ *
+ * A9 补上了分页：控制器与 `AppMemberCardListVo` **本来就声明了** `page/pageSize`
+ * （响应里有、Swagger 里也写了），原 schema 只有 `status`，等于入参这一半漏了。
+ * 与 `appBookingListQuerySchema` 一样扩展 `appListQuerySchema`，属于补齐而非改契约。
+ */
+export const appMemberCardsQuerySchema = appListQuerySchema.extend({
   status: z
     .enum(['active', 'used_up', 'expired', 'refunded'])
     .optional()

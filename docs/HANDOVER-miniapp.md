@@ -11,7 +11,7 @@
 - **小程序端**：10 个页面已落地，主题系统可用，模拟器里跑得起来（截图验证过 3 页），**接的是演示数据**。
 - **后端**：app 域身份域扩出「美甲师工作台」数据层，微信能力已端口化，手机号绑定转真实现，**10 条集成用例全绿**。
 - **美甲师工作台（S2 ~ S5）已全线完成**：后端只读 5 接口 + 写 2 接口 + 真号端点，后台授权页、小程序 4 个工作台页面与双模式 TabBar 都已落地。
-- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；剩 A9~A14 真实现与 A19 devtools 脚本。
+- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；A9 我的次卡已转真实现；剩 A11~A14 与 A19 devtools 脚本。
 - **P0-1 已完成**：后台可筛选 / 恢复软删顾客，小程序手机号绑定 409 分支已闭环，恢复后可重新绑定；
 - 全量测试：**907 pass / 0 fail**；后端 typecheck / lint、前端 typecheck / lint 通过；工作区干净（无未提交改动）。
 
@@ -115,12 +115,12 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 | #   | 任务                                               | 说明                                                                                                           |
 | --- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | 9   | ✅ **G2**：补「未配置凭据 → 503」用例             | 已完成：`harness.createTestContext` 新增 `providers` 覆盖位，注入「空凭据」的 `HttpWxMiniappProvider` → 登录/绑手机号都 503 且不落身份；另加 `wx-miniapp.provider.spec.ts` 8 条单测（含 `configured=false` 但有值、半套凭据、以及**反证**：凭据齐全时不 503）。**集成环境永远走假实现，这条分支只能靠注入真实现来验** |
-| 10  | ✅ **G4**：8 个 501 骨架端点用例 + 不落库断言     | 已完成：常量 `SKELETON_ROUTES`（8 条，与 spec §16.1 逐条对应）逐个断言 501 + 调用前后 6 张表行数不变 + 非法入参仍是 400（不是「一律 501」）+ 除支付回调外都要 app token。新增 `tests/integration/b6-app-contract.int.spec.ts` |
-| 11  | ✅ **G5**：修 spec 骨架条数口径                   | 已统一为 **8 条**：spec §12 B6 / §16.1 / 施工单 §2.1 + G4 + A3/A7 全部改为 8，并写明 `POST /app/auth/phone` 由 A8 转真实现、已移出骨架清单（原「9」是把它算在内）。口径现在由 G4 用例的 `SKELETON_ROUTES` 长度钉住 |
+| 10  | ✅ **G4**：7 个 501 骨架端点用例 + 不落库断言     | 已完成：常量 `SKELETON_ROUTES`（与 spec §16.1 逐条对应）逐个断言 501 + 调用前后 6 张表行数不变 + 非法入参仍是 400（不是「一律 501」）+ 除支付回调外都要 app token。新增 `tests/integration/b6-app-contract.int.spec.ts`。**每实现一个 P2 端点这里就少一条，条数即进度**（A9 后 8 → 7） |
+| 11  | ✅ **G5**：修 spec 骨架条数口径                   | 已统一为 **7 条**（auth/phone、member/cards 转真实现后移出）：spec §12 B6 / §16.1 / 施工单 §2.1 + G4 + A3/A7 全部改为 **7**，并写明 `POST /app/auth/phone`（A8）与 `GET /app/member/cards`（A9）已转真实现、移出骨架清单（原「9」是两者都算进 501）。口径现在由 G4 用例的 `SKELETON_ROUTES` 长度钉住 |
 | 12  | ✅ **G6/G7**：收紧 `available-slots` 一致性断言   | 已完成：去掉「两边都非空才比对」的空集豁免，未来某天两边**必须完全相等**；新增 G7 用例断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟（班次相对当前时间铺开 + `Intl` 算店内墙钟，深夜自动 skip）。已做变异验证：把小程序渠道的 `minLeadMinutes` 换成 0，用例立刻红 |
 | 13  | ✅ **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 已完成：9 个顶层字段 + 7 个次卡字段字面量锁定（无成本/无 `memberNo`/无 `remark`）；换 openid 只看到自己、等级与折扣率各不相同，`?customerId=` 入参被忽略；顾客档案软删 → 401 + `needBind` |
 | 14  | ✅ **G9**：限流 429 + Swagger app 分组断言        | **已完成并修出一个真 bug**：`@fastify/rate-limit` 抛的是「普通 `Error` + `statusCode=429`」，`GlobalExceptionFilter` 只认 `HttpException`，于是限流**静默降级成 500**（还每次打一条 ERROR 堆栈）。已在过滤器加「Fastify 4xx 透传」分支（5xx 仍兜底 500），现在第 11 次登录真返回 429 + `retry-after`。Swagger 侧断言 app 端点都归「小程序端」分组、回调端点不挂 app-token |
-| 15  | **A9/A11/A12/A13/A14**                             | `member/cards`、`reviews`、`subscribe`、支付回调业务层（假验签器）、`app_wx_user_bind_log`                     |
+| 15  | 🟡 **A9/A11/A12/A13/A14**                          | **A9 `/app/member/cards` 已完成**（新增 `MemberCardPort.listByCustomer`；状态按「到店是否真能用」现算，与 `assertUsable` 同规则；字段 7 个、无成本/备注；分页 + 状态过滤；集成 3 条）。剩 `reviews`(A11)、`subscribe`(A12)、支付回调业务层(A13，**触钱**)、`app_wx_user_bind_log`(A14，需新表 + 迁移) |
 | 16  | **A19**：`scripts/devtools.mjs` 自证脚本           | 封装「绝对路径调 wechatide + 首次授权轮询 + 编译→跳页→截图→拉 console」。**注意截图返回 `.png` 但内容是 JPEG** |
 
 ---

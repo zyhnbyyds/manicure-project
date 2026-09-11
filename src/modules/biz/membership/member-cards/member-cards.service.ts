@@ -446,7 +446,9 @@ export class MemberCardsService extends MemberCardPort {
   }
 
   /** 会员详情用：某会员的全部次卡（按 id 倒序） */
-  async listByCustomer(customerId: number): Promise<MemberCardRecord[]> {
+  override async listByCustomer(
+    customerId: number,
+  ): Promise<MemberCardRecord[]> {
     return this.database.db
       .select()
       .from(bizMemberCards)

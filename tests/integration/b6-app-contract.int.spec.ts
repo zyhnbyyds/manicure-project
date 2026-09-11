@@ -20,7 +20,12 @@ let ctx: TestContext;
 let noCredentialCtx: TestContext;
 let date: string;
 
-/** 骨架端点清单：**必须与 spec §16.1 的 501 清单逐条对应**（G5 的口径落点） */
+/**
+ * 骨架端点清单：**必须与 spec §16.1 的 501 清单逐条对应**（G5 的口径落点）。
+ *
+ * `GET /app/member/cards` 已由 A9 换成真实现，从清单里移出（8 → 7）。
+ * 每实现一个 P2 端点，这里就少一条——条数即进度。
+ */
 const SKELETON_ROUTES: {
   name: string;
   method: string;
@@ -29,7 +34,6 @@ const SKELETON_ROUTES: {
   /** 是否需要 app token（支付回调是渠道回调，天生不带 token） */
   guarded: boolean;
 }[] = [
-  { name: '我的次卡列表', method: 'GET', path: '/api/v1/app/member/cards', guarded: true },
   { name: '我的预约列表', method: 'GET', path: '/api/v1/app/bookings', guarded: true },
   {
     name: '自助下单',
@@ -104,6 +108,15 @@ async function seedBoundAppUser(
   return { appUserId, token: await ctx.appToken(openid, appUserId) };
 }
 
+/** 造一个只有基本档案的顾客（次卡 / 等级另配） */
+async function seedCustomer(name: string, phone: string): Promise<number> {
+  const inserted = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO biz_customer (name, phone) VALUES (?, ?)`,
+    [name, phone],
+  );
+  return inserted.insertId;
+}
+
 /**
  * 造一个「有等级 / 有积分 / 有余额 / 有次卡」的顾客。
  * 用真实账务列而不是走业务接口：这一组用例验的是 **读** 出来的字段集合，
@@ -176,11 +189,11 @@ afterAll(async () => {
 
 /* ------------------------------------------------------------------ */
 
-describe('B6 契约骨架：8 个 501 端点（G4 / G5）', () => {
+describe('B6 契约骨架：501 端点清单（G4 / G5）', () => {
   it('清单条数与 spec §16.1 一致（8 个），且全部返回 501', async () => {
     // 口径锚点：spec §12 原写 5 个、§16.1 列 8 个、代码 9 个（含已转真实现的 auth/phone）。
-    // 现在统一为 8；`POST /app/auth/phone` 已由 A8 换成真实现，不再是骨架。
-    expect(SKELETON_ROUTES).toHaveLength(8);
+    // 统一到 8 之后，`POST /app/auth/phone`（A8）与 `GET /app/member/cards`（A9）又各自转成真实现 → 7。
+    expect(SKELETON_ROUTES).toHaveLength(7);
 
     const { token } = await seedBoundAppUser('openid-skeleton', null);
     for (const route of SKELETON_ROUTES) {
@@ -377,6 +390,154 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
     const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(me.status).toBe(401);
     expect(me.body.needBind).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 我的次卡 /app/member/cards（A9）', () => {
+  /** 造一张卡；`expireAt` 传 null 表示长期有效 */
+  async function seedCard(
+    customerId: number,
+    options: {
+      cardNo: string;
+      cardName: string;
+      totalTimes?: number;
+      usedTimes?: number;
+      expireAt?: Date | null;
+      status?: 'active' | 'used_up' | 'expired' | 'refunded';
+    },
+  ): Promise<void> {
+    const types = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_member_card_type (name, price, total_times, valid_days)
+       VALUES (?, 100000, 10, 365)`,
+      [`卡种-${options.cardNo}`],
+    );
+    await ctx.sql(
+      `INSERT INTO biz_member_card
+         (card_no, customer_id, card_type_id, card_name, total_times, used_times,
+          price, pay_channel, purchased_at, expire_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, 100000, 'wechat', NOW(), ?, ?)`,
+      [
+        options.cardNo,
+        customerId,
+        types.insertId,
+        options.cardName,
+        options.totalTimes ?? 10,
+        options.usedTimes ?? 0,
+        options.expireAt ?? null,
+        options.status ?? 'active',
+      ],
+    );
+  }
+
+  it('只出本人的卡；字段集合固定，无成本 / 无备注 / 无顾客 ID', async () => {
+    const mineId = await seedCustomer('李女士', '13800000031');
+    const otherId = await seedCustomer('王女士', '13800000032');
+    await seedCard(mineId, { cardNo: 'C-MINE', cardName: '十次卡' });
+    await seedCard(otherId, { cardNo: 'C-OTHER', cardName: '五次卡' });
+
+    const mine = await seedBoundAppUser('openid-cards-mine', mineId);
+    const response = await ctx.request('GET', '/api/v1/app/member/cards', {
+      token: mine.token,
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0].cardNo).toBe('C-MINE');
+    expect(Object.keys(response.body.items[0]).sort()).toEqual(
+      [
+        'cardName',
+        'cardNo',
+        'expireAt',
+        'id',
+        'status',
+        'totalTimes',
+        'usedTimes',
+      ].sort(),
+    );
+    // 分页壳在，`total` 依然不给（app 域列表统一无 total）
+    expect(response.body.page).toBe(1);
+    expect(response.body).not.toHaveProperty('total');
+  });
+
+  it('状态按「到店是否真能用」现算：过期与用完不依赖定时任务', async () => {
+    const customerId = await seedCustomer('赵女士', '13800000033');
+    await seedCard(customerId, {
+      cardNo: 'C-OK',
+      cardName: '可用卡',
+      usedTimes: 2,
+      expireAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+    });
+    // 过期：status 仍是 active，但 expire_at 已经过了
+    await seedCard(customerId, {
+      cardNo: 'C-EXPIRED',
+      cardName: '过期卡',
+      expireAt: new Date(Date.now() - 24 * 3600 * 1000),
+    });
+    // 用完：次数满了但状态没翻
+    await seedCard(customerId, {
+      cardNo: 'C-USEDUP',
+      cardName: '用完卡',
+      totalTimes: 5,
+      usedTimes: 5,
+    });
+
+    const { token } = await seedBoundAppUser('openid-cards-status', customerId);
+    const response = await ctx.request('GET', '/api/v1/app/member/cards', {
+      token,
+    });
+    expect(response.status).toBe(200);
+    const byNo = Object.fromEntries(
+      response.body.items.map((item: any) => [item.cardNo, item.status]),
+    );
+    expect(byNo).toEqual({
+      'C-USEDUP': 'used_up',
+      'C-EXPIRED': 'expired',
+      'C-OK': 'active',
+    });
+
+    // 过滤也按展示态走：只给「真能用」的
+    const activeOnly = await ctx.request(
+      'GET',
+      '/api/v1/app/member/cards?status=active',
+      { token },
+    );
+    expect(activeOnly.body.items.map((item: any) => item.cardNo)).toEqual([
+      'C-OK',
+    ]);
+  });
+
+  it('分页生效；未绑定手机号 → 401 + needBind', async () => {
+    const customerId = await seedCustomer('孙女士', '13800000034');
+    for (const i of [1, 2, 3])
+      await seedCard(customerId, {
+        cardNo: `C-PAGE-${i}`,
+        cardName: `次卡${i}`,
+      });
+
+    const { token } = await seedBoundAppUser('openid-cards-page', customerId);
+    const firstPage = await ctx.request(
+      'GET',
+      '/api/v1/app/member/cards?page=1&pageSize=2',
+      { token },
+    );
+    expect(firstPage.status).toBe(200);
+    expect(firstPage.body.items).toHaveLength(2);
+    expect(firstPage.body.pageSize).toBe(2);
+
+    const secondPage = await ctx.request(
+      'GET',
+      '/api/v1/app/member/cards?page=2&pageSize=2',
+      { token },
+    );
+    expect(secondPage.body.items).toHaveLength(1);
+
+    const unbound = await seedBoundAppUser('openid-cards-unbound', null);
+    const denied = await ctx.request('GET', '/api/v1/app/member/cards', {
+      token: unbound.token,
+    });
+    expect(denied.status).toBe(401);
+    expect(denied.body.needBind).toBe(true);
   });
 });
 
