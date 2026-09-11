@@ -10,13 +10,7 @@
       <!-- 预约摘要：美甲师 + 日期时间 + 预计时长 -->
       <view class="card summary">
         <view class="summary__row">
-          <image
-            wx:if="{{staffAvatar}}"
-            class="summary__avatar"
-            src="{{staffAvatar}}"
-            mode="aspectFill"
-          />
-          <view wx:else class="summary__avatar summary__avatar--emoji">{{staffEmoji}}</view>
+          <image class="summary__avatar" src="{{staffAvatar}}" mode="aspectFill" />
           <view class="grow">
             <view class="summary__staff">{{staffName}}</view>
             <view class="summary__time">{{dateText}} {{timeText}}</view>

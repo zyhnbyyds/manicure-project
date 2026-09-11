@@ -64,7 +64,10 @@
         <view class="bcard__no">预约单号</view>
         <view class="bcard__no-value ellipsis">{{item.bookingNo}}</view>
         <view class="bcard__when">{{item.dateText}} {{item.timeText}}</view>
-        <view class="bcard__staff ellipsis">{{item.staffEmoji}} {{item.staffName}}</view>
+        <view class="bcard__staff ellipsis">
+          <image class="bcard__staff-avatar" src="{{item.staffAvatarResolved}}" mode="aspectFill" />
+          {{item.staffName}}
+        </view>
         <view class="bcard__items ellipsis-2">{{item.itemNames}}</view>
         <view class="bcard__foot">
           <view class="bcard__amount">¥{{item.payableText}}</view>

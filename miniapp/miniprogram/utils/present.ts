@@ -275,6 +275,8 @@ export interface BookingVM {
   bookingNo: string;
   staffName: string;
   staffEmoji: string;
+  /** 美甲师头像：订单里只有 staffId，用本地占位图兜底（**不用 emoji**） */
+  staffAvatarResolved: string;
   /** 原始状态与资金状态：筛选/按钮显隐要用，不能只留展示文案 */
   status: Booking['status'];
   payStatus: Booking['payStatus'];
@@ -314,6 +316,10 @@ export function toBookingVM(booking: Booking): BookingVM {
     bookingNo: booking.bookingNo,
     staffName: booking.staffName ?? '到店安排',
     staffEmoji: staffEmoji(booking.staffId),
+    staffAvatarResolved: resolveStaffAvatar({
+      id: booking.staffId,
+      avatar: null,
+    }),
     status: booking.status,
     payStatus: booking.payStatus,
     startAt: booking.startAt,

@@ -155,9 +155,19 @@
 }
 
 .bcard__staff {
+  display: flex;
+  align-items: center;
   margin-top: 8rpx;
   font-size: 22rpx;
   color: var(--c-text-sub);
+}
+
+.bcard__staff-avatar {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  margin-right: 10rpx;
+  flex-shrink: 0;
 }
 
 .bcard__items {

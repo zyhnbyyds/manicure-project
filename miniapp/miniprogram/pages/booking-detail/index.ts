@@ -5,7 +5,7 @@ import { fenToYuan, formatDuration, formatTimeRange, formatDateTimeLabel } from 
 import { buildIcons, type IconName } from '../../utils/icons';
 import { goPay, goReview } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
-import { staffEmoji } from '../../utils/present';
+import { resolveStaffAvatar } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { confirm, toast } from '../../utils/ui';
 
@@ -36,7 +36,8 @@ Page({
     booking: null as Booking | null,
     statusText: '',
     statusTone: '',
-    staffEmojiText: '',
+    /** 美甲师头像：订单里只有 staffId，用本地占位头像兜底（**不用 emoji**，见视觉口径） */
+    staffAvatar: '',
     dateText: '',
     timeText: '',
     durationText: '',
@@ -91,7 +92,7 @@ Page({
             : found.status === 'completed'
               ? 'done'
               : 'active',
-        staffEmojiText: staffEmoji(found.staffId),
+        staffAvatar: resolveStaffAvatar({ id: found.staffId, avatar: null }),
         dateText: formatDateTimeLabel(found.startAt).replace(/\s\d{2}:\d{2}$/, ''),
         timeText: formatTimeRange(found.startAt, found.endAt),
         durationText: formatDuration(durationMinutes),

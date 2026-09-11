@@ -58,8 +58,12 @@
   color: var(--c-text-sub);
 }
 
-.hero__staff-emoji {
-  margin-right: 8rpx;
+.hero__staff-avatar {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  margin-right: 10rpx;
+  flex-shrink: 0;
 }
 
 .hero__duration {

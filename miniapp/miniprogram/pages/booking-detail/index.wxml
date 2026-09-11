@@ -16,7 +16,7 @@
         </view>
         <view class="hero__when">{{dateText}} · {{timeText}}</view>
         <view class="hero__staff">
-          <text class="hero__staff-emoji">{{staffEmojiText}}</text>
+          <image class="hero__staff-avatar" src="{{staffAvatar}}" mode="aspectFill" />
           {{booking.staffName}}
           <text class="hero__duration">共 {{durationText}}</text>
         </view>

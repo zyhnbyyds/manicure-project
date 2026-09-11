@@ -15,7 +15,7 @@ import {
 } from '../../utils/format';
 import { goBookings } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
-import { staffEmoji } from '../../utils/present';
+import { resolveStaffAvatar, staffEmoji } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
 
@@ -99,7 +99,7 @@ Page({
       })),
       staffName: snapshot.staff.nickname,
       staffEmoji: staffEmoji(snapshot.staff.id),
-      staffAvatar: snapshot.staff.avatar ?? '',
+      staffAvatar: resolveStaffAvatar({ id: snapshot.staff.id, avatar: snapshot.staff.avatar }),
       dateText: formatDateTimeLabel(snapshot.slot.startAt).replace(/\s\d{2}:\d{2}$/, ''),
       timeText: formatTimeRange(snapshot.slot.startAt, snapshot.slot.endAt),
       durationText: formatDuration(totals.durationMinutes),
