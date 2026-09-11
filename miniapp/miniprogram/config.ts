@@ -39,3 +39,9 @@ export function setMockEnabled(enabled: boolean): void {
 
 /** 演示数据在多个页面都要提示，统一一处文案 */
 export const MOCK_BADGE_TEXT = '演示数据';
+
+/**
+ * 演示模式下假装已绑定的顾客 ID。
+ * 放在 config 而不是 mock 里，是为了让 `store/auth.ts` 不必反向依赖 mock 模块。
+ */
+export const DEMO_CUSTOMER_ID = 1001;
