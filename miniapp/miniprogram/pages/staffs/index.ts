@@ -1,4 +1,4 @@
-import { catalogApi } from '../../api';
+import { catalogApi } from '../../api/index';
 import { getDraftItems, setDraftStaff } from '../../store/draft';
 import { fenToYuan, formatDuration } from '../../utils/format';
 import { goServices, goSlots } from '../../utils/nav';

@@ -1,4 +1,4 @@
-import { bookingApi } from '../../api';
+import { bookingApi } from '../../api/index';
 import { ensureLogin, bindPhone, isBound } from '../../store/auth';
 import {
   clearDraft,

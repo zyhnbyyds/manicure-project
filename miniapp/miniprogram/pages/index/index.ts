@@ -1,4 +1,4 @@
-import { catalogApi } from '../../api';
+import { catalogApi } from '../../api/index';
 import { goBookings, goServiceDetail, goServices, goStaffs } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import {

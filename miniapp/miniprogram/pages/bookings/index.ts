@@ -1,4 +1,4 @@
-import { bookingApi } from '../../api';
+import { bookingApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
 import { goServices } from '../../utils/nav';
 import { basePageData } from '../../utils/page';

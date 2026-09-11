@@ -1,4 +1,4 @@
-import { memberApi } from '../../api';
+import { memberApi } from '../../api/index';
 import { bindPhone, isBound } from '../../store/auth';
 import { basePageData } from '../../utils/page';
 import { toMemberMeVM, type MemberMeVM } from '../../utils/present';

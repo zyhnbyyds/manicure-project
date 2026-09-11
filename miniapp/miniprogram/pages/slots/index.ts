@@ -1,4 +1,4 @@
-import { catalogApi } from '../../api';
+import { catalogApi } from '../../api/index';
 import { getDraftItems, getDraftStaff, setDraftSlot } from '../../store/draft';
 import { buildDateChips, fenToYuan, formatDuration, formatSlotReason, type DateChip } from '../../utils/format';
 import { goConfirm } from '../../utils/nav';

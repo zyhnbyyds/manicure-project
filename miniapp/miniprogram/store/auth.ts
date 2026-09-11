@@ -10,7 +10,9 @@
  *   不加锁会打出多个 `wx.login` + 多次登录请求；
  * - 未绑定手机号不是错误状态，是「仅浏览」状态，所以 `isBound()` 与 `isLoggedIn()` 分开。
  */
-import { authApi } from '../api';
+// 必须写显式文件路径：小程序的模块解析不认目录导入（`'../api'` 编译成 require('../api') 会报
+// module 'api.js' is not defined），这点和 Node/TS 的默认行为不同。
+import { authApi } from '../api/index';
 import { DEMO_CUSTOMER_ID, isMockEnabled } from '../config';
 import { setBoundCustomerId, clearAuth, getBoundCustomerId, getToken, setToken } from '../utils/token';
 
