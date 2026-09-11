@@ -3,7 +3,7 @@ import { setDraftItems } from '../../store/draft';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goServiceDetail, goStaffs } from '../../utils/nav';
+import { goServiceDetail, goSlots } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toServiceItemVM, type ServiceItemVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
@@ -191,7 +191,9 @@ Page({
     }
     // 写草稿时会自动清空下游选择（美甲师/时段），见 store/draft.ts
     setDraftItems(selected);
-    goStaffs();
+    // **直接进「预约美甲」页**：设计稿第 4 屏把「选时间 + 选美甲师」合并在一页，
+    // 若先跳独立的「选美甲师」页会让人选两遍（验证时实际踩到过）。
+    goSlots();
   },
 
   onRetry() {
