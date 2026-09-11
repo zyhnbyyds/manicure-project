@@ -89,6 +89,11 @@ export function goCardDetail(cardId?: number): void {
   wx.navigateTo({ url: `/pages/card-detail/index${query}` });
 }
 
+/** 积分兑换 */
+export function goPoints(): void {
+  wx.navigateTo({ url: '/pages/points/index' });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

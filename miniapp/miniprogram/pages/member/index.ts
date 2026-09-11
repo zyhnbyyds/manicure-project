@@ -3,7 +3,7 @@ import { bindPhone, isBound } from '../../store/auth';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDiscount } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goCardDetail, goRecharge } from '../../utils/nav';
+import { goCardDetail, goPoints, goRecharge } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
@@ -148,7 +148,7 @@ Page({
   },
 
   onPoints() {
-    toast('积分兑换开发中');
+    goPoints();
   },
 
   onRetry() {

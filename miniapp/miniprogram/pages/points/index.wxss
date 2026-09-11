@@ -1,0 +1,163 @@
+/* 积分兑换 —— 对齐 docs/manicure-ui-batch4 第 3 屏 */
+
+.points-body {
+  padding-bottom: 60rpx;
+}
+
+/* ── 积分卡 ───────────────────────────────────────────────── */
+
+.score {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 34rpx 32rpx;
+  border-radius: var(--r-lg);
+  background: var(--c-gradient);
+}
+
+.score__circle {
+  position: absolute;
+  width: 220rpx;
+  height: 220rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  top: -80rpx;
+  right: -50rpx;
+}
+
+.score__left,
+.score__right {
+  position: relative;
+}
+
+.score__right {
+  text-align: right;
+}
+
+.score__label {
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.score__value {
+  margin-top: 8rpx;
+  font-family: var(--font-serif);
+  font-size: 68rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.score__today {
+  margin-top: 8rpx;
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--c-primary);
+}
+
+/* ── 分类 ─────────────────────────────────────────────────── */
+
+.cats {
+  width: 100%;
+  white-space: nowrap;
+  margin-top: 28rpx;
+}
+
+.cats__row {
+  display: flex;
+}
+
+.chip {
+  flex-shrink: 0;
+  height: 58rpx;
+  line-height: 58rpx;
+  padding: 0 26rpx;
+  margin-right: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-card);
+  color: var(--c-text-sub);
+  font-size: 24rpx;
+}
+
+.chip.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+/* ── 商品网格：两列 ───────────────────────────────────────── */
+
+.goods {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 24rpx;
+}
+
+.good {
+  width: 48%;
+  margin-bottom: 20rpx;
+  padding: 18rpx;
+  background: var(--c-card);
+  border-radius: var(--r-md);
+  box-sizing: border-box;
+}
+
+/* 用 margin 而非 flex gap（iOS 老版本 WKWebView 不支持 gap） */
+.good:nth-child(odd) {
+  margin-right: 4%;
+}
+
+.good__photo {
+  width: 100%;
+  height: 200rpx;
+  border-radius: var(--r-sm);
+  display: block;
+}
+
+.good__name {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+}
+
+.good__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.good__points {
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--c-primary);
+}
+
+.good__unit {
+  margin-left: 4rpx;
+  font-size: 19rpx;
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+}
+
+.good__btn {
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 22rpx;
+}
+
+.tips {
+  margin-top: 10rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}

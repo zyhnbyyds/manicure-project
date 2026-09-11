@@ -1,0 +1,61 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body points-body">
+    <!-- 积分卡 -->
+    <view class="score">
+      <view class="score__circle"></view>
+      <view class="score__left">
+        <view class="score__label">我的积分</view>
+        <view class="score__value">{{points}}</view>
+      </view>
+      <view class="score__right">
+        <view class="score__label">今日获得</view>
+        <view class="score__today">+{{todayGained}}</view>
+      </view>
+    </view>
+
+    <!-- 分类 -->
+    <scroll-view class="cats" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view class="cats__row">
+        <view
+          wx:for="{{categories}}"
+          wx:key="*this"
+          class="chip {{activeCategory === item ? 'is-active' : ''}}"
+          data-name="{{item}}"
+          bindtap="onCategory"
+        >
+          {{item}}
+        </view>
+      </view>
+    </scroll-view>
+
+    <view wx:if="{{loading}}" class="loading">正在读取积分…</view>
+
+    <view wx:elif="{{needBind}}" class="empty">
+      <view class="empty__text">绑定手机号后才能兑换</view>
+      <view class="empty__hint">积分跟着会员档案走，需要先确认你的身份</view>
+    </view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__text">{{errorText}}</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <view class="goods">
+        <view wx:for="{{goods}}" wx:key="id" class="good">
+          <image class="good__photo" src="{{item.image}}" mode="aspectFill" />
+          <view class="good__name ellipsis">{{item.name}}</view>
+          <view class="good__foot">
+            <view class="good__points">{{item.points}}<text class="good__unit">积分</text></view>
+            <view class="good__btn" data-id="{{item.id}}" bindtap="onRedeem">兑换</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="tips">
+        积分可通过消费、评价、签到获得；兑换后到店核销即可。
+        兑换会在同一事务里扣积分并发卡（后端保证），当前兑换通道正在接入。
+      </view>
+    </block>
+  </view>
+</view>
