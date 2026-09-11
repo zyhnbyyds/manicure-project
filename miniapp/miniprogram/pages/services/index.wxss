@@ -1,138 +1,254 @@
-/* 项目列表 */
+/* 款式库 —— 严格对齐 docs/design.png 第 2 屏（含 batch3 骨架屏/错误态、batch5 下拉刷新） */
 
-.cats {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  width: 100%;
-  white-space: nowrap;
-  background: var(--c-bg);
-  padding: 20rpx 0 8rpx;
+/* ── 搜索 ─────────────────────────────────────────────────── */
+
+.search {
+  padding: 8rpx 28rpx 0;
 }
 
-.cats__row {
+.search__box {
   display: flex;
-  padding: 0 24rpx;
+  align-items: center;
+  height: 76rpx;
+  padding: 0 26rpx;
+  background: var(--c-card);
+  border-radius: var(--r-pill);
+  border: 2rpx solid var(--c-border);
 }
 
-.cats__item {
+.search__icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-right: 14rpx;
+}
+
+.search__input {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  color: var(--c-text);
+}
+
+.search__placeholder {
+  color: var(--c-text-weak);
+  font-size: 26rpx;
+}
+
+.search__clear {
+  width: 40rpx;
+  text-align: center;
+  color: var(--c-text-weak);
+  font-size: 36rpx;
+  line-height: 1;
+}
+
+/* ── 分类 + 排序 ──────────────────────────────────────────── */
+
+.filters {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 28rpx 8rpx;
+}
+
+.filters__scroll {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.filters__row {
+  display: flex;
+}
+
+.chip {
   flex-shrink: 0;
   height: 60rpx;
   line-height: 60rpx;
-  padding: 0 28rpx;
+  padding: 0 30rpx;
   margin-right: 16rpx;
   border-radius: var(--r-pill);
   background: var(--c-card);
-  color: var(--c-text-sub);
+  color: var(--c-text);
   font-size: 26rpx;
-  box-shadow: 0 4rpx 12rpx var(--c-shadow);
 }
 
-.cats__item.is-active {
+/* 选中：主色实心 + 白字（设计稿「全部」即如此） */
+.chip.is-active {
   background: var(--c-primary);
   color: var(--c-on-primary);
-  font-weight: 600;
 }
 
-/* 列表项 */
-.row-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20rpx;
-  padding: 20rpx;
-  border: 2rpx solid transparent;
-}
-
-.row-item.is-checked {
-  border-color: var(--c-primary);
-  background: var(--c-primary-soft);
-}
-
-.row-item__main {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.row-item__thumb {
-  width: 148rpx;
-  height: 148rpx;
-  margin-right: 20rpx;
-}
-
-.row-item__img {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--r-md);
-  font-size: 56rpx;
-}
-
-.row-item__name {
-  font-size: 30rpx;
-  font-weight: 600;
-}
-
-.row-item__meta {
-  margin: 4rpx 0;
-}
-
-.row-item__desc {
-  color: var(--c-text-weak);
-  font-size: 22rpx;
-}
-
-.row-item__right {
-  width: 132rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+.filters__sort {
+  position: relative;
+  width: 60rpx;
+  height: 60rpx;
   margin-left: 12rpx;
-}
-
-.row-item__detail {
-  margin-top: 10rpx;
-  font-size: 22rpx;
-  color: var(--c-text-weak);
-  text-decoration: underline;
-}
-
-/* 勾选按钮 */
-.check {
-  width: 52rpx;
-  height: 52rpx;
-  margin-top: 10rpx;
-  border-radius: 50%;
-  border: 2rpx solid var(--c-border);
-  color: var(--c-text-weak);
-  font-size: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease;
+  flex-shrink: 0;
 }
 
-.check.is-checked {
+.filters__sort-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 设计稿的漏斗右上角有一个小红点 */
+.filters__dot {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #d9483f;
+}
+
+/* ── 列表卡片 ─────────────────────────────────────────────── */
+
+.list-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 18rpx;
+  padding: 20rpx;
+}
+
+.list-card.is-checked {
+  border: 2rpx solid var(--c-primary);
+}
+
+.list-card__photo {
+  width: 210rpx;
+  height: 210rpx;
+  flex-shrink: 0;
+}
+
+.list-card__img {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--r-md);
+}
+
+.list-card__info {
+  flex: 1;
+  min-width: 0;
+  padding: 0 20rpx 0 24rpx;
+  /* 给右上角圆形按钮让位 */
+  padding-right: 76rpx;
+}
+
+.list-card__name {
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.list-card__meta {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+/* 设计稿的价格在卡片右下区域，字号明显大于辅助文字 */
+.list-card__price {
+  margin-top: 22rpx;
+}
+
+/* 圆形加号 / 对勾 */
+.list-card__add {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.list-card__add.is-checked {
   background: var(--c-primary);
   border-color: var(--c-primary);
-  color: var(--c-on-primary);
-  transform: scale(1.08);
 }
 
-/* 底部条 */
+.list-card__add-icon {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+/* ── 骨架屏（batch3）──────────────────────────────────────── */
+
+.skeleton-card {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18rpx;
+  padding: 20rpx;
+}
+
+.skeleton-card__photo {
+  width: 210rpx;
+  height: 210rpx;
+  flex-shrink: 0;
+  border-radius: var(--r-md);
+}
+
+.skeleton-card__body {
+  flex: 1;
+  padding-left: 24rpx;
+}
+
+.skeleton-card__line {
+  height: 28rpx;
+  border-radius: var(--r-sm);
+}
+
+.skeleton-card__line--title {
+  width: 60%;
+}
+
+.skeleton-card__line--meta {
+  width: 40%;
+  margin-top: 20rpx;
+}
+
+.skeleton-card__line--price {
+  width: 30%;
+  height: 36rpx;
+  margin-top: 34rpx;
+}
+
+/* ── 底部结算条 ───────────────────────────────────────────── */
+
 .action-bar__sum {
   font-size: 22rpx;
   color: var(--c-text-sub);
 }
 
-.action-bar__price {
+.action-bar__total {
+  margin-top: 4rpx;
   font-size: 24rpx;
   color: var(--c-text-sub);
-  margin-top: 4rpx;
 }
 
 .action-bar__amount {
-  font-size: 34rpx;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: 36rpx;
+  font-weight: 600;
   color: var(--c-primary);
+}
+
+.empty__icon {
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 20rpx;
+  opacity: 0.5;
+}
+
+.empty__action {
+  margin-top: 28rpx;
 }

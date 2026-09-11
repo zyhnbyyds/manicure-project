@@ -1,76 +1,112 @@
 <view class="page" style="{{themeStyle}}">
-  <!-- 分类横滑 -->
-  <scroll-view class="cats" scroll-x enable-flex show-scrollbar="{{false}}">
-    <view class="cats__row">
-      <view
-        wx:for="{{categories}}"
-        wx:key="*this"
-        class="cats__item {{activeCategory === item ? 'is-active' : ''}}"
-        data-name="{{item}}"
-        bindtap="onCategory"
-      >
-        {{item}}
-      </view>
+  <!-- 搜索（设计稿：胶囊搜索框 + 放大镜） -->
+  <view class="search">
+    <view class="search__box">
+      <image class="search__icon" src="{{icons.search}}" mode="aspectFit" />
+      <input
+        class="search__input"
+        value="{{keyword}}"
+        placeholder="搜款式名 / 风格"
+        placeholder-class="search__placeholder"
+        confirm-type="search"
+        bindinput="onSearchInput"
+      />
+      <view wx:if="{{keyword}}" class="search__clear" bindtap="onSearchClear">×</view>
     </view>
-  </scroll-view>
+  </view>
+
+  <!-- 分类 + 排序入口 -->
+  <view class="filters">
+    <scroll-view class="filters__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view class="filters__row">
+        <view
+          wx:for="{{categories}}"
+          wx:key="*this"
+          class="chip {{activeCategory === item ? 'is-active' : ''}}"
+          data-name="{{item}}"
+          bindtap="onCategory"
+        >
+          {{item}}
+        </view>
+      </view>
+    </scroll-view>
+    <view class="filters__sort" bindtap="onFilter">
+      <image class="filters__sort-icon" src="{{icons.funnel}}" mode="aspectFit" />
+      <view class="filters__dot"></view>
+    </view>
+  </view>
 
   <view class="page-body">
-    <view wx:if="{{loading}}" class="loading">正在挑选好看的款式…</view>
+    <!-- 骨架屏（batch3）：设计稿用的是色块骨架，不是一个转圈 -->
+    <block wx:if="{{loading}}">
+      <view wx:for="{{skeletonRows}}" wx:key="*this" class="card skeleton-card">
+        <view class="skeleton skeleton-card__photo"></view>
+        <view class="skeleton-card__body">
+          <view class="skeleton skeleton-card__line skeleton-card__line--title"></view>
+          <view class="skeleton skeleton-card__line skeleton-card__line--meta"></view>
+          <view class="skeleton skeleton-card__line skeleton-card__line--price"></view>
+        </view>
+      </view>
+    </block>
 
+    <!-- 错误态（batch3：网络连接失败 + 重试） -->
     <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
+      <image class="empty__icon" src="{{icons.search}}" mode="aspectFit" />
       <view class="empty__text">{{errorText}}</view>
+      <view class="empty__hint">请检查网络后重试</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
     </view>
 
     <view wx:elif="{{items.length === 0}}" class="empty">
-      <view class="empty__emoji">🌸</view>
-      <view class="empty__text">这个分类下还没有款式</view>
-      <view class="empty__hint">换个分类看看～</view>
+      <view class="empty__text">没有找到相关款式</view>
+      <view class="empty__hint">换个关键词或分类试试～</view>
     </view>
 
     <block wx:else>
       <view
         wx:for="{{items}}"
         wx:key="id"
-        class="row-item card card--press {{item.checked ? 'is-checked' : ''}}"
+        class="card list-card {{item.checked ? 'is-checked' : ''}}"
       >
-        <view class="row-item__main" data-id="{{item.id}}" bindtap="toggle">
-          <view class="thumb row-item__thumb">
-            <image wx:if="{{item.image}}" class="row-item__img" src="{{item.image}}" mode="aspectFill" />
-            <view wx:else class="image-placeholder row-item__img">{{item.emoji}}</view>
-          </view>
-          <view class="grow">
-            <view class="row-item__name ellipsis">{{item.name}}</view>
-            <view class="text-weak row-item__meta">{{item.durationText}} · {{item.category}}</view>
-            <view class="row-item__desc ellipsis-2">{{item.description}}</view>
+        <!-- 左：作品照（点击进详情） -->
+        <view class="list-card__photo thumb" data-id="{{item.id}}" bindtap="openDetail">
+          <image class="list-card__img" src="{{item.imageResolved}}" mode="aspectFill" />
+        </view>
+
+        <!-- 右：名称 / 时长分类 / 价格 -->
+        <view class="list-card__info" data-id="{{item.id}}" bindtap="openDetail">
+          <view class="list-card__name ellipsis">{{item.name}}</view>
+          <view class="list-card__meta ellipsis">{{item.durationText}} · {{item.category}}</view>
+          <view class="price list-card__price">
+            <text class="price__symbol">¥</text>
+            <text class="price__yuan">{{item.priceYuan}}</text>
           </view>
         </view>
 
-        <view class="row-item__right">
-          <view class="price">
-            <text class="price__symbol">¥</text>
-            <text class="price__yuan">{{item.priceYuan}}</text>
-            <text class="price__cent">.{{item.priceCent}}</text>
-          </view>
-          <view class="check {{item.checked ? 'is-checked' : ''}}" data-id="{{item.id}}" bindtap="toggle">
-            {{item.checked ? '✓' : '+'}}
-          </view>
-          <view class="row-item__detail" data-id="{{item.id}}" bindtap="openDetail">详情</view>
+        <!-- 右上：圆形加号（未选）/ 对勾（已选） -->
+        <view
+          class="list-card__add {{item.checked ? 'is-checked' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="toggle"
+        >
+          <image
+            class="list-card__add-icon"
+            src="{{item.checked ? iconsWhite.check : icons.plus}}"
+            mode="aspectFit"
+          />
         </view>
       </view>
     </block>
   </view>
 
-  <!-- 底部下一步：只在选了项目后出现，避免占位遮挡 -->
+  <!-- 底部结算条：只在选了项目后出现（设计稿即如此） -->
   <view wx:if="{{selectedCount > 0}}" class="action-bar">
     <view class="grow">
-      <view class="action-bar__sum">
-        已选 {{selectedCount}} 项 · {{durationText}}
-      </view>
-      <view class="action-bar__price">
+      <view class="action-bar__sum">已选 {{selectedCount}} 项 · {{durationText}}</view>
+      <view class="action-bar__total">
         合计 <text class="action-bar__amount">¥{{totalText}}</text>
       </view>
     </view>
-    <view class="btn btn--primary" bindtap="goNext">选美甲师</view>
+    <view class="btn btn--primary" bindtap="goNext">下一步</view>
   </view>
 </view>

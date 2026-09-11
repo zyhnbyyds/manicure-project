@@ -1,6 +1,8 @@
 import { catalogApi } from '../../api/index';
 import { setDraftItems } from '../../store/draft';
+import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration } from '../../utils/format';
+import { buildIcons, type IconName } from '../../utils/icons';
 import { goServiceDetail, goStaffs } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toServiceItemVM, type ServiceItemVM } from '../../utils/present';
@@ -15,12 +17,25 @@ interface SelectableService extends ServiceItemVM {
 /** 与后端 `appServiceItemIdsSchema` 一致：去重后 1~3 个 */
 const MAX_SELECT = 3;
 
+const PAGE_ICONS: IconName[] = ['search', 'funnel', 'plus'];
+/** 选中态的对勾画在白底主色圆上，需要**白色**版本；图标是内联 SVG，颜色只能在生成时定 */
+const WHITE_ICONS: IconName[] = ['check'];
+
+/** 骨架屏行数：设计稿（batch3）里是 3 行 */
+const SKELETON_ROWS = [1, 2, 3];
+
 Page({
   data: {
     ...basePageData(),
+    icons: buildIcons(PAGE_ICONS, '#2D221E'),
+    iconsWhite: buildIcons(WHITE_ICONS, '#FFFFFF'),
+    skeletonRows: SKELETON_ROWS,
     loading: true,
     errorText: '',
-    /** 原始列表（不过滤），切换分类时不必重新请求 */
+    refreshing: false,
+    /** 搜索关键词（客户端过滤已加载列表；app 域列表接口没有 keyword 参数） */
+    keyword: '',
+    /** 原始列表（不过滤），切换分类/搜索时不必重新请求 */
     allItems: [] as ServiceItemVM[],
     items: [] as SelectableService[],
     categories: ['全部'] as string[],
@@ -29,6 +44,8 @@ Page({
     selectedCount: 0,
     totalText: '0.00',
     durationText: '',
+    /** 排序方式：设计稿的漏斗图标需要有落点 */
+    sort: 'default' as 'default' | 'priceAsc' | 'durationAsc',
   },
 
   onLoad() {
@@ -36,7 +53,16 @@ Page({
   },
 
   onShow() {
-    this.setData(basePageData());
+    this.setData({
+      ...basePageData(),
+      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
+    });
+  },
+
+  /** 下拉刷新（batch5 有「下拉刷新 / 正在刷新…」态） */
+  async onPullDownRefresh() {
+    await this.load();
+    wx.stopPullDownRefresh();
   },
 
   async load() {
@@ -49,23 +75,42 @@ Page({
       allItems.forEach((item) => {
         if (!categories.includes(item.category)) categories.push(item.category);
       });
-      this.setData({ loading: false, allItems, categories, selectedIds: [] }, () => {
+      this.setData({ loading: false, allItems, categories }, () => {
         this.refresh();
       });
     } catch (error) {
       this.setData({
         loading: false,
-        errorText: isApiFailure(error) ? error.message : '加载失败，请稍后再试',
+        errorText: isApiFailure(error) ? error.message : '网络连接失败',
       });
     }
   },
 
-  /** 由 `allItems + activeCategory + selectedIds` 推导出视图，避免多处状态不同步 */
+  /** 由 allItems + 分类 + 关键词 + 排序 + 选中集推导视图，避免多处状态不同步 */
   refresh() {
-    const { allItems, activeCategory, selectedIds } = this.data;
-    const items: SelectableService[] = allItems
-      .filter((item) => activeCategory === '全部' || item.category === activeCategory)
-      .map((item) => ({ ...item, checked: selectedIds.includes(item.id) }));
+    const { allItems, activeCategory, selectedIds, keyword, sort } = this.data;
+    const lowered = keyword.trim().toLowerCase();
+
+    let list = allItems.filter(
+      (item) => activeCategory === '全部' || item.category === activeCategory,
+    );
+    if (lowered) {
+      list = list.filter(
+        (item) =>
+          item.name.toLowerCase().includes(lowered) ||
+          item.category.toLowerCase().includes(lowered),
+      );
+    }
+    if (sort === 'priceAsc') {
+      list = [...list].sort((a, b) => a.price - b.price);
+    } else if (sort === 'durationAsc') {
+      list = [...list].sort((a, b) => a.durationMinutes - b.durationMinutes);
+    }
+
+    const items: SelectableService[] = list.map((item) => ({
+      ...item,
+      checked: selectedIds.includes(item.id),
+    }));
 
     const selected = allItems.filter((item) => selectedIds.includes(item.id));
     this.setData({
@@ -81,6 +126,38 @@ Page({
   onCategory(event: WechatMiniprogram.TouchEvent) {
     this.setData({ activeCategory: String(event.currentTarget.dataset.name) }, () => {
       this.refresh();
+    });
+  },
+
+  onSearchInput(event: WechatMiniprogram.Input) {
+    this.setData({ keyword: event.detail.value }, () => this.refresh());
+  },
+
+  onSearchClear() {
+    this.setData({ keyword: '' }, () => this.refresh());
+  },
+
+  /**
+   * 漏斗图标：设计稿只画了入口（还带一个红点）。
+   * 后端款式表没有「风格/价格区间」等筛选字段，所以这里只做**排序**，
+   * 不假装有筛选维度（真做筛选需要先加字段）。
+   */
+  onFilter() {
+    const options = ['默认排序', '价格从低到高', '时长从短到长'];
+    wx.showActionSheet({
+      itemList: options,
+      success: (res) => {
+        const sort =
+          res.tapIndex === 1
+            ? 'priceAsc'
+            : res.tapIndex === 2
+              ? 'durationAsc'
+              : 'default';
+        this.setData({ sort }, () => this.refresh());
+      },
+      fail: () => {
+        /* 用户取消，不处理 */
+      },
     });
   },
 
@@ -105,13 +182,19 @@ Page({
   },
 
   goNext() {
-    const selected = this.data.allItems.filter((item) => this.data.selectedIds.includes(item.id));
+    const selected = this.data.allItems.filter((item) =>
+      this.data.selectedIds.includes(item.id),
+    );
     if (selected.length === 0) {
       toast('先挑一个想做的款式吧～');
       return;
     }
-    // 写草稿时会自动清空下游选择（美甲师/时段），见 store/draft.ts 的说明
+    // 写草稿时会自动清空下游选择（美甲师/时段），见 store/draft.ts
     setDraftItems(selected);
     goStaffs();
+  },
+
+  onRetry() {
+    this.load();
   },
 });

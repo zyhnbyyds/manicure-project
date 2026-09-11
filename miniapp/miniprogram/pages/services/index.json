@@ -1,4 +1,7 @@
 {
   "usingComponents": {},
-  "navigationBarTitleText": "选款式"
+  "navigationBarTitleText": "款式库",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#FBF5F0",
+  "backgroundTextStyle": "dark"
 }
