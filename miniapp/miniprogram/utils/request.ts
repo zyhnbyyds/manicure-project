@@ -7,7 +7,7 @@
  * - **401 + `needBind` 不清 token**：后端用这个组合表示「已登录但未绑定手机号」
  *   （spec §9.7 验收项），清掉 token 会把用户变成未登录，体验更差；
  * - 其它 401 才清登录态（token 过期/被拒）；
- * - `501` 统一转成「功能尚未开放」：本期 9 个写接口是契约骨架，前端必须能优雅落地，
+ * - `501` 统一转成「功能尚未开放」：剩余骨架（JSAPI 支付等）被点到时必须能优雅落地，
  *   不能让用户看到 `NotImplementedException`。
  */
 import { API_BASE, REQUEST_TIMEOUT } from '../config';
@@ -55,7 +55,10 @@ export function isApiFailure(error: unknown): error is ApiFailure {
 }
 
 /** 把后端可能返回的 `string | string[]` 消息收敛成一句人话 */
-function normalizeMessage(body: ApiErrorBody | undefined, fallback: string): string {
+function normalizeMessage(
+  body: ApiErrorBody | undefined,
+  fallback: string,
+): string {
   const raw = body?.message;
   if (Array.isArray(raw)) return raw.filter(Boolean).join('；') || fallback;
   if (typeof raw === 'string' && raw.length > 0) return raw;
@@ -70,10 +73,14 @@ function buildQuery(data?: Record<string, unknown>): string {
     if (value === undefined || value === null || value === '') return;
     if (Array.isArray(value)) {
       // 后端 `serviceItemIds` 兼容逗号分隔写法，这里用逗号，URL 更短
-      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value.join(','))}`);
+      parts.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(value.join(','))}`,
+      );
       return;
     }
-    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+    parts.push(
+      `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
+    );
   });
   return parts.length > 0 ? `?${parts.join('&')}` : '';
 }
@@ -120,7 +127,10 @@ export function request<T>(options: RequestOptions): Promise<T> {
           if (!needBind) clearAuth();
           reject(
             new ApiFailure(
-              normalizeMessage(body, needBind ? '请先绑定手机号' : '登录已过期，请重新进入'),
+              normalizeMessage(
+                body,
+                needBind ? '请先绑定手机号' : '登录已过期，请重新进入',
+              ),
               status,
               needBind,
             ),
@@ -129,11 +139,18 @@ export function request<T>(options: RequestOptions): Promise<T> {
         }
 
         if (status === 503) {
-          reject(new ApiFailure(normalizeMessage(body, '服务暂时不可用'), status));
+          reject(
+            new ApiFailure(normalizeMessage(body, '服务暂时不可用'), status),
+          );
           return;
         }
 
-        reject(new ApiFailure(normalizeMessage(body, `请求失败（${status}）`), status));
+        reject(
+          new ApiFailure(
+            normalizeMessage(body, `请求失败（${status}）`),
+            status,
+          ),
+        );
       },
       fail: () => {
         // 网络层失败（断网 / 域名未配置 / 后端没起）统一说人话，不暴露 errMsg

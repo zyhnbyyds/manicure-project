@@ -41,7 +41,8 @@ Page({
     this.setData({ loading: true, errorText: '' });
     try {
       const page = await bookingApi.list({
-        status: this.data.activeFilter === '' ? undefined : this.data.activeFilter,
+        status:
+          this.data.activeFilter === '' ? undefined : this.data.activeFilter,
         page: 1,
         pageSize: 20,
       });
@@ -81,7 +82,9 @@ Page({
   },
 
   onReview() {
-    // `POST /app/reviews` 本期是 501 契约骨架，先如实告知，不假装成功
+    // 后端 `POST /app/reviews`（A11）已是真实现（仅本人 + 仅已完成 + 一单一评），
+    // 但「评分弹窗」这一块前端交互本期还没做 —— 先如实告知，不假装成功。
+    // P2 做评价弹窗时换成 `bookingApi.createReview({ bookingId: item.id, rating, content })`。
     notOpenYet('评价', '评价功能正在接入，很快就能给美甲师打分啦～');
   },
 

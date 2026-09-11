@@ -10,11 +10,11 @@
  *   mock 开 → 返回演示数据；否则 → 打真实 `/api/v1/app/**`。
  * 两边的返回类型完全相同（`api/types.ts`），所以页面代码在切换时零改动。
  *
- * 后端当前状态（spec §9.7 + 施工单 A8/A9/A11/A12）：
+ * 后端当前状态（spec §9.7 + 施工单 A8/A9/A11/A12/A13/A10）：
  * - 真实现：login、auth/phone、service-items、staffs、available-slots、member/me、
- *   member/cards、reviews、subscribe
- * - 501 骨架：bookings(GET/POST)、bookings/:id/cancel、payments/wxpay/jsapi
- *   （payments/wxpay/notify 已由 A13 转真实现：渠道回调，靠验签、不带 token）
+ *   member/cards、reviews、subscribe、bookings(GET/POST)、bookings/:id/cancel、
+ *   payments/wxpay/notify（渠道回调，靠验签、不带 token）
+ * - 501 骨架：payments/wxpay/jsapi（JSAPI 支付契约位，JSAPI 下单在 P2 接通道）
  * 骨架接口在真接口模式下会抛「这个功能马上就来啦～」（`utils/request.ts` 里把 501 收敛了）。
  */
 import { isMockEnabled } from '../config';
@@ -116,7 +116,8 @@ export const catalogApi = {
   },
 
   listStaffs(): Promise<Paged<Staff>> {
-    if (useMock()) return Promise.resolve({ items: MOCK_STAFFS, page: 1, pageSize: 50 });
+    if (useMock())
+      return Promise.resolve({ items: MOCK_STAFFS, page: 1, pageSize: 50 });
     return request<Paged<Staff>>({ path: '/app/staffs' });
   },
 
@@ -147,7 +148,9 @@ export const memberApi = {
 
   listCards(status?: MemberCard['status']): Promise<Paged<MemberCard>> {
     if (useMock()) {
-      const items = status ? MOCK_CARDS.filter((card) => card.status === status) : MOCK_CARDS;
+      const items = status
+        ? MOCK_CARDS.filter((card) => card.status === status)
+        : MOCK_CARDS;
       return Promise.resolve({ items, page: 1, pageSize: 50 });
     }
     return request<Paged<MemberCard>>({
@@ -160,9 +163,9 @@ export const memberApi = {
 /* ── 预约 ──────────────────────────────────────────────────── */
 
 export const bookingApi = {
-  list(input: { status?: BookingStatus; page?: number; pageSize?: number } = {}): Promise<
-    Paged<Booking>
-  > {
+  list(
+    input: { status?: BookingStatus; page?: number; pageSize?: number } = {},
+  ): Promise<Paged<Booking>> {
     if (useMock()) return Promise.resolve(mockListBookings(input));
     return request<Paged<Booking>>({
       path: '/app/bookings',
@@ -202,7 +205,10 @@ export const bookingApi = {
   },
 
   /** 小程序内 JSAPI 支付：后端 501（P2 接通道），前端先把调用位留好 */
-  createJsapiPayment(input: { bookingId: number; purpose: 'deposit' | 'final' }): Promise<JsapiPayment> {
+  createJsapiPayment(input: {
+    bookingId: number;
+    purpose: 'deposit' | 'final';
+  }): Promise<JsapiPayment> {
     if (useMock()) {
       return Promise.reject(new Error('演示模式下不发起真实支付'));
     }
@@ -230,12 +236,14 @@ export const staffApi = {
     return request<StaffMe>({ path: '/app/staff/me' });
   },
 
-  listBookings(input: {
-    date?: string;
-    status?: BookingStatus;
-    page?: number;
-    pageSize?: number;
-  } = {}): Promise<Paged<StaffBooking>> {
+  listBookings(
+    input: {
+      date?: string;
+      status?: BookingStatus;
+      page?: number;
+      pageSize?: number;
+    } = {},
+  ): Promise<Paged<StaffBooking>> {
     if (useMock()) return Promise.resolve(mockStaffBookings(input));
     return request<Paged<StaffBooking>>({
       path: '/app/staff/bookings',
@@ -250,7 +258,10 @@ export const staffApi = {
 
   getSchedule(date: string): Promise<StaffSchedule> {
     if (useMock()) return Promise.resolve(mockStaffSchedule(date));
-    return request<StaffSchedule>({ path: '/app/staff/schedule', data: { date } });
+    return request<StaffSchedule>({
+      path: '/app/staff/schedule',
+      data: { date },
+    });
   },
 
   getPerformance(period?: string): Promise<StaffPerformance> {
