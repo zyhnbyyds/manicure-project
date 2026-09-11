@@ -1,0 +1,423 @@
+/**
+ * B6 app 域契约收口：501 骨架（G4）、`/app/member/me` 字段与越权（G8）、
+ * 未配置微信凭据 → 503（G2）。
+ *
+ * 这三件事的共同点是**出了事没人拦**：
+ * - 骨架端点 P2 才会填实现，期间任何一次手滑改路由/改 schema 都不会让现有用例变红；
+ * - `/app/member/me` 是 C 端唯一一处直接吐会员账务数据的接口，字段漏出去就是数据泄露；
+ * - 「未配置凭据」这条分支在集成环境永远走不到（harness 固定注入假实现），只能靠注入真实现来验。
+ */
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  addLocalDays,
+  shopToday,
+  shopWeekday,
+} from '../../src/modules/biz/common/shop-time.js';
+import { createTestContext, type TestContext } from './harness.js';
+
+let ctx: TestContext;
+/** 未配置凭据的 context（G2 专用，见文件末尾的 describe） */
+let noCredentialCtx: TestContext;
+let date: string;
+
+/** 骨架端点清单：**必须与 spec §16.1 的 501 清单逐条对应**（G5 的口径落点） */
+const SKELETON_ROUTES: {
+  name: string;
+  method: string;
+  path: string;
+  body?: unknown;
+  /** 是否需要 app token（支付回调是渠道回调，天生不带 token） */
+  guarded: boolean;
+}[] = [
+  { name: '我的次卡列表', method: 'GET', path: '/api/v1/app/member/cards', guarded: true },
+  { name: '我的预约列表', method: 'GET', path: '/api/v1/app/bookings', guarded: true },
+  {
+    name: '自助下单',
+    method: 'POST',
+    path: '/api/v1/app/bookings',
+    body: { staffId: 1, startAt: '2026-09-20T10:00:00+08:00', serviceItemIds: [1] },
+    guarded: true,
+  },
+  {
+    name: '自助取消预约',
+    method: 'POST',
+    path: '/api/v1/app/bookings/1/cancel',
+    body: { reason: '临时有事' },
+    guarded: true,
+  },
+  {
+    name: '提交服务评价',
+    method: 'POST',
+    path: '/api/v1/app/reviews',
+    body: { bookingId: 1, rating: 5, content: '很好' },
+    guarded: true,
+  },
+  {
+    name: 'JSAPI 支付',
+    method: 'POST',
+    path: '/api/v1/app/payments/wxpay/jsapi',
+    body: { bookingId: 1, purpose: 'deposit' },
+    guarded: true,
+  },
+  {
+    name: '订阅消息授权',
+    method: 'POST',
+    path: '/api/v1/app/subscribe',
+    body: { templateIds: ['TEMPLATE_ID'] },
+    guarded: true,
+  },
+  {
+    name: '微信支付回调',
+    method: 'POST',
+    path: '/api/v1/app/payments/wxpay/notify',
+    body: {
+      id: 'EV-2026-09-11-001',
+      event_type: 'TRANSACTION.SUCCESS',
+      resource: {
+        algorithm: 'AEAD_AES_256_GCM',
+        ciphertext: 'ciphertext-placeholder',
+        nonce: 'nonce-placeholder',
+        original_type: 'transaction',
+      },
+    },
+    guarded: false,
+  },
+];
+
+async function countOf(table: string): Promise<number> {
+  const rows = await ctx.sql<{ total: number }[]>(
+    `SELECT COUNT(*) AS total FROM \`${table}\``,
+  );
+  return Number(rows[0].total);
+}
+
+/** 造一条已绑定顾客的小程序身份 */
+async function seedBoundAppUser(
+  openid: string,
+  customerId: number | null,
+): Promise<{ appUserId: number; token: string }> {
+  const inserted = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO app_wx_user (openid, customer_id, staff_status) VALUES (?, ?, 'none')`,
+    [openid, customerId],
+  );
+  const appUserId = inserted.insertId;
+  return { appUserId, token: await ctx.appToken(openid, appUserId) };
+}
+
+/**
+ * 造一个「有等级 / 有积分 / 有余额 / 有次卡」的顾客。
+ * 用真实账务列而不是走业务接口：这一组用例验的是 **读** 出来的字段集合，
+ * 数据怎么来的不重要，重要的是别多吐、也别少吐。
+ */
+async function seedRichCustomer(
+  name: string,
+  phone: string,
+  levelName = '金卡',
+  discountPermille = 880,
+): Promise<number> {
+  const levels = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO biz_member_level (name, discount_permille, upgrade_amount, sort)
+     VALUES (?, ?, 0, 1)`,
+    [levelName, discountPermille],
+  );
+  const levelId = levels.insertId;
+  const customers = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO biz_customer (name, phone, level_id, points, balance_principal, balance_bonus)
+     VALUES (?, ?, ?, 320, 15000, 2000)`,
+    [name, phone, levelId],
+  );
+  const customerId = customers.insertId;
+
+  const cardTypes = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO biz_member_card_type (name, price, total_times, valid_days)
+     VALUES (?, 100000, 10, 365)`,
+    [`十次卡-${phone}`],
+  );
+  await ctx.sql(
+    `INSERT INTO biz_member_card
+       (card_no, customer_id, card_type_id, card_name, total_times, used_times,
+        price, pay_channel, purchased_at, expire_at, status)
+     VALUES (?, ?, ?, ?, 10, 3, 100000, 'wechat', NOW(), DATE_ADD(NOW(), INTERVAL 365 DAY), 'active')`,
+    [`CARD-${phone}`, customerId, cardTypes.insertId, `十次卡-${phone}`],
+  );
+  return customerId;
+}
+
+beforeAll(async () => {
+  ctx = await createTestContext();
+  date = addLocalDays(shopToday(), 3);
+
+  const { WxMiniappProvider, HttpWxMiniappProvider } = await import(
+    '../../src/modules/app/auth/wx-miniapp.provider.js'
+  );
+  // 只喂一个「凭据为空」的配置桩：真实现只用到 config.wxMiniapp，
+  // 这样就能在不联网的前提下让整条链路（controller → service → provider）跑出 503。
+  const emptyCredentialConfig = {
+    wxMiniapp: { appId: undefined, secret: undefined, configured: false, fake: false },
+  };
+  noCredentialCtx = await createTestContext({
+    providers: [
+      {
+        provide: WxMiniappProvider,
+        useValue: new HttpWxMiniappProvider(emptyCredentialConfig as never),
+      },
+    ],
+  });
+}, 180_000);
+
+beforeEach(async () => {
+  await ctx.resetBusinessData();
+});
+
+afterAll(async () => {
+  await ctx.close();
+  await noCredentialCtx.close();
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 契约骨架：8 个 501 端点（G4 / G5）', () => {
+  it('清单条数与 spec §16.1 一致（8 个），且全部返回 501', async () => {
+    // 口径锚点：spec §12 原写 5 个、§16.1 列 8 个、代码 9 个（含已转真实现的 auth/phone）。
+    // 现在统一为 8；`POST /app/auth/phone` 已由 A8 换成真实现，不再是骨架。
+    expect(SKELETON_ROUTES).toHaveLength(8);
+
+    const { token } = await seedBoundAppUser('openid-skeleton', null);
+    for (const route of SKELETON_ROUTES) {
+      const response = await ctx.request(route.method, route.path, {
+        token: route.guarded ? token : null,
+        body: route.body,
+      });
+      expect(response.status, `${route.name} ${route.path}`).toBe(501);
+    }
+  });
+
+  it('骨架只冻结契约，一个字都不落库', async () => {
+    const { token } = await seedBoundAppUser('openid-nowrite', null);
+    // 先放一批真实数据进去，避免「空库当然没变化」这种假绿
+    const staffs = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, status, sort) VALUES ('小美', 'active', 1)`,
+    );
+    await ctx.sql(
+      `INSERT INTO biz_staff_weekly_shift (staff_id, weekday, start_time, end_time)
+       VALUES (?, ?, '10:00:00', '20:00:00')`,
+      [staffs.insertId, shopWeekday(date)],
+    );
+    const items = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_service_item (name, category, duration_minutes, buffer_minutes, price, status, sort)
+       VALUES ('基础美甲', '基础', 60, 15, 10000, 'active', 1)`,
+    );
+    const customers = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_customer (name, phone) VALUES ('张女士', '13800000001')`,
+    );
+    await ctx.sql(
+      `INSERT INTO biz_booking
+         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+          original_price, payable_amount, paid_amount, due_amount, status, pay_status,
+          customer_name, customer_phone)
+       VALUES ('B-SKEL-1', ?, ?, ?, ?, 60, 10000, 10000, 0, 10000, 'pending', 'unpaid', '张女士', '13800000001')`,
+      [
+        customers.insertId,
+        staffs.insertId,
+        `${date} 10:00:00`,
+        `${date} 11:00:00`,
+      ],
+    );
+
+    const tables = [
+      'app_wx_user',
+      'biz_booking',
+      'biz_payment',
+      'biz_review',
+      'biz_member_card',
+      'biz_customer',
+    ];
+    const before = Object.fromEntries(
+      await Promise.all(tables.map(async (t) => [t, await countOf(t)])),
+    );
+
+    for (const route of SKELETON_ROUTES) {
+      await ctx.request(route.method, route.path, {
+        token: route.guarded ? token : null,
+        body: route.body,
+      });
+    }
+    // 服务项目只是造数据的副产物，单独记一下确保 seed 真的写进去了
+    expect(items.insertId).toBeGreaterThan(0);
+
+    for (const table of tables) {
+      expect(await countOf(table), `${table} 行数被骨架改动了`).toBe(
+        before[table],
+      );
+    }
+  });
+
+  it('骨架的入参校验是活的：非法入参 400，不是「一律 501」', async () => {
+    const { token } = await seedBoundAppUser('openid-invalid', null);
+
+    const badReview = await ctx.request('POST', '/api/v1/app/reviews', {
+      token,
+      body: { bookingId: 1, rating: 9 },
+    });
+    expect(badReview.status).toBe(400);
+
+    const badBooking = await ctx.request('POST', '/api/v1/app/bookings', {
+      token,
+      body: { staffId: 1, serviceItemIds: [] },
+    });
+    expect(badBooking.status).toBe(400);
+
+    const badSubscribe = await ctx.request('POST', '/api/v1/app/subscribe', {
+      token,
+      body: { templateIds: [] },
+    });
+    expect(badSubscribe.status).toBe(400);
+  });
+
+  it('除支付回调外的骨架都要 app token；回调是渠道方向，本就不带 token', async () => {
+    for (const route of SKELETON_ROUTES) {
+      const response = await ctx.request(route.method, route.path, {
+        token: null,
+        body: route.body,
+      });
+      expect(response.status, `${route.name} ${route.path}`).toBe(
+        route.guarded ? 401 : 501,
+      );
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 /app/member/me：字段集合与越权（G8）', () => {
+  it('已绑定：字段集合固定，一个内部字段都漏不出来', async () => {
+    const customerId = await seedRichCustomer('李女士', '13800000021');
+    const { token } = await seedBoundAppUser('openid-me', customerId);
+
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.status).toBe(200);
+    expect(Object.keys(me.body).sort()).toEqual(
+      [
+        'balanceBonus',
+        'balancePrincipal',
+        'cards',
+        'customerId',
+        'discountPermille',
+        'levelName',
+        'name',
+        'phone',
+        'points',
+      ].sort(),
+    );
+
+    expect(me.body.customerId).toBe(customerId);
+    expect(me.body.name).toBe('李女士');
+    expect(me.body.levelName).toBe('金卡');
+    expect(me.body.discountPermille).toBe(880);
+    expect(me.body.points).toBe(320);
+    expect(me.body.balancePrincipal).toBe(15000);
+    expect(me.body.balanceBonus).toBe(2000);
+
+    // 次卡字段：没有成本、没有进价、没有 remark
+    expect(me.body.cards).toHaveLength(1);
+    expect(Object.keys(me.body.cards[0]).sort()).toEqual(
+      [
+        'cardName',
+        'cardNo',
+        'expireAt',
+        'id',
+        'status',
+        'totalTimes',
+        'usedTimes',
+      ].sort(),
+    );
+  });
+
+  it('越权：换 openid 只看到自己的档案；传 customerId 入参也不好使', async () => {
+    // 等级与折扣率也不同：这样「看到别人的等级」也能被抓出来，而不只是看 customerId
+    const mineId = await seedRichCustomer('李女士', '13800000022', '金卡', 880);
+    const otherId = await seedRichCustomer('王女士', '13800000023', '银卡', 950);
+    const mine = await seedBoundAppUser('openid-mine', mineId);
+    const other = await seedBoundAppUser('openid-other', otherId);
+
+    const mineMe = await ctx.request('GET', '/api/v1/app/member/me', {
+      token: mine.token,
+    });
+    const otherMe = await ctx.request('GET', '/api/v1/app/member/me', {
+      token: other.token,
+    });
+    expect(mineMe.status).toBe(200);
+    expect(otherMe.status).toBe(200);
+    expect(mineMe.body.customerId).toBe(mineId);
+    expect(otherMe.body.customerId).toBe(otherId);
+    expect(mineMe.body.name).toBe('李女士');
+    expect(otherMe.body.name).toBe('王女士');
+    expect(mineMe.body.levelName).toBe('金卡');
+    expect(otherMe.body.levelName).toBe('银卡');
+    // 我的次卡不会串到别人那边
+    expect(mineMe.body.cards[0].cardNo).not.toBe(otherMe.body.cards[0].cardNo);
+
+    // app 域不接任何客户端传入的顾客 ID：`?customerId=` 必须被忽略
+    const withQuery = await ctx.request(
+      'GET',
+      `/api/v1/app/member/me?customerId=${otherId}`,
+      { token: mine.token },
+    );
+    expect(withQuery.status).toBe(200);
+    expect(withQuery.body.customerId).toBe(mineId);
+  });
+
+  it('顾客档案被软删 → 401 + needBind（而不是 500 或空壳对象）', async () => {
+    const customerId = await seedRichCustomer('赵女士', '13800000024');
+    const { token } = await seedBoundAppUser('openid-deleted', customerId);
+    await ctx.sql(`UPDATE biz_customer SET deleted_at = NOW() WHERE id = ?`, [
+      customerId,
+    ]);
+
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.status).toBe(401);
+    expect(me.body.needBind).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 未配置微信凭据 → 503（G2）', () => {
+  it('登录：凭据没配就 503「小程序端未启用」，不是 500 也不是放行', async () => {
+    const response = await noCredentialCtx.request(
+      'POST',
+      '/api/v1/app/auth/login',
+      { token: null, body: { code: 'any-code' } },
+    );
+    expect(response.status).toBe(503);
+    expect(String(response.body.message)).toContain('小程序端未启用');
+  });
+
+  it('绑定手机号同样 503（守卫放行、provider 拦下）', async () => {
+    const inserted = await noCredentialCtx.sql<{ insertId: number }>(
+      `INSERT INTO app_wx_user (openid, staff_status) VALUES ('openid-nocred', 'none')`,
+    );
+    const token = await noCredentialCtx.appToken(
+      'openid-nocred',
+      inserted.insertId,
+    );
+    const response = await noCredentialCtx.request(
+      'POST',
+      '/api/v1/app/auth/phone',
+      { token, body: { code: '13800000025' } },
+    );
+    expect(response.status).toBe(503);
+    expect(String(response.body.message)).toContain('小程序端未启用');
+  });
+
+  it('凭据没配也不落身份：login 失败后 app_wx_user 一行都没有', async () => {
+    await noCredentialCtx.request('POST', '/api/v1/app/auth/login', {
+      token: null,
+      body: { code: 'openid-nocred-2' },
+    });
+    const rows = await noCredentialCtx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM app_wx_user WHERE openid = 'fake-openid-openid-nocred-2'`,
+    );
+    expect(Number(rows[0].total)).toBe(0);
+  });
+});

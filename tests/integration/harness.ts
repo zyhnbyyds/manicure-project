@@ -100,6 +100,23 @@ export async function prepareTestDatabase(): Promise<string> {
   return url;
 }
 
+/**
+ * 建 context 时的可选项。
+ *
+ * 默认 context 与生产 `src/main.ts` 有两处不同（这也是 G9 限流「代码写了但没验过」的根因）：
+ * 不注册 `@fastify/rate-limit`、不注册 helmet/multipart。需要验这些时通过 `configure` 补。
+ */
+export type TestContextOptions = {
+  /**
+   * 覆盖 Nest provider（`token → 实例`）。
+   * 用于把端口换成特定实现，例如把 `WxMiniappProvider` 换成「未配置凭据」的真实实现，
+   * 才能验「未配置凭据 → 503」（G2）。
+   */
+  providers?: { provide: unknown; useValue: unknown }[];
+  /** 在 `app.init()` 之前对应用做额外注册（如 `app.register(rateLimit, ...)`） */
+  configure?: (app: NestFastifyApplication) => Promise<void> | void;
+};
+
 export type TestContext = {
   app: NestFastifyApplication;
   url: string;
@@ -115,7 +132,7 @@ export type TestContext = {
       token?: string | null;
       headers?: Record<string, string>;
     },
-  ) => Promise<{ status: number; body: any }>;
+  ) => Promise<{ status: number; body: any; headers: Record<string, any> }>;
   sql: <T = any>(statement: string, params?: unknown[]) => Promise<T>;
   resetBusinessData: () => Promise<void>;
 };
@@ -126,7 +143,9 @@ export type TestContext = {
  * 必须在 import `AppModule` **之前**覆盖 `process.env.DATABASE_URL`：
  * `AppConfigService` 在构造时读环境变量，晚一步就会连到主库。
  */
-export async function createTestContext(): Promise<TestContext> {
+export async function createTestContext(
+  options: TestContextOptions = {},
+): Promise<TestContext> {
   const url = await prepareTestDatabase();
   // 必须在 import AppModule 之前铺好环境变量（AppConfigService 构造时读 env）
   await applyTestEnv(url);
@@ -137,9 +156,10 @@ export async function createTestContext(): Promise<TestContext> {
     import('@nestjs/platform-fastify'),
   ]);
 
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  for (const override of options.providers ?? [])
+    builder.overrideProvider(override.provide as never).useValue(override.useValue);
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter({ logger: false }),
   );
@@ -153,6 +173,7 @@ export async function createTestContext(): Promise<TestContext> {
   z.config(zhCN());
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.setGlobalPrefix(moduleRef.get(AppConfigService).apiPrefix);
+  await options.configure?.(app);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
@@ -217,7 +238,11 @@ export async function createTestContext(): Promise<TestContext> {
       } catch {
         /* 保留原始文本 */
       }
-      return { status: response.statusCode, body };
+      return {
+        status: response.statusCode,
+        body,
+        headers: response.headers as Record<string, any>,
+      };
     },
     sql: async <T>(statement: string, params: unknown[] = []) => {
       const [rows] = await pool.query(statement, params);

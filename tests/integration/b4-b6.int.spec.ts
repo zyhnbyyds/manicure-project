@@ -4,6 +4,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   addLocalDays,
+  DEFAULT_SHOP_TIMEZONE,
+  shopLocalToUtc,
   shopToday,
   shopWeekday,
 } from '../../src/modules/biz/common/shop-time.js';
@@ -11,6 +13,22 @@ import { createTestContext, type TestContext } from './harness.js';
 
 let ctx: TestContext;
 let date: string;
+
+/**
+ * 绝对时刻 → 店内墙钟 `HH:mm:ss`。
+ *
+ * 刻意用 `Intl` 而不是 MySQL 的 `TIME(NOW() - INTERVAL 30 MINUTE)`：
+ * 后者取的是**数据库会话时区**，与应用的 `Asia/Shanghai` 不是同一套，跨机器跑会错。
+ */
+function shopLocalClock(instant: number): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: DEFAULT_SHOP_TIMEZONE,
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(instant));
+}
 
 type Seed = {
   serviceItemId: number;
@@ -581,14 +599,18 @@ describe('B6 小程序预留（§16）', () => {
       `/api/v1/biz/bookings/available-slots?staffId=${row.staffId}&date=${date}&serviceItemIds=${row.serviceItemId}`,
     );
     expect(appSlots.status).toBe(200);
-    // 同一 service：非空时段集合一致（小程序端提前期更长时可能更少）
-    if (appSlots.body.slots.length && backendSlots.body.slots.length) {
-      const appTimes = appSlots.body.slots.map((slot: any) => slot.startAt);
-      for (const time of appTimes)
-        expect(
-          backendSlots.body.slots.map((slot: any) => slot.startAt),
-        ).toContain(time);
-    }
+    expect(backendSlots.status).toBe(200);
+    // G6：去掉「两边都非空才比对」——空集也必须比，否则「小程序端返回空」这类
+    // 回归（排班没读到 / 时区算错）会静默通过。
+    // 未来某天（60 分钟提前期够不到）两边应当**完全相等**：渠道不同，算法是同一个。
+    const appTimes: string[] = appSlots.body.slots.map(
+      (slot: any) => slot.startAt,
+    );
+    const backendTimes: string[] = backendSlots.body.slots.map(
+      (slot: any) => slot.startAt,
+    );
+    expect(appTimes.length).toBeGreaterThan(0);
+    expect(appTimes).toEqual(backendTimes);
 
     const me = await ctx.request('GET', '/api/v1/app/member/me', {
       token: appToken,
@@ -606,4 +628,72 @@ describe('B6 小程序预留（§16）', () => {
     });
     expect(skeleton.status).toBe(501);
   });
+
+  // 这个用例必须「当天还剩足够时间」才有意义：它比的是「未来 1 小时内能不能约」，
+  // 深夜跑时当天已经没有可约时段，硬跑只会得到空集（假绿）。所以时间不够就跳过。
+  const todayForLead = shopToday();
+  const remainingMs =
+    shopLocalToUtc(addLocalDays(todayForLead, 1), '00:00:00').getTime() -
+    Date.now();
+  it.skipIf(remainingMs < 150 * 60 * 1000)(
+    'G7：小程序端 60 分钟提前期 ≠ 后台 0 分钟（同一时刻两种口径）',
+    async () => {
+    const row = await seed();
+    const now = Date.now();
+    // 班次**相对当前时间**铺开（不写死 10:00-20:00）：
+    // 写死的话「未来 1 小时内」可能根本不在班次里，断言就变成空转。
+    await ctx.sql(
+      `UPDATE biz_staff_weekly_shift SET weekday = ?, start_time = ?, end_time = ? WHERE staff_id = ?`,
+      [
+        shopWeekday(todayForLead),
+        shopLocalClock(now - 30 * 60 * 1000),
+        shopLocalClock(now + 4 * 60 * 60 * 1000),
+        row.staffId,
+      ],
+    );
+    const wx = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO app_wx_user (openid, customer_id) VALUES ('openid-lead', NULL)`,
+    );
+    const appToken = await ctx.appToken('openid-lead', wx.insertId);
+    const query = `staffId=${row.staffId}&date=${todayForLead}&serviceItemIds=${row.serviceItemId}`;
+
+    const appSlots = await ctx.request(
+      'GET',
+      `/api/v1/app/available-slots?${query}`,
+      { token: appToken },
+    );
+    const backendSlots = await ctx.request(
+      'GET',
+      `/api/v1/biz/bookings/available-slots?${query}`,
+    );
+      expect(appSlots.status).toBe(200);
+      expect(backendSlots.status).toBe(200);
+
+      const appTimes: string[] = appSlots.body.slots.map(
+        (slot: any) => slot.startAt,
+      );
+      const backendTimes: string[] = backendSlots.body.slots.map(
+        (slot: any) => slot.startAt,
+      );
+
+      // 后台 0 分钟：能排出「现在之后立刻就能做」的时段
+      expect(backendTimes.length).toBeGreaterThan(0);
+      expect(new Date(backendTimes[0]).getTime()).toBeLessThan(
+        now + 60 * 60 * 1000,
+      );
+
+      // 小程序 60 分钟：一个「1 小时内」的时段都不给
+      expect(appTimes.length).toBeGreaterThan(0);
+      for (const startAt of appTimes)
+        expect(new Date(startAt).getTime()).toBeGreaterThanOrEqual(
+          now + 60 * 60 * 1000 - 1000,
+        );
+
+      // 两边差的不只是「少几个」：小程序的最早时段必须严格晚于后台
+      expect(appTimes).not.toContain(backendTimes[0]);
+      expect(new Date(appTimes[0]).getTime()).toBeGreaterThan(
+        new Date(backendTimes[0]).getTime(),
+      );
+    },
+  );
 });

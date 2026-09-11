@@ -44,6 +44,37 @@ describe('GlobalExceptionFilter', () => {
     expect(send).toHaveBeenCalled();
   });
 
+  it('把 Fastify 插件的 4xx 透传出去（限流 429 不能降级成 500）', () => {
+    const filter = new GlobalExceptionFilter();
+    const { host, status, send } = buildHost();
+    // @fastify/rate-limit 超限就是这么抛的：普通 Error + statusCode = 429
+    const rateLimited: Error & { statusCode?: number } = new Error(
+      'Rate limit exceeded, retry in 1 minute',
+    );
+    rateLimited.statusCode = 429;
+
+    filter.catch(rateLimited, host);
+
+    expect(status).toHaveBeenCalledWith(429);
+    const body = send.mock.calls[0][0];
+    expect(body.statusCode).toBe(429);
+    expect(body.message).toBe('请求过于频繁，请稍后再试');
+  });
+
+  it('插件给的 statusCode 是 5xx 时仍按未知异常兜底 500（不让它决定失败语义）', () => {
+    const filter = new GlobalExceptionFilter();
+    const { host, status, send } = buildHost();
+    const pluginError: Error & { statusCode?: number } = new Error(
+      'upstream broke',
+    );
+    pluginError.statusCode = 502;
+
+    filter.catch(pluginError, host);
+
+    expect(status).toHaveBeenCalledWith(500);
+    expect(send.mock.calls[0][0].message).toBe('服务器内部错误，请稍后重试');
+  });
+
   it('falls back to 500 with a friendly message for unknown errors', () => {
     const filter = new GlobalExceptionFilter();
     const { host, status, send } = buildHost();

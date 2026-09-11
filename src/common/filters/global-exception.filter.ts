@@ -81,10 +81,30 @@ function friendlyIssue(issue: ZodIssue): string {
 }
 
 /**
+ * 只认这些 4xx：Fastify 插件抛的是**带 `statusCode` 的普通 Error**，不是 `HttpException`。
+ *
+ * 为什么必须单列：`@fastify/rate-limit` 超限走的是
+ * `throw errorResponseBuilder(...)`（插件内 `defaultErrorResponse` 构造 `new Error()` 后挂
+ * `statusCode = 429`）。不认这个约定，限流就**静默降级成 500**——请求确实被拦了，但客户端
+ * 收到「服务器内部错误」，既分不清是被限流还是服务挂了，还会诱导重试（正好是限流要防的）。
+ * 同时每一次限流都会打一条 ERROR 堆栈，把日志刷满。
+ *
+ * 只放行 4xx：5xx 一律仍按未知异常处理，绝不让第三方插件的 `statusCode` 决定成功/失败语义。
+ */
+function fastifyClientErrorStatus(exception: unknown): number | null {
+  if (!(exception instanceof Error)) return null;
+  const status = (exception as Error & { statusCode?: unknown }).statusCode;
+  if (typeof status !== 'number' || !Number.isInteger(status)) return null;
+  return status >= 400 && status < 500 ? status : null;
+}
+
+/**
  * 全局异常过滤器：统一错误响应结构，优化前端错误提示。
  *
  * - ZodError（入参校验失败）→ 400，message 为「字段：原因」的中文数组；
  * - HttpException（业务异常）→ 原样透传状态码与响应体；
+ * - **Fastify 插件的 4xx**（带 `statusCode` 的 Error，如限流 429）→ 透传状态码 + 中文提示，
+ *   只记 warn 不打堆栈（限流属于正常防御，不是故障）；
  * - 其它未知异常 → 500，返回通用中文提示并记录堆栈，避免把
  *   "Internal server error" 直接抛给前端。
  */
@@ -119,6 +139,28 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           ? { statusCode: status, message: response }
           : response;
       reply.status(status).send(body);
+      return;
+    }
+
+    // Fastify 插件的客户端错误（限流 429 / 请求体过大 413 等）：透传状态码，不打堆栈
+    const pluginStatus = fastifyClientErrorStatus(exception);
+    if (pluginStatus !== null) {
+      this.logger.warn(
+        `${pluginStatus}：${exception instanceof Error ? exception.message : ''}`,
+      );
+      reply.status(pluginStatus).send({
+        statusCode: pluginStatus,
+        message:
+          pluginStatus === HttpStatus.TOO_MANY_REQUESTS
+            ? '请求过于频繁，请稍后再试'
+            : exception instanceof Error
+              ? exception.message
+              : '请求不被受理',
+        error:
+          pluginStatus === HttpStatus.TOO_MANY_REQUESTS
+            ? 'Too Many Requests'
+            : 'Client Error',
+      });
       return;
     }
 

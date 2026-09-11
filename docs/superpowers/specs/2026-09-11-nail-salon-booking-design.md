@@ -1949,14 +1949,16 @@ UPDATE biz_booking SET status='completed', finished_at=:now
 ### B6 小程序预留（不开发 UI）
 
 - 交付：`app_wx_user` 表、`src/modules/app/**`（auth / catalog / member）、`AppAccessTokenGuard`、
-  独立 Swagger 分组，以及 5 个写接口的契约骨架（返回 501）
+  独立 Swagger 分组，以及 **8 个**写接口的契约骨架（返回 501）
+  （`POST /app/auth/phone` 原本也在骨架清单里，施工单 A8 已把它换成真实现，故不计入 501；见 §16.1）
 - **验收**：
   - `POST /app/auth/login` 用测试 code 换到 app token；同一 openid 重复登录不产生第二条身份记录
   - **认证隔离**：app token 打 `/api/v1/biz/**` 被拒；后台 token 打 `/api/v1/app/**` 同样被拒
   - 4 个只读接口返回的数据**不含**成本、`createdBy`、后台备注等字段（用 Zod schema 断言字段集合）
   - `GET /app/available-slots` 与后台 `available-slots` 对同一输入结果一致（复用同一 service）
   - 未绑定手机号访问 `/app/member/me` → 401 + `needBind`，引导到留空的 `auth/phone`
-  - 5 个骨架接口在 Swagger 可见、schema 完整，调用返回 501 且不落库
+  - **8 个**骨架接口在 Swagger 可见、schema 完整，调用返回 501 且不落库
+    （清单见 §16.1；用例见 `tests/integration/b6-app-skeletons.int.spec.ts` 的 `SKELETON_ROUTES`）
 
 ---
 
@@ -2223,8 +2225,8 @@ UPDATE biz_booking SET status='completed', finished_at=:now
 | 数据     | `app_wx_user`（§4.4）                                                                                                                                                                             |
 | 认证     | `AppAccessTokenGuard` + app 域 JWT（`scope: 'app'`）+ 独立 Swagger 分组                                                                                                                           |
 | 模块     | `src/modules/app/`：`auth` / `catalog` / `member` 三个 controller                                                                                                                                 |
-| 真实现   | `POST /app/auth/login`、`GET /app/service-items`、`GET /app/staffs`、`GET /app/available-slots`、`GET /app/member/me`                                                                             |
-| 契约骨架 | `POST /app/auth/phone`、`GET / POST /app/bookings`、`POST /app/bookings/:id/cancel`、`POST /app/payments/wxpay/jsapi`、`GET /app/member/cards`、`POST /app/reviews`、`POST /app/subscribe`（501） |
+| 真实现   | `POST /app/auth/login`、`POST /app/auth/phone`（原为骨架，施工单 A8 转真实现）、`GET /app/service-items`、`GET /app/staffs`、`GET /app/available-slots`、`GET /app/member/me`                     |
+| 契约骨架 | 以下 **8 个**返回 501（不落库）：`GET /app/member/cards`、`GET / POST /app/bookings`、`POST /app/bookings/:id/cancel`、`POST /app/reviews`、`POST /app/payments/wxpay/jsapi`、`POST /app/subscribe`、`POST /app/payments/wxpay/notify` |
 | 环境变量 | `WX_MINIAPP_APPID` / `WX_MINIAPP_SECRET`，走 `app-config.service.ts` 的 Zod schema                                                                                                                |
 
 > **未配置微信凭据时要能正常启动**：app 域的登录接口返回「小程序端未启用」（而不是让进程起不来），

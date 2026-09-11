@@ -10,7 +10,8 @@
 
 - **小程序端**：10 个页面已落地，主题系统可用，模拟器里跑得起来（截图验证过 3 页），**接的是演示数据**。
 - **后端**：app 域身份域扩出「美甲师工作台」数据层，微信能力已端口化，手机号绑定转真实现，**10 条集成用例全绿**。
-- **美甲师工作台本身（S1 下半 ~ S5）尚未开工**：`src/modules/app/staff/` 目录都还不存在。
+- **美甲师工作台（S2 ~ S5）已全线完成**：后端只读 5 接口 + 写 2 接口 + 真号端点，后台授权页、小程序 4 个工作台页面与双模式 TabBar 都已落地。
+- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；剩 A9~A14 真实现与 A19 devtools 脚本。
 - **P0-1 已完成**：后台可筛选 / 恢复软删顾客，小程序手机号绑定 409 分支已闭环，恢复后可重新绑定；
 - 全量测试：**907 pass / 0 fail**；后端 typecheck / lint、前端 typecheck / lint 通过；工作区干净（无未提交改动）。
 
@@ -107,18 +108,18 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 | 5   | ✅ **S2 店长确认**    | 已完成：`GET /biz/app-staff-grants?status=pending`、`POST .../:id/approve`、`/:id/reject`；权限点 `biz:staff:grant` 已进 `menus.ts`（25 页）；后台页面 `web/src/views/biz/app-staff-grants`。状态机：已 active 幂等、已驳回 409（须重申）、档案停用/删除 409；驳回原因落新增列 `staff_reject_reason`。12 条单测 + 5 条集成。见提交 `eff60a2`、`8c1aad9`                                                          | 🤖                                           |
 | 6   | ✅ **S3 只读 5 接口** | 已完成：`/app/staff/me`、`/bookings`、`/schedule`、`/performance`（**提成逐单明细全见**，D9）、`/reviews`，全部 `staff_id` 硬限定（方法第一参数就是 staffId，不做「传进来再校验」）；顾客/本人手机号一律 `maskPhone`（D11）；字段集合由 `app-staff-workbench.vo.ts` 的 Zod 断言（无成本、无内部字段）。新增 `ReviewPort` + `CommissionPort.listByStaff/summarizeByStaff`。15 条单测（含 2 次变异验证）+ 7 条集成 | 🤖                                           |
 | 7   | ✅ **S4 写 2 接口**   | 已完成：`POST /app/staff/bookings/:id/arrived`、`/complete`，走 `BookingPort` → 既有 `runComplete`（提成计提 + `visit_count` + `affectedRows` 幂等闸门），app 域**没有**自己 UPDATE 状态；早于 `start_at` → 400（§12.4-3）；已到目标状态 → `changed:false`（幂等，不报 409）。触钱口径已按 `money-invariants` §4 写集成：重复完成 `biz_commission_record` 仍为 1 条。5 条集成（含越权 403、404、时间护栏）       | 🤖 触钱，**动手前先加载 `money-invariants`** |
-| 8   | **S5 小程序端**       | 顾客/工作台模式切换；工作台（今日日程+业绩卡）、我的预约、业绩明细、我的评价页；手机号**脱敏 + `wx.makePhoneCall` 拨号**（D11 已定）                                                                                                                                                                                                                                                                             | 🤖                                           |
+| 8   | ✅ **S5 小程序端**   | 已完成：模式切换（`store/mode.ts`，**模式只是偏好、能否进工作台由授权决定**，403 时主动 `demoteToCustomer()`）；4 个页面 `staff-workbench`（今日日程+业绩卡+到店/完成）、`staff-bookings`、`staff-performance`（月份切换+逐单提成明细）、`staff-reviews`；自定义 TabBar 两套 tab 按模式换（`app.json` 注册两种模式全部路径，`switchTab` 只认注册过的）。**D11 的实现取舍**：列表 VO 只给 `customerPhoneMasked`，真号走新增端点 `GET /app/staff/bookings/:id/phone`「点一次取一次、限本人单」（同时给明文+脱敏等于没脱敏），复用 `assertOwnedByStaff` 保证越权口径与到店/完成一致。见提交 `8485713` | 未做真机/模拟器冒烟，只过了 `tsc --noEmit` |
 
 ### P2 —— 原 B6 收口剩余（可与 P1 并行）
 
 | #   | 任务                                               | 说明                                                                                                           |
 | --- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 9   | **G2**：补「未配置凭据 → 503」用例                 | 需要能在测试里切回 `HttpWxMiniappProvider`（或单测直接构造 Http 实现 + 空配置）                                |
-| 10  | **G4**：9 个 501 骨架端点用例 + 不落库断言         | 现在只测了 `POST /app/bookings` 一个                                                                           |
-| 11  | **G5**：修 spec 骨架条数口径                       | spec §12 说 5 个、§16.1 列 8 个、代码实际 9 个                                                                 |
-| 12  | **G6/G7**：收紧 `available-slots` 一致性断言       | 现在只在两边都非空时才比对；且没断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟                                       |
-| 13  | **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 现在只测了未绑定 401                                                                                           |
-| 14  | **G9**：限流 429 + Swagger app 分组断言            | `@RouteConfig({rateLimit})` + `@fastify/rate-limit` 的组合**从没验证过是否真生效**                             |
+| 9   | ✅ **G2**：补「未配置凭据 → 503」用例             | 已完成：`harness.createTestContext` 新增 `providers` 覆盖位，注入「空凭据」的 `HttpWxMiniappProvider` → 登录/绑手机号都 503 且不落身份；另加 `wx-miniapp.provider.spec.ts` 8 条单测（含 `configured=false` 但有值、半套凭据、以及**反证**：凭据齐全时不 503）。**集成环境永远走假实现，这条分支只能靠注入真实现来验** |
+| 10  | ✅ **G4**：8 个 501 骨架端点用例 + 不落库断言     | 已完成：常量 `SKELETON_ROUTES`（8 条，与 spec §16.1 逐条对应）逐个断言 501 + 调用前后 6 张表行数不变 + 非法入参仍是 400（不是「一律 501」）+ 除支付回调外都要 app token。新增 `tests/integration/b6-app-contract.int.spec.ts` |
+| 11  | ✅ **G5**：修 spec 骨架条数口径                   | 已统一为 **8 条**：spec §12 B6 / §16.1 / 施工单 §2.1 + G4 + A3/A7 全部改为 8，并写明 `POST /app/auth/phone` 由 A8 转真实现、已移出骨架清单（原「9」是把它算在内）。口径现在由 G4 用例的 `SKELETON_ROUTES` 长度钉住 |
+| 12  | ✅ **G6/G7**：收紧 `available-slots` 一致性断言   | 已完成：去掉「两边都非空才比对」的空集豁免，未来某天两边**必须完全相等**；新增 G7 用例断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟（班次相对当前时间铺开 + `Intl` 算店内墙钟，深夜自动 skip）。已做变异验证：把小程序渠道的 `minLeadMinutes` 换成 0，用例立刻红 |
+| 13  | ✅ **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 已完成：9 个顶层字段 + 7 个次卡字段字面量锁定（无成本/无 `memberNo`/无 `remark`）；换 openid 只看到自己、等级与折扣率各不相同，`?customerId=` 入参被忽略；顾客档案软删 → 401 + `needBind` |
+| 14  | ✅ **G9**：限流 429 + Swagger app 分组断言        | **已完成并修出一个真 bug**：`@fastify/rate-limit` 抛的是「普通 `Error` + `statusCode=429`」，`GlobalExceptionFilter` 只认 `HttpException`，于是限流**静默降级成 500**（还每次打一条 ERROR 堆栈）。已在过滤器加「Fastify 4xx 透传」分支（5xx 仍兜底 500），现在第 11 次登录真返回 429 + `retry-after`。Swagger 侧断言 app 端点都归「小程序端」分组、回调端点不挂 app-token |
 | 15  | **A9/A11/A12/A13/A14**                             | `member/cards`、`reviews`、`subscribe`、支付回调业务层（假验签器）、`app_wx_user_bind_log`                     |
 | 16  | **A19**：`scripts/devtools.mjs` 自证脚本           | 封装「绝对路径调 wechatide + 首次授权轮询 + 编译→跳页→截图→拉 console」。**注意截图返回 `.png` 但内容是 JPEG** |
 
@@ -191,16 +192,27 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 ## 8. 接手第一步建议
 
 ```bash
-bun run typecheck && bun run lint && bun run test   # 基线应是 895 pass / 0 fail
+bun run typecheck && bun run lint && bun run test   # 基线应是 978 pass / 0 fail（83 文件 / 2410 expect）
+cd miniapp/miniprogram && ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json   # 小程序类型检查（miniapp 自己没装 typescript）
 ```
 
-然后二选一：
+### 当前进度
 
-- **P0-1 已完成**：从「档案状态 → 已删除」筛出顾客，点「恢复档案」并确认；恢复后重新绑定手机号即可走通。
-- **P0-1 ~ P0-4、S2 / S3 / S4 后端已完成**：接口与测试齐了，**剩下的是 S5 小程序端**（顾客/工作台模式切换、工作台页、我的预约、业绩明细、我的评价、脱敏拨号）。
+- **P0-1 ~ P0-4、S2 / S3 / S4 / S5 全部已完成**：后端接口、后台授权页、小程序 4 个工作台页面齐了。
+  美甲师主线**只剩真机/模拟器冒烟**（目前只过了类型检查，没实际跑起来看页面）。
 
-- **推美甲师主线**：P0-3（`BookingPort`）→ S2/S3 → S4/S5。
+### 下一步：P2 收口（任务表第 9~16 项）
 
-**动 S4 之前必须加载 `money-invariants`**：那是唯一触钱的一条（完成会触发提成逐项计提）。已完成，`biz_commission_record` 只追加 + 幂等的断言写在 `tests/integration/b6-app-identity.int.spec.ts` 里。
+建议按「先便宜后贵」排：
 
-**动 S4 之前必须加载 `money-invariants`**：那是唯一触钱的一条（完成会触发提成逐项计提）。
+1. **#11 G5**（最便宜）：修 spec 骨架条数口径（§12 说 5 个 / §16.1 列 8 个 / 代码 9 个），纯文档对齐。
+2. **#13 G8**：`/app/member/me` 已绑定字段集合 + 越权用例。
+3. **#9 G2**：未配置凭据 → 503 用例。
+4. **#10 G4**：9 个 501 骨架端点用例 + 不落库断言。
+5. **#12 G6/G7**：收紧 `available-slots` 一致性断言（含 miniapp 60 分钟提前期 ≠ 后台 0 分钟）。
+6. **#14 G9**：限流 429 + Swagger app 分组断言（`rateLimit` 组合从未验证过是否真生效）。
+7. **#15 A9/A11/A12/A13/A14**（最大一块）：`member/cards`、`reviews`、`subscribe`、支付回调业务层、`app_wx_user_bind_log`。
+8. **#16 A19**：`scripts/devtools.mjs` 自证脚本（Windows 上 agent-browser 不可用，只能靠它做小程序冒烟）。
+
+**动触钱代码前必须加载 `money-invariants`**：S4 已完成，`biz_commission_record` 只追加 + 幂等的断言写在
+`tests/integration/b6-app-identity.int.spec.ts` 里；A13 支付回调同样触钱，动手前照做。
