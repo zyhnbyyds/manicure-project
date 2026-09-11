@@ -119,6 +119,19 @@ export const appBindPhoneVo = z.object({
 registerComponent('AppBindPhoneVo', appBindPhoneVo);
 export type AppBindPhoneVo = z.infer<typeof appBindPhoneVo>;
 
+/** 美甲师工作台申请：不接受任何客户端身份字段，当前身份全部从 token + 数据库推导。 */
+export const appStaffApplyRequestSchema = z.object({});
+registerComponent('AppStaffApplyRequest', appStaffApplyRequestSchema);
+export type AppStaffApplyRequest = z.infer<typeof appStaffApplyRequestSchema>;
+
+export const appStaffApplyVo = z.object({
+  staffId: z.number().int().positive(),
+  staffStatus: z.enum(['pending', 'active']),
+  staffRequestedAt: isoDateTime.nullable(),
+});
+registerComponent('AppStaffApplyVo', appStaffApplyVo);
+export type AppStaffApplyVo = z.infer<typeof appStaffApplyVo>;
+
 /* ------------------------------------------------------------------ *
  * 目录（catalog）：服务项目 / 美甲师 / 可约时段
  * ------------------------------------------------------------------ */

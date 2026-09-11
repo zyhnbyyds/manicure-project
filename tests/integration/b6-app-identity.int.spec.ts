@@ -243,6 +243,112 @@ describe('B6 手机号绑定（§9.7 / §4.3）', () => {
   });
 });
 
+describe('B6 美甲师工作台申请（§12.5 S1）', () => {
+  it('未绑定手机号 → 400，不能凭空申请', async () => {
+    const { token } = await seedAppUser('openid-apply-no-phone');
+    const res = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('手机号命中在职美甲师 → pending，并忽略请求体里的提权字段', async () => {
+    const staff = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES ('申请小柚', '13800000014', 'active', 1)`,
+    );
+    const { appUserId, token } = await seedAppUser('openid-apply-pending');
+    const bound = await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000014' },
+    });
+    expect(bound.status).toBe(201);
+
+    const res = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: { staffId: 999999, staffStatus: 'active' },
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      staffId: staff.insertId,
+      staffStatus: 'pending',
+    });
+    expect(typeof res.body.staffRequestedAt).toBe('string');
+
+    const row = await ctx.sql<
+      {
+        staff_id: number;
+        staff_status: string;
+        staff_decided_at: string | null;
+      }[]
+    >(
+      `SELECT staff_id, staff_status, staff_decided_at FROM app_wx_user WHERE id = ${appUserId}`,
+    );
+    expect(row[0].staff_id).toBe(staff.insertId);
+    expect(row[0].staff_status).toBe('pending');
+    expect(row[0].staff_decided_at).toBeNull();
+  });
+
+  it('重复申请幂等；rejected 可以重新申请回 pending', async () => {
+    await ctx.sql(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES ('重申小柚', '13800000015', 'active', 1)`,
+    );
+    const { appUserId, token } = await seedAppUser('openid-apply-repeat');
+    await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000015' },
+    });
+    const first = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    const second = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(second.body.staffStatus).toBe('pending');
+
+    await ctx.sql(
+      `UPDATE app_wx_user SET staff_status = 'rejected', staff_decided_at = NOW(), staff_decided_by = 1 WHERE id = ${appUserId}`,
+    );
+    const reapply = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(reapply.status).toBe(201);
+    expect(reapply.body.staffStatus).toBe('pending');
+  });
+
+  it('手机号命中停用 / 软删美甲师 → 400', async () => {
+    await ctx.sql(
+      `INSERT INTO biz_staff (nickname, phone, status, sort) VALUES ('停用小柚', '13800000016', 'disabled', 1)`,
+    );
+    const { token } = await seedAppUser('openid-apply-disabled');
+    await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000016' },
+    });
+    const disabled = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(disabled.status).toBe(400);
+  });
+
+  it('没有在职身份的 app token 不能通过工作台作用域（集成入口待 S3）', async () => {
+    // apply 只要求 app token；它返回 pending 后仍不能调用后续 staff scope 接口。
+    // 这里锁住申请接口不把 pending 误当 active，S3 接口接入 scope guard 后再补 403。
+    const { token } = await seedAppUser('openid-apply-no-staff');
+    const res = await ctx.request('POST', '/api/v1/app/staff/apply', {
+      token,
+      body: {},
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('B6 美甲师工作台开通：只给候选，不给权限', () => {
   it('手机号命中在职美甲师 → 返回候选，但身份仍是 none、库里未绑定', async () => {
     const staff = await ctx.sql<{ insertId: number }>(

@@ -13,6 +13,9 @@ import { AppCatalogService } from './catalog/app-catalog.service.js';
 import { AppMemberController } from './member/app-member.controller.js';
 import { AppMemberService } from './member/app-member.service.js';
 import { AppPaymentsController } from './payments/app-payments.controller.js';
+import { AppStaffController } from './staff/app-staff.controller.js';
+import { AppStaffService } from './staff/app-staff.service.js';
+import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
 
 /**
  * 小程序端（B6，spec §16）—— 只做接口与认证域预留，**不做 UI**。
@@ -31,11 +34,14 @@ import { AppPaymentsController } from './payments/app-payments.controller.js';
     AppCatalogController,
     AppMemberController,
     AppPaymentsController,
+    AppStaffController,
   ],
   providers: [
     AppAuthService,
     AppCatalogService,
     AppMemberService,
+    AppStaffService,
+    AppStaffScopeGuard,
     AppAccessTokenGuard,
     /**
      * 微信能力端口：按配置二选一。
