@@ -63,7 +63,15 @@ const createSchema = z.object({
     .max(500)
     .nullish()
     .openapi({ example: '含卸甲与基础护理', description: '说明' }),
-  image: z.string().max(500).nullish().openapi({ description: '展示图' }),
+  /**
+   * 图集：最多 9 张，顺序即展示顺序。
+   * 封面 `image` 由服务端取首图派生，**不接受**直接写入 —— 传了也会被 zod 丢掉。
+   */
+  images: z
+    .array(z.string().max(500))
+    .max(9)
+    .nullish()
+    .openapi({ description: '展示图集（最多 9 张，首图即封面）' }),
   status: z
     .enum(['active', 'disabled'])
     .optional()

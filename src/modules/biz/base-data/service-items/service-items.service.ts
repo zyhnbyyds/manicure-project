@@ -32,6 +32,9 @@ const MAX_BOOKING_ITEMS = 3;
 /** 删除保护提示里最多列出的单号数 */
 const SAMPLE_BOOKING_LIMIT = 3;
 
+/** 图集张数上限，与前端上传组件的 `limit` 保持一致 */
+const MAX_IMAGES = 9;
+
 export type CreateServiceItemInput = {
   name: string;
   category?: string | null | undefined;
@@ -39,7 +42,8 @@ export type CreateServiceItemInput = {
   bufferMinutes?: number | undefined;
   price?: number | undefined;
   description?: string | null | undefined;
-  image?: string | null | undefined;
+  /** 图集：顺序即展示顺序；封面 `image` 由服务端取首图派生，不接受调用方单独指定 */
+  images?: string[] | null | undefined;
   status?: 'active' | 'disabled' | undefined;
   sort?: number | undefined;
   remark?: string | null | undefined;
@@ -58,7 +62,9 @@ export type ServiceItemListFilter = {
  * 服务项目（§4.3 / §9.1）。
  *
  * - 停用 / 删除前必须检查是否被**未完成预约**引用（§6.4），已完成单不受影响（快照已落库）；
- * - 金额单位「分」，时长 / 缓冲参与可约时段计算，改项目不影响历史单据。
+ * - 金额单位「分」，时长 / 缓冲参与可约时段计算，改项目不影响历史单据；
+ * - 图片是「图集 + 封面」两个字段：`images` 是唯一事实来源，`image` 恒等于 `images[0] ?? null`，
+ *   由下面的 `imagesPatch` 统一回写，调用方无法单独写封面（防止两个字段各写各的）。
  */
 @Injectable()
 export class ServiceItemsService extends ServiceItemPort {
@@ -100,8 +106,10 @@ export class ServiceItemsService extends ServiceItemPort {
     input: CreateServiceItemInput,
     actorId: number,
   ): Promise<{ id: number }> {
+    const { images, ...rest } = input;
     const result = await this.database.db.insert(bizServiceItems).values({
-      ...withoutUndefined(input),
+      ...withoutUndefined(rest),
+      ...imagesPatch(images),
       createdBy: actorId,
       updatedBy: actorId,
     });
@@ -117,9 +125,14 @@ export class ServiceItemsService extends ServiceItemPort {
     // 停用 = 变相下架，同样不能让既有未完成预约失去项目（§6.4）
     if (input.status === 'disabled' && current.status !== 'disabled')
       await this.assertNoUnfinishedBookings(current, '停用');
+    const { images, ...rest } = input;
     const result = await this.database.db
       .update(bizServiceItems)
-      .set({ ...withoutUndefined(input), updatedBy: actorId })
+      .set({
+        ...withoutUndefined(rest),
+        ...imagesPatch(images),
+        updatedBy: actorId,
+      })
       .where(
         and(eq(bizServiceItems.id, id), isNull(bizServiceItems.deletedAt)),
       );
@@ -217,4 +230,35 @@ export class ServiceItemsService extends ServiceItemPort {
       `服务项目「${item.name}」被 ${total} 条未完成预约引用（${nos}），不能${action}；请先处理这些预约`,
     );
   }
+}
+
+/**
+ * 归一化图集：去空白、去重、保持顺序、截断到上限。
+ *
+ * 空数组一律归一成 `null` —— 列里只允许「NULL」或「非空数组」两种形态，
+ * 免得 `[]` 与 `null` 两种「没有图」的写法在前后端各判一次。
+ */
+export function normalizeImages(
+  images: string[] | null | undefined,
+): string[] | null {
+  if (!images?.length) return null;
+  const cleaned = [
+    ...new Set(images.map((url) => url.trim()).filter(Boolean)),
+  ];
+  return cleaned.length ? cleaned.slice(0, MAX_IMAGES) : null;
+}
+
+/**
+ * 图集 → 写入补丁。
+ *
+ * `images === undefined` 表示「本次不改图集」，返回空补丁，让 `update` 保持原值；
+ * 否则连同派生封面 `image = images[0] ?? null` 一起写，两者永远同进同退。
+ */
+export function imagesPatch(images: string[] | null | undefined): {
+  images?: string[] | null;
+  image?: string | null;
+} {
+  if (images === undefined) return {};
+  const normalized = normalizeImages(images);
+  return { images: normalized, image: normalized?.[0] ?? null };
 }

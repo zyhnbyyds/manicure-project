@@ -47,7 +47,8 @@ export abstract class ServiceItemPort {
       bufferMinutes?: number;
       price?: number;
       description?: string | null;
-      image?: string | null;
+      /** 图集：服务端据此派生封面 `image`，调用方不能直接写 `image` */
+      images?: string[] | null;
       status?: 'active' | 'disabled';
       sort?: number;
       remark?: string | null;

@@ -673,6 +673,17 @@ export const bizServiceItems = mysqlTable(
       .notNull(),
     price: int('price', { unsigned: true }).default(0).notNull(),
     description: varchar('description', { length: 500 }),
+    /**
+     * 图集：图片地址数组，顺序即展示顺序（§9.1）。
+     * 与 `biz_review.images` 一样用 json 数组，不额外建关联表 —— 图片只做展示，
+     * 不参与查询条件，也不需要引用完整性，建表只会白搭一次 join 与一套整体替换逻辑。
+     */
+    images: json('images').$type<string[]>(),
+    /**
+     * 封面图：**派生字段**，恒等于 `images[0] ?? null`，由 `ServiceItemsService` 统一回写。
+     * 留着它是为了让列表页与小程序目录不必解析图集就能拿到封面；
+     * 写入接口**不接受** `image`，避免出现「封面与图集首图不一致」的脏数据。
+     */
     image: varchar('image', { length: 500 }),
     status: mysqlEnum('status', ['active', 'disabled'])
       .default('active')
