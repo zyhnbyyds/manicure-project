@@ -1,9 +1,8 @@
-<view class="page" style="{{themeStyle}}">
-  <view class="page-body">
-    <!-- 未绑定手机号：这是正常状态，不是错误 -->
-    <view wx:if="{{needBind}}" class="card card--tint bind">
-      <view class="bind__emoji">🎀</view>
-      <view class="bind__title">绑定手机号，解锁会员权益</view>
+<view class="page card-page" style="{{themeStyle}}">
+  <!-- 未绑定手机号：这是正常状态，不是错误 -->
+  <view wx:if="{{needBind}}" class="page-body">
+    <view class="bind">
+      <view class="bind__title">绑定手机号，解锁会员卡</view>
       <view class="bind__text">
         绑定后可以看到你的等级折扣、储值余额、积分与次卡，也方便到店联系你。
       </view>
@@ -15,95 +14,80 @@
         授权手机号
       </button>
     </view>
+  </view>
 
-    <block wx:else>
-      <view wx:if="{{loading}}" class="loading">正在读取会员信息…</view>
+  <view wx:elif="{{loading}}" class="loading">正在读取会员信息…</view>
 
-      <view wx:elif="{{errorText}}" class="empty">
-        <view class="empty__emoji">🥺</view>
-        <view class="empty__text">{{errorText}}</view>
+  <view wx:elif="{{errorText}}" class="empty">
+    <view class="empty__text">{{errorText}}</view>
+    <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+  </view>
+
+  <block wx:else>
+    <view class="page-body card-body">
+      <!-- 会员卡：渐变卡面 + 装饰圆 + M 水印 -->
+      <view class="mcard">
+        <view class="mcard__circle mcard__circle--a"></view>
+        <view class="mcard__circle mcard__circle--b"></view>
+        <view class="mcard__mark">M</view>
+        <view class="mcard__brand">美甲小铺</view>
+        <view class="mcard__title">会员卡</view>
+        <view class="mcard__slogan">专属美甲 · 尊享品质</view>
+        <view class="mcard__foot">
+          <view class="mcard__no">{{cardNo}}</view>
+          <view class="mcard__level">{{levelName}}</view>
+        </view>
       </view>
 
-      <block wx:elif="{{me}}">
-        <!-- 会员卡头 -->
-        <view class="card hero">
-          <view class="bubble hero__bubble"></view>
-          <view class="hero__row">
-            <view class="hero__avatar">🐱</view>
-            <view class="grow">
-              <view class="hero__name">{{me.name}}</view>
-              <view class="hero__phone">{{me.phoneText}}</view>
-            </view>
-            <view class="hero__level">{{me.levelName}}</view>
-          </view>
-          <view class="hero__stats">
-            <view class="hero__stat">
-              <view class="hero__stat-value">{{me.discountText}}</view>
-              <view class="hero__stat-label">会员折扣</view>
-            </view>
-            <view class="hero__stat">
-              <view class="hero__stat-value">{{me.points}}</view>
-              <view class="hero__stat-label">可用积分</view>
-            </view>
-            <view class="hero__stat">
-              <view class="hero__stat-value">{{me.activeCardCount}}</view>
-              <view class="hero__stat-label">有效次卡</view>
-            </view>
-          </view>
+      <!-- 资产三列（余额/积分/次卡） -->
+      <view class="assets">
+        <view class="assets__item" bindtap="onRecharge">
+          <view class="assets__value">{{balanceText}}</view>
+          <view class="assets__label">储值余额</view>
         </view>
+        <view class="assets__item" bindtap="onPoints">
+          <view class="assets__value">{{points}}</view>
+          <view class="assets__label">可用积分</view>
+        </view>
+        <view class="assets__item" bindtap="onCards">
+          <view class="assets__value">{{cardCount}}</view>
+          <view class="assets__label">有效次卡</view>
+        </view>
+      </view>
+      <view class="assets__split">
+        本金 {{principalText}} 元 · 赠送 {{bonusText}} 元（赠送不可退）
+      </view>
 
-        <!-- 储值余额：本金与赠送分列 -->
-        <view class="card">
-          <view class="section__title">储值余额</view>
-          <view class="balance">
-            <text class="price__symbol">¥</text>
-            <text class="balance__yuan">{{me.balanceYuan}}</text>
-          </view>
-          <view class="balance__split">
-            <view class="balance__cell">
-              <view class="balance__cell-value">¥{{me.balancePrincipalYuan}}</view>
-              <view class="balance__cell-label">本金（可退）</view>
-            </view>
-            <view class="balance__cell">
-              <view class="balance__cell-value">¥{{me.balanceBonusYuan}}</view>
-              <view class="balance__cell-label">赠送（不可退）</view>
-            </view>
-          </view>
-        </view>
-
-        <!-- 次卡 -->
-        <view class="section">
-          <view class="section__title">我的次卡</view>
-        </view>
-        <view wx:if="{{me.cards.length === 0}}" class="empty empty--compact">
-          <view class="empty__emoji">🎫</view>
-          <view class="empty__text">还没有次卡</view>
-          <view class="empty__hint">到店可以咨询办卡，做几次更划算</view>
-        </view>
+      <!-- 会员权益 -->
+      <view class="section">
+        <view class="section__title">会员权益</view>
+      </view>
+      <view class="card benefits">
         <view
-          wx:for="{{me.cards}}"
-          wx:key="id"
-          class="card card-item {{item.statusKey !== 'active' ? 'is-dim' : ''}}"
+          wx:for="{{benefits}}"
+          wx:key="key"
+          class="benefits__item"
+          data-key="{{item.key}}"
+          bindtap="onBenefit"
         >
-          <view class="row-between">
-            <view class="card-item__name">{{item.cardName}}</view>
-            <view class="tag {{item.statusKey === 'active' ? '' : 'tag--outline'}}">
-              {{item.statusText}}
-            </view>
-          </view>
-          <view class="card-item__no">卡号 {{item.cardNo}}</view>
-          <view class="card-item__bar">
-            <view class="card-item__bar-inner" style="width: {{item.percent}}%"></view>
-          </view>
-          <view class="row-between card-item__foot">
-            <view class="text-weak">{{item.expireText}}</view>
-            <view class="card-item__remain">
-              剩余 <text class="card-item__times">{{item.remainTimes}}</text> / {{item.totalTimes}} 次
-            </view>
-          </view>
+          <image class="benefits__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+          <view class="benefits__label">{{item.label}}</view>
+          <view class="benefits__sub">{{item.key === 'discount' ? discountText : item.sub}}</view>
         </view>
-      </block>
-    </block>
-    <view class="safe-bottom"></view>
-  </view>
+      </view>
+
+      <!-- 会员专享活动 -->
+      <view class="section">
+        <view class="section__title">会员专享活动</view>
+      </view>
+      <view class="card promo">
+        <view class="grow">
+          <view class="promo__title">新客专享</view>
+          <view class="promo__sub">首次到店立减 ¥30</view>
+          <view class="btn btn--primary btn--sm promo__btn" bindtap="onClaim">立即领取</view>
+        </view>
+        <image class="promo__photo" src="{{promoImage}}" mode="aspectFill" />
+      </view>
+    </view>
+  </block>
 </view>
