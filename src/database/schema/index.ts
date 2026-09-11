@@ -1302,6 +1302,36 @@ export const appWxSubscribeGrants = mysqlTable(
   ],
 );
 
+/**
+ * 小程序身份 ↔ 顾客的**绑定留痕**（A14）。
+ *
+ * 一个 openid 同时只绑一个 `customer_id`（§16.2），换绑就是**覆盖**——旧关系当场消失。
+ * 没有这张表就回答不了「这个 openid 昨天绑的是谁」，换绑出错（绑错人 / 恶意换绑）
+ * 时无从追溯。所以**只追加不删**：每次绑定/换绑写一行，记下前后两个 customer_id。
+ *
+ * 手机号照原值存（与 `biz_customer.phone` 一致）：留痕的价值就在可追溯，
+ * 脱敏了就查不出「这个号被谁绑过」。
+ */
+export const appWxUserBindLogs = mysqlTable(
+  'app_wx_user_bind_log',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    appWxUserId: int('app_wx_user_id', { unsigned: true }).notNull(),
+    /** openid 快照：身份行被软删 / 换绑之后仍要能追溯 */
+    openid: varchar('openid', { length: 64 }).notNull(),
+    phone: varchar('phone', { length: 20 }),
+    /** 换绑前的顾客（首次绑定为 null） */
+    customerIdBefore: int('customer_id_before', { unsigned: true }),
+    customerIdAfter: int('customer_id_after', { unsigned: true }),
+    source: mysqlEnum('source', ['bind_phone']).notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_wx_bind_user').on(table.appWxUserId, table.id),
+    index('idx_wx_bind_customer').on(table.customerIdAfter),
+  ],
+);
+
 /* ------------------------------------------------------------------ *
  * C. 支付与账务（§4.5、§17、§18）
  * ------------------------------------------------------------------ */
@@ -2003,6 +2033,7 @@ export const relations = defineRelations(
     sysNoticeLogs,
     appWxUsers,
     appWxSubscribeGrants,
+    appWxUserBindLogs,
   },
   ({
     departments,
@@ -2055,6 +2086,7 @@ export const relations = defineRelations(
     sysNoticeLogs,
     appWxUsers,
     appWxSubscribeGrants,
+    appWxUserBindLogs,
     one,
     many,
   }) => ({
@@ -2065,6 +2097,7 @@ export const relations = defineRelations(
       void sysNoticeTemplates;
       void sysNoticeLogs;
       void appWxSubscribeGrants;
+      void appWxUserBindLogs;
       return {};
     })(),
     users: {

@@ -251,6 +251,91 @@ describe('B6 手机号绑定（§9.7 / §4.3）', () => {
   });
 });
 
+describe('B6 换绑留痕 app_wx_user_bind_log（A14）', () => {
+  it('首次绑定 → 一行留痕：before 为 null，after 是新顾客', async () => {
+    const { appUserId, token } = await seedAppUser('openid-bindlog-1', '小美');
+
+    const res = await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000071' },
+    });
+    expect(res.status).toBe(201);
+
+    const logs = await ctx.sql<
+      {
+        app_wx_user_id: number;
+        openid: string;
+        phone: string;
+        customer_id_before: number | null;
+        customer_id_after: number | null;
+        source: string;
+      }[]
+    >(
+      `SELECT app_wx_user_id, openid, phone, customer_id_before, customer_id_after, source
+         FROM app_wx_user_bind_log ORDER BY id`,
+    );
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      app_wx_user_id: appUserId,
+      openid: 'openid-bindlog-1',
+      phone: '13800000071',
+      customer_id_before: null,
+      customer_id_after: res.body.customerId,
+      source: 'bind_phone',
+    });
+  });
+
+  it('换绑 → 追加一行而不是改旧行：before 是旧顾客，after 是新顾客', async () => {
+    const other = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO biz_customer (name, phone) VALUES ('另一位', '13800000072')`,
+    );
+    const { token } = await seedAppUser('openid-bindlog-2');
+
+    const first = await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000073' },
+    });
+    expect(first.status).toBe(201);
+
+    const second = await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000072' },
+    });
+    expect(second.status).toBe(201);
+    expect(second.body.customerId).toBe(other.insertId);
+
+    const logs = await ctx.sql<
+      { customer_id_before: number | null; customer_id_after: number | null }[]
+    >(
+      `SELECT customer_id_before, customer_id_after FROM app_wx_user_bind_log ORDER BY id`,
+    );
+    expect(logs).toHaveLength(2);
+    expect(logs[0].customer_id_before).toBeNull();
+    expect(logs[0].customer_id_after).toBe(first.body.customerId);
+    // 旧关系已经被覆盖，只剩这张表能回答「昨天绑的是谁」
+    expect(logs[1].customer_id_before).toBe(first.body.customerId);
+    expect(logs[1].customer_id_after).toBe(other.insertId);
+  });
+
+  it('绑定没成功就不留痕（409 软删顾客：既不恢复也不绑定）', async () => {
+    await ctx.sql(
+      `INSERT INTO biz_customer (name, phone, deleted_at) VALUES ('已删', '13800000074', NOW())`,
+    );
+    const { token } = await seedAppUser('openid-bindlog-3');
+
+    const res = await ctx.request('POST', '/api/v1/app/auth/phone', {
+      token,
+      body: { code: '13800000074' },
+    });
+    expect(res.status).toBe(409);
+
+    const logs = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM app_wx_user_bind_log`,
+    );
+    expect(Number(logs[0].total)).toBe(0);
+  });
+});
+
 describe('B6 美甲师工作台申请（§12.5 S1）', () => {
   it('未绑定手机号 → 400，不能凭空申请', async () => {
     const { token } = await seedAppUser('openid-apply-no-phone');

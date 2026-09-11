@@ -2251,7 +2251,7 @@ UPDATE biz_booking SET status='completed', finished_at=:now
 ```
 
 - 手机号已存在但属于他人 openid → 允许绑定（顾客换微信号是常态），先写 `remark`；
-  P2 若需要完整历史再加 `app_wx_user_bind_log`。
+  P2 已加 `app_wx_user_bind_log`（A14）：换绑是**覆盖**，旧关系当场消失，靠这张只追加的表回答「昨天绑的是谁」。
 - 一个 openid 同时只绑定一个 `customer_id`；换绑时旧绑定关系被覆盖（`app_wx_user` 单表即可表达）。
 
 ### 16.3 隔离与安全要求

@@ -183,7 +183,7 @@
 | **A11** | `/app/reviews` 真实现 ✅ 已完成（H2 未定，按「都做」预留结构执行） | `app-member.service.ts` + `ReviewPort.createForCustomer` | 仅本人（归属按预约事实校验 → 他人单 403）+ 仅已完成（未完成 400）；**一单一评**（二次 409）；`customer_id`/`staff_id` 由预约事实带出；集成 3 条 | 🤖 |
 | **A12** | `/app/subscribe` 真实现 | ✅ 已完成（2026-09-11） | **偏离原方案**：不塞 `sys_notice_log`（它是「已发生的一次发送」的日志，会污染发送统计），改为新表 `app_wx_subscribe_grant`，按 `(app_wx_user_id, template_id)` 唯一 + `granted_count` 累加额度；`bookingId` 他人单 403 / 不存在 404；未绑定 401 + `needBind`；集成 3 条。**发送段仍等 H10 模板 ID**（届时补：模板 ID 映射、额度消费、`granted_count` 扣减）。取舍见交接文档 D12 |
 | **A13** | 支付回调业务层（幂等 + 金额校验 + 同事务发货）用**假验签器**实现 | `app-payments.service.ts` + 注入的 verifier 端口 | 自造回调报文：重放 3 次只生效 1 次；金额不符 → 拒 + 写 `callback_invalid`；关单后回调不改账 | 🤖 |
-| **A14** | `app_wx_user_bind_log` 表 + 迁移（若 H2 选做） | schema + `bun run db:generate` 产物 | 换绑留痕：换绑前后 `customer_id`、时间、来源；**只追加不删** | 🤖 |
+| **A14** | `app_wx_user_bind_log` 表 + 迁移 | ✅ 已完成（2026-09-11） | 新表 `app_wx_user_bind_log`（`before/after` 两个 customer_id + openid/phone 快照，只追加不删）；写入点在 `app-auth.service.bindPhone`，**换绑与留痕放同一事务**（留痕落不下去的换绑比不换绑更危险）；绑定失败（409 软删顾客）不留痕；集成 3 条 |
 
 ### 4.2 前端泳道（A15~A17，门 H1）
 

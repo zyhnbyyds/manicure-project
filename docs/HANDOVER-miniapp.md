@@ -11,9 +11,9 @@
 - **小程序端**：10 个页面已落地，主题系统可用，模拟器里跑得起来（截图验证过 3 页），**接的是演示数据**。
 - **后端**：app 域身份域扩出「美甲师工作台」数据层，微信能力已端口化，手机号绑定转真实现，**10 条集成用例全绿**。
 - **美甲师工作台（S2 ~ S5）已全线完成**：后端只读 5 接口 + 写 2 接口 + 真号端点，后台授权页、小程序 4 个工作台页面与双模式 TabBar 都已落地。
-- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；A9 我的次卡、A11 评价、A12 订阅消息授权已转真实现（501 骨架 9 → 5）；剩 A13（触钱）、A14 与 A19 devtools 脚本。
+- **P2 收口进行中**：G2 / G4 / G5 / G6 / G7 / G8 / G9 已完成（其中 G9 挖出并修掉一个真 bug：限流 429 被全局过滤器降级成 500）；A9 我的次卡、A11 评价、A12 订阅消息授权已转真实现（501 骨架 9 → 5）；A14 换绑留痕已完成（新表 `app_wx_user_bind_log`）；剩 A13（触钱）与 A19 devtools 脚本。
 - **P0-1 已完成**：后台可筛选 / 恢复软删顾客，小程序手机号绑定 409 分支已闭环，恢复后可重新绑定；
-- 全量测试：**1011 pass / 0 fail**（86 文件 / 2561 expect）；后端 typecheck / lint、前端 typecheck / lint 通过；工作区干净（无未提交改动）。
+- 全量测试：**1014 pass / 0 fail**（86 文件 / 2573 expect）；后端 typecheck / lint、前端 typecheck / lint 通过；工作区干净（无未提交改动）。
 
 ---
 
@@ -120,7 +120,7 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 | 12  | ✅ **G6/G7**：收紧 `available-slots` 一致性断言   | 已完成：去掉「两边都非空才比对」的空集豁免，未来某天两边**必须完全相等**；新增 G7 用例断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟（班次相对当前时间铺开 + `Intl` 算店内墙钟，深夜自动 skip）。已做变异验证：把小程序渠道的 `minLeadMinutes` 换成 0，用例立刻红 |
 | 13  | ✅ **G8**：`/app/member/me` 已绑定字段集合 + 越权用例 | 已完成：9 个顶层字段 + 7 个次卡字段字面量锁定（无成本/无 `memberNo`/无 `remark`）；换 openid 只看到自己、等级与折扣率各不相同，`?customerId=` 入参被忽略；顾客档案软删 → 401 + `needBind` |
 | 14  | ✅ **G9**：限流 429 + Swagger app 分组断言        | **已完成并修出一个真 bug**：`@fastify/rate-limit` 抛的是「普通 `Error` + `statusCode=429`」，`GlobalExceptionFilter` 只认 `HttpException`，于是限流**静默降级成 500**（还每次打一条 ERROR 堆栈）。已在过滤器加「Fastify 4xx 透传」分支（5xx 仍兜底 500），现在第 11 次登录真返回 429 + `retry-after`。Swagger 侧断言 app 端点都归「小程序端」分组、回调端点不挂 app-token |
-| 15  | 🟡 **A9/A11/A12/A13/A14**                          | **A9 `/app/member/cards` 已完成**（`MemberCardPort.listByCustomer`；状态按「到店是否真能用」现算，与 `assertUsable` 同规则；字段 7 个；分页 + 状态过滤；集成 3 条）。**A11 `/app/reviews` 已完成**（`ReviewPort.createForCustomer`：仅本人 403 / 仅已完成 400 / 一单一评 409；`customer_id`、`staff_id` 由预约事实带出；集成 3 条）。**A12 `/app/subscribe` 已完成**（新表 `app_wx_subscribe_grant`：`(app_wx_user_id, template_id)` 唯一，额度按 `granted_count` 累加而非覆盖；`bookingId` 他人单 403 / 不存在 404；未绑定 401 + `needBind`；集成 3 条）。剩 支付回调业务层(A13，**触钱**)、`app_wx_user_bind_log`(A14，需新表 + 迁移)。**D12 三个取舍见文末** |
+| 15  | 🟡 **A9/A11/A12/A13/A14（只剩 A13）**                          | **A9 `/app/member/cards` 已完成**（`MemberCardPort.listByCustomer`；状态按「到店是否真能用」现算，与 `assertUsable` 同规则；字段 7 个；分页 + 状态过滤；集成 3 条）。**A11 `/app/reviews` 已完成**（`ReviewPort.createForCustomer`：仅本人 403 / 仅已完成 400 / 一单一评 409；`customer_id`、`staff_id` 由预约事实带出；集成 3 条）。**A12 `/app/subscribe` 已完成**（新表 `app_wx_subscribe_grant`：`(app_wx_user_id, template_id)` 唯一，额度按 `granted_count` 累加而非覆盖；`bookingId` 他人单 403 / 不存在 404；未绑定 401 + `needBind`；集成 3 条）。剩 支付回调业务层(A13，**触钱**)。**A14 `app_wx_user_bind_log` 已完成**：新表 + 迁移，换绑与留痕在同一事务里（`bindPhone`），`before/after` 两个 `customer_id` + `openid`/`phone` 快照，只追加不删；绑定失败（409 软删）不留痕；集成 3 条。**D12 三个取舍见文末** |
 | 16  | **A19**：`scripts/devtools.mjs` 自证脚本           | 封装「绝对路径调 wechatide + 首次授权轮询 + 编译→跳页→截图→拉 console」。**注意截图返回 `.png` 但内容是 JPEG** |
 
 ---
@@ -211,7 +211,7 @@ cd miniapp/miniprogram && ../../node_modules/typescript/bin/tsc --noEmit -p tsco
 4. **#10 G4**：9 个 501 骨架端点用例 + 不落库断言。
 5. **#12 G6/G7**：收紧 `available-slots` 一致性断言（含 miniapp 60 分钟提前期 ≠ 后台 0 分钟）。
 6. **#14 G9**：限流 429 + Swagger app 分组断言（`rateLimit` 组合从未验证过是否真生效）。
-7. **#15 A9/A11/A12/A13/A14**（最大一块）：`member/cards` ✅、`reviews` ✅、`subscribe` ✅，剩 支付回调业务层(A13，**触钱**)、`app_wx_user_bind_log`(A14)。
+7. **#15 A9/A11/A12/A13/A14**（最大一块）：`member/cards` ✅、`reviews` ✅、`subscribe` ✅、`app_wx_user_bind_log` ✅，只剩 支付回调业务层(A13，**触钱**)。
 8. **#16 A19**：`scripts/devtools.mjs` 自证脚本（Windows 上 agent-browser 不可用，只能靠它做小程序冒烟）。
 
 **动触钱代码前必须加载 `money-invariants`**：S4 已完成，`biz_commission_record` 只追加 + 幂等的断言写在

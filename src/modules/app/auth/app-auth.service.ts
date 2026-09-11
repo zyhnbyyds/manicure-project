@@ -7,7 +7,10 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { SignJWT } from 'jose';
 import { AppConfigService } from '../../../config/app-config.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
-import { appWxUsers } from '../../../database/schema/index.js';
+import {
+  appWxUserBindLogs,
+  appWxUsers,
+} from '../../../database/schema/index.js';
 import { CustomerPort, StaffPort } from '../../biz/common/ports.js';
 import type {
   AppBindPhoneRequest,
@@ -26,6 +29,7 @@ const APP_ACTOR_ID = 0;
 /** 身份记录快照（去掉了不必要的外传字段） */
 type AppIdentity = {
   id: number;
+  openid: string;
   nickname: string | null;
   customerId: number | null;
   staffId: number | null;
@@ -146,11 +150,23 @@ export class AppAuthService {
       created = true;
     }
 
-    // 换绑覆盖旧关系：一个 openid 同时只绑定一个 customer_id
-    await this.database.db
-      .update(appWxUsers)
-      .set({ customerId })
-      .where(eq(appWxUsers.id, appUserId));
+    // 换绑覆盖旧关系：一个 openid 同时只绑定一个 customer_id。
+    // 覆盖与留痕**必须在同一事务里**：留痕落不下去的换绑比不换绑更危险。
+    await this.database.db.transaction(async (tx) => {
+      await tx
+        .update(appWxUsers)
+        .set({ customerId })
+        .where(eq(appWxUsers.id, appUserId));
+      await tx.insert(appWxUserBindLogs).values({
+        appWxUserId: appUserId,
+        openid: identity.openid,
+        phone,
+        customerIdBefore: identity.customerId,
+        customerIdAfter: customerId,
+        source: 'bind_phone',
+        createdBy: APP_ACTOR_ID,
+      });
+    });
 
     const staff = await this.staffs.findByPhone(phone);
     const staffCandidate =
@@ -169,6 +185,7 @@ export class AppAuthService {
 
   private readonly identityColumns = {
     id: appWxUsers.id,
+    openid: appWxUsers.openid,
     nickname: appWxUsers.nickname,
     customerId: appWxUsers.customerId,
     staffId: appWxUsers.staffId,
