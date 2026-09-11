@@ -1,129 +1,212 @@
-/* 选时段 */
+/* 预约美甲 —— 严格对齐 docs/design.png 第 4 屏 */
 
-.summary {
-  padding: 20rpx 24rpx;
-  background: var(--c-bg-soft);
+.booking-body {
+  padding-bottom: 200rpx;
 }
 
-.summary__staff {
+/* ── 已选款式摘要 ─────────────────────────────────────────── */
+
+.picked {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  padding: 24rpx;
+  background: var(--c-card);
+  border-radius: var(--r-lg);
 }
 
-.summary__name {
+.picked__photo {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--r-md);
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.picked__name {
+  font-family: var(--font-serif);
   font-size: 30rpx;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.summary__dot {
-  margin: 0 10rpx;
+.picked__meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
   color: var(--c-text-weak);
 }
 
-.summary__dur {
-  font-size: 24rpx;
-  color: var(--c-primary);
+.picked__price {
+  margin-left: 16rpx;
 }
 
-.summary__items {
-  margin-top: 6rpx;
-  font-size: 24rpx;
-  color: var(--c-text-sub);
-}
+/* ── 日期条 ───────────────────────────────────────────────── */
 
-/* 日期条 */
 .dates {
   width: 100%;
   white-space: nowrap;
-  padding: 20rpx 0 10rpx;
 }
 
 .dates__row {
   display: flex;
-  padding: 0 24rpx;
 }
 
 .dates__item {
   flex-shrink: 0;
-  width: 116rpx;
-  padding: 16rpx 0;
-  margin-right: 16rpx;
+  min-width: 128rpx;
+  padding: 16rpx 20rpx;
+  margin-right: 18rpx;
   border-radius: var(--r-md);
   background: var(--c-card);
   text-align: center;
-  box-shadow: 0 4rpx 12rpx var(--c-shadow);
-  transition: transform 0.15s ease;
+  box-sizing: border-box;
 }
 
+/* 选中：主色实心 + 白字（设计稿「今天」即如此） */
 .dates__item.is-active {
   background: var(--c-primary);
-  transform: translateY(-4rpx);
 }
 
-.dates__weekday {
-  font-size: 22rpx;
-  color: var(--c-text-sub);
+.dates__label {
+  font-size: 24rpx;
+  color: var(--c-text);
 }
 
-.dates__day {
-  font-size: 36rpx;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.dates__week {
+.dates__date {
+  margin-top: 4rpx;
   font-size: 20rpx;
   color: var(--c-text-weak);
 }
 
-.dates__item.is-active .dates__weekday,
-.dates__item.is-active .dates__day,
-.dates__item.is-active .dates__week {
+.dates__item.is-active .dates__label,
+.dates__item.is-active .dates__date {
   color: var(--c-on-primary);
 }
 
-/* 时段网格：3 列（用百分比 + margin 而不是 gap） */
-.slots__title {
-  margin: 12rpx 4rpx 20rpx;
-}
+/* ── 时段网格 ─────────────────────────────────────────────── */
 
 .slots {
   display: flex;
   flex-wrap: wrap;
+  margin-top: 24rpx;
 }
 
 .slots__item {
   width: 31.3%;
-  height: 84rpx;
-  line-height: 84rpx;
+  height: 76rpx;
+  line-height: 76rpx;
   text-align: center;
   margin-bottom: 18rpx;
   border-radius: var(--r-md);
   background: var(--c-card);
   color: var(--c-text);
-  font-size: 28rpx;
-  font-weight: 600;
-  box-shadow: 0 4rpx 12rpx var(--c-shadow);
-  transition: transform 0.15s ease;
+  font-size: 26rpx;
 }
 
+/* 用 margin 而不是 gap：flex gap 在 iOS 老版本 WKWebView 上不生效 */
 .slots__item:nth-child(3n + 2) {
-  margin: 0 3% 18rpx;
+  margin-left: 3%;
+  margin-right: 3%;
 }
 
 .slots__item.is-active {
   background: var(--c-primary);
   color: var(--c-on-primary);
-  transform: scale(1.04);
 }
 
-.slots__tip {
-  margin-top: 8rpx;
+.slots-empty {
+  margin-top: 28rpx;
+  padding: 48rpx 24rpx;
+  background: var(--c-card);
+  border-radius: var(--r-lg);
   text-align: center;
 }
 
-.action-bar__time {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: var(--c-primary);
+.slots-empty__text {
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.slots-empty__hint {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+/* ── 美甲师 ───────────────────────────────────────────────── */
+
+.staffs {
+  display: flex;
+}
+
+.staffs__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 该时段已有约 → 置灰，不可点 */
+.staffs__item.is-disabled {
+  opacity: 0.4;
+}
+
+.staffs__ring {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  border: 3rpx solid transparent;
+  padding: 4rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 选中：主色圆环（与首页「第一位美甲师高亮」同一套视觉语言） */
+.staffs__ring.is-selected {
+  border-color: var(--c-primary);
+}
+
+.staffs__avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.staffs__name {
+  margin-top: 12rpx;
+  max-width: 140rpx;
+  font-size: 24rpx;
+}
+
+/* ── 备注 ─────────────────────────────────────────────────── */
+
+.remark {
+  width: 100%;
+  min-height: 150rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+  border-radius: var(--r-lg);
+  background: var(--c-card);
+  font-size: 26rpx;
+  color: var(--c-text);
+}
+
+.remark__placeholder {
+  color: var(--c-text-weak);
+}
+
+/* ── 底部 ─────────────────────────────────────────────────── */
+
+.action-bar__label {
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.action-bar__submit {
+  width: 300rpx;
+  flex-shrink: 0;
+}
+
+.empty__action {
+  margin-top: 28rpx;
 }

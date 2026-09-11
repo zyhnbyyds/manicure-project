@@ -1,50 +1,55 @@
 <view class="page" style="{{themeStyle}}">
-  <!-- 上下文摘要，避免用户忘了约的是谁 / 做什么 -->
-  <view class="summary">
-    <view class="summary__staff">
-      <text class="summary__name">{{staffName}}</text>
-      <text class="summary__dot">·</text>
-      <text class="summary__dur">{{durationText}}</text>
-    </view>
-    <view class="summary__items ellipsis">{{itemNames}}</view>
-  </view>
-
-  <!-- 日期条 -->
-  <scroll-view class="dates" scroll-x enable-flex show-scrollbar="{{false}}">
-    <view class="dates__row">
-      <view
-        wx:for="{{dateChips}}"
-        wx:key="value"
-        class="dates__item {{activeDate === item.value ? 'is-active' : ''}}"
-        data-date="{{item.value}}"
-        bindtap="onDate"
-      >
-        <view class="dates__weekday">{{item.label}}</view>
-        <view class="dates__day">{{item.day}}</view>
-        <view class="dates__week">{{item.weekday}}</view>
+  <view class="page-body booking-body">
+    <!-- 已选款式摘要（设计稿顶部那张卡） -->
+    <!-- 未选款式时摘要卡与后续区块都不该出现 -->
+    <view wx:if="{{!emptyDraft}}" class="picked">
+      <image class="picked__photo" src="{{pickedImage}}" mode="aspectFill" />
+      <view class="grow">
+        <view class="picked__name ellipsis">{{itemNames}}</view>
+        <view class="picked__meta">{{durationText}}</view>
+      </view>
+      <view class="price picked__price">
+        <text class="price__symbol">¥</text>
+        <text class="price__yuan">{{totalText}}</text>
       </view>
     </view>
-  </scroll-view>
 
-  <view class="page-body">
-    <view wx:if="{{loading}}" class="loading">正在看 {{staffName}} 的空档…</view>
-
-    <view wx:elif="{{errorText}}" class="empty">
-      <view class="empty__emoji">🥺</view>
-      <view class="empty__text">{{errorText}}</view>
+    <view wx:if="{{emptyDraft}}" class="empty">
+      <view class="empty__text">还没有选款式</view>
+      <view class="empty__hint">先挑一款喜欢的款式，才知道要给你留多久～</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="goPickService">去挑款式</view>
     </view>
 
-    <view wx:elif="{{slots.length === 0}}" class="empty">
-      <view class="empty__emoji">🫧</view>
-      <view class="empty__text">{{reasonText}}</view>
-      <view class="empty__hint">换个日期或换位美甲师试试</view>
+    <view wx:elif="{{loading}}" class="loading">正在看哪位美甲师有空…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__text">{{errorText}}</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
     </view>
 
     <block wx:else>
-      <view class="section__title slots__title">可选时间</view>
-      <view class="slots">
+      <!-- 选择时间 -->
+      <view class="section">
+        <view class="section__title">选择时间</view>
+      </view>
+      <scroll-view class="dates" scroll-x enable-flex show-scrollbar="{{false}}">
+        <view class="dates__row">
+          <view
+            wx:for="{{dateChips}}"
+            wx:key="value"
+            class="dates__item {{activeDate === item.value ? 'is-active' : ''}}"
+            data-date="{{item.value}}"
+            bindtap="onDate"
+          >
+            <view class="dates__label">{{item.label}}</view>
+            <view class="dates__date">{{item.monthDay}}</view>          </view>
+        </view>
+      </scroll-view>
+
+      <!-- 时段网格：3 列 -->
+      <view wx:if="{{timeSlots.length > 0}}" class="slots">
         <view
-          wx:for="{{slots}}"
+          wx:for="{{timeSlots}}"
           wx:key="startAt"
           class="slots__item {{selectedStart === item.startAt ? 'is-active' : ''}}"
           data-start="{{item.startAt}}"
@@ -53,20 +58,53 @@
           {{item.timeText}}
         </view>
       </view>
-      <view class="text-weak slots__tip">共 {{slots.length}} 个时段可选，服务时长约 {{durationText}}</view>
+      <view wx:else class="slots-empty">
+        <view class="slots-empty__text">{{reasonText}}</view>
+        <view class="slots-empty__hint">换个日期或换位美甲师试试</view>
+      </view>
+
+      <!-- 选择美甲师 -->
+      <view class="section">
+        <view class="section__title">选择美甲师</view>
+      </view>
+      <view class="staffs">
+        <view
+          wx:for="{{staffList}}"
+          wx:key="id"
+          class="staffs__item {{item.disabled ? 'is-disabled' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="onPickStaff"
+        >
+          <view class="staffs__ring {{item.selected ? 'is-selected' : ''}}">
+            <image class="staffs__avatar" src="{{item.avatarResolved}}" mode="aspectFill" />
+          </view>
+          <view class="staffs__name ellipsis">{{item.nickname}}</view>
+        </view>
+      </view>
+
+      <!-- 备注（选填） -->
+      <view class="section">
+        <view class="section__title">备注（选填）</view>
+      </view>
+      <textarea
+        class="remark"
+        value="{{remark}}"
+        placeholder="如有特殊要求，请留言…"
+        placeholder-class="remark__placeholder"
+        maxlength="200"
+        bindinput="onRemarkInput"
+      />
     </block>
   </view>
 
   <view class="action-bar">
     <view class="grow">
-      <view class="text-weak">已选时间</view>
-      <view class="action-bar__time">{{selectedTimeText ? selectedTimeText : '还没选'}}</view>
+      <view class="action-bar__label">合计</view>
+      <view class="price">
+        <text class="price__symbol">¥</text>
+        <text class="price__yuan">{{totalText}}</text>
+      </view>
     </view>
-    <view
-      class="btn {{selectedStart ? 'btn--primary' : 'btn--disabled'}}"
-      bindtap="goNext"
-    >
-      下一步
-    </view>
+    <view class="btn btn--primary action-bar__submit" bindtap="goNext">确认预约</view>
   </view>
 </view>

@@ -66,6 +66,8 @@ export interface DateChip {
   day: string;
   /** 今天 / 明天 / 月-日 */
   label: string;
+  /** 完整月日，如「4月12日」（设计稿的日期条是「今天 / 4月12日」两行） */
+  monthDay: string;
   isToday: boolean;
 }
 
@@ -86,6 +88,7 @@ export function buildDateChips(days = 14, base = new Date()): DateChip[] {
       weekday: WEEKDAYS[date.getDay()],
       day: String(date.getDate()),
       label,
+      monthDay: `${date.getMonth() + 1}月${date.getDate()}日`,
       isToday: index === 0,
     });
   }
