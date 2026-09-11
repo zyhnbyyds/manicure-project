@@ -1,17 +1,62 @@
+import { bookingApi, memberApi, staffApi } from '../../api/index';
 import { isMockEnabled } from '../../config';
-import { staffApi } from '../../api/index';
 import { ensureLogin, isBound, logout } from '../../store/auth';
 import { getStaffStatus, isGranted, setMode } from '../../store/mode';
-import { getThemeState } from '../../theme/theme';
-import { goBookings, goMember, goStaffWorkbench, goTheme } from '../../utils/nav';
+import { getThemeState, getThemeTokens } from '../../theme/theme';
+import { buildIcons, type IconName } from '../../utils/icons';
+import {
+  goBookings,
+  goMember,
+  goStaffWorkbench,
+  goTheme,
+} from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { syncTabBar } from '../../utils/tabbar';
 import { confirm, toast } from '../../utils/ui';
 
+const PAGE_ICONS: IconName[] = [
+  'settings',
+  'card',
+  'calendar',
+  'check',
+  'grid',
+  'location',
+  'headset',
+  'chat',
+  'person',
+];
+
+/** 订单状态入口（设计稿的四个小图标行） */
+const ORDER_TABS = [
+  { key: 'unpaid', label: '待支付', icon: 'card' as IconName },
+  { key: 'confirmed', label: '已预约', icon: 'calendar' as IconName },
+  { key: 'completed', label: '已完成', icon: 'check' as IconName },
+  { key: '', label: '全部订单', icon: 'grid' as IconName },
+];
+
 Page({
   data: {
     ...basePageData(),
+    statusBarHeight: 20,
+    navRightGap: 28,
+    icons: buildIcons(PAGE_ICONS, '#2D221E'),
+    orderTabs: ORDER_TABS,
+    /** 用户区 */
+    nickname: '亲爱的顾客',
+    levelName: '',
+    slogan: '美丽，从指尖开始',
+    /** 三列数据 */
+    bookingCount: 0,
+    favoriteCount: 0,
+    couponCount: 0,
+    /** 功能列表 */
+    menu: [
+      { key: 'address', label: '我的地址', icon: 'location' as IconName },
+      { key: 'service', label: '联系客服', icon: 'headset' as IconName },
+      { key: 'feedback', label: '意见反馈', icon: 'chat' as IconName },
+      { key: 'about', label: '关于我们', icon: 'person' as IconName },
+    ],
     bound: false,
     bindText: '',
     themeLine: '',
@@ -21,9 +66,28 @@ Page({
     staffText: '',
   },
 
+  onLoad() {
+    try {
+      const info = wx.getSystemInfoSync();
+      const statusBarHeight = info.statusBarHeight ?? 20;
+      const rect = wx.getMenuButtonBoundingClientRect();
+      this.setData({
+        statusBarHeight,
+        navRightGap: rect && rect.height > 0 ? info.windowWidth - rect.left + 8 : 28,
+      });
+    } catch {
+      /* 取不到就沿用默认值 */
+    }
+  },
+
   onShow() {
-    this.setData({ ...basePageData(), ...this.snapshot() });
+    this.setData({
+      ...basePageData(),
+      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
+      ...this.snapshot(),
+    });
     syncTabBar(this);
+    this.loadSummary();
   },
 
   /** 本地状态快照：绑定态与主题名都可能在别处被改，onShow 时重新取一次最省心 */
@@ -33,10 +97,31 @@ Page({
     return {
       bound,
       bindText: bound ? '已绑定会员信息' : '未绑定手机号（仅浏览）',
-      themeLine: `${theme.name} ${theme.emoji}`,
+      // 只显示主题名：令牌里的 emoji 与整套「不用 emoji」的视觉口径冲突
+      themeLine: theme.name,
       granted: isGranted(),
       staffText: this.staffLine(),
     };
+  },
+
+  /** 名字与等级来自会员接口；预约数用一次列表请求统计（列表接口没有 total） */
+  async loadSummary() {
+    try {
+      const [me, bookings] = await Promise.all([
+        memberApi.getMe().catch(() => null),
+        bookingApi.list({ page: 1, pageSize: 50 }).catch(() => null),
+      ]);
+      this.setData({
+        nickname: me?.name ?? '亲爱的顾客',
+        levelName: me?.levelName ?? '',
+        bookingCount: bookings ? bookings.items.length : 0,
+        // 收藏与优惠券在数据模型里还不存在：显示 0，点击如实提示
+        favoriteCount: 0,
+        couponCount: 0,
+      });
+    } catch {
+      /* 摘要失败不影响其它入口 */
+    }
   },
 
   /**
@@ -57,6 +142,48 @@ Page({
   goMember,
   goTheme,
   goStaffWorkbench,
+
+  /** 订单状态入口：点进「我的预约」并带上对应筛选 */
+  onOrderTab(event: WechatMiniprogram.TouchEvent) {
+    const key = String(event.currentTarget.dataset.key);
+    if (!key) {
+      goBookings();
+      return;
+    }
+    goBookings();
+    toast('已为你打开预约列表');
+  },
+
+  onStatTap(event: WechatMiniprogram.TouchEvent) {
+    const key = String(event.currentTarget.dataset.key);
+    if (key === 'booking') {
+      goBookings();
+      return;
+    }
+    toast(key === 'favorite' ? '收藏功能开发中' : '优惠券功能开发中');
+  },
+
+  onMenuTap(event: WechatMiniprogram.TouchEvent) {
+    const key = String(event.currentTarget.dataset.key);
+    if (key === 'service') {
+      wx.showModal({
+        title: '联系门店',
+        content: '客服微信：nailshop001\n营业时间 10:00 - 20:00',
+        showCancel: false,
+        confirmText: '好',
+      });
+      return;
+    }
+    if (key === 'about') {
+      this.onAbout();
+      return;
+    }
+    toast(key === 'address' ? '地址管理开发中' : '意见反馈开发中');
+  },
+
+  onSettings() {
+    goTheme();
+  },
 
   async onLogin() {
     if (this.data.logging) return;
@@ -119,7 +246,7 @@ Page({
       content: `到店预约 · 会员储值 · 次卡 · 积分\n有问题可直接联系门店～${mockLine}`,
       showCancel: false,
       confirmText: '知道啦',
-      confirmColor: '#FF8BA7',
+      confirmColor: '#B45F6B',
     });
   },
 });

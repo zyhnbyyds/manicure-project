@@ -1,65 +1,101 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
+  <!-- 自定义导航栏（设计稿：左侧头像、右侧设置齿轮，无标题） -->
+  <view
+    class="navbar"
+    style="padding-top:{{statusBarHeight}}px;padding-right:{{navRightGap}}px"
+  >
+    <view class="navbar__avatar">{{nickname}}</view>
+    <view class="navbar__settings" bindtap="onSettings">
+      <image class="navbar__settings-icon" src="{{icons.settings}}" mode="aspectFit" />
+    </view>
+  </view>
+
   <view class="page-body">
-    <!-- 用户卡 -->
-    <view class="card hero">
-      <view class="bubble hero__bubble"></view>
-      <view class="hero__row">
-        <view class="hero__avatar">{{themeEmoji}}</view>
-        <view class="grow">
-          <view class="hero__title">你好，小仙女</view>
-          <view class="hero__sub">{{bindText}}</view>
-        </view>
-        <view wx:if="{{isMock}}" class="mock-badge">{{mockBadge}}</view>
+    <!-- 用户区（不加卡片，直接落在底色上，靠留白分区） -->
+    <view class="user">
+      <view class="user__name">
+        {{nickname}}
+        <view wx:if="{{levelName}}" class="user__badge">{{levelName}}</view>
       </view>
-      <view wx:if="{{!bound}}" class="hero__login btn btn--primary btn--sm" bindtap="onLogin">
-        {{logging ? '登录中…' : '立即登录'}}
+      <view class="user__slogan">{{slogan}}</view>
+      <view class="user__bind">{{bindText}}</view>
+    </view>
+
+    <!-- 三列数据 -->
+    <view class="stats">
+      <view class="stats__item" data-key="booking" bindtap="onStatTap">
+        <view class="stats__value">{{bookingCount}}</view>
+        <view class="stats__label">我的预约</view>
+      </view>
+      <view class="stats__item" data-key="favorite" bindtap="onStatTap">
+        <view class="stats__value">{{favoriteCount}}</view>
+        <view class="stats__label">收藏款式</view>
+      </view>
+      <view class="stats__item" data-key="coupon" bindtap="onStatTap">
+        <view class="stats__value">{{couponCount}}</view>
+        <view class="stats__label">优惠券</view>
       </view>
     </view>
 
-    <!-- 美甲师工作台：没开通的人不该看到入口，开通了才给「切换」 -->
-    <view wx:if="{{staffText}}" class="card menu">
-      <view wx:if="{{granted}}" class="menu__item menu__item--last" bindtap="onEnterWorkbench">
-        <view class="menu__icon">💅</view>
-        <view class="grow">美甲师工作台</view>
-        <view class="menu__value">切换到工作台</view>
-        <view class="menu__arrow">›</view>
+    <!-- 我的订单 -->
+    <view class="section">
+      <view class="section__title">我的订单</view>
+      <view class="section__more" bindtap="goBookings">查看全部 ›</view>
+    </view>
+    <view class="card orders">
+      <view
+        wx:for="{{orderTabs}}"
+        wx:key="label"
+        class="orders__item"
+        data-key="{{item.key}}"
+        bindtap="onOrderTab"
+      >
+        <image class="orders__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+        <view class="orders__label">{{item.label}}</view>
       </view>
-      <view wx:else class="menu__item menu__item--last">
-        <view class="menu__icon">💅</view>
-        <view class="grow">美甲师工作台</view>
-        <view wx:if="{{applying}}" class="menu__value">提交中…</view>
-        <view wx:else class="menu__apply" bindtap="onApplyStaff">申请开通</view>
-      </view>
-      <view class="menu__hint">{{staffText}}</view>
     </view>
 
-    <!-- 功能入口 -->
+    <!-- 功能列表 -->
     <view class="card menu">
-      <view class="menu__item" bindtap="goBookings">
-        <view class="menu__icon">📅</view>
-        <view class="grow">我的预约</view>
+      <view
+        wx:for="{{menu}}"
+        wx:key="key"
+        class="menu__item"
+        data-key="{{item.key}}"
+        bindtap="onMenuTap"
+      >
+        <image class="menu__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+        <view class="grow">{{item.label}}</view>
         <view class="menu__arrow">›</view>
       </view>
-      <view class="menu__item" bindtap="goMember">
-        <view class="menu__icon">🎀</view>
-        <view class="grow">会员中心</view>
-        <view class="menu__value" wx:if="{{bound}}">余额 · 积分 · 次卡</view>
-        <view class="menu__arrow">›</view>
-      </view>
-      <view class="menu__item" bindtap="goTheme">
-        <view class="menu__icon">🎨</view>
+      <view class="menu__item menu__item--last" bindtap="goTheme">
+        <image class="menu__icon" src="{{icons.settings}}" mode="aspectFit" />
         <view class="grow">主题设置</view>
         <view class="menu__value">{{themeLine}}</view>
         <view class="menu__arrow">›</view>
       </view>
-      <view class="menu__item menu__item--last" bindtap="onAbout">
-        <view class="menu__icon">💬</view>
-        <view class="grow">关于我们</view>
-        <view class="menu__arrow">›</view>
+    </view>
+
+    <!-- 美甲师工作台（只有申请过的人才看得到，文案由 store/mode 决定） -->
+    <view wx:if="{{staffText}}" class="card staff-block">
+      <view class="staff-block__text">{{staffText}}</view>
+      <view
+        wx:if="{{granted}}"
+        class="btn btn--primary btn--sm staff-block__btn"
+        bindtap="onEnterWorkbench"
+      >
+        进入工作台
+      </view>
+      <view wx:else class="btn btn--soft btn--sm staff-block__btn" bindtap="onApplyStaff">
+        {{applying ? '提交中…' : '申请开通'}}
       </view>
     </view>
 
-    <view wx:if="{{bound}}" class="btn btn--ghost btn--block logout" bindtap="onLogout">退出登录</view>
+    <view wx:if="{{!bound}}" class="btn btn--primary btn--block login-btn" bindtap="onLogin">
+      {{logging ? '登录中…' : '微信一键登录'}}
+    </view>
+    <view wx:else class="btn btn--ghost btn--block logout" bindtap="onLogout">退出登录</view>
+
     <view class="safe-bottom"></view>
   </view>
 </view>
