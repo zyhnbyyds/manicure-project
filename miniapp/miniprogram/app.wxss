@@ -1,39 +1,45 @@
 /**
- * 全局设计令牌与基础样式（可爱风）。
+ * 全局设计令牌与基础样式。
+ *
+ * 令牌值来自设计稿 `docs/design.png` 的**像素采样**，不是目测：
+ * 页面底色 #FBF5F0、主色 #B45F6B、正文 #2D221E、次要文字 #96928F。
  *
  * 主题机制：
  * - 这里 `page{}` 里的是**兜底默认值**，保证首屏渲染不闪（页面的 `style="{{themeStyle}}"`
  *   由 `utils/page.ts` 在 onShow 挂上，二者是同名前缀 `--c-*` 的语义令牌）；
  * - 页面只使用语义令牌（`--c-primary` / `--c-bg` / `--c-text`），换主题时页面零改动；
- * - 派生规则见 `theme/theme.ts`，不要在页面里手写颜色，否则换主题会花。
+ * - 派生规则见 `theme/theme.ts`，**不要在页面里手写颜色**，否则换主题会花。
  *
- * 画风口径：低饱和 pastel 背景 + 纯白大圆角卡片 + 主色淡阴影 + pill 按钮 + emoji 点缀。
+ * 画风（对齐设计稿）：暖奶油底 + 纯白卡片 + 极淡中性阴影 + 细线图标 + 大圆角；不用 emoji。
  */
 
 page {
-  /* ── 兜底令牌（默认主题：草莓奶昔）────────────────────────── */
-  --c-primary: #ff8ba7;
-  --c-primary-soft: #ffe4ec;
-  --c-primary-deep: #cc6f86;
+  /* ── 兜底令牌（默认主题「柔光玫瑰」，与设计稿一致）────────── */
+  --c-primary: #b45f6b;
+  --c-primary-soft: #f3e2e4;
+  --c-primary-deep: #94464f;
   --c-on-primary: #ffffff;
-  --c-accent: #ffc2d1;
-  --c-accent-soft: #fff0f4;
-  --c-bg: #fff5f8;
-  --c-bg-soft: #fffafc;
+  --c-accent: #d8b4a6;
+  --c-accent-soft: #f3ebe7;
+  /* 未选中胶囊/色块底（设计稿里的浅暖灰） */
+  --c-chip: #f5efe9;
+  --c-bg: #fbf5f0;
+  --c-bg-soft: #fdf9f6;
   --c-card: #ffffff;
-  --c-text: #4a2c36;
-  --c-text-sub: #8b6b77;
-  --c-text-weak: #bda3ac;
-  --c-border: #ffe0e9;
-  --c-shadow: rgba(255, 139, 167, 0.16);
-  --c-shadow-strong: rgba(255, 139, 167, 0.3);
-  --c-gradient: linear-gradient(135deg, #ffeef3 0%, #fff5f7 100%);
+  --c-text: #2d221e;
+  --c-text-sub: #96928f;
+  --c-text-weak: #b9b3ae;
+  --c-border: #efe7e2;
+  /* 设计稿的阴影是**中性极淡**，不是主色投影 */
+  --c-shadow: rgba(45, 34, 30, 0.06);
+  --c-shadow-strong: rgba(45, 34, 30, 0.1);
+  --c-gradient: linear-gradient(135deg, #f6e9e4 0%, #f0dedd 100%);
 
-  /* ── 尺寸令牌（可爱风：大圆角、松间距）───────────────────── */
-  --r-sm: 12rpx;
-  --r-md: 20rpx;
-  --r-lg: 28rpx;
-  --r-xl: 40rpx;
+  /* ── 尺寸令牌（设计稿量得：卡片 16pt / 图片 12pt / 胶囊按钮）── */
+  --r-sm: 8rpx;
+  --r-md: 24rpx;
+  --r-lg: 32rpx;
+  --r-xl: 36rpx;
   --r-pill: 999rpx;
   --gap-sm: 12rpx;
   --gap-md: 20rpx;

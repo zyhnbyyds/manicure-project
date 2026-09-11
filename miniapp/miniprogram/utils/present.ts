@@ -39,6 +39,48 @@ const CATEGORY_EMOJI: Record<string, string> = {
 const SERVICE_EMOJI = ['💅', '✨', '🌸', '🎀', '🐱', '🍒', '🌙', '🧸'];
 const STAFF_EMOJI = ['🍊', '🍑', '⭐', '🌙', '🐰', '🌷'];
 
+/* ── 图片素材兜底 ──────────────────────────────────────────── */
+
+/**
+ * 设计稿是**照片驱动**的（美甲作品 + 美甲师头像），而演示数据里
+ * `biz_service_item.image` / `biz_staff.avatar` 都是空的。
+ *
+ * 策略：**优先用接口给的图**；没有图时才用 `assets/` 里从设计稿裁出的占位图。
+ * 接真数据后自动显示门店真实作品照，演示态也能保持与设计稿一致的观感。
+ *
+ * ⚠️ `assets/*.png` 是从设计稿裁出的**占位素材**（分辨率有限），
+ * 上线前应替换为门店自己的作品照（走后台 `biz_service_item.images` 上传）。
+ */
+const SERVICE_IMAGE_FALLBACK = [
+  '/assets/svc-a.png',
+  '/assets/svc-b.png',
+  '/assets/svc-c.png',
+];
+
+const STAFF_AVATAR_FALLBACK = [
+  '/assets/staff-1.png',
+  '/assets/staff-2.png',
+  '/assets/staff-3.png',
+  '/assets/staff-4.png',
+];
+
+/** 首页头图（设计稿里的大幅作品照） */
+export const HERO_IMAGE = '/assets/hero.png';
+
+export function resolveServiceImage(
+  item: Pick<ServiceItem, 'id' | 'image'>,
+): string {
+  if (item.image && item.image.length > 0) return item.image;
+  return SERVICE_IMAGE_FALLBACK[item.id % SERVICE_IMAGE_FALLBACK.length];
+}
+
+export function resolveStaffAvatar(staff: Pick<Staff, 'id' | 'avatar'>): string {
+  if (staff.avatar && staff.avatar.length > 0) return staff.avatar;
+  return STAFF_AVATAR_FALLBACK[
+    (staff.id - 1 + STAFF_AVATAR_FALLBACK.length) % STAFF_AVATAR_FALLBACK.length
+  ];
+}
+
 /** 没有展示图时用「分类 emoji + 主题渐变底」代替，不引入位图素材依赖 */
 export function serviceEmoji(item: Pick<ServiceItem, 'id' | 'category'>): string {
   const byCategory = item.category ? CATEGORY_EMOJI[item.category] : undefined;
@@ -58,6 +100,8 @@ export interface ServiceItemVM {
   category: string;
   emoji: string;
   image: string | null;
+  /** 可直接绑定到 `<image src>`：接口图或本地占位图 */
+  imageResolved: string;
   description: string;
   durationText: string;
   /** 展示用整元部分，如 "128" */
@@ -78,6 +122,7 @@ export function toServiceItemVM(item: ServiceItem): ServiceItemVM {
     category: item.category ?? '其它',
     emoji: serviceEmoji(item),
     image: item.image,
+    imageResolved: resolveServiceImage(item),
     description: item.description ?? '',
     durationText: formatDuration(item.durationMinutes),
     priceYuan: yuan,
@@ -96,6 +141,8 @@ export interface StaffVM {
   bio: string;
   emoji: string;
   avatar: string | null;
+  /** 可直接绑定到 `<image src>`：接口头像或本地占位头像 */
+  avatarResolved: string;
   /** 昵称首字，没有头像时作为兜底标识 */
   initial: string;
 }
@@ -107,6 +154,7 @@ export function toStaffVM(staff: Staff): StaffVM {
     bio: staff.bio ?? '擅长各种可爱款式',
     emoji: staffEmoji(staff.id),
     avatar: staff.avatar,
+    avatarResolved: resolveStaffAvatar(staff),
     initial: staff.nickname.slice(0, 1),
   };
 }

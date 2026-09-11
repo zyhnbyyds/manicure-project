@@ -41,6 +41,8 @@ export interface ThemeTokens {
   onPrimary: '#FFFFFF' | '#000000';
   accent: string;
   accentSoft: string;
+  /** 未选中胶囊 / 浅色块底 */
+  chipBg: string;
   bg: string;
   bgSoft: string;
   card: string;
@@ -91,29 +93,32 @@ function buildTokens(base: {
     onPrimary: readableOn(primary),
     accent,
     accentSoft: mix(accent, card, 0.35),
+    // 设计稿的未选中胶囊是浅暖灰（不是主色淡粉），故从 accent 派生
+    chipBg: mix(accent, card, 0.22),
     bg,
-    bgSoft: mix(primary, card, 0.06),
+    bgSoft: mix(primary, card, 0.04),
     card,
     text,
     textSub: mix(text, card, 0.56),
     textWeak: mix(text, card, 0.34),
-    border: mix(primary, card, 0.16),
-    shadow: withAlpha(primary, 0.16),
-    shadowStrong: withAlpha(primary, 0.3),
-    gradient: `linear-gradient(135deg, ${lighten(primary, 0.82)} 0%, ${lighten(accent, 0.68)} 100%)`,
+    // 边框与阴影都用中性暖色，避免整页泛粉（设计稿即如此）
+    border: mix(text, card, 0.09),
+    shadow: withAlpha(text, 0.06),
+    shadowStrong: withAlpha(text, 0.1),
+    gradient: `linear-gradient(135deg, ${lighten(accent, 0.45)} 0%, ${lighten(primary, 0.78)} 100%)`,
   };
 }
 
 function buildTokensFromPreset(presetId: string): ThemeTokens {
   const preset: ThemePreset = findPreset(presetId) ?? {
     id: DEFAULT_PRESET_ID,
-    name: '草莓奶昔',
-    emoji: '🍓',
+    name: '柔光玫瑰',
+    emoji: '🌹',
     desc: '',
-    primary: '#FF8BA7',
-    accent: '#FFC2D1',
-    bg: '#FFF5F8',
-    text: '#4A2C36',
+    primary: '#B45F6B',
+    accent: '#D8B4A6',
+    bg: '#FBF5F0',
+    text: '#2D221E',
     card: '#FFFFFF',
   };
   return buildTokens(preset);

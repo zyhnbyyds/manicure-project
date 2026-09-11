@@ -29,9 +29,21 @@ export interface ThemePreset {
   card: string;
 }
 
-export const DEFAULT_PRESET_ID = 'strawberry';
+export const DEFAULT_PRESET_ID = 'softlight';
 
 export const PRESETS: ThemePreset[] = [
+  {
+    // 设计稿配色：主色/底色/正文全部来自 docs/design.png 的像素采样
+    id: 'softlight',
+    name: '柔光玫瑰',
+    emoji: '🌹',
+    desc: '设计稿配色：干枯玫瑰 + 暖奶油',
+    primary: '#B45F6B',
+    accent: '#D8B4A6',
+    bg: '#FBF5F0',
+    text: '#2D221E',
+    card: '#FFFFFF',
+  },
   {
     id: 'strawberry',
     name: '草莓奶昔',
