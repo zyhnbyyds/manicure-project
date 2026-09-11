@@ -309,6 +309,8 @@ export type PayChannel =
   | 'alipay_offline'
   | 'wxpay_native'
   | 'alipay_qr'
+  /** 小程序 JSAPI：`biz_payment.channel` 已预留，落库可行但 C1 未接入（见 `toPaymentChannel`） */
+  | 'wxpay_jsapi'
   | 'credit';
 
 export abstract class MemberAccountPort {

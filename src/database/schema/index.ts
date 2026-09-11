@@ -1278,6 +1278,8 @@ export const bizPayments = mysqlTable(
     channel: mysqlEnum('channel', [
       'wxpay_native',
       'alipay_qr',
+      // 小程序 JSAPI（C1）落预支付单用；本期无 provider，见 payments.service.ts 的 PaymentChannel 注释
+      'wxpay_jsapi',
       'cash',
       'wechat_offline',
       'alipay_offline',

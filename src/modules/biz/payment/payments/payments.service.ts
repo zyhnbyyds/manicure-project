@@ -56,6 +56,10 @@ export type PaymentStatus =
 export type PaymentChannel =
   | 'wxpay_native'
   | 'alipay_qr'
+  // ⚠️ `biz_payment.channel` 列上还有 `wxpay_jsapi`（小程序支付预留），但**故意不进本类型**：
+  // 这里没有 provider，加进来会被 `isOnlineChannel` 判成线下渠道从而直接置成功，更危险。
+  // `toPaymentChannel` 会显式拒绝它；C1（`POST /app/payments/wxpay/jsapi`）开工时
+  // 连同 provider 一起加进来。
   | 'cash'
   | 'wechat_offline'
   | 'alipay_offline'
@@ -829,6 +833,9 @@ function toPaymentChannel(channel: PayChannel): PaymentChannel {
     throw new BadRequestException(
       '在线收款请使用 wxpay_native / alipay_qr，店家收款码请使用 wechat_offline / alipay_offline',
     );
+  // 列上已预留，但 provider 没有 —— 收进来会被当成线下渠道直接置成功（钱没到账却已核销）
+  if (channel === 'wxpay_jsapi')
+    throw new BadRequestException('小程序 JSAPI 支付尚未接入（C1）');
   return channel;
 }
 
@@ -842,6 +849,7 @@ function memberPayChannel(
     case 'wechat':
     case 'wechat_offline':
     case 'wxpay_native':
+    case 'wxpay_jsapi':
       return 'wechat';
     case 'alipay':
     case 'alipay_offline':

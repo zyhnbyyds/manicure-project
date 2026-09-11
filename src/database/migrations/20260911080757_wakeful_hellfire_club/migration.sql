@@ -1,0 +1,1 @@
+ALTER TABLE `biz_payment` MODIFY COLUMN `channel` enum('wxpay_native','alipay_qr','wxpay_jsapi','cash','wechat_offline','alipay_offline','balance','card','credit') NOT NULL;

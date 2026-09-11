@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { bizPayments, bizPaymentLogs } from '../../../../database/schema/index.js';
+import {
+  bizPayments,
+  bizPaymentLogs,
+} from '../../../../database/schema/index.js';
 import type { PaymentDraft } from '../../common/ports.js';
 import { PaymentsService } from './payments.service.js';
 
@@ -26,16 +29,18 @@ function chainFor(result: unknown) {
   return make();
 }
 
-function createHarness(options: {
-  dbSelect?: unknown[][];
-  txSelect?: unknown[][];
-  txUpdate?: unknown[][];
-  dbUpdate?: unknown[][];
-  txInsert?: unknown[][];
-  qrExpireMinutes?: number;
-  wxpayConfigured?: boolean;
-  alipayConfigured?: boolean;
-} = {}) {
+function createHarness(
+  options: {
+    dbSelect?: unknown[][];
+    txSelect?: unknown[][];
+    txUpdate?: unknown[][];
+    dbUpdate?: unknown[][];
+    txInsert?: unknown[][];
+    qrExpireMinutes?: number;
+    wxpayConfigured?: boolean;
+    alipayConfigured?: boolean;
+  } = {},
+) {
   const log: string[] = [];
 
   const dbSelectQueue = [...(options.dbSelect ?? [])];
@@ -291,8 +296,19 @@ describe('PaymentsService（§17 收银台）', () => {
       const h = createHarness();
       await expect(
         h.service.createInTx(h.tx as never, draft({ channel: 'credit' })),
+      ).rejects.toThrow(new BadRequestException('挂账请使用 creditAccountId'));
+      expect(h.txInsertValues).not.toHaveBeenCalled();
+    });
+
+    it('wxpay_jsapi 已在列上预留但 provider 未接入 → 400（不能当线下渠道直接置成功）', async () => {
+      const h = createHarness();
+      await expect(
+        h.service.createInTx(
+          h.tx as never,
+          draft({ channel: 'wxpay_jsapi' as never }),
+        ),
       ).rejects.toThrow(
-        new BadRequestException('挂账请使用 creditAccountId'),
+        new BadRequestException('小程序 JSAPI 支付尚未接入（C1）'),
       );
       expect(h.txInsertValues).not.toHaveBeenCalled();
     });
@@ -329,11 +345,13 @@ describe('PaymentsService（§17 收银台）', () => {
       await expect(
         h.service.createInTx(
           h.tx as never,
-          draft({ channel: 'wechat_offline', amount: 10000, receivedAmount: 12000 }),
+          draft({
+            channel: 'wechat_offline',
+            amount: 10000,
+            receivedAmount: 12000,
+          }),
         ),
-      ).rejects.toThrow(
-        new BadRequestException('实收金额不得超过应收金额'),
-      );
+      ).rejects.toThrow(new BadRequestException('实收金额不得超过应收金额'));
     });
 
     it('现金允许多收（找零）', async () => {
@@ -479,7 +497,11 @@ describe('PaymentsService（§17 收银台）', () => {
       ]);
       expect(h.members.applyBalancePayment).toHaveBeenCalledWith(
         h.tx,
-        expect.objectContaining({ customerId: 9, amount: 10000, bookingId: 55 }),
+        expect.objectContaining({
+          customerId: 9,
+          amount: 10000,
+          bookingId: 55,
+        }),
       );
     });
 
@@ -1017,7 +1039,8 @@ describe('PaymentsService（§17 收银台）', () => {
           paidAt: new Date(),
           raw: {},
         });
-      await expect(h.service.queryPending()).resolves.toEqual({        checked: 2,
+      await expect(h.service.queryPending()).resolves.toEqual({
+        checked: 2,
         settled: 1,
       });
     });

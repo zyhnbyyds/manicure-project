@@ -1360,6 +1360,7 @@ export function toLedgerChannel(
     case 'wechat':
     case 'wechat_offline':
     case 'wxpay_native':
+    case 'wxpay_jsapi':
       return 'wechat';
     case 'alipay':
     case 'alipay_offline':
