@@ -99,6 +99,16 @@ export function goFavorites(): void {
   wx.navigateTo({ url: '/pages/favorites/index' });
 }
 
+/** 我的优惠券 */
+export function goCoupons(): void {
+  wx.navigateTo({ url: '/pages/coupons/index' });
+}
+
+/** 收货地址 */
+export function goAddress(): void {
+  wx.navigateTo({ url: '/pages/address/index' });
+}
+
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
   bookingNo?: string;

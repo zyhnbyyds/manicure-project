@@ -1,0 +1,96 @@
+/* 收货地址 —— 对齐 docs/manicure-ui-batch4 第 6 屏（模型不存在，先还原骨架） */
+
+.addr-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 地址卡（有数据时用；当前为空态）──────────────────────── */
+
+.addr {
+  margin-bottom: 20rpx;
+}
+
+.addr__top {
+  display: flex;
+  align-items: center;
+}
+
+.addr__name {
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.addr__phone {
+  margin-left: 16rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+.addr__default {
+  margin-left: 12rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  padding: 0 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  font-size: 19rpx;
+}
+
+.addr__detail {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--c-text-sub);
+}
+
+.addr__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18rpx;
+}
+
+.mini-btn {
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 24rpx;
+  margin-left: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 22rpx;
+}
+
+.mini-btn--ghost {
+  background: transparent;
+  border: 2rpx solid var(--c-primary);
+  color: var(--c-primary);
+  line-height: 48rpx;
+}
+
+/* ── 空态 ─────────────────────────────────────────────────── */
+
+.empty__badge {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty__icon {
+  width: 68rpx;
+  height: 68rpx;
+  opacity: 0.5;
+}
+
+.tips {
+  margin-top: 20rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}

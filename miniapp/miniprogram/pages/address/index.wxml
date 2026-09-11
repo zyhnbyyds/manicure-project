@@ -1,0 +1,33 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body addr-body">
+    <!-- 空态：到店服务不需要收货地址，如实说明 -->
+    <view class="empty">
+      <view class="empty__badge">
+        <image class="empty__icon" src="{{icons.location}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">还没有收货地址</view>
+      <view class="empty__hint">本店以到店服务为主，通常不需要填写收货地址</view>
+    </view>
+
+    <view wx:for="{{addresses}}" wx:key="id" class="card addr">
+      <view class="addr__top">
+        <view class="addr__name">{{item.name}}</view>
+        <view class="addr__phone">{{item.phone}}</view>
+        <view wx:if="{{item.isDefault}}" class="addr__default">默认</view>
+      </view>
+      <view class="addr__detail">{{item.detail}}</view>
+      <view class="addr__actions">
+        <view class="mini-btn" data-id="{{item.id}}" bindtap="onEdit">编辑</view>
+        <view class="mini-btn mini-btn--ghost" data-id="{{item.id}}" bindtap="onDelete">删除</view>
+      </view>
+    </view>
+
+    <view class="tips">
+      仅当门店提供「周边好物邮寄」时才需要收货地址；到店服务请直接预约到店。
+    </view>
+  </view>
+
+  <view class="action-bar">
+    <view class="btn btn--primary btn--block" bindtap="onAdd">新增收货地址</view>
+  </view>
+</view>

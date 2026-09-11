@@ -5,7 +5,9 @@ import { getStaffStatus, isGranted, setMode } from '../../store/mode';
 import { getThemeState, getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
 import {
+  goAddress,
   goBookings,
+  goCoupons,
   goFavorites,
   goMember,
   goStaffWorkbench,
@@ -165,7 +167,19 @@ Page({
       goFavorites();
       return;
     }
-    toast('优惠券功能开发中');
+    if (key === 'coupon') {
+      goCoupons();
+      return;
+    }
+    if (key === 'address') {
+      goAddress();
+      return;
+    }
+    if (key === 'about') {
+      this.onAbout();
+      return;
+    }
+    toast('意见反馈开发中');
   },
 
   onMenuTap(event: WechatMiniprogram.TouchEvent) {

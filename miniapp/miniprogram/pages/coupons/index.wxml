@@ -1,0 +1,29 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body coupon-body">
+    <!-- 状态页签 -->
+    <view class="tabs">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="key"
+        class="tabs__item {{activeTab === item.key ? 'is-active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="onTab"
+      >
+        {{item.label}}
+      </view>
+    </view>
+
+    <!-- 空态：不塞假券 -->
+    <view class="empty">
+      <view class="empty__badge">
+        <image class="empty__icon" src="{{icons.coupon}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">
+        {{activeTab === 'usable' ? '暂无可用优惠券' : activeTab === 'used' ? '还没有用过的券' : '没有过期的券'}}
+      </view>
+      <view class="empty__hint">门店有活动时，券会自动发到你的账户里</view>
+    </view>
+
+    <view class="tips">优惠券不可叠加使用，每单限用一张；与积分抵扣、次卡核销的叠加规则以门店公告为准。</view>
+  </view>
+</view>

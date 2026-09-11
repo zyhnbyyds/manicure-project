@@ -1,0 +1,57 @@
+/* 我的优惠券 —— 对齐 docs/manicure-ui-batch4 第 5 屏（模型不存在，先还原骨架） */
+
+.coupon-body {
+  padding-bottom: 60rpx;
+}
+
+/* ── 状态页签 ─────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  padding: 6rpx;
+  background: var(--c-chip);
+  border-radius: var(--r-pill);
+}
+
+.tabs__item {
+  flex: 1;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border-radius: var(--r-pill);
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+}
+
+/* 选中：白底浮起（分段控件的常见做法，比整块主色更耐看） */
+.tabs__item.is-active {
+  background: var(--c-card);
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+/* ── 空态 ─────────────────────────────────────────────────── */
+
+.empty__badge {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty__icon {
+  width: 68rpx;
+  height: 68rpx;
+  opacity: 0.5;
+}
+
+.tips {
+  margin-top: 20rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}
