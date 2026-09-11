@@ -128,13 +128,13 @@
 | G1 | `code2Session` 直连微信域名、无注入点；测试全用 `ctx.appToken()` 直签绕过登录 | `app-auth.service.ts:96-107` | §12 B6 第 1 条验收**完全没自动化** |
 | G2 | 「未配置凭据 → 503」分支无用例 | 实现见 `:93` | 环境保障无回归 |
 | G3 | openid upsert 幂等（重复/并发登录只一行）无用例 | `app-auth.service.ts:46-64` | §12 B6 第 1 条后半句未验 |
-| G4 | ~~9 个 501 骨架只测了 1 个~~ → **已补齐**（实际是 8 个，auth/phone 已转真实现）：`tests/integration/b6-app-contract.int.spec.ts` 的 `SKELETON_ROUTES` 全量覆盖 + 不落库断言 | `b4-b6.int.spec.ts:599-607` | 契约漂移无人拦 → 已拦住 |
+| G4 | ~~9 个 501 骨架只测了 1 个~~ → **已补齐**（实际是 8 个，auth/phone 已转真实现）：`tests/integration/b6-app-contract.int.spec.ts` 的 `SKELETON_ROUTES` 全量覆盖 + 不落库断言（A9/A11/A12/A13/A10 转真实现后剩 **1 个**） | `b4-b6.int.spec.ts:599-607` | 契约漂移无人拦 → 已拦住 |
 | G5 | 骨架条数三处口径不一致：spec §12 说 5 个、§16.1 列 8 个、代码 9 个 | spec:1933 / spec:2201 | 验收扯皮 |
 | G6 | slots 一致性断言只在两边**都非空**时才比对，空集静默通过 | `b4-b6.int.spec.ts:585-591` | 「两者一致」没锁住 |
 | G7 | 未断言 miniapp 60 分钟提前期 ≠ 后台 0 分钟（spec §5.6 明确不同） | spec:1062-1063、:1071 | 上线后「当天约不了」类投诉 |
 | G8 | `/app/member/me` 只测未绑定 401，未测已绑定字段集合与越权 | `b4-b6.int.spec.ts:593-597` | 会员数据越权风险 |
 | G9 | 限流与 Swagger 分组无断言 | 无用例 | 安全要求靠人眼；限流可能实际没生效 |
-| G10 | app 域写接口只有 `throw 501`，无可测 service 边界 | `app-member.controller.ts:79-198` | P2 落地易另写一套算价 → 口径分裂 |
+| G10 | ~~app 域写接口只有 `throw 501`，无可测 service 边界~~ → **A10 已转真实现**（`BookingPort.createForCustomer` 复用后台九步 + 6 条集成），剩 JSAPI 单契约位 | `app-member.controller.ts:79-198` | P2 落地易另写一套算价 → 口径分裂 |
 
 > **不是缺口、无需返工**：`b4-b6.int.spec.ts:531` 看似没传 token，但 `harness.ts:200-201` 默认注入**后台 token**，所以「后台 token 打 app 域被拒」是真验过的。
 
@@ -179,7 +179,7 @@
 | **A7** | 修 spec 骨架条数口径（G5） | spec §12 B6 与 §16.1 | 两处均为 **6 条**且与代码一致（auth/phone、member/cards、reviews 转真实现后移出骨架清单） | 🤖 |
 | **A8** | `/app/auth/phone` 真实现（替换 501） | `app-auth.service.ts` + 控制器 | `getPhoneNumber` code 换号 → 按 §4.3 匹配 `biz_customer`（命中软删走「恢复」）→ 回填 `app_wx_user.customer_id` + `phone`；集成用例含「手机号属他人 openid 仍可绑定」 | 🤖 |
 | **A9** | `/app/member/cards` 真实现 ✅ 已完成 | `app-member.service.ts` + `MemberCardPort.listByCustomer` | 仅本人卡；状态按「到店是否真能用」现算（与 `assertUsable` 同规则，不依赖定时任务）；字段 7 个、无成本/备注；分页 + 状态过滤；集成 3 条 | 🤖 |
-| **A10** | `/app/bookings` GET/POST + `/:id/cancel` 真实现 | app 域 service + 控制器 | **复用后台算法**；落 `channel=miniapp`+`status=pending`；**未绑定手机号拒单**；服务端重算金额；列表 `{items,page,pageSize}` 无 `total`；**并发 10 单同美甲师同段 → 恰好 1 成功**；仅本人可取消 | 🤖 |
+| **A10** | `/app/bookings` GET/POST + `/:id/cancel` 真实现 | ✅ 已完成（2026-09-11） | **复用后台九步**（`BookingPort.createForCustomer` 直接调 `BookingsService` 内部逻辑）：落 `channel=miniapp`+`status=pending`；**未绑定手机号拒单**（401+needBind）；服务端重算金额（次卡整单核销 payable=0、积分抵扣走条件更新）；列表 `{items,page,pageSize}` 无 `total`；仅本人可取消（403/404/409 语义与后台一致）；顾客时段重叠 → 409。集成 6 条 + 单测 4 条（cancelForCustomer 越权/幂等） | 🤖 |
 | **A11** | `/app/reviews` 真实现 ✅ 已完成（H2 未定，按「都做」预留结构执行） | `app-member.service.ts` + `ReviewPort.createForCustomer` | 仅本人（归属按预约事实校验 → 他人单 403）+ 仅已完成（未完成 400）；**一单一评**（二次 409）；`customer_id`/`staff_id` 由预约事实带出；集成 3 条 | 🤖 |
 | **A12** | `/app/subscribe` 真实现 | ✅ 已完成（2026-09-11） | **偏离原方案**：不塞 `sys_notice_log`（它是「已发生的一次发送」的日志，会污染发送统计），改为新表 `app_wx_subscribe_grant`，按 `(app_wx_user_id, template_id)` 唯一 + `granted_count` 累加额度；`bookingId` 他人单 403 / 不存在 404；未绑定 401 + `needBind`；集成 3 条。**发送段仍等 H10 模板 ID**（届时补：模板 ID 映射、额度消费、`granted_count` 扣减）。取舍见交接文档 D12 |
 | **A13** | 支付回调业务层 | ✅ 已完成（2026-09-11） | 资金逻辑**一行没重写**：新增 `PaymentPort.handleNotify`，app 端点直接复用后台 `PaymentsService.handleNotify`（验签→金额校验→条件更新→同事务发货）。为跑真验签加了 `WXPAY_PLATFORM_PUBLIC_KEY`（**不参与 `configured`**，只是免联网拉平台证书）+ harness 现造 RSA 密钥对；集成 6 条（含 2 次变异验证），顺带补上后台回调的集成覆盖 |
