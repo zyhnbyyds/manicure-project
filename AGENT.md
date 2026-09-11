@@ -1,4 +1,4 @@
-# AGENT.md — Nest Admin
+# AGENT.md — 美甲店管理系统
 
 ## 核心指引（技能目录，先看这里）
 
@@ -64,7 +64,7 @@ bun test tests/integration/b1-booking.int.spec.ts   # 只跑 B1 集成验收
 
 ## 项目概述
 
-**nest-admin** 是一个通用后端管理 API。技术栈为 NestJS + Fastify 作为 HTTP 层，Drizzle ORM 操作数据库，Zod 做数据校验。主要功能：JWT 双 token 认证、基于权限字符串的 RBAC 访问控制、部门/菜单/岗位/字典管理、定时任务、文件上传、操作审计日志、在线用户跟踪、代码生成器。
+**manicure-api** 是「美甲店到店预约 + 会员 + 收银 + 挂账 + 运营」的后端 API。技术栈为 NestJS + Fastify 作为 HTTP 层，Drizzle ORM 操作数据库，Zod 做数据校验。业务侧覆盖预约排班与可约时段、会员等级/储值/次卡/积分、支付与退款判责、挂账应收、报表提成、评价与通知；基座侧保留 JWT 双 token 认证、基于权限字符串的 RBAC 访问控制、部门/菜单/岗位/字典管理、定时任务、文件上传、操作审计日志、在线用户跟踪、代码生成器。业务口径详见 `docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md`。
 
 - **运行时 / 包管理器**：`bun@1.4.0`（唯一运行时与包管理器，锁文件 `bun.lock` 为准；应用、迁移、seed、测试全部跑在 Bun 上，不依赖 Node/tsx）
 - **数据库**：MySQL，通过 `mysql2` + `drizzle-orm@1.0.0-rc.3` 访问

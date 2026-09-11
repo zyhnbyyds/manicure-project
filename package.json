@@ -1,7 +1,7 @@
 {
-  "name": "nest-admin",
+  "name": "manicure-api",
   "version": "0.1.0",
-  "description": "Administration API built with NestJS, Fastify and Drizzle ORM.",
+  "description": "美甲店到店预约与经营管理 API（NestJS + Fastify + Drizzle ORM）。",
   "private": true,
   "license": "MIT",
   "packageManager": "bun@1.4.0",

@@ -18,7 +18,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 /** 兜底测试库（`.env.test` 与 `.env` 都读不到时使用） */
 export const FALLBACK_TEST_DATABASE_URL =
-  'mysql://root:123456@127.0.0.1/ruoyi_nest_test';
+  'mysql://root:123456@127.0.0.1/manicure_test';
 
 /** 直接读 env 文件：**不能被其它用例改写 `process.env` 影响** */
 async function readEnvFile(file: string): Promise<Record<string, string>> {

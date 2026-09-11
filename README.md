@@ -1,10 +1,10 @@
-# nest-admin-ts
+# manicure-api
 
 **简体中文** | [English](./README.en.md)
 
-基于 **NestJS 12 + Fastify + Drizzle ORM + MySQL** 的后台管理 API，配套 **Vue 3 + Vite** 的 Web 管理前端。
+基于 **NestJS 12 + Fastify + Drizzle ORM + MySQL** 的**美甲店到店预约与经营管理 API**，配套 **Vue 3 + Vite** 的 Web 管理前端。
 
-后台管理系统的完整解决方案：RBAC 权限、部门/岗位/字典/配置、操作与登录审计、定时任务、文件管理、代码生成器、Redis 监控，以及一个开箱即用的现代化前端界面。
+面向美甲门店的一体化解决方案：预约排班与可约时段、会员（等级/储值/次卡/积分）、收银（在线支付/定金尾款/混合支付/退款判责）、挂账应收、报表与提成、运营（评价/周期预约/通知）；同时保留 RBAC 权限、部门/岗位/字典/配置、操作与登录审计、定时任务、文件管理、代码生成器、Redis 监控等后台基座能力。
 
 [![Bun](https://img.shields.io/badge/bun-%3E%3D1.4-orange)](https://bun.sh)
 [![NestJS](https://img.shields.io/badge/nestjs-12-red)](https://nestjs.com)
@@ -183,7 +183,7 @@ web/
 ```bash
 # 1. 克隆项目
 git clone <repo-url>
-cd nest-admin
+cd manicure-project
 
 # 2. 配置环境变量
 cp .env.example .env

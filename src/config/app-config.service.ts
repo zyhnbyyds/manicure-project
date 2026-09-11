@@ -22,10 +22,10 @@ const envSchema = z.object({
     .default('true')
     .transform((value) => value === 'true'),
   SWAGGER_PATH: z.string().default('docs'),
-  SWAGGER_TITLE: z.string().default('Nest Admin API'),
+  SWAGGER_TITLE: z.string().default('美甲店管理系统 API'),
   SWAGGER_DESCRIPTION: z
     .string()
-    .default('Administration API built with NestJS, Fastify and Drizzle ORM'),
+    .default('美甲店到店预约、会员、收银与经营管理 API'),
   SWAGGER_VERSION: z.string().default('0.1.0'),
   AI_ENABLED: z
     .enum(['true', 'false'])

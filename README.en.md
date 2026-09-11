@@ -1,10 +1,10 @@
-# nest-admin-ts
+# manicure-api
 
 [简体中文](./README.md) | **English**
 
-A backend admin API built on **NestJS 12 + Fastify + Drizzle ORM + MySQL**, paired with a **Vue 3 + Vite** web admin frontend.
+A **nail salon booking & store management API** built on **NestJS 12 + Fastify + Drizzle ORM + MySQL**, paired with a **Vue 3 + Vite** web admin frontend.
 
-A complete solution for building admin systems: RBAC permissions, departments/posts/dicts/configs, operation & login auditing, scheduled jobs, file management, code generator, Redis monitoring, and a modern, out-of-the-box frontend.
+An all-in-one solution for nail salons: appointments & availability slots, membership (tiers / stored value / packages / points), cashier (online payment / deposit & balance / mixed payment / refund liability), credit & receivables, reports & commission, operations (reviews / recurring bookings / notifications) — plus an admin foundation with RBAC, departments/posts/dicts/configs, operation & login auditing, scheduled jobs, file management, code generator and Redis monitoring.
 
 [![Bun](https://img.shields.io/badge/bun-%3E%3D1.4-orange)](https://bun.sh)
 [![NestJS](https://img.shields.io/badge/nestjs-12-red)](https://nestjs.com)
@@ -164,7 +164,7 @@ web/
 ```bash
 # 1. Clone the project
 git clone <repo-url>
-cd nest-admin
+cd manicure-project
 
 # 2. Configure environment variables
 cp .env.example .env
@@ -217,7 +217,7 @@ The frontend dev server runs on `http://localhost:5173`; `/api` is proxied to th
 │   ├── common/
 │   │   ├── auth/                 # JWT Guard, permission decorators, public-route decorators
 │   │   ├── cache/                # Redis wrapper
-│   │   ├── data-scope/           # Data scope (RuoYi data range)
+│   │   ├── data-scope/           # Data scope (row-level data range)
 │   │   └── logging/              # Operation log interceptor
 │   └── modules/
 │       ├── auth/                 # Login / refresh / logout

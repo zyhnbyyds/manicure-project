@@ -40,7 +40,7 @@ const createSchema = z.object({
     .string()
     .min(1)
     .max(500)
-    .openapi({ example: 'Nest Admin', description: '参数值' }),
+    .openapi({ example: '美甲管理系统', description: '参数值' }),
   builtin: z
     .boolean()
     .optional()
