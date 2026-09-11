@@ -2,12 +2,12 @@ import { bookingApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
 import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goPay, goServices } from '../../utils/nav';
+import { goPay, goReview, goServices } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { syncTabBar } from '../../utils/tabbar';
-import { confirm, notOpenYet, toast } from '../../utils/ui';
+import { confirm, toast } from '../../utils/ui';
 
 interface FilterItem {
   /** 空串 = 不传 status（全部） */
@@ -141,9 +141,9 @@ Page({
     }
   },
 
-  onReview() {
-    // 后端 `POST /app/reviews` 已真实现，但评价表单页尚未按设计稿实现
-    notOpenYet('评价', '评价功能正在接入，很快就能给美甲师打分啦～');
+  onReview(event: WechatMiniprogram.TouchEvent) {
+    // 评价表单页已按设计稿实现（pages/review）
+    goReview(Number(event.currentTarget.dataset.id));
   },
 
   onPay(event: WechatMiniprogram.TouchEvent) {

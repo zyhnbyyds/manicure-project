@@ -10,6 +10,7 @@
     "pages/pay-result/index",
     "pages/bookings/index",
     "pages/booking-detail/index",
+    "pages/review/index",
     "pages/member/index",
     "pages/mine/index",
     "pages/theme/index",

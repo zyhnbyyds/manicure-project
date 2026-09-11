@@ -3,11 +3,11 @@ import type { Booking } from '../../api/types';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration, formatTimeRange, formatDateTimeLabel } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goPay } from '../../utils/nav';
+import { goPay, goReview } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { staffEmoji } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
-import { confirm, notOpenYet, toast } from '../../utils/ui';
+import { confirm, toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['calendar', 'clock', 'person', 'card', 'chevron'];
 
@@ -138,7 +138,8 @@ Page({
   },
 
   onReview() {
-    notOpenYet('评价', '评价功能正在接入，很快就能给美甲师打分啦～');
+    // 评价表单页已按设计稿实现（pages/review）
+    goReview(this.bookingId);
   },
 
   onService() {

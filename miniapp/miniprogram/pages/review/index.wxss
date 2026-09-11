@@ -1,0 +1,139 @@
+/* 服务评价 —— 对齐 docs/manicure-ui-batch1 第 5 屏 */
+
+.review-body {
+  padding-bottom: 200rpx;
+}
+
+/* ── 评价对象 ─────────────────────────────────────────────── */
+
+.target__label {
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+.target__name {
+  margin-top: 8rpx;
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.target__meta {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 评分 ─────────────────────────────────────────────────── */
+
+.rating {
+  text-align: center;
+}
+
+.rating__q {
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.rating__stars {
+  display: flex;
+  justify-content: center;
+  margin-top: 24rpx;
+}
+
+.rating__star {
+  width: 68rpx;
+  height: 68rpx;
+  margin: 0 12rpx;
+}
+
+.rating__text {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+}
+
+/* ── 标签 ─────────────────────────────────────────────────── */
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 18rpx;
+}
+
+.tag-chip {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 30rpx;
+  margin: 0 16rpx 16rpx 0;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  color: var(--c-text-sub);
+  font-size: 25rpx;
+}
+
+/* 选中：主色描边 + 淡主色底（与未选形成明确对比） */
+.tag-chip.is-checked {
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  border: 2rpx solid var(--c-primary);
+  line-height: 60rpx;
+}
+
+/* ── 文字与图片 ───────────────────────────────────────────── */
+
+.content {
+  width: 100%;
+  min-height: 180rpx;
+  margin-top: 18rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+  border-radius: var(--r-md);
+  background: var(--c-bg);
+  font-size: 26rpx;
+  color: var(--c-text);
+}
+
+.content__placeholder {
+  color: var(--c-text-weak);
+}
+
+.counter {
+  margin-top: 8rpx;
+  text-align: right;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+.images {
+  display: flex;
+  margin-top: 20rpx;
+}
+
+.images__slot {
+  width: 150rpx;
+  height: 150rpx;
+  margin-right: 20rpx;
+  border-radius: var(--r-md);
+  border: 2rpx dashed var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.images__plus {
+  font-size: 52rpx;
+  line-height: 1;
+  color: var(--c-text-weak);
+}
+
+.images__hint {
+  margin-top: 16rpx;
+  font-size: 21rpx;
+  color: var(--c-text-weak);
+}
+
+.empty__action {
+  margin-top: 28rpx;
+}

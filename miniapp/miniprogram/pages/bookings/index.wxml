@@ -82,6 +82,7 @@
           <view
             wx:if="{{item.reviewable}}"
             class="mini-btn"
+            data-id="{{item.id}}"
             bindtap="onReview"
           >
             去评价

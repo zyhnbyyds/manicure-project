@@ -1,0 +1,84 @@
+<view class="page" style="{{themeStyle}}">
+  <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
+
+  <view wx:elif="{{errorText}}" class="empty">
+    <view class="empty__text">{{errorText}}</view>
+    <view class="btn btn--primary btn--sm empty__action" bindtap="onBack">返回</view>
+  </view>
+
+  <block wx:else>
+    <view class="page-body review-body">
+      <!-- 评价对象：哪一单、什么项目 -->
+      <view class="card target">
+        <view class="target__label">项目卡</view>
+        <view class="target__name ellipsis">{{itemName}}</view>
+        <view class="target__meta">{{dateText}} · {{itemPriceText}}元</view>
+      </view>
+
+      <!-- 评分 -->
+      <view class="card rating">
+        <view class="rating__q">这次做的满意吗？</view>
+        <view class="rating__stars">
+          <image
+            wx:for="{{stars}}"
+            wx:key="*this"
+            class="rating__star"
+            src="{{item <= rating ? iconsStarOn.star : iconsStarOff.star}}"
+            data-value="{{item}}"
+            bindtap="onPickStar"
+            mode="aspectFit"
+          />
+        </view>
+        <view class="rating__text">{{rating}} 分 · {{ratingText}}</view>
+      </view>
+
+      <!-- 快捷标签 -->
+      <view class="card">
+        <view class="section__title">给美甲师点个赞</view>
+        <view class="tags">
+          <view
+            wx:for="{{tags}}"
+            wx:key="label"
+            class="tag-chip {{item.checked ? 'is-checked' : ''}}"
+            data-index="{{index}}"
+            bindtap="onToggleTag"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </view>
+
+      <!-- 文字与图片 -->
+      <view class="card">
+        <view class="section__title">想说点什么</view>
+        <textarea
+          class="content"
+          value="{{content}}"
+          placeholder="美甲师的手艺、店里的环境，都可以说说～"
+          placeholder-class="content__placeholder"
+          maxlength="500"
+          bindinput="onContentInput"
+        />
+        <view class="counter">{{content.length}}/500</view>
+
+        <view class="images">
+          <view
+            wx:for="{{imageSlots}}"
+            wx:key="*this"
+            class="images__slot"
+            bindtap="onAddImage"
+          >
+            <view class="images__plus">+</view>
+          </view>
+        </view>
+        <view class="images__hint">最多可上传 {{maxImages}} 张，图片功能开发中</view>
+      </view>
+    </view>
+
+    <view class="action-bar">
+      <view class="btn {{submitting ? 'btn--disabled' : 'btn--primary'}} btn--block" bindtap="onSubmit">
+        {{submitting ? '提交中…' : '提交评价'}}
+      </view>
+    </view>
+  </block>
+</view>

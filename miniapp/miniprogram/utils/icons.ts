@@ -31,7 +31,8 @@ export type IconName =
   | 'gift'
   | 'coupon'
   | 'settings'
-  | 'check';
+  | 'check'
+  | 'star';
 
 /** 24x24 视图框内的描边路径（fill=none，描边由外层控制） */
 const PATHS: Record<IconName, string> = {
@@ -64,6 +65,8 @@ const PATHS: Record<IconName, string> = {
   settings:
     "<circle cx='12' cy='12' r='3'/><path d='M12 3.4v2.2'/><path d='M12 18.4v2.2'/><path d='M3.4 12h2.2'/><path d='M18.4 12h2.2'/><path d='M6.2 6.2 7.8 7.8'/><path d='M16.2 16.2l1.6 1.6'/><path d='M17.8 6.2 16.2 7.8'/><path d='M7.8 16.2 6.2 17.8'/>",
   check: "<path d='M5.2 12.6 9.6 17l9.2-9.6'/>",
+  // 五角星：评分用。描边态与实心态共用同一条路径（见 svgIcon 的 filled 参数）
+  star: "<path d='M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8-5.2-2.75-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z'/>",
 };
 
 /**
@@ -94,10 +97,19 @@ function base64Ascii(input: string): string {
   return out;
 }
 
-export function svgIcon(name: IconName, color: string, size = 24): string {
+export function svgIcon(
+  name: IconName,
+  color: string,
+  size = 24,
+  /** 实心态（评分星等）：同一路径改成填充，避免为实心再画一套 */
+  filled = false,
+): string {
+  const paint = filled
+    ? `fill='${color}' stroke='${color}' stroke-width='1'`
+    : `fill='none' stroke='${color}' stroke-width='1.5'`;
   const svg =
     `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 24 24' ` +
-    `fill='none' stroke='${color}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'>` +
+    `${paint} stroke-linejoin='round'>` +
     `${PATHS[name]}</svg>`;
   return `data:image/svg+xml;base64,${base64Ascii(svg)}`;
 }
@@ -107,10 +119,11 @@ export function buildIcons(
   names: IconName[],
   color: string,
   size = 24,
+  filled = false,
 ): Record<string, string> {
   const result: Record<string, string> = {};
   names.forEach((name) => {
-    result[name] = svgIcon(name, color, size);
+    result[name] = svgIcon(name, color, size, filled);
   });
   return result;
 }
