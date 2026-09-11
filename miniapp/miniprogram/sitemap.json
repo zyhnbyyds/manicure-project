@@ -1,0 +1,9 @@
+{
+  "desc": "小程序内页面默认允许被微信索引；本工程为到店预约类，无敏感内容。详见 https://developers.weixin.qq.com/miniprogram/dev/framework/sitemap.html",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

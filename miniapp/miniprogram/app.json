@@ -1,14 +1,16 @@
 {
-  "pages": [
-    "pages/index/index",
-    "pages/logs/logs"
-  ],
+  "pages": ["pages/index/index"],
   "window": {
-    "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "Weixin",
-    "navigationBarBackgroundColor": "#ffffff"
+    "navigationStyle": "default",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "美甲小铺",
+    "navigationBarBackgroundColor": "#FF8BA7",
+    "backgroundColor": "#FFF5F8",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": false
   },
   "style": "v2",
   "componentFramework": "glass-easel",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
 }
