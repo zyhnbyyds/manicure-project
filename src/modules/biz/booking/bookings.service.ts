@@ -544,6 +544,23 @@ export class BookingsService implements BookingPort {
       });
     }
 
+    // ---- 渠道下单是网络 IO：**必须在事务外**先做完 ----
+    // 单号已与主键解耦（`buildOutTradeNoByToken`），所以能在落库之前下单。
+    // 事务最终回滚时渠道侧会留一张没人见过的待支付单，5 分钟后自然过期（无资金流）。
+    // 备注依赖事务内生成的 bookingNo / 主键，进事务后再合并（见 createInTx 调用处）。
+    const paymentDrafts = realPayments.map((payment) => ({
+      customerId: customer.id,
+      purpose: (input.payMode === 'deposit' ? 'deposit' : 'final') as
+        | 'deposit'
+        | 'final',
+      channel: payment.channel,
+      amount: payment.amount,
+      receivedAmount: payment.receivedAmount,
+      memberCardId: payment.memberCardId ?? null,
+    }));
+    const preparedOrders = await this.payments.prepareChannelOrders(
+      paymentDrafts,
+    );
     // ---- 步骤 5~8：锁 → 复检 → 建单 → 收款（同一事务，一起提交或一起回滚）----
     const created = await this.database.db.transaction(async (tx) => {
       // 步骤 5：必须是事务内第一条语句
@@ -617,19 +634,16 @@ export class BookingsService implements BookingPort {
         });
       }
       const outcomes = [];
-      for (const payment of realPayments) {
+      for (const [index, draft] of paymentDrafts.entries()) {
         outcomes.push(
           await this.payments.createInTx(
             tx,
             {
-              customerId: customer.id,
+              ...draft,
+              // 事务内才知道的值在这里补上
               bookingId,
-              purpose: input.payMode === 'deposit' ? 'deposit' : 'final',
-              channel: payment.channel,
-              amount: payment.amount,
-              receivedAmount: payment.receivedAmount,
-              memberCardId: payment.memberCardId ?? null,
               remark: `预约 ${bookingNo}`,
+              channelOrder: preparedOrders[index] ?? undefined,
             },
             actor.id,
           ),
@@ -1322,6 +1336,21 @@ export class BookingsService implements BookingPort {
     if (inputTotal > dueAmount)
       throw new BadRequestException('收款金额超过待收尾款');
 
+    // ---- 渠道下单是网络 IO：**在事务外**先做完（放事务里会持锁等渠道回包）----
+    const paymentDrafts = realPayments.map((payment) => ({
+      customerId: booking.customerId,
+      bookingId: id,
+      purpose: 'final' as const,
+      channel: payment.channel,
+      amount: payment.amount,
+      receivedAmount: payment.receivedAmount,
+      memberCardId: payment.memberCardId ?? null,
+      remark: `预约 ${booking.bookingNo} 结算`,
+    }));
+    const preparedOrders = await this.payments.prepareChannelOrders(
+      paymentDrafts,
+    );
+
     const result = await this.database.db.transaction(async (tx) => {
       // 锁顺序：customer → payment（本操作不改时段，无需锁美甲师）
       await this.members.lockAccount(tx, booking.customerId);
@@ -1346,20 +1375,11 @@ export class BookingsService implements BookingPort {
         .where(eq(bizBookings.id, id));
 
       const outcomes = [];
-      for (const payment of realPayments) {
+      for (const [index, draft] of paymentDrafts.entries()) {
         outcomes.push(
           await this.payments.createInTx(
             tx,
-            {
-              customerId: booking.customerId,
-              bookingId: id,
-              purpose: 'final',
-              channel: payment.channel,
-              amount: payment.amount,
-              receivedAmount: payment.receivedAmount,
-              memberCardId: payment.memberCardId ?? null,
-              remark: `预约 ${booking.bookingNo} 结算`,
-            },
+            { ...draft, channelOrder: preparedOrders[index] ?? undefined },
             actor.id,
           ),
         );

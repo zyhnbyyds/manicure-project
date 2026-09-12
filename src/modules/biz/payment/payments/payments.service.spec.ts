@@ -409,30 +409,34 @@ describe('PaymentsService（§17 收银台）', () => {
       expect(h.alipay.createNativeOrder).not.toHaveBeenCalled();
     });
 
-    it('在线渠道：落 pending + expireAt = now + qrExpireMinutes，写 code_url', async () => {
+    it('在线渠道：落 pending + code_url（`expireAt` 来自事务外预备单）', async () => {
       const h = createHarness({ txInsert: [[{ insertId: 1 }]] });
       const before = Date.now();
-      const result = await h.service.createInTx(
-        h.tx as never,
-        draft({ channel: 'wxpay_native' }),
-      );
+      // 新契约：在线渠道必须**先在事务外** prepare，再把 channelOrder 传进 createInTx
+      const paymentDraft = draft({ channel: 'wxpay_native' });
+      const order = await h.service.prepareChannelOrder(paymentDraft);
+      expect(order).not.toBeNull();
+      const result = await h.service.createInTx(h.tx as never, {
+        ...paymentDraft,
+        channelOrder: order ?? undefined,
+      });
       expect(result.status).toBe('pending');
       expect(result.codeUrl).toBe('weixin://wxpay/prepay');
       expect(result.expireAt).toBeInstanceOf(Date);
       const delta = (result.expireAt as Date).getTime() - before;
-      // qrExpireMinutes = 5 → 300000ms（留 5s 容差给执行时间）
+      // qrExpireMinutes = 5 → 300000ms。上下各留 5s 容差：
+      // 预备调用比原来多一跳，紧贴 300000 做上界会偶发差 1ms 抖动
       expect(delta).toBeGreaterThan(295_000);
-      expect(delta).toBeLessThanOrEqual(300_000);
+      expect(delta).toBeLessThanOrEqual(305_000);
       const payload = h.txInsertValues.mock.calls[0]?.[0] as Row;
       expect(payload.status).toBe('pending');
       expect(payload.paidAt).toBeNull();
       expect(payload.transactionId).toBeNull();
     });
 
-    it('在线渠道下单参数：商户订单号、金额、过期时间、回调地址', async () => {
+    it('**在线渠道下单参数**：商户订单号、金额、过期时间、回调地址（在 prepareChannelOrder 里）', async () => {
       const h = createHarness({ txInsert: [[{ insertId: 1 }]] });
-      await h.service.createInTx(
-        h.tx as never,
+      const order = await h.service.prepareChannelOrder(
         draft({ channel: 'wxpay_native', purpose: 'recharge' }),
       );
       expect(h.wxpay.createNativeOrder).toHaveBeenCalledWith(
@@ -440,16 +444,17 @@ describe('PaymentsService（§17 收银台）', () => {
           amount: 10000,
           notifyUrl: 'https://shop.test/notify/wxpay',
           description: expect.stringContaining('储值充值'),
+          // 交易号与主键无关（下单时还没有本地单）
+          outTradeNo: expect.stringMatching(/^P[0-9A-Z]+$/),
+          expireAt: expect.any(Date),
         }),
       );
+      expect(order?.codeUrl).toBe('weixin://wxpay/prepay');
     });
 
     it('支付宝走自己的回调地址', async () => {
       const h = createHarness({ txInsert: [[{ insertId: 1 }]] });
-      await h.service.createInTx(
-        h.tx as never,
-        draft({ channel: 'alipay_qr' }),
-      );
+      await h.service.prepareChannelOrder(draft({ channel: 'alipay_qr' }));
       expect(h.alipay.createNativeOrder).toHaveBeenCalledWith(
         expect.objectContaining({
           notifyUrl: 'https://shop.test/notify/alipay',
@@ -457,16 +462,34 @@ describe('PaymentsService（§17 收银台）', () => {
       );
     });
 
-    it('在线通道未启用 → 抛错且不留 pending 单', async () => {
+    it('离线渠道 prepare 返回 null（不需要渠道）', async () => {
+      const h = createHarness({ txInsert: [[{ insertId: 1 }]] });
+      await expect(
+        h.service.prepareChannelOrder(draft({ channel: 'cash' })),
+      ).resolves.toBeNull();
+      expect(h.wxpay.createNativeOrder).not.toHaveBeenCalled();
+      expect(h.alipay.createNativeOrder).not.toHaveBeenCalled();
+    });
+
+    it('在线通道未启用 → **在事务外就抛错**，本地一个字节都不写', async () => {
       const h = createHarness({
         wxpayConfigured: false,
         txInsert: [[{ insertId: 1 }]],
       });
+      // 新契约下这条错误发生在 prepare（事务外）→ 连事务都不会开
+      await expect(
+        h.service.prepareChannelOrder(draft({ channel: 'wxpay_native' })),
+      ).rejects.toThrow(new ConflictException('微信支付通道未启用'));
+      expect(h.wxpay.createNativeOrder).not.toHaveBeenCalled();
+      expect(h.txInsert).not.toHaveBeenCalled();
+    });
+
+    it('**在线渠道漏了 prepare → createInTx 明确报错**（防止有人把渠道调用塞回事务）', async () => {
+      const h = createHarness({ txInsert: [[{ insertId: 1 }]] });
       await expect(
         h.service.createInTx(h.tx as never, draft({ channel: 'wxpay_native' })),
-      ).rejects.toThrow(new ConflictException('微信支付通道未启用'));
-      // 抛错前已经 insert 过一次，但同事务回滚 → 由调用方的事务保证
-      expect(h.wxpay.createNativeOrder).not.toHaveBeenCalled();
+      ).rejects.toThrow(/必须先调 prepareChannelOrder/);
+      expect(h.txInsert).not.toHaveBeenCalled();
     });
 
     it('单号回填：paymentNo = P+店内日+主键，outTradeNo 带时间戳后缀', async () => {

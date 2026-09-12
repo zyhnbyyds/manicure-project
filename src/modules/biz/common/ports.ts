@@ -449,6 +449,15 @@ export abstract class MemberCardPort {
  * 收银（B3）
  * ------------------------------------------------------------------ */
 
+/** 事务外**预先下好**的渠道订单（仅在线渠道） */
+export type PreparedChannelOrder = {
+  outTradeNo: string;
+  codeUrl: string;
+  expireAt: Date;
+  /** 渠道原始应答（写进 `biz_payment_log` 留证） */
+  raw: unknown;
+};
+
 export type PaymentDraft = {
   customerId: number;
   bookingId?: number | null | undefined;
@@ -458,6 +467,14 @@ export type PaymentDraft = {
   receivedAmount?: number | undefined;
   memberCardId?: number | null | undefined;
   remark?: string | null | undefined;
+  /**
+   * **在线渠道必填**：由调用方在事务外调 `prepareChannelOrder` 得到。
+   *
+   * 渠道下单是网络 IO（超时 5 秒），放进数据库事务会一直持锁等它 ——
+   * 而本地单号又依赖「先插单拿主键」，所以必须把渠道下单提到事务之前，
+   * 用与主键无关的交易号（`buildOutTradeNoByToken`）。
+   */
+  channelOrder?: PreparedChannelOrder | undefined;
 };
 
 export type PaymentOutcome = {
@@ -473,7 +490,25 @@ export type PaymentOutcome = {
 };
 
 export abstract class PaymentPort {
-  /** 同事务落支付单；在线渠道落 pending + code_url，线下/储值/次卡直接 success */
+  /**
+   * **事务外**准备在线渠道订单；离线渠道返回 `null`（不需要渠道）。
+   *
+   * ⚠️ **渠道未配置时抛错**：调用方应在**写任何本地数据之前**调用它，
+   * 这样「未配置 → 不留 pending 单」从「事务回滚」升级为「根本没开始」。
+   */
+  abstract prepareChannelOrder(
+    draft: PaymentDraft,
+  ): Promise<PreparedChannelOrder | null>;
+
+  /** 批量准备（结果与入参下标对齐）；事务外调用，一次事务里下多笔时用这个 */
+  abstract prepareChannelOrders(
+    drafts: PaymentDraft[],
+  ): Promise<(PreparedChannelOrder | null)[]>;
+
+  /**
+   * 同事务落支付单；在线渠道落 pending + code_url（**必须已在事务外备好**），
+   * 线下/储值/次卡直接 success。
+   */
   abstract createInTx(
     tx: BizTx,
     draft: PaymentDraft,

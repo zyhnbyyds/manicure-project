@@ -37,9 +37,10 @@ import {
   SettlementPort,
   type CreditAccountRow,
   type PageResult,
+  type PaymentDraft,
   type ReceivableRow,
 } from '../../common/ports.js';
-import type { BizTx } from '../../common/tx.js';
+import type { BizDatabase, BizTx } from '../../common/tx.js';
 
 export type ReceivableStatus =
   | 'open'
@@ -293,6 +294,37 @@ export class ReceivablesService extends CreditPort {
   ): Promise<SettleResult> {
     const payments = normalizeSettlePayments(input.payments);
     const total = payments.reduce((sum, item) => sum + item.amount, 0);
+    // ---- 渠道下单是网络 IO：**在事务外**先做完 ----
+    // 需要 customerId，而它在事务内解析 —— 这里先做一次**只读**解析
+    // （应收单的顾客不会变，多读一次没有一致性问题；null 的情况留给事务内报准确错误）。
+    const [preRead] = await this.database.db
+      .select()
+      .from(bizReceivables)
+      .where(
+        and(
+          eq(bizReceivables.id, receivableId),
+          isNull(bizReceivables.deletedAt),
+        ),
+      )
+      .limit(1);
+    const draftCustomerId = preRead
+      ? await this.resolveCustomerId(this.database.db, preRead)
+      : null;
+    const paymentDrafts: PaymentDraft[] = payments.map((payment) => ({
+      customerId: draftCustomerId ?? 0,
+      bookingId: preRead?.bookingId ?? null,
+      purpose: 'credit_settle' as const,
+      channel: payment.channel,
+      amount: payment.amount,
+      receivedAmount: payment.amount,
+      remark:
+        payment.remark ?? input.remark ?? `应收单 ${preRead?.receivableNo ?? ''} 销账`,
+    }));
+    const preparedOrders =
+      draftCustomerId === null
+        ? []
+        : await this.payments.prepareChannelOrders(paymentDrafts);
+
     return this.database.db.transaction(async (tx) => {
       const [receivable] = await tx
         .select()
@@ -325,21 +357,24 @@ export class ReceivablesService extends CreditPort {
       }
 
       const settled: SettlePaymentResult[] = [];
-      for (const payment of payments) {
+      // 同时持有原始 `payment`（落销账流水用，渠道枚举更窄）与 `draft`（建支付单用）
+      for (const [index, payment] of payments.entries()) {
+        const draft = paymentDrafts[index];
+        if (!draft) continue; // 两个数组同源同长，理论不可达
         // 金额事实来自支付单：线下/储值渠道直接 success，在线渠道落 pending + code_url
+        // （在线渠道的 `channelOrder` 已在**事务外**备好，事务里不做网络 IO）
         const outcome = await this.payments.createInTx(
           tx,
           {
+            ...draft,
+            // 事务内才知道/已复核的值在这里补上
             customerId,
             bookingId: receivable.bookingId,
-            purpose: 'credit_settle',
-            channel: payment.channel,
-            amount: payment.amount,
-            receivedAmount: payment.amount,
             remark:
               payment.remark ??
               input.remark ??
               `应收单 ${receivable.receivableNo} 销账`,
+            channelOrder: preparedOrders[index] ?? undefined,
           },
           input.actorId,
         );
@@ -666,7 +701,8 @@ export class ReceivablesService extends CreditPort {
 
   /** 销账支付单挂在谁是顾客：应收单优先，其次取主体绑定的顾客 */
   private async resolveCustomerId(
-    tx: BizTx,
+    // 允许传 `database.db`：销账要在**事务外**先解析顾客（渠道下单需要 customerId）
+    tx: BizTx | BizDatabase,
     receivable: ReceivableRow,
   ): Promise<number | null> {
     if (receivable.customerId !== null) return receivable.customerId;

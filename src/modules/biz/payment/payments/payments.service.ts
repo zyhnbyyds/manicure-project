@@ -15,7 +15,11 @@ import {
   bizPayments,
 } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo, buildOutTradeNo } from '../../common/doc-no.js';
+import {
+  buildDocNo,
+  buildOutTradeNo,
+  buildOutTradeNoByToken,
+} from '../../common/doc-no.js';
 import { localDateRange } from '../../common/query.js';
 import {
   MemberAccountPort,
@@ -26,6 +30,7 @@ import {
   type PayChannel,
   type PaymentDraft,
   type PaymentOutcome,
+  type PreparedChannelOrder,
 } from '../../common/ports.js';
 import type { BizExecutor, BizTx } from '../../common/tx.js';
 import { AlipayQrProvider } from '../channels/alipay-qr.provider.js';
@@ -181,6 +186,66 @@ export class PaymentsService extends PaymentPort {
    *   渠道未配置直接抛 `ConflictException`，同一事务回滚**不留 pending 单**；
    * - `credit` 由 `CreditPort`（挂账）处理，本方法拒绝。
    */
+  /**
+   * **事务外**准备在线渠道订单（离线渠道返回 `null`）。
+   *
+   * ## 为什么必须放在事务外
+   *
+   * 渠道下单是网络 IO（超时 5 秒）。原先它在 `createInTx` 里、也就是在
+   * **调用方的事务内**执行 —— 结算流程还是「一个事务里循环下多笔 + 之后还要
+   * recalc/落会员流水」，等于**持着连接与行锁等渠道回包**。
+   * 现在把顺序倒过来：**先在事务外下单拿到 `code_url` 与交易号 → 再进事务落库**。
+   *
+   * ## 代价（可接受，已确认）
+   *
+   * 事务最终回滚时，渠道侧会留下一张**没人看到过**的待支付单（`code_url` 没返回给
+   * 任何客户端），5 分钟后自然过期 —— 不会有钱流，也不影响对账。
+   *
+   * ## 渠道未配置
+   *
+   * 直接抛错（`provider.createNativeOrder` 内部先校验 `configured`）。
+   * 调用方在**写任何本地数据之前**调它，于是「未配置 → 不留 pending 单」
+   * 从「靠事务回滚」升级成「根本没开始」。
+   */
+  async prepareChannelOrder(
+    draft: PaymentDraft,
+  ): Promise<PreparedChannelOrder | null> {
+    const channel = toPaymentChannel(draft.channel);
+    if (!isOnlineChannel(channel)) return null;
+    const provider = this.providerFor(channel);
+    const paymentConfig = await this.bizConfig.payment();
+    const now = new Date();
+    const expireAt = new Date(
+      now.getTime() + paymentConfig.qrExpireMinutes * 60_000,
+    );
+    // 与主键无关的交易号：下单时还没有本地单（主键要 INSERT 之后才有）
+    const outTradeNo = buildOutTradeNoByToken('P');
+    const order = await provider.createNativeOrder({
+      outTradeNo,
+      amount: Math.trunc(draft.amount),
+      description: `${PURPOSE_LABELS[draft.purpose] ?? '收款'} ${outTradeNo}`,
+      expireAt,
+      notifyUrl: this.notifyUrlOf(channel),
+    });
+    return { outTradeNo, codeUrl: order.codeUrl, expireAt, raw: order.raw };
+  }
+
+  /**
+   * 批量准备（按顺序执行，结果与入参**下标对齐**；离线渠道为 `null`）。
+   *
+   * 调用方在事务外先调它，事务内把 `prepared[index]` 作为 `draft.channelOrder`
+   * 传回 `createInTx` 即可 —— 这样一个事务里循环下多笔时也**不会**在事务里打渠道。
+   */
+  async prepareChannelOrders(
+    drafts: PaymentDraft[],
+  ): Promise<(PreparedChannelOrder | null)[]> {
+    const results: (PreparedChannelOrder | null)[] = [];
+    for (const draft of drafts) {
+      results.push(await this.prepareChannelOrder(draft));
+    }
+    return results;
+  }
+
   async createInTx(
     tx: BizTx,
     draft: PaymentDraft,
@@ -208,12 +273,16 @@ export class PaymentsService extends PaymentPort {
     if (channel === 'card' && !draft.memberCardId)
       throw new BadRequestException('次卡核销必须指定 memberCardId');
 
-    const paymentConfig = await this.bizConfig.payment();
+    // 在线渠道的单必须**已经在事务外备好**（渠道下单是网络 IO，不能持事务等它）
+    const prepared = draft.channelOrder ?? null;
+    if (isOnline && !prepared)
+      throw new BadRequestException(
+        '在线渠道必须先调 prepareChannelOrder（渠道下单不能在事务里做）',
+      );
+
     const timezone = (await this.bizConfig.booking()).timezone;
     const now = new Date();
-    const expireAt = isOnline
-      ? new Date(now.getTime() + paymentConfig.qrExpireMinutes * 60_000)
-      : null;
+    const expireAt = prepared ? prepared.expireAt : null;
 
     // 1) 储值扣减必须**先于**支付单 INSERT：全局锁顺序 biz_customer → biz_payment（§6.6）
     if (channel === 'balance') {
@@ -231,7 +300,8 @@ export class PaymentsService extends PaymentPort {
     // 2) 落单（pending / success），单号在主键回填前用一次性占位保证 UNIQUE 不冲突
     const inserted = await tx.insert(bizPayments).values({
       paymentNo: temporaryToken(),
-      outTradeNo: temporaryToken(),
+      // 在线渠道的交易号在**事务外**就定好了（渠道下单要用它）；离线渠道仍回填主键
+      outTradeNo: prepared ? prepared.outTradeNo : temporaryToken(),
       bookingId,
       customerId: draft.customerId,
       purpose: draft.purpose,
@@ -240,7 +310,7 @@ export class PaymentsService extends PaymentPort {
       // 在线渠道的实收在「下单时」即确定：回调只改状态与渠道字段（§6.6 幂等闸门）
       receivedAmount: receivedAmount,
       status: isOnline ? 'pending' : 'success',
-      codeUrl: null,
+      codeUrl: prepared ? prepared.codeUrl : null,
       transactionId: null,
       paidAt: isOnline ? null : now,
       expireAt,
@@ -252,10 +322,10 @@ export class PaymentsService extends PaymentPort {
     });
     const id = Number(inserted[0].insertId);
     const paymentNo = buildDocNo('P', id, timezone, now);
-    const outTradeNo = buildOutTradeNo('P', id, now);
+    const outTradeNo = prepared ? prepared.outTradeNo : buildOutTradeNo('P', id, now);
     await tx
       .update(bizPayments)
-      .set({ paymentNo, outTradeNo })
+      .set(prepared ? { paymentNo } : { paymentNo, outTradeNo })
       .where(eq(bizPayments.id, id));
 
     // 3) 次卡核销在支付单之后：锁顺序 biz_payment → biz_member_card（§6.6）
@@ -269,23 +339,9 @@ export class PaymentsService extends PaymentPort {
       });
     }
 
-    // 4) 在线渠道统一下单（未配置 → 抛错回滚，不留 pending 单）
-    let codeUrl: string | null = null;
-    if (onlineChannel) {
-      const provider = this.providerFor(onlineChannel);
-      const order = await provider.createNativeOrder({
-        outTradeNo,
-        amount,
-        description: this.describePayment(draft, paymentNo),
-        expireAt: expireAt ?? now,
-        notifyUrl: this.notifyUrlOf(onlineChannel),
-      });
-      codeUrl = order.codeUrl;
-      await tx
-        .update(bizPayments)
-        .set({ codeUrl })
-        .where(eq(bizPayments.id, id));
-    }
+    // 4) 在线渠道的 `code_url` **已经在事务外拿到**（见 prepareChannelOrder）：
+    //    这里只落库，不做任何网络 IO —— 事务里绝不能再出现渠道调用。
+    const codeUrl = prepared ? prepared.codeUrl : null;
 
     await this.insertLog(tx, id, 'create', {
       channel,
@@ -296,6 +352,8 @@ export class PaymentsService extends PaymentPort {
       codeUrl,
       expireAt: expireAt?.toISOString() ?? null,
       operator: actorId,
+      // 在线渠道把下单原始应答一并留证
+      ...(prepared ? { channelRaw: prepared.raw } : {}),
     });
 
     return {

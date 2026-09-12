@@ -34,6 +34,22 @@ export function buildOutTradeNo(
   return `${prefix}${String(id).padStart(6, '0')}${now.getTime().toString(36).toUpperCase()}`;
 }
 
+/**
+ * 与主键**无关**的对外交易号（在线渠道在**事务外**下单时用）。
+ *
+ * 为什么不能用 `buildOutTradeNo(prefix, id)`：那个把主键内嵌在单号里，
+ * 而主键要 INSERT 之后才知道 —— 在线渠道必须在事务外先下单（渠道下单是网络 IO，
+ * 放进事务会持锁等最多 5 秒），那时还没有主键。
+ *
+ * 长度 ≤32（微信对 `out_trade_no` 的限制），随机后缀保证唯一。
+ */
+export function buildOutTradeNoByToken(prefix: DocPrefix = 'P'): string {
+  return (
+    `${prefix}${Date.now().toString(36).toUpperCase()}` +
+    `${globalThis.crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`
+  );
+}
+
 /** 结算批次号：`S{yyyyMM}{seq}`，seq 由调用方按库内最大批次自增 */
 export function buildSettleBatch(period: string, sequence: number): string {
   return `S${period}${String(sequence).padStart(3, '0')}`;
