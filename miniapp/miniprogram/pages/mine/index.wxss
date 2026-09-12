@@ -191,3 +191,26 @@
 .logout {
   margin-top: 40rpx;
 }
+
+/* 未登录 / 未绑定引导卡（登录态区分） */
+.guest {
+  margin-top: 36rpx;
+  text-align: center;
+}
+
+.guest__title {
+  font-family: var(--font-serif);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.guest__text {
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--c-text-sub);
+}
+
+.guest__btn {
+  margin-top: 28rpx;
+}

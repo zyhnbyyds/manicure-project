@@ -2,6 +2,7 @@ import { bookingApi, memberApi, staffApi } from '../../api/index';
 import { isMockEnabled } from '../../config';
 import { ensureLogin, isBound, logout } from '../../store/auth';
 import { getStaffStatus, isGranted, setMode } from '../../store/mode';
+import { requireSession } from '../../store/session';
 import { getThemeState, getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
 import {
@@ -10,6 +11,7 @@ import {
   goCoupons,
   goFavorites,
   goFeedback,
+  goLogin,
   goMember,
   goStaffWorkbench,
   goTheme,
@@ -108,8 +110,23 @@ Page({
     };
   },
 
-  /** 名字与等级来自会员接口；预约数用一次列表请求统计（列表接口没有 total） */
+  /**
+   * 名字与等级来自会员接口；预约数用一次列表请求统计（列表接口没有 total）。
+   *
+   * **未绑定时不请求**：这两个接口对未绑定访客都返回 401（后端 §8.3 的既定行为），
+   * 明知会 401 还打一次只会让 console 里堆满红色、并让「未登录」看起来像「加载失败」。
+   */
   async loadSummary() {
+    if (!isBound()) {
+      this.setData({
+        nickname: '未登录的访客',
+        levelName: '',
+        bookingCount: 0,
+        favoriteCount: 0,
+        couponCount: 0,
+      });
+      return;
+    }
     try {
       const [me, bookings] = await Promise.all([
         memberApi.getMe().catch(() => null),
@@ -126,6 +143,11 @@ Page({
     } catch {
       /* 摘要失败不影响其它入口 */
     }
+  },
+
+  /** 需要身份的动作统一走这道门：不满足时会引导登录并返回 false */
+  async guard(reason: string): Promise<boolean> {
+    return requireSession({ needBind: true, reason });
   },
 
   /**
@@ -148,31 +170,42 @@ Page({
   goStaffWorkbench,
 
   /** 订单状态入口：点进「我的预约」并带上对应筛选 */
-  onOrderTab(event: WechatMiniprogram.TouchEvent) {
+  async onOrderTab(event: WechatMiniprogram.TouchEvent) {
+    if (!(await this.guard('查看预约需要先绑定手机号'))) return;
     const key = String(event.currentTarget.dataset.key);
-    if (!key) {
-      goBookings();
-      return;
-    }
     goBookings();
-    toast('已为你打开预约列表');
+    if (key) toast('已为你打开预约列表');
   },
 
-  onStatTap(event: WechatMiniprogram.TouchEvent) {
+  async onStatTap(event: WechatMiniprogram.TouchEvent) {
     const key = String(event.currentTarget.dataset.key);
     if (key === 'booking') {
+      if (!(await this.guard('查看预约需要先绑定手机号'))) return;
       goBookings();
       return;
     }
     if (key === 'favorite') {
+      if (!(await this.guard('收藏需要先绑定手机号'))) return;
       goFavorites();
       return;
     }
-    if (key === 'coupon') {
-      goCoupons();
+    if (!(await this.guard('优惠券需要先绑定手机号'))) return;
+    goCoupons();
+  },
+
+  async onMenuTap(event: WechatMiniprogram.TouchEvent) {
+    const key = String(event.currentTarget.dataset.key);
+    if (key === 'service') {
+      wx.showModal({
+        title: '联系门店',
+        content: '客服微信：nailshop001\n营业时间 10:00 - 20:00',
+        showCancel: false,
+        confirmText: '好',
+      });
       return;
     }
     if (key === 'address') {
+      if (!(await this.guard('管理地址需要先绑定手机号'))) return;
       goAddress();
       return;
     }
@@ -187,26 +220,17 @@ Page({
     toast('该功能开发中');
   },
 
-  onMenuTap(event: WechatMiniprogram.TouchEvent) {
-    const key = String(event.currentTarget.dataset.key);
-    if (key === 'service') {
-      wx.showModal({
-        title: '联系门店',
-        content: '客服微信：nailshop001\n营业时间 10:00 - 20:00',
-        showCancel: false,
-        confirmText: '好',
-      });
-      return;
-    }
-    if (key === 'about') {
-      this.onAbout();
-      return;
-    }
-    toast(key === 'address' ? '地址管理开发中' : '意见反馈开发中');
-  },
-
   onSettings() {
     goTheme();
+  },
+
+  /** 未登录 / 未绑定时的统一引导（两种说法不同：没登录 vs 登录了但没绑手机号） */
+  onGuestAction() {
+    goLogin({
+      reason: isBound()
+        ? '绑定手机号，解锁会员权益'
+        : '登录后即可查看余额、积分与次卡',
+    });
   },
 
   async onLogin() {
