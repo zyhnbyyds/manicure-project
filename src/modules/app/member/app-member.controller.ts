@@ -31,6 +31,7 @@ import {
   appCancelBookingRequestSchema,
   appCreateBookingRequestSchema,
   appCreateReviewRequestSchema,
+  appListQuerySchema,
   appMemberCardsQuerySchema,
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
@@ -113,6 +114,35 @@ export class AppMemberController {
       appUser.id,
       appMemberCardsQuerySchema.parse(query),
     );
+  }
+
+  @Get('points-goods')
+  @ApiOperation({
+    summary: '积分兑换品目录',
+    description:
+      '顾客侧只读目录：只返回上架商品（`status=active`）与兑换所需字段，' +
+      '**不含后台备注与成本**。' +
+      '**只要求 app token，不要求绑定手机号** —— 未绑定用户也能先看到能换什么，' +
+      '到兑换那一步才需要身份（与 `/app/service-items` 同为可匿名浏览的目录）。' +
+      '兑换动作是资金/权益写入，由后续接口复用后台同一套同事务实现，不在此处暴露。',
+  })
+  @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    description: '每页条数',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppPointsGoodsListVo' },
+  })
+  @ApiResponse({ status: 401, description: '未登录（缺少 app token）' })
+  pointsGoods(@Query() query: Record<string, unknown>) {
+    // `appListQuerySchema` 的 page/pageSize 都是可选，这里给默认值（与分页口径一致）
+    const { page = 1, pageSize = 20 } = appListQuerySchema.parse(query);
+    return this.member.listPointsGoods(page, pageSize);
   }
 
   /* ------------------------------------------------------------------ *

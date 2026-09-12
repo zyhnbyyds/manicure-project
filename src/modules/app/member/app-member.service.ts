@@ -13,6 +13,7 @@ import {
   MemberCardPort,
   type MemberCardRow,
   NoticePort,
+  PointsGoodsPort,
   type BookingWithItems,
   ReviewPort,
 } from '../../biz/common/ports.js';
@@ -25,6 +26,7 @@ import type {
   AppMemberCardListVo,
   AppMemberCardVo,
   AppMemberMeVo,
+  AppPointsGoodsListVo,
   AppReviewVo,
   AppSubscribeVo,
 } from '../dto/app-vo.js';
@@ -55,6 +57,7 @@ export class AppMemberService {
     private readonly reviews: ReviewPort,
     private readonly notices: NoticePort,
     private readonly bookingPort: BookingPort,
+    private readonly pointsGoods: PointsGoodsPort,
   ) {}
 
   /**
@@ -72,6 +75,36 @@ export class AppMemberService {
     if (!identity) throw new UnauthorizedException();
     if (identity.customerId === null) throw needBind();
     return identity.customerId;
+  }
+
+  /**
+   * 积分兑换品目录（顾客侧只读）。
+   *
+   * **只要求 app token，不要求绑定手机号**：这是非个人的目录信息，
+   * 未绑定用户也能先看到「能换什么」，到兑换那一步才需要身份
+   * （与 `/app/service-items` 同为可匿名浏览的目录）。
+   *
+   * 只取 `status=active`；返回**逐字段白名单投影**，不把后台 `remark` 带出去。
+   */
+  async listPointsGoods(
+    page: number,
+    pageSize: number,
+  ): Promise<AppPointsGoodsListVo> {
+    const result = await this.pointsGoods.list(page, pageSize, {
+      status: 'active',
+    });
+    return {
+      items: result.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        points: item.points,
+        stock: item.stock,
+        perLimit: item.perLimit,
+        cardTypeName: item.cardTypeName,
+      })),
+      page: result.page,
+      pageSize: result.pageSize,
+    };
   }
 
   async me(appUserId: number): Promise<AppMemberMeVo> {

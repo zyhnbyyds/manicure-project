@@ -108,6 +108,7 @@ import { PointsGoodsPort } from './common/ports.js';
     CommissionPort,
     RecurrencePort,
     ReviewPort,
+    PointsGoodsPort,
     // 需要具体 service 时导出「模块」而不是 provider：Nest 不允许导出
     // 不属于当前模块的 provider（它们由 BookingModule 提供）
     BookingModule,

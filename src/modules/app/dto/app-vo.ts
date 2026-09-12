@@ -277,6 +277,34 @@ export const appMemberCardListVo = z.object({
   pageSize: z.number().int(),
 });
 registerComponent('AppMemberCardListVo', appMemberCardListVo);
+
+/**
+ * 积分兑换品（顾客侧目录）。
+ *
+ * **逐字段显式声明，且刻意不含 `remark`** —— 那是后台维护用的备注，
+ * §8.3 要求不把内部字段透给顾客侧。用于兑换的字段只需这六个。
+ */
+export const appPointsGoodsVo = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  points: z.number().int().openapi({ description: '兑换所需积分' }),
+  stock: z.number().int().openapi({ description: '-1 = 不限库存' }),
+  perLimit: z.number().int().openapi({ description: '0 = 不限每人兑换次数' }),
+  cardTypeName: z
+    .string()
+    .nullable()
+    .openapi({ description: '兑换后发放的卡种名，让顾客知道换到的是什么' }),
+});
+registerComponent('AppPointsGoodsVo', appPointsGoodsVo);
+export type AppPointsGoodsVo = z.infer<typeof appPointsGoodsVo>;
+
+export const appPointsGoodsListVo = z.object({
+  items: z.array(appPointsGoodsVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppPointsGoodsListVo', appPointsGoodsListVo);
+export type AppPointsGoodsListVo = z.infer<typeof appPointsGoodsListVo>;
 export type AppMemberCardListVo = z.infer<typeof appMemberCardListVo>;
 
 /** 会员信息：余额只有本金 + 赠送，无任何内部字段 */
