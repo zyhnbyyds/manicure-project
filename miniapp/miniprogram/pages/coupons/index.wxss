@@ -1,4 +1,4 @@
-/* 我的优惠券 —— 对齐 docs/manicure-ui-batch4 第 5 屏（模型不存在，先还原骨架） */
+/* 我的优惠券 —— 对齐 docs/manicure-ui-batch4 第 5 屏 */
 
 .coupon-body {
   padding-bottom: 60rpx;
@@ -23,35 +23,118 @@
   color: var(--c-text-sub);
 }
 
-/* 选中：白底浮起（分段控件的常见做法，比整块主色更耐看） */
 .tabs__item.is-active {
   background: var(--c-card);
   color: var(--c-text);
   font-weight: 600;
 }
 
-/* ── 空态 ─────────────────────────────────────────────────── */
+/* ── 券卡：左面额 + 竖虚线 + 右信息 ───────────────────────── */
 
-.empty__badge {
-  width: 160rpx;
-  height: 160rpx;
-  margin-bottom: 28rpx;
-  border-radius: 50%;
-  background: var(--c-chip);
+.coupon {
   display: flex;
   align-items: center;
-  justify-content: center;
+  margin-top: 20rpx;
+  padding: 24rpx 20rpx;
 }
 
-.empty__icon {
-  width: 68rpx;
-  height: 68rpx;
-  opacity: 0.5;
+/* 不可用的券整体降饱和，但仍看得清内容 */
+.coupon--muted {
+  opacity: 0.62;
+}
+
+.coupon__amount {
+  width: 190rpx;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.coupon__value {
+  font-family: var(--font-serif);
+  font-size: 48rpx;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--c-primary);
+}
+
+.coupon__symbol {
+  font-size: 26rpx;
+  margin-right: 2rpx;
+}
+
+.coupon__threshold {
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  color: var(--c-text-weak);
+}
+
+/* 竖虚线分隔（票券的典型视觉） */
+.coupon__split {
+  width: 2rpx;
+  height: 110rpx;
+  margin: 0 20rpx;
+  flex-shrink: 0;
+  border-left: 2rpx dashed var(--c-border);
+}
+
+.coupon__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.coupon__status {
+  display: inline-block;
+  height: 40rpx;
+  line-height: 40rpx;
+  padding: 0 16rpx;
+  border-radius: var(--r-pill);
+  font-size: 20rpx;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+}
+
+.coupon__status--used {
+  background: var(--c-chip);
+  color: var(--c-text-sub);
+}
+
+.coupon__status--expired,
+.coupon__status--void {
+  background: var(--c-bg);
+  color: var(--c-text-weak);
+}
+
+.coupon__expire {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.coupon__no {
+  margin-top: 4rpx;
+  font-size: 19rpx;
+  color: var(--c-text-weak);
+}
+
+.coupon__use {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 23rpx;
 }
 
 .tips {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
   font-size: 21rpx;
   line-height: 1.7;
   color: var(--c-text-weak);
+}
+
+.empty__action {
+  margin-top: 28rpx;
 }

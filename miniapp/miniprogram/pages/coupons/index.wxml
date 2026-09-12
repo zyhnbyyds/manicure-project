@@ -1,6 +1,6 @@
 <view class="page" style="{{themeStyle}}">
   <view class="page-body coupon-body">
-    <!-- 状态页签 -->
+    <!-- 状态页签（筛选在服务端做，保证分页正确） -->
     <view class="tabs">
       <view
         wx:for="{{tabs}}"
@@ -13,17 +13,55 @@
       </view>
     </view>
 
-    <!-- 空态：不塞假券 -->
-    <view class="empty">
-      <view class="empty__badge">
-        <image class="empty__icon" src="{{icons.coupon}}" mode="aspectFit" />
-      </view>
-      <view class="empty__text">
-        {{activeTab === 'usable' ? '暂无可用优惠券' : activeTab === 'used' ? '还没有用过的券' : '没有过期的券'}}
-      </view>
-      <view class="empty__hint">门店有活动时，券会自动发到你的账户里</view>
+    <!-- 未绑定：券是个人权益，先引导而不是显示加载失败 -->
+    <view wx:if="{{guest}}" class="empty">
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
+      <view class="empty__text">{{loggedIn ? '绑定手机号后查看优惠券' : '登录后查看优惠券'}}</view>
+      <view class="empty__hint">券会跟着你的手机号，绑定后就能看到</view>
+      <view class="btn btn--primary empty__action" bindtap="onGuestLogin">去登录 / 绑定</view>
     </view>
 
-    <view class="tips">优惠券不可叠加使用，每单限用一张；与积分抵扣、次卡核销的叠加规则以门店公告为准。</view>
+    <view wx:elif="{{loading}}" class="loading">正在读取优惠券…</view>
+
+    <view wx:elif="{{errorText}}" class="empty">
+      <view class="empty__text">{{errorText}}</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <view wx:elif="{{coupons.length === 0}}" class="empty">
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
+      <view class="empty__text">这里还没有券</view>
+      <view class="empty__hint">门店有活动时会发到你的账户里</view>
+    </view>
+
+    <block wx:else>
+      <view
+        wx:for="{{coupons}}"
+        wx:key="id"
+        class="card coupon {{item.actionable ? '' : 'coupon--muted'}}"
+      >
+        <!-- 左侧面额区（设计稿的票券视觉） -->
+        <view class="coupon__amount">
+          <view class="coupon__value">
+            <text class="coupon__symbol">¥</text>{{item.amountText}}
+          </view>
+          <view class="coupon__threshold">{{item.thresholdText}}</view>
+        </view>
+        <view class="coupon__split"></view>
+        <!-- 右侧信息区 -->
+        <view class="coupon__info">
+          <view class="coupon__status coupon__status--{{item.status}}">
+            {{item.status === 'usable' ? '可使用' : item.status === 'used' ? '已使用' : item.status === 'expired' ? '已过期' : '已失效'}}
+          </view>
+          <view class="coupon__expire">{{item.expireText}}</view>
+          <view class="coupon__no">{{item.couponNo}}</view>
+        </view>
+        <view wx:if="{{item.actionable}}" class="coupon__use" bindtap="onUse">去使用</view>
+      </view>
+
+      <view class="tips">
+        券不可叠加使用，每单限用一张；与积分抵扣同一单二选一（门店口径）。
+      </view>
+    </block>
   </view>
 </view>

@@ -297,3 +297,40 @@ export interface PointsRedeemResult {
   cardNo: string;
   cardId: number;
 }
+/* ── 我的优惠券 ────────────────────────────────────────────── */
+
+/** 持有的券（与后端 `AppCustomerCouponVo` 一致：不含模板 id、不含后台备注） */
+export interface CustomerCoupon {
+  id: number;
+  couponNo: string;
+  /** 面额（分） */
+  discountAmount: number;
+  /** 使用门槛（分）；0 = 无门槛 */
+  thresholdAmount: number;
+  /** **现算**后的状态：usable 但已过期这里就是 expired */
+  status: 'usable' | 'used' | 'expired' | 'void';
+  expireAt: string | null;
+  usedAt: string | null;
+}
+
+/** 券状态筛选（不传 = all） */
+export type CouponStatusFilter = CustomerCoupon['status'] | 'all';
+
+/**
+ * 我的优惠券。
+ *
+ * **需要绑定手机号**（券是个人权益）—— 未绑定时后端返回 401 + `needBind`，
+ * 页面应先走 `requireSession` 引导，而不是把这个 401 显示成加载失败。
+ */
+export const couponApi = {
+  listMine(
+    status: CouponStatusFilter = 'all',
+    page = 1,
+    pageSize = 20,
+  ): Promise<Paged<CustomerCoupon>> {
+    return request<Paged<CustomerCoupon>>({
+      path: '/app/coupons',
+      data: { status, page, pageSize },
+    });
+  },
+};
