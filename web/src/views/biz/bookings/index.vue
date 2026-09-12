@@ -63,6 +63,7 @@ import { listMemberCards } from '~/api/biz/member-cards';
 import { listActiveServiceItems } from '~/api/biz/service-items';
 import type { ServiceItem } from '~/api/biz/service-items';
 import { listActiveStaffs } from '~/api/biz/staffs';
+import { getConfigByKey } from '~/api/system/configs';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { useUserStore } from '~/store/user';
@@ -643,10 +644,29 @@ const totalBuffer = computed(() =>
   ),
 );
 
-/** 默认配置下的算价预估（服务端为准，§5.7：等级折扣 → 积分抵扣 → 改价） */
+/**
+ * 默认配置下的算价预估（**服务端为准**，§5.7：等级折扣 → 积分抵扣 → 改价）。
+ *
+ * `maxPointsPermille` **不能写死**：它是门店配置（`biz.member.maxPointsPermille`）。
+ * 小程序确认页曾经硬编码成 500、这里 300，与后端默认（300）不一致 ——
+ * 门店把上限调大/调小时，两边预估都会与实际不符。这里从服务端读，
+ * 读不到（账号没有配置读权限等）才退回默认值。
+ */
 const POINTS_PER_YUAN = 100;
-const MAX_POINTS_PERMILLE = 300;
+const DEFAULT_MAX_POINTS_PERMILLE = 300;
 const DEFAULT_DEPOSIT_PERMILLE = 300;
+
+const maxPointsPermille = ref(DEFAULT_MAX_POINTS_PERMILLE);
+void getConfigByKey('biz.member.maxPointsPermille')
+  .then((config) => {
+    const parsed = Number(config.value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      maxPointsPermille.value = Math.trunc(parsed);
+    }
+  })
+  .catch(() => {
+    /* 读不到就用电价默认值，并在页面上仍标注「服务端为准」 */
+  });
 
 const quote = computed(() => {
   const originalPrice = selectedItems.value.reduce(
@@ -659,7 +679,7 @@ const quote = computed(() => {
   );
   const base4Points = Math.max(originalPrice - levelDiscountAmount, 0);
   const maxPointsDiscountAmount = Math.floor(
-    (base4Points * MAX_POINTS_PERMILLE) / 1000,
+    (base4Points * maxPointsPermille.value) / 1000,
   );
   const maxPoints =
     Math.max(Math.ceil(maxPointsDiscountAmount / 100), 0) * POINTS_PER_YUAN;
