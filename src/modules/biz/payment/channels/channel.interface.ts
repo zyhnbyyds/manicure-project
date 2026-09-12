@@ -15,6 +15,14 @@
 /** 在线渠道（与 `biz_payment.channel` 的枚举值对齐） */
 export type OnlineChannel = 'wxpay_native' | 'alipay_qr';
 
+/**
+ * 失败应答的类别 —— **决定 HTTP 状态码，两个渠道的要求完全不同**。
+ *
+ * - `verify`：验签 / 解密 / 报文解析失败（没通过鉴权）
+ * - `business`：验签通过，但业务上不接受（订单不存在、金额不一致、通道未启用）
+ */
+export type ChannelFailureKind = 'verify' | 'business';
+
 /** 统一下单入参 */
 export type NativeOrderInput = {
   /** 商户订单号（`buildOutTradeNo('P', id)`，全局唯一，回调按它匹配） */
@@ -144,6 +152,13 @@ export abstract class PaymentChannelProvider {
   /** 渠道要求的成功应答（微信 JSON / 支付宝 `success` 纯文本） */
   abstract successReply(): ChannelReply;
 
-  /** 渠道要求的失败应答（渠道会重试，必须可幂等重放） */
-  abstract failureReply(message: string): ChannelReply;
+  /**
+   * 渠道要求的失败应答（**必须让渠道重试**，且必须可幂等重放）。
+   *
+   * ⚠️ 微信 V3 与支付宝的约定**不同**，实现里必须分开：
+   * - **微信 V3**：HTTP 状态码表达受理结果 —— 验签不通过**必须** 4xx/5xx，
+   *   回 200 会被当成「接收成功」而不再重投（详见 provider 注释）；
+   * - **支付宝**：固定 HTTP 200，用**响应体文本**表达（返回 `success` 才停止重投）。
+   */
+  abstract failureReply(message: string, kind: ChannelFailureKind): ChannelReply;
 }

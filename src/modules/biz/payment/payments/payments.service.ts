@@ -30,6 +30,7 @@ import {
 import type { BizExecutor, BizTx } from '../../common/tx.js';
 import { AlipayQrProvider } from '../channels/alipay-qr.provider.js';
 import type {
+  ChannelFailureKind,
   OnlineChannel,
   PaymentChannelProvider,
 } from '../channels/channel.interface.js';
@@ -341,10 +342,14 @@ export class PaymentsService extends PaymentPort {
       provider = this.providerFor(channel);
     } catch (error) {
       // 通道未配置：返回失败应答，绝不放行
-      return this.failureReplyOf(channel, messageOf(error));
+      return this.failureReplyOf(channel, messageOf(error), 'business');
     }
     if (!provider.configured)
-      return this.failureReplyOf(channel, `${provider.label}通道未启用`);
+      return this.failureReplyOf(
+        channel,
+        `${provider.label}通道未启用`,
+        'business',
+      );
 
     let payload: {
       outTradeNo: string;
@@ -361,7 +366,7 @@ export class PaymentsService extends PaymentPort {
       });
     } catch (error) {
       this.logger.warn(`[${channel}] 回调验签/解析失败：${messageOf(error)}`);
-      return provider.failureReply(messageOf(error));
+      return provider.failureReply(messageOf(error), 'verify');
     }
 
     const [payment] = await this.database.db
@@ -371,7 +376,7 @@ export class PaymentsService extends PaymentPort {
       .limit(1);
     if (!payment) {
       this.logger.warn(`[${channel}] 回调订单不存在：${payload.outTradeNo}`);
-      return provider.failureReply('支付单不存在');
+      return provider.failureReply('支付单不存在', 'business');
     }
 
     if (payload.amount !== payment.amount) {
@@ -384,7 +389,7 @@ export class PaymentsService extends PaymentPort {
       this.logger.warn(
         `[${channel}] 回调金额不一致：单 ${payment.paymentNo} 应收 ${payment.amount} 回调 ${payload.amount}`,
       );
-      return provider.failureReply('回调金额与订单不一致');
+      return provider.failureReply('回调金额与订单不一致', 'business');
     }
 
     const settled = await this.database.db.transaction((tx) =>
@@ -718,13 +723,20 @@ export class PaymentsService extends PaymentPort {
     throw new BadRequestException(`不支持的在线支付渠道：${channel}`);
   }
 
+  /**
+   * 失败应答转发。
+   *
+   * `kind` 必须如实传：**微信 V3 靠 HTTP 状态码表达受理结果**，
+   * 验签失败回 200 会被当成「接收成功」而不再重投（详见 provider 注释）。
+   */
   private failureReplyOf(
     channel: OnlineChannel,
     message: string,
+    kind: ChannelFailureKind,
   ): { statusCode: number; body: string } {
     const provider =
       channel === 'wxpay_native' ? this.wxpayNative : this.alipayQr;
-    return provider.failureReply(message);
+    return provider.failureReply(message, kind);
   }
 
   private notifyUrlOf(channel: OnlineChannel): string | null {

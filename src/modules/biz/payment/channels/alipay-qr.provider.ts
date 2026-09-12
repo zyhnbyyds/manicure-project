@@ -22,6 +22,7 @@ import {
   type NotifyPayload,
   type NotifyVerifyInput,
   PaymentChannelProvider,
+  ChannelFailureKind,
 } from './channel.interface.js';
 import type { ChannelReply } from './channel.interface.js';
 
@@ -207,7 +208,12 @@ export class AlipayQrProvider extends PaymentChannelProvider {
     return { statusCode: 200, body: 'success' };
   }
 
-  failureReply(message: string): ChannelReply {
+  /**
+   * 失败应答。**支付宝与微信不同**：HTTP 固定 200，用**响应体文本**表达 ——
+   * 返回 `success` 才停止重投，其它内容（这里是 `failure`）支付宝会重试。
+   * 所以 `kind` 不影响这里的状态码（保留参数只为两个渠道共用同一套契约）。
+   */
+  failureReply(message: string, _kind: ChannelFailureKind): ChannelReply {
     this.logger.warn(`支付宝回调失败应答：${message}`);
     return { statusCode: 200, body: 'failure' };
   }

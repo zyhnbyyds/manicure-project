@@ -9,7 +9,11 @@
  * - §8 验签失败 → 拒绝，且**一毛钱都不动**；
  * - §8 金额与订单不一致 → 记 `callback_invalid` 并拒绝，**绝不按回调金额改账**；
  * - §3 条件更新是唯一幂等闸门 → 重复通知不重复发货；
- * - §7 HTTP 恒 200，成败看应答体（返回 4xx/5xx 只会招来无意义重试）。
+ * - 应答语义**按微信 V3 的官方约定**：验签通过 → HTTP 200（微信不再重投）；
+ *   验签不通过 / 业务不接受 → **HTTP 4xx**（微信按 15 次、约 24 小时重投，
+ *   探测流量 `WECHATPAY/SIGNTEST/` 也靠这个判断商户是否真的验签）。
+ *   ⚠️ 原实现返回「恒 200 + body code=FAIL」，那是 **APIv2** 的约定 ——
+ *   V3 不看 body，回 200 等于「受理成功，别再发了」，会把可自愈的验签失败变成丢单。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestContext, type TestContext } from './harness.js';
@@ -170,7 +174,8 @@ describe('微信支付回调 /app/payments/wxpay/notify（A13）', () => {
       '/api/v1/app/payments/wxpay/notify',
       { token: null, headers: notify.headers, body: notify.body },
     );
-    expect(response.status).toBe(200);
+    // 业务不接受 → 4xx（微信会重投；回 200 会被当成受理成功而不再发）
+    expect(response.status).toBe(400);
     expect(response.body.code).toBe('FAIL');
 
     expect(await logCount(payment.id, 'callback_invalid')).toBe(1);
@@ -196,14 +201,15 @@ describe('微信支付回调 /app/payments/wxpay/notify（A13）', () => {
       '/api/v1/app/payments/wxpay/notify',
       { token: null, headers: notify.headers, body: notify.body },
     );
-    expect(response.status).toBe(200);
+    // **验签失败必须 4xx**：微信据此携带正确签名重投
+    expect(response.status).toBe(401);
     expect(response.body.code).toBe('FAIL');
 
     const row = await paymentRow(payment.id);
     expect(row.status).toBe('pending');
   });
 
-  it('缺验签头 → 拒绝；HTTP 仍恒为 200（返回 4xx 只会招来重试）', async () => {
+  it('缺验签头 → 拒绝，且必须回 4xx（回 200 会让微信停止重投）', async () => {
     const payment = await seedPendingPayment();
     const notify = buildWxpayNotify({
       outTradeNo: payment.outTradeNo,
@@ -216,7 +222,7 @@ describe('微信支付回调 /app/payments/wxpay/notify（A13）', () => {
       '/api/v1/app/payments/wxpay/notify',
       { token: null, headers, body: notify.body },
     );
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(401);
     expect(response.body.code).toBe('FAIL');
     expect((await paymentRow(payment.id)).status).toBe('pending');
   });

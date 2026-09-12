@@ -29,6 +29,7 @@ import {
   type NotifyPayload,
   type NotifyVerifyInput,
   PaymentChannelProvider,
+  ChannelFailureKind,
 } from './channel.interface.js';
 import type { ChannelReply } from './channel.interface.js';
 
@@ -263,15 +264,25 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
   }
 
   /**
-   * 失败应答走 **HTTP 200 + `{code:'FAIL'}`**。
+   * 失败应答 —— **必须 4xx/5xx，绝不能回 200**。
    *
-   * 微信 V3 的约定是「HTTP 状态码表示传输结果、body 的 code 表示业务处理结果」：
-   * 回 5xx 会被当成传输失败并按退避策略反复重投（通道未启用、金额不一致这类
-   * 问题重投多少次都不会成功），因此失败也用 200 把原因带回去，只让渠道停止重试。
+   * 微信 V3 的约定是「**HTTP 状态码**表达受理结果」：
+   * - 验签**通过** → 200/204，微信不再重投；
+   * - 验签**不通过** → **4xx/5xx**，微信按
+   *   `15s/15s/30s/3m/10m/20m/30m/30m/30m/60m/3h/3h/3h/6h/6h` **重投 15 次**（约 24 小时）。
+   *
+   * 回 200 会有两个真实后果：
+   * 1. 「平台证书尚未缓存好 / 时钟偏差」这类**重投就能成功**的情形被我们自己关掉，
+   *    这笔支付再也落不了账（只剩主动查单兜底）；
+   * 2. 微信会下发签名值带 `WECHATPAY/SIGNTEST/` 前缀的**探测流量**来检验商户是否真的验签，
+   *    对它回 200 等于告诉微信「我验签失败也当成功」—— 官方明确的安全隐患。
+   *
+   * 注：`{code:'FAIL'}` 那套 body 语义是 **APIv2** 的约定，V3 不看它（body 只为排障留痕）。
    */
-  failureReply(message: string): ChannelReply {
+  failureReply(message: string, kind: ChannelFailureKind): ChannelReply {
     return {
-      statusCode: 200,
+      // 验签/解密失败 → 401（未通过鉴权）；业务不接受 → 400
+      statusCode: kind === 'verify' ? 401 : 400,
       body: JSON.stringify({ code: 'FAIL', message: message.slice(0, 200) }),
     };
   }

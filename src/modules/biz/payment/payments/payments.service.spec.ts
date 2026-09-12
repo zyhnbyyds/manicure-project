@@ -181,8 +181,9 @@ function createHarness(
       statusCode: 200,
       body: '{"code":"SUCCESS"}',
     })),
-    failureReply: vi.fn((message: string) => ({
-      statusCode: 500,
+    // **按类别返回真实状态码**：微信 V3 验签失败必须 4xx（回 200 会被当成受理成功）
+    failureReply: vi.fn((message: string, kind: 'verify' | 'business') => ({
+      statusCode: kind === 'verify' ? 401 : 400,
       body: JSON.stringify({ code: 'FAIL', message }),
     })),
   };
@@ -207,8 +208,9 @@ function createHarness(
     verifyNotify: vi.fn(),
     downloadBill: vi.fn(),
     successReply: vi.fn(() => ({ statusCode: 200, body: 'success' })),
+    // 支付宝固定 200 + 响应体文本（渠道不同，语义不同）
     failureReply: vi.fn((message: string) => ({
-      statusCode: 500,
+      statusCode: 200,
       body: `fail:${message}`,
     })),
   };
@@ -667,7 +669,10 @@ describe('PaymentsService（§17 收银台）', () => {
     it('通道未配置 → 返回失败应答，不放行', async () => {
       const h = createHarness({ wxpayConfigured: false });
       const reply = await h.service.handleNotify('wxpay_native', notify);
-      expect(reply.statusCode).toBe(500);
+      // 通道未启用属「业务不接受」：4xx，绝不能是 200（那会让微信以为受理成功）
+      expect(reply.statusCode).toBe(400);
+      expect(reply.statusCode).not.toBe(200);
+      expect(h.wxpay.failureReply).toHaveBeenCalledWith(expect.any(String), 'business');
       expect(h.wxpay.verifyNotify).not.toHaveBeenCalled();
       expect(h.transaction).not.toHaveBeenCalled();
     });
@@ -676,16 +681,20 @@ describe('PaymentsService（§17 收银台）', () => {
       const h = createHarness();
       h.wxpay.verifyNotify.mockRejectedValueOnce(new Error('签名不匹配'));
       const reply = await h.service.handleNotify('wxpay_native', notify);
-      expect(reply.statusCode).toBe(500);
+      // **验签失败必须 4xx**：微信据此重投（含 SIGNTEST 探测流量）
+      expect(reply.statusCode).toBe(401);
+      expect(reply.statusCode).not.toBe(200);
       expect(reply.body).toContain('签名不匹配');
+      expect(h.wxpay.failureReply).toHaveBeenCalledWith(expect.any(String), 'verify');
       expect(h.transaction).not.toHaveBeenCalled();
     });
 
     it('支付单不存在 → 失败应答', async () => {
       const h = createHarness({ dbSelect: [[]] });
       const reply = await h.service.handleNotify('wxpay_native', notify);
-      expect(reply.statusCode).toBe(500);
+      expect(reply.statusCode).toBe(400);
       expect(reply.body).toContain('支付单不存在');
+      expect(h.wxpay.failureReply).toHaveBeenCalledWith(expect.any(String), 'business');
     });
 
     it('金额不一致 → 写 callback_invalid 日志并拒绝，绝不按回调金额改账', async () => {
@@ -700,8 +709,10 @@ describe('PaymentsService（§17 收银台）', () => {
         raw: {},
       });
       const reply = await h.service.handleNotify('wxpay_native', notify);
-      expect(reply.statusCode).toBe(500);
+      expect(reply.statusCode).toBe(400);
+      expect(reply.statusCode).not.toBe(200);
       expect(reply.body).toContain('回调金额与订单不一致');
+      expect(h.wxpay.failureReply).toHaveBeenCalledWith(expect.any(String), 'business');
       const logPayload = h.txInsertValues.mock.calls[0]?.[0] as Row;
       expect(logPayload).toMatchObject({
         paymentId: 1,
