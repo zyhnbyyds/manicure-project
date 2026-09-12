@@ -103,6 +103,18 @@ flowchart TD
 | `WX_MINIAPP_APPID` | 否 | — | 小程序 AppID | 与 Secret 一起决定 `wxMiniapp.configured` |
 | `WX_MINIAPP_SECRET` | 否 | — | 小程序 AppSecret | 同上 |
 | `WX_MINIAPP_FAKE` | 否 | `false` | `true` 走假微信实现 | `wxMiniappFake` getter：**生产环境一律 false** |
+| `APP_SELF_PAY_ENABLED` | 否 | `false` | 小程序内自助支付（余额/次卡/积分）**合规硬闸门** | `false` 时 `POST /app/bookings/:id/settle` 返回 501，且不落库 |
+| `APP_PAY_ROLLOUT_PERCENT` | 否 | `0` | 自助支付**放量比例** 0~100 | `0` = 小程序只做预约；中间值按 `app_wx_user.id` 稳定分桶 |
+
+::: warning `APP_SELF_PAY_ENABLED` 与 `APP_PAY_ROLLOUT_PERCENT` 是 **AND**，不是二选一
+合规是法规问题（虚拟支付接入 / 法务确认之前不得开放），放量是产品问题。
+合成一个数字的话，有人把比例调成 `100` 就等于顺手绕过了合规 —— 所以刻意分成两个：
+`ENABLED=false` 时，占比设多少都不生效。
+
+灰度分桶是**稳定**的（`src/modules/app/pay-rollout.ts` 的 FNV-1a，键 = `app_wx_user.id`），
+同一微信号结果恒定；`/app/member/me` 的 `selfPayEnabled` 与 settle 接口走**同一个判定函数**，
+不会出现「入口可见、一点就被拒」。
+:::
 
 `configured` 判定（`AppConfigService.wxMiniapp`）：
 

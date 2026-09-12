@@ -26,6 +26,7 @@ import {
   ReviewPort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
+import { inPayRollout } from '../pay-rollout.js';
 import type {
   AppBookingListVo,
   AppBookingVo,
@@ -77,6 +78,23 @@ export class AppMemberService {
     private readonly rechargePlanPort: RechargePlanPort,
     private readonly config: AppConfigService,
   ) {}
+
+  /**
+   * 这个微信身份当前能否使用小程序自助支付（余额 / 次卡 / 积分）。
+   *
+   * **这是唯一的判定入口**：`me()` 用它决定前端入口是否置灰，`settleBooking()`
+   * 用它决定放不放行。两处必须是同一个函数 —— 分成两套判断就会出现
+   * 「入口可见、一点就被拒」，那是最难排查的一类问题。
+   *
+   * 两道闸门是 **AND**：
+   * 1. `appSelfPayEnabled` —— 合规硬闸门（虚拟支付接入 / 法务确认之前必须为 false）；
+   * 2. `appPayRolloutPercent` —— 放量旋钮，按 `app_wx_user.id` 稳定分桶，
+   *    `0` = 小程序只做预约，`100` = 全量。
+   */
+  private selfPayEnabledFor(appUserId: number): boolean {
+    if (!this.config.appSelfPayEnabled) return false;
+    return inPayRollout(appUserId, this.config.appPayRolloutPercent);
+  }
 
   /**
    * 取当前身份绑定的顾客 ID：**唯一的归属来源**。
@@ -314,8 +332,9 @@ export class AppMemberService {
       balancePrincipal: context.balancePrincipal,
       balanceBonus: context.balanceBonus,
       cards: cards.map((row) => mapCard(row, displayCardStatus(row))),
-      // 合规闸门：前端据此把余额/次卡/积分入口如实地置灰（真正的闸门在 settleBooking）
-      selfPayEnabled: this.config.appSelfPayEnabled,
+      // 与 `settleBooking` 走**同一个判定**（合规闸门 + 灰度），
+      // 保证「前端显示可用」与「接口真的放行」永远一致
+      selfPayEnabled: this.selfPayEnabledFor(appUserId),
     };
   }
 
@@ -520,10 +539,11 @@ export class AppMemberService {
     bookingId: number,
     input: AppSettleBookingRequest,
   ): Promise<AppSettleBookingVo> {
-    // 合规闸门：**在小程序里提供储值/次卡/积分支付属于虚拟支付业务的判定范围**，
+    // 合规闸门 + 放量灰度（两者 AND，判定见 `selfPayEnabledFor`）：
+    // **在小程序里提供储值/次卡/积分支付属于虚拟支付业务的判定范围**，
     // 虚拟支付接入（或法务确认无需接入）之前一律不开放。
     // 放在服务层而不是只把按钮藏起来 —— 客户端隐藏挡不住手写请求。
-    if (!this.config.appSelfPayEnabled)
+    if (!this.selfPayEnabledFor(appUserId))
       throw new NotImplementedException(
         '小程序内自助支付暂未开放，请到店支付（如有疑问请联系门店）',
       );

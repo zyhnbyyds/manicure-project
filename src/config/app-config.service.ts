@@ -54,6 +54,18 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  /**
+   * 小程序自助支付的**放量比例**（0~100，默认 `0` = 谁都不放）。
+   *
+   * 一个旋钮覆盖两种模式与灰度：`0` = 小程序只做预约（完全不出现支付入口）；
+   * `100` = 全量支持；中间值按 `app_wx_user.id` 稳定分桶放量
+   * （见 `src/modules/app/pay-rollout.ts`）。
+   *
+   * ⚠️ **与 `APP_SELF_PAY_ENABLED` 是 AND，不是二选一**：
+   * 合规是硬闸门（法规问题），放量是它之上的旋钮（产品问题）。
+   * 合成一个数字的话，有人把比例调成 100 就等于顺手绕过了合规 —— 所以刻意分开。
+   */
+  APP_PAY_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
   // 微信支付 Native 扫码（B3）：未配置时通道返回「未启用」
   WXPAY_APPID: z.string().optional(),
   WXPAY_MCHID: z.string().optional(),
@@ -211,6 +223,15 @@ export class AppConfigService {
    */
   get appSelfPayEnabled(): boolean {
     return this.values.APP_SELF_PAY_ENABLED;
+  }
+  /**
+   * 小程序自助支付的放量比例（0~100）。
+   *
+   * **必须与 `appSelfPayEnabled` 一起判断**（两者 AND）—— 单看这个值会把
+   * 「合规未确认」当成「已放量」。判断统一走 `AppMemberService.selfPayEnabledFor`。
+   */
+  get appPayRolloutPercent(): number {
+    return this.values.APP_PAY_ROLLOUT_PERCENT;
   }
   /** 微信支付 Native：`configured=false` 时通道返回「未启用」 */
   get wxpay(): {

@@ -27,8 +27,9 @@ import { toast } from '../../utils/ui';
  *
  * 余额 / 次卡 / 积分走 app 域自助结算（与后台 `settle` **共用同一份资金核心**），
  * 它们**不依赖任何支付通道**。但在小程序里提供这些渠道落在「小程序内虚拟支付业务」
- * 的判定范围内，所以服务端有**合规闸门** `APP_SELF_PAY_ENABLED`（默认关闭）：
- * 虚拟支付接入 / 法务确认之前，接口返回 501，页面据此把入口**如实地**置灰并说明原因。
+ * 的判定范围内，所以服务端有**合规硬闸门** `APP_SELF_PAY_ENABLED`（默认关闭）
+ * 与**灰度放量旋钮** `APP_PAY_ROLLOUT_PERCENT`（默认 0 = 只做预约）：
+ * 未放量到时接口返回 501，页面据此把入口**如实地**置灰并说明原因。
  *
  * 微信 JSAPI 仍是 501 契约位（要等支付通道对接），因此同样标为不可用 ——
  * 不给「显示可用、点了才报错」的假象。
@@ -116,15 +117,19 @@ definePage({
       const activeCard = me?.cards.find((card) => card.status === 'active');
       const balance = me ? me.balancePrincipal + me.balanceBonus : 0;
       /**
-       * **合规闸门**（服务端 `APP_SELF_PAY_ENABLED`）。
+       * **服务端能力位**（合规闸门 + 灰度放量，两者 AND）。
        *
        * 余额 / 次卡 / 积分虽然不需要任何支付通道对接，但在小程序里提供它们落在
        * 「小程序内虚拟支付业务」的判定范围内 —— **虚拟支付接入（或法务确认无需接入）
-       * 之前不得开放**。这里只如实反映服务端给的能力位，不自行判断合规；
-       * 真正的闸门在 `POST /app/bookings/:id/settle`（客户端藏起来挡不住手写请求）。
+       * 之前不得开放**；确认后也按灰度比例逐步放量。
+       *
+       * 这里只如实反映服务端给的能力位，**不自行判断合规、也不自己算灰度**
+       * （客户端自己算 = 与服务端分桶算法漂移 = 「显示可用但一点就被拒」）。
+       * 真正的闸门在 `POST /app/bookings/:id/settle`（藏起来挡不住手写请求）。
        */
       const selfPay = me?.selfPayEnabled === true;
-      const gate = selfPay ? '' : ' · 合规审核中，暂未开放';
+      // 不向顾客暴露「灰度未命中」这类内部原因，统一说「暂未开放」并给出路
+      const gate = selfPay ? '' : ' · 暂未开放，可到店支付';
 
       this.setData({
         loading: false,

@@ -119,17 +119,23 @@ async function balanceOf(customerId: number): Promise<number> {
 }
 
 /**
- * 打开合规闸门。
+ * 设置两道闸门。
+ *
+ * - `enabled` = 合规硬闸门 `APP_SELF_PAY_ENABLED`；
+ * - `percent` = 灰度放量 `APP_PAY_ROLLOUT_PERCENT`（0 = 只预约，100 = 全量）。
  *
  * **不改环境变量**：`bun test` 不做文件级隔离，`process.env` 会被后续文件继承；
- * 而 `APP_SELF_PAY_ENABLED` 是构造时快照的，改了也只会污染别人。
- * 直接给这个单例盖一个自有属性（自有属性优先于原型上的 getter），
- * 作用域就限制在本文件。
+ * 而这些值是构造时快照的，改了也只会污染别人。
+ * 直接给这个单例盖自有属性（自有属性优先于原型上的 getter），作用域就限制在本文件。
  */
-function setGate(enabled: boolean): void {
+function setGate(enabled: boolean, percent: number): void {
   const config = ctx.app.get(AppConfigService) as object;
   Object.defineProperty(config, 'appSelfPayEnabled', {
     value: enabled,
+    configurable: true,
+  });
+  Object.defineProperty(config, 'appPayRolloutPercent', {
+    value: percent,
     configurable: true,
   });
 }
@@ -186,7 +192,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     expect(off.status).toBe(200);
     expect(off.body.selfPayEnabled).toBe(false);
 
-    setGate(true);
+    setGate(true, 100);
     const on = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(on.body.selfPayEnabled).toBe(true);
   });
@@ -197,7 +203,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     const token = await seedAppUser('selfpay-balance', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true);
+    setGate(true, 100);
     const before = await balanceOf(row.customerId);
     const response = await ctx.request(
       'POST',
@@ -231,7 +237,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     const token = await seedAppUser('selfpay-short', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true);
+    setGate(true, 100);
     const before = await balanceOf(row.customerId);
     const response = await ctx.request(
       'POST',
@@ -273,7 +279,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     });
     expect([200, 201]).toContain(card.status);
 
-    setGate(true);
+    setGate(true, 100);
     const response = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
@@ -308,7 +314,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     await grant(other.insertId, { balancePrincipalDelta: 100000 });
     const strangerToken = await seedAppUser('selfpay-stranger', other.insertId);
 
-    setGate(true);
+    setGate(true, 100);
     const response = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
@@ -330,7 +336,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     const token = await seedAppUser('selfpay-twice', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true);
+    setGate(true, 100);
     const first = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
@@ -346,5 +352,81 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     );
     expect(second.status).toBe(400);
     expect(await balanceOf(row.customerId)).toBe(afterFirst);
+  });
+});
+
+describe('灰度放量旋钮（APP_PAY_ROLLOUT_PERCENT）', () => {
+  it('**放量比例不能绕过合规**：合规关着时，占比 100 也照样 501', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('rollout-bypass', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    // 合规 = false，占比 = 100
+    setGate(false, 100);
+    const before = await balanceOf(row.customerId);
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+    expect(response.status).toBe(501);
+    expect(await balanceOf(row.customerId)).toBe(before);
+    expect((await bookingOf(bookingId)).pay_status).toBe('unpaid');
+  });
+
+  it('合规开着但占比 0 → 仍然 501（0 = 小程序只做预约）', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('rollout-zero', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    setGate(true, 0);
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.body.selfPayEnabled).toBe(false);
+
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+    expect(response.status).toBe(501);
+  });
+
+  it('**两端结论必须一致**：占比 50 时，me 显示可用 ⇔ settle 真的放行', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('rollout-half', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    setGate(true, 50);
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    const settle = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+
+    // 这个身份落在哪一侧由分桶决定，但两侧**必须同一结论** ——
+    // 「入口可见、一点就被拒」正是分成两套判断才会出现的 bug
+    if (me.body.selfPayEnabled) {
+      expect(settle.status).toBe(200);
+    } else {
+      expect(settle.status).toBe(501);
+    }
+  });
+
+  it('放量是单调的：同一身份在 30% 放量内，调到 100% 必然也在（不会"时好时坏"）', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('rollout-monotonic', row.customerId);
+
+    setGate(true, 30);
+    const at30 = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    setGate(true, 100);
+    const at100 = await ctx.request('GET', '/api/v1/app/member/me', { token });
+
+    expect(at100.body.selfPayEnabled).toBe(true);
+    if (at30.body.selfPayEnabled) expect(at100.body.selfPayEnabled).toBe(true);
   });
 });
