@@ -132,7 +132,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="visible"
-      class="fixed inset-0 z-3000 flex flex-col items-center justify-center bg-black/80"
+      class="fixed inset-0 z-[3000] flex flex-col items-center justify-center bg-black/80"
       @click.self="close"
     >
       <!-- 工具条 -->
