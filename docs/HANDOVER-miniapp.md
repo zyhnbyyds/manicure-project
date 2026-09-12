@@ -301,3 +301,71 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 | 取消扣费金额 | app 域读不到判责规则（在 `RefundPort.preview`）。写死数字会给出错误金额预期，故只写原则 |
 | 真机验证 | 需要人扫码/真机操作，AI 无法完成 |
 | 用户协议 / 隐私政策正文 | 需门店主体信息与手机号用途声明，**提审前必须替换**，否则会被驳回 |
+
+
+---
+
+## 10. 优惠券核销「建单接线」设计（**已勘察、未实施**）
+
+> 状态：2026-09-12。`CouponsService.redeemForBooking()` 已实现并有 6 个测试
+> （含并发红线）；算价 `quoteBooking` 已支持券；`biz_booking` 已有
+> `coupon_id` / `coupon_discount_amount` 两列。**只差建单事务里的接线**。
+> 本文把勘察结论固化下来，避免下一个接手的人重新读 1700 行。
+
+### 10.1 关键结构（`src/modules/biz/booking/bookings.service.ts`，1776 行）
+
+`buildQuote`（L1590）是**所有路径共用的算价入口**，改一处即可：
+
+| 调用点 | 用途 | 是否要支持券 |
+| ------ | ---- | ------------ |
+| L476 | 后台建单（含 payments / 挂账） | P2 可支持 |
+| **L754** | **app 建单**（`pointsToUse`、`useCard`） | **本目标要做的** |
+| L953 | 改期 | 否（沿用原单的券） |
+| L1210 | 结算 | 否（沿用原单的券） |
+
+`CreateBookingInput`（biz 层）已有 `pointsUsed`；app 那条路径用的是**另一个**入参类型
+（L692 附近，字段名是 `pointsToUse`）。**注意两者字段名不同**，接参时别混。
+
+### 10.2 唯一正确的顺序（有鸡生蛋问题）
+
+券抵扣额是算价**输入**，而核销又需要 **bookingId**（`used_booking_id`）——
+两者互相依赖。正确顺序：
+
+1. 先用 `couponDiscountAmount = 0` 调一次 `buildQuote` → 取 `levelDiscountAmount`
+   → `baseAfterLevel = originalPrice − levelDiscountAmount`（门槛按**折后**金额判，与后端口径一致）；
+2. 若有 `couponId`：在事务内读券并做**前置校验**（归属 / 状态 / 过期 / 门槛），取面额；
+3. 再用 `couponDiscountAmount = 面额` 调 `buildQuote`（纯函数，两次调用很便宜）；
+4. `insert(bizBookings)` —— 写入 `couponId` 与 `quote.couponDiscountAmount`；
+5. **拿到 id 后调 `redeemForBooking(tx, {...bookingId})`** 做条件更新。
+   `affectedRows = 0` → 409 → **整个事务回滚**，不会出现「券用了单没建成」。
+
+> 第 2 步的校验**只为了给出友好报错**；并发安全完全由第 5 步的条件更新保证。
+> 若把第 2 步当成闸门（读-判断-写），并发下同一张券会被两单同时用掉。
+
+### 10.3 两个必须一起处理的坑
+
+1. **券与积分二选一**：入口处显式 400（`couponId && pointsToUse` 同时存在）。
+   **不能静默忽略积分** —— 顾客会以为积分也抵了。`money.ts` 里也有兜底
+   （有券则 `pointsUsed` 归 0），但那是防御，不是主校验。
+2. **`useCard`（次卡核销）必须同时清零券**：`buildQuote` 在 `useCard` 分支里
+   已经把 `levelDiscountAmount` / `pointsDiscountAmount` 归零，
+   **新增的 `couponDiscountAmount` 也要归零** —— 次卡 `payable = 0`，
+   再叠一张券等于白送（且券还被消耗掉了）。
+
+### 10.4 还要改的四处
+
+| 位置 | 改动 |
+| ---- | ---- |
+| `buildQuote` 入参与 `useCard` 分支 | 加 `couponDiscountAmount`，并在次卡分支归零 |
+| app 建单入参类型 / `CreateBookingInput` | 加 `couponId?: number` |
+| `BookingPort.create`（`common/ports.ts`） | 透传 `couponId` |
+| app DTO（`AppCreateBookingRequest`） | 加 `couponId: z.number().int().positive().optional()` |
+
+### 10.5 测试要求（缺一不可）
+
+- 带券建单：应付金额 = 折后 − 券；`biz_booking` 两列落库；券翻 `used` 且 `used_booking_id` = 该单；
+- **并发建单用同一张券 → 恰好一单成功**（另一单 409 且**不留脏单**）；
+- 门槛不足 → 409 且**券不被消耗**；
+- 券 + 积分同时传 → 400；
+- 券 + 次卡 → 400（或按 10.3 归零，二选一后必须**写测试钉住**）；
+- 不传券的建单**回归不变**（现有集成测试应全绿）。
