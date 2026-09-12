@@ -10,6 +10,8 @@ function buildHost() {
     host: {
       switchToHttp: vi.fn().mockReturnValue({
         getResponse: vi.fn().mockReturnValue({ status }),
+        // Fastify 会把 request-id 头（或自生成的 id）放进 request.id
+        getRequest: vi.fn().mockReturnValue({ id: 'req-test-1' }),
       }),
     } as any,
     status,
@@ -34,6 +36,14 @@ describe('GlobalExceptionFilter', () => {
     expect(body.message[0]).toContain('不能为空');
   });
 
+  it('**异常响应带上请求号**（前后端说的是同一个号，排障才对得上）', () => {
+    const filter = new GlobalExceptionFilter();
+    const { host, send } = buildHost();
+
+    filter.catch(new BadRequestException('key 已存在'), host);
+
+    expect(send.mock.calls[0][0]).toMatchObject({ requestId: 'req-test-1' });
+  });
   it('passes HttpException through with its status', () => {
     const filter = new GlobalExceptionFilter();
     const { host, status, send } = buildHost();

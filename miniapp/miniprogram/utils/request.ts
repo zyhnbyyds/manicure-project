@@ -47,6 +47,8 @@ export interface RequestOptions {
 }
 
 export interface ApiErrorBody {
+  /** 后端回填的请求号（见 ApiFailure.requestId） */
+  requestId?: string;
   statusCode?: number;
   message?: string | string[];
   error?: string;
@@ -57,12 +59,26 @@ export interface ApiErrorBody {
 export class ApiFailure extends Error {
   readonly statusCode: number;
   readonly needBind: boolean;
+  /**
+   * 这次请求的**请求号**（排障用）。
+   *
+   * 请求头带 `request-id`，后端 Fastify 用同一个值当 reqId 写日志、
+   * 并回填进异常响应体。用户报「付了钱但没到账」时，
+   * 凭这一个号就能在服务端日志里定位到那次请求。
+   */
+  readonly requestId: string | null;
 
-  constructor(message: string, statusCode: number, needBind = false) {
+  constructor(
+    message: string,
+    statusCode: number,
+    needBind = false,
+    requestId: string | null = null,
+  ) {
     super(message);
     this.name = 'ApiFailure';
     this.statusCode = statusCode;
     this.needBind = needBind;
+    this.requestId = requestId;
   }
 }
 
@@ -80,6 +96,16 @@ let reauthHandler: (() => Promise<void>) | null = null;
 
 export function setReauthHandler(handler: (() => Promise<void>) | null): void {
   reauthHandler = handler;
+}
+
+/** 从错误响应体里取后端回填的请求号 */
+function requestIdOf(body: ApiErrorBody | undefined): string | null {
+  return body?.requestId ?? null;
+}
+
+/** 生成一个请求号（小程序无 `crypto.randomUUID`，用时间戳 + 随机串） */
+function newRequestId(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /** 把后端可能返回的 `string | string[]` 消息收敛成一句人话 */
@@ -126,7 +152,11 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
   const useAuth = options.auth !== false;
   const token = getToken();
 
-  const header: Record<string, string> = { 'content-type': 'application/json' };
+  const header: Record<string, string> = {
+    'content-type': 'application/json',
+    // 请求号：后端用它当 reqId 写日志，并回填进异常响应体
+    'request-id': newRequestId(),
+  };
   if (useAuth && token) {
     header.Authorization = `Bearer ${token}`;
   }
@@ -154,7 +184,9 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
         }
 
         if (status === 501) {
-          reject(new ApiFailure('这个功能马上就来啦～', status));
+          reject(
+            new ApiFailure('这个功能马上就来啦～', status, false, requestIdOf(body)),
+          );
           return;
         }
 
@@ -171,17 +203,22 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
           if (!needBind && !alreadyRetried && reauthHandler) {
             reauthHandler()
               .then(() => resolve(send<T>(options, true)))
-              .catch(() => reject(new ApiFailure(message, status)));
+              .catch(() => reject(new ApiFailure(message, status, false, requestIdOf(body))));
             return;
           }
 
-          reject(new ApiFailure(message, status, needBind));
+          reject(new ApiFailure(message, status, needBind, body?.requestId ?? null));
           return;
         }
 
         if (status === 503) {
           reject(
-            new ApiFailure(normalizeMessage(body, '服务暂时不可用'), status),
+            new ApiFailure(
+              normalizeMessage(body, '服务暂时不可用'),
+              status,
+              false,
+              requestIdOf(body),
+            ),
           );
           return;
         }
@@ -190,6 +227,8 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
           new ApiFailure(
             normalizeMessage(body, `请求失败（${status}）`),
             status,
+            false,
+            requestIdOf(body),
           ),
         );
       },

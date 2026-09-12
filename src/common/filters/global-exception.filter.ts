@@ -108,6 +108,22 @@ function fastifyClientErrorStatus(exception: unknown): number | null {
  * - 其它未知异常 → 500，返回通用中文提示并记录堆栈，避免把
  *   "Internal server error" 直接抛给前端。
  */
+/**
+ * 取这次请求的 id。
+ *
+ * Fastify 的 `requestIdHeader` 默认就是 `request-id` —— 客户端（web / 小程序）
+ * 自带的那个值会**原样成为 reqId**，并被 Fastify 的日志逐行带上；
+ * 客户端没带时 Fastify 会自己生成一个。把它回填进异常响应体，
+ * 用户报「付了钱但没到账」时，客服拿这一个号就能在日志里定位到那次请求。
+ */
+function requestIdOf(host: ArgumentsHost): string | null {
+  try {
+    const request = host.switchToHttp().getRequest<{ id?: unknown }>();
+    return typeof request?.id === 'string' && request.id ? request.id : null;
+  } catch {
+    return null;
+  }
+}
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -116,17 +132,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const reply = host.switchToHttp().getResponse<{
       status: (code: number) => { send: (body: unknown) => void };
     }>();
+    const requestId = requestIdOf(host);
+    /** 所有异常响应都带上请求号（排障时前后端说的是同一个号） */
+    const withRequestId = <T extends object>(body: T): T =>
+      requestId ? { ...body, requestId } : body;
 
     // 入参校验失败：整理成可读的中文字段提示
     if (exception instanceof ZodError) {
       const messages = exception.issues.map((issue) => {
         return `${fieldLabel(issue)}：${friendlyIssue(issue)}`;
       });
-      reply.status(HttpStatus.BAD_REQUEST).send({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: messages,
-        error: 'Bad Request',
-      });
+      reply.status(HttpStatus.BAD_REQUEST).send(
+        withRequestId({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: messages,
+          error: 'Bad Request',
+        }),
+      );
       return;
     }
 
@@ -138,7 +160,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         typeof response === 'string'
           ? { statusCode: status, message: response }
           : response;
-      reply.status(status).send(body);
+      reply.status(status).send(withRequestId(body));
       return;
     }
 
@@ -148,30 +170,35 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       this.logger.warn(
         `${pluginStatus}：${exception instanceof Error ? exception.message : ''}`,
       );
-      reply.status(pluginStatus).send({
-        statusCode: pluginStatus,
+      reply.status(pluginStatus).send(
+        withRequestId({
+          statusCode: pluginStatus,
         message:
           pluginStatus === HttpStatus.TOO_MANY_REQUESTS
             ? '请求过于频繁，请稍后再试'
             : exception instanceof Error
               ? exception.message
               : '请求不被受理',
-        error:
-          pluginStatus === HttpStatus.TOO_MANY_REQUESTS
-            ? 'Too Many Requests'
-            : 'Client Error',
-      });
+          error:
+            pluginStatus === HttpStatus.TOO_MANY_REQUESTS
+              ? 'Too Many Requests'
+              : 'Client Error',
+        }),
+      );
       return;
     }
 
     // 未知异常：兜底 500 + 中文提示
     this.logger.error(
-      exception instanceof Error ? exception.stack : String(exception),
+      `[${requestId ?? '-'}] ` +
+        (exception instanceof Error ? exception.stack : String(exception)),
     );
-    reply.status(HttpStatus.INTERNAL_SERVER_ERROR).send({
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: '服务器内部错误，请稍后重试',
-      error: 'Internal Server Error',
-    });
+    reply.status(HttpStatus.INTERNAL_SERVER_ERROR).send(
+      withRequestId({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: '服务器内部错误，请稍后重试',
+        error: 'Internal Server Error',
+      }),
+    );
   }
 }

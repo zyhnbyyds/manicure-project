@@ -195,7 +195,15 @@ Page({
         amount: confirmed ? confirmed.paidAmount : this.data.dueAmount,
       });
     } catch (error) {
-      toast(isApiFailure(error) ? error.message : '发起支付失败，请稍后再试');
+      // 带上**请求号**：用户报「付了钱但没到账」时，客服凭它就能在服务端日志里
+      // 定位到那一次请求（前后端说的是同一个号）
+      const detail =
+        isApiFailure(error) && error.requestId
+          ? `（请求号 ${error.requestId}）`
+          : '';
+      toast(
+        `${isApiFailure(error) ? error.message : '发起支付失败，请稍后再试'}${detail}`,
+      );
     } finally {
       this.setData({ submitting: false });
     }

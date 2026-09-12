@@ -6,9 +6,18 @@ import type { LoginResult } from '~/types/api';
 /** 业务错误（后端无统一包裹层，直接用 HTTP 状态码 + message） */
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /**
+   * 这次请求的**请求号**（幂等排障用）。
+   *
+   * 我们自己在请求头带 `request-id`，后端 Fastify 会用同一个值作为 reqId 打进日志，
+   * 并把它回填进异常响应体。用户报「付了钱但没到账」时，
+   * 客服凭这一个号就能在日志里定位到那次请求 —— 前端不再只能给个页面上的单号。
+   */
+  requestId?: string;
+  constructor(status: number, message: string, requestId?: string) {
     super(message);
     this.status = status;
+    if (requestId) this.requestId = requestId;
   }
 }
 
@@ -22,6 +31,13 @@ request.interceptors.request.use((config) => {
   const userStore = useUserStore();
   if (userStore.accessToken) {
     config.headers.Authorization = `Bearer ${userStore.accessToken}`;
+  }
+  // 每次请求带一个请求号：后端 Fastify 用它当 reqId 写日志、并回填进异常响应
+  if (!config.headers['request-id']) {
+    config.headers['request-id'] =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
   }
   return config;
 });
@@ -156,8 +172,12 @@ request.interceptors.response.use(
     }
 
     const message = formatMessage(error);
+    const body = error.response?.data as { requestId?: string } | undefined;
+    const requestId =
+      body?.requestId ??
+      (error.response?.headers?.['request-id'] as string | undefined);
     LewMessage.error(message);
-    return Promise.reject(new ApiError(status ?? 0, message));
+    return Promise.reject(new ApiError(status ?? 0, message, requestId));
   },
 );
 
