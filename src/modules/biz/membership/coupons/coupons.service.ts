@@ -362,4 +362,131 @@ export class CouponsService {
 
     return { couponNo: row.couponNo, discountAmount };
   }
+
+
+  /**
+   * 可领取的券模板（顾客侧）。
+   *
+   * 排除「已经持有可用券」的模板 —— 同一张券反复领就是薅羊毛，
+   * 且顾客看到自己已领的券出现在「可领取」里也会困惑。
+   */
+  async listClaimable(customerId: number): Promise<
+    {
+      id: number;
+      name: string;
+      thresholdAmount: number;
+      discountAmount: number;
+      validDays: number;
+      validTo: Date | null;
+      remark: string | null;
+    }[]
+  > {
+    const rows = await this.database.db
+      .select({
+        id: bizCouponTemplates.id,
+        name: bizCouponTemplates.name,
+        thresholdAmount: bizCouponTemplates.thresholdAmount,
+        discountAmount: bizCouponTemplates.discountAmount,
+        validDays: bizCouponTemplates.validDays,
+        validTo: bizCouponTemplates.validTo,
+        remark: bizCouponTemplates.remark,
+      })
+      .from(bizCouponTemplates)
+      .where(
+        and(
+          eq(bizCouponTemplates.status, 'active'),
+          isNull(bizCouponTemplates.deletedAt),
+        ),
+      )
+      .orderBy(bizCouponTemplates.sort, desc(bizCouponTemplates.id));
+
+    const held = await this.database.db
+      .select({ templateId: bizCustomerCoupons.templateId })
+      .from(bizCustomerCoupons)
+      .where(
+        and(
+          eq(bizCustomerCoupons.customerId, customerId),
+          eq(bizCustomerCoupons.status, 'usable'),
+          isNull(bizCustomerCoupons.deletedAt),
+        ),
+      );
+    const heldIds = new Set(held.map((row) => row.templateId));
+    return rows.filter((row) => !heldIds.has(row.id));
+  }
+
+  /**
+   * 领券（顾客自助领取）。
+   *
+   * **必须在事务里锁模板行**：MySQL 没有「部分唯一索引」，
+   * 无法用唯一约束表达「同一顾客同一模板只能有一张**未使用**的券」，
+   * 所以用 `SELECT ... FOR UPDATE` 把并发领取串行化 ——
+   * 同一顾客并发点两次「领取」只会成功一次。这比「先查再插」可靠
+   * （后者在并发下会发出两张券）。
+   */
+  async claim(input: {
+    customerId: number;
+    templateId: number;
+    actorId: number | null;
+  }): Promise<CustomerCouponRow> {
+    const { timezone } = await this.config.booking();
+    const now = new Date();
+
+    return this.database.db.transaction(async (tx) => {
+      // 锁模板行：这是串行化点，必须在「查已领」之前
+      const [template] = await tx
+        .select()
+        .from(bizCouponTemplates)
+        .where(
+          and(
+            eq(bizCouponTemplates.id, input.templateId),
+            isNull(bizCouponTemplates.deletedAt),
+          ),
+        )
+        .for('update')
+        .limit(1);
+      if (!template) throw new NotFoundException('优惠券不存在');
+      if (template.status !== 'active')
+        throw new ConflictException('该优惠券已停止发放');
+
+      const [existing] = await tx
+        .select({ id: bizCustomerCoupons.id })
+        .from(bizCustomerCoupons)
+        .where(
+          and(
+            eq(bizCustomerCoupons.customerId, input.customerId),
+            eq(bizCustomerCoupons.templateId, input.templateId),
+            eq(bizCustomerCoupons.status, 'usable'),
+            isNull(bizCustomerCoupons.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (existing) throw new ConflictException('你已经领过这张券了');
+
+      const expireAt = this.resolveExpireAt(template, now);
+      const inserted = await tx.insert(bizCustomerCoupons).values({
+        couponNo: `TMP${Date.now()}${Math.floor(Math.random() * 1e6)}`,
+        customerId: input.customerId,
+        templateId: template.id,
+        discountAmount: template.discountAmount,
+        thresholdAmount: template.thresholdAmount,
+        status: 'usable',
+        expireAt,
+        source: 'claim',
+        createdBy: input.actorId ?? undefined,
+      });
+      const id = Number(inserted[0].insertId);
+      await tx
+        .update(bizCustomerCoupons)
+        .set({ couponNo: buildDocNo('X', id, timezone, now) })
+        .where(eq(bizCustomerCoupons.id, id));
+
+      const [row] = await tx
+        .select()
+        .from(bizCustomerCoupons)
+        .where(eq(bizCustomerCoupons.id, id))
+        .limit(1);
+      if (!row) throw new NotFoundException('领券失败，请重试');
+      return row;
+    });
+  }
 }

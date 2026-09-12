@@ -30,6 +30,8 @@ import type {
   AppPointsGoodsListVo,
   AppPointsRedeemVo,
   AppCustomerCouponListVo,
+  AppCustomerCouponVo,
+  AppCouponOfferListVo,
   AppReviewVo,
   AppSubscribeVo,
 } from '../dto/app-vo.js';
@@ -169,6 +171,51 @@ export class AppMemberService {
       })),
       page: result.page,
       pageSize: result.pageSize,
+    };
+  }
+
+/** 可领取的券（需要绑定：领了就是自己的权益） */
+  async listCouponOffers(appUserId: number): Promise<AppCouponOfferListVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const rows = await this.coupons.listClaimable(customerId);
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        thresholdAmount: row.thresholdAmount,
+        discountAmount: row.discountAmount,
+        validDays: row.validDays,
+        validTo: row.validTo ? row.validTo.toISOString() : null,
+      })),
+    };
+  }
+
+  /**
+   * 领券。
+   *
+   * 并发安全在 `CouponsService.claim` 里（事务内锁模板行）——
+   * 这里只做身份解析与字段投影。
+   */
+  async claimCoupon(
+    appUserId: number,
+    templateId: number,
+  ): Promise<AppCustomerCouponVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const row = await this.coupons.claim({
+      customerId,
+      templateId,
+      actorId: appUserId,
+    });
+    return {
+      id: row.id,
+      couponNo: row.couponNo,
+      // 领取响应不带模板名（列表接口会 join 给出），避免为此多一次查询
+      templateName: null,
+      discountAmount: row.discountAmount,
+      thresholdAmount: row.thresholdAmount,
+      status: 'usable',
+      expireAt: row.expireAt ? row.expireAt.toISOString() : null,
+      usedAt: null,
     };
   }
 

@@ -365,6 +365,30 @@ export const appCustomerCouponListVo = z.object({
   pageSize: z.number().int(),
 });
 registerComponent('AppCustomerCouponListVo', appCustomerCouponListVo);
+
+/** 可领取的券（顾客侧）：只给领取与展示所需字段，模板备注不外泄 */
+export const appCouponOfferVo = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  thresholdAmount: z.number().int(),
+  discountAmount: z.number().int(),
+  validDays: z.number().int().openapi({ description: '0 = 用绝对区间' }),
+  validTo: z.string().nullable(),
+});
+registerComponent('AppCouponOfferVo', appCouponOfferVo);
+export type AppCouponOfferVo = z.infer<typeof appCouponOfferVo>;
+
+export const appCouponOfferListVo = z.object({
+  items: z.array(appCouponOfferVo),
+});
+registerComponent('AppCouponOfferListVo', appCouponOfferListVo);
+export type AppCouponOfferListVo = z.infer<typeof appCouponOfferListVo>;
+
+/** 领券入参：只收 templateId（顾客身份来自 token） */
+export const appClaimCouponRequestSchema = z.object({
+  templateId: z.number().int().positive(),
+});
+registerComponent('AppClaimCouponRequest', appClaimCouponRequestSchema);
 export type AppCustomerCouponListVo = z.infer<
   typeof appCustomerCouponListVo
 >;

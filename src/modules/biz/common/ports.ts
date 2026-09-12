@@ -1045,6 +1045,32 @@ export abstract class CouponPort {
     input: { couponId: number; customerId: number; baseAmount: number },
   ): Promise<{ couponNo: string; discountAmount: number }>;
 
+  /** 可领取的券模板（排除已持有可用券的，避免同一张券反复领） */
+  abstract listClaimable(customerId: number): Promise<
+    {
+      id: number;
+      name: string;
+      thresholdAmount: number;
+      discountAmount: number;
+      validDays: number;
+      validTo: Date | null;
+      remark: string | null;
+    }[]
+  >;
+
+  /** 顾客自助领券（事务内锁模板行串行化，防同一张券领两张） */
+  abstract claim(input: {
+    customerId: number;
+    templateId: number;
+    actorId: number | null;
+  }): Promise<{
+    id: number;
+    couponNo: string;
+    discountAmount: number;
+    thresholdAmount: number;
+    expireAt: Date | null;
+  }>;
+
   /**
    * 核销：把券绑到某一单上（**必须传入建单事务的 tx**）。
    *

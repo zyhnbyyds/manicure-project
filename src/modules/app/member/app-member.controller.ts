@@ -31,6 +31,7 @@ import {
   appCancelBookingRequestSchema,
   appCreateBookingRequestSchema,
   appCreateReviewRequestSchema,
+  appClaimCouponRequestSchema,
   appCouponsQuerySchema,
   appListQuerySchema,
   appMemberCardsQuerySchema,
@@ -170,6 +171,45 @@ export class AppMemberController {
     if (!appUser) throw new UnauthorizedException();
     const input = appPointsRedeemRequestSchema.parse(body);
     return this.member.redeemPoints(appUser.id, input.goodsId);
+  }
+
+  @Get('coupon-offers')
+  @ApiOperation({
+    summary: '可领取的优惠券',
+    description:
+      '**需要绑定手机号**（领了就是个人权益）。已持有可用券的模板不会出现 —— 同一张券反复领就是薅羊毛，顾客看到自己已领的券出现在「可领取」里也会困惑。',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppCouponOfferListVo' },
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  couponOffers(@Req() request: AppRequest) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.listCouponOffers(appUser.id);
+  }
+
+  @Post('coupons/claim')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '领取优惠券',
+    description:
+      '**需要绑定手机号**。并发安全在服务端：事务内 SELECT ... FOR UPDATE 锁模板行，同一顾客并发点两次「领取」只会成功一次；重复领 → 409。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppClaimCouponRequest' } })
+  @ApiResponse({
+    status: 200,
+    description: '领取成功',
+    schema: { $ref: '#/components/schemas/AppCustomerCouponVo' },
+  })
+  @ApiResponse({ status: 409, description: '已领过 / 已停止发放' })
+  claimCoupon(@Req() request: AppRequest, @Body() body: unknown) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    const input = appClaimCouponRequestSchema.parse(body);
+    return this.member.claimCoupon(appUser.id, input.templateId);
   }
 
   @Get('coupons')
