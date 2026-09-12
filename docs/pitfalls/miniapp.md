@@ -110,3 +110,31 @@
   已选券若变为不满足门槛就地清掉；不可选的券要**计数并解释**
   （「另有 N 张券未达到使用门槛」），而不是让它凭空消失。
 - **怎么发现的**：端到端验证时顺手看了下页面数据是否合理，而不是只看「功能通了」。
+
+---
+
+## 10. 预览报 `SyntaxError: Unexpected token ?`：`??` 没有被降级
+
+- **现象**：`无效的文件: api/index.js, 108:26 SyntaxError: Unexpected token ?`，
+  预览直接打不开（报错显示的是**编译后**的行号，所以和源文件行号对不上）。
+- **根因**：两个设置叠加 ——
+  1. `miniapp/tsconfig.json` 的 `target: ES2020` → `??` / `?.` **原样保留**；
+  2. `project.config.json` 的 `es6: false` + `enhance: false` → 开发者工具**不做** Babel 降级。
+
+  于是产物 JS 里带着 `??`，小程序编译/运行时直接语法报错。
+- **正确做法**：**把 `target` 降到 `ES2019`**（`lib` 保持 `ES2020` 不动）——
+  tsc 会把 `??` / `?.` 降级成条件表达式，而类型层面仍可用现代 API。
+  比开 `es6` / `enhance` 更可控，也**不依赖本机开发者工具设置**（团队成员一致）。
+- **区分两件事（很容易混）**：
+  - `??` / `?.` 是**语法** → tsc **会**降级；
+  - `Array.prototype.flatMap` / `Object.fromEntries` 等是**运行时 API** → tsc **只降级语法、
+    不替换 API**，老基础库上会 `undefined`。
+  本项目原有一处 `flatMap`（`pages/slots/index.ts`），已改成显式循环。
+- **验证方式**（两条都要）：
+  1. 编译到临时目录再 grep 产物：
+     `tsc -p miniapp/tsconfig.json --outDir <tmp> --rootDir miniapp/miniprogram`，
+     然后搜 `??` / `?.`（应为 0）；
+  2. 开发者工具里 `debug_clear_cache --action cleanCompileCache` → 重新编译 → 看 console。
+- **坑里还有个小坑**：**注释里不要写该运算符的字面量**，否则第 1 步的 grep 会命中注释、
+  当成漏网的语法（本会话就误报过一次，白查一轮）。已把注释改写成「空值合并运算符」。
+- **怎么发现的**：用户预览报错；先量规模（`??` 60 处 / 28 文件），再定位到编译设置。

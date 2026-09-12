@@ -145,9 +145,13 @@ Page({
   refreshView() {
     const staff = getDraftStaff();
     const { selectedStart, activeDate } = this.data;
-    const all = Object.keys(this.slotsByStaff).flatMap(
-      (key) => this.slotsByStaff[key] ?? [],
-    );
+    // 不用 flatMap：它是 ES2019 的**运行时** API，tsc 只会降级语法、不会替换 API，
+    // 老基础库上会 undefined。空值合并运算符则会被 tsc 降级 —— 两者风险不同，别混为一谈。
+    // （注释里刻意不写该运算符的字面量，否则 `grep 该符号` 会把它当成漏网的语法。）
+    const all: SlotVM[] = [];
+    Object.keys(this.slotsByStaff).forEach((key) => {
+      all.push(...(this.slotsByStaff[key] ?? []));
+    });
 
     // 时段：选了美甲师就只看他的；否则看并集（同一钟点去重）
     const source = staff
