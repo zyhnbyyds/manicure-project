@@ -303,6 +303,8 @@ export interface PointsRedeemResult {
 export interface CustomerCoupon {
   id: number;
   couponNo: string;
+  /** 券名（模板名）；旧数据可能为 null */
+  templateName: string | null;
   /** 面额（分） */
   discountAmount: number;
   /** 使用门槛（分）；0 = 无门槛 */

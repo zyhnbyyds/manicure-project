@@ -335,6 +335,8 @@ export type AppPointsRedeemVo = z.infer<typeof appPointsRedeemVo>;
 export const appCustomerCouponVo = z.object({
   id: z.number().int(),
   couponNo: z.string(),
+  /** 券名（模板名）：营销文案，顾客可见；模板 id 仍不暴露 */
+  templateName: z.string().nullable(),
   /** 面额（分） */
   discountAmount: z.number().int(),
   /** 使用门槛（分）；0 = 无门槛 */

@@ -1008,6 +1008,8 @@ export abstract class PointsGoodsPort {  abstract list(
 export type CustomerCouponView = {
   id: number;
   couponNo: string;
+  /** 券名（模板名）：可给顾客看；模板 id 不给 */
+  templateName: string | null;
   /** 面额快照（分） */
   discountAmount: number;
   /** 门槛快照（分） */

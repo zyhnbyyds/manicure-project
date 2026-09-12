@@ -15,6 +15,8 @@ const TABS: { key: CouponStatusFilter; label: string }[] = [
 ];
 
 interface CouponRow extends CustomerCoupon {
+  /** 券名（模板名）；为空时给一句兜底，避免卡片标题空白 */
+  nameText: string;
   /** 面额（元，两位小数字符串） */
   amountText: string;
   /** 门槛文案 */
@@ -76,6 +78,7 @@ Page({
         loading: false,
         coupons: page.items.map((item) => ({
           ...item,
+          nameText: item.templateName ?? '优惠券',
           amountText: fenToYuanText(item.discountAmount),
           thresholdText:
             item.thresholdAmount > 0

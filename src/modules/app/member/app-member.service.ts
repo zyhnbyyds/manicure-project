@@ -160,6 +160,7 @@ export class AppMemberService {
       items: result.items.map((row) => ({
         id: row.id,
         couponNo: row.couponNo,
+        templateName: row.templateName,
         discountAmount: row.discountAmount,
         thresholdAmount: row.thresholdAmount,
         status: row.displayStatus,

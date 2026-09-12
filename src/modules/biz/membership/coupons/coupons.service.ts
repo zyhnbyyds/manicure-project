@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, isNull, or, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
 import {
   bizCouponTemplates,
@@ -109,7 +109,11 @@ export class CouponsService {
     page = 1,
     pageSize = 20,
   ): Promise<{
-    items: (CustomerCouponRow & { displayStatus: CustomerCouponStatus })[];
+    items: (CustomerCouponRow & {
+      displayStatus: CustomerCouponStatus;
+      /** 券名（模板名）：顾客需要知道这是张什么券 */
+      templateName: string | null;
+    })[];
     page: number;
     pageSize: number;
   }> {
@@ -127,8 +131,16 @@ export class CouponsService {
     ];
 
     const rows = await this.database.db
-      .select()
+      .select({
+        ...getTableColumns(bizCustomerCoupons),
+        // 券名来自模板：它是营销文案，给顾客看没有问题；模板 id 仍不外泄
+        templateName: bizCouponTemplates.name,
+      })
       .from(bizCustomerCoupons)
+      .leftJoin(
+        bizCouponTemplates,
+        eq(bizCouponTemplates.id, bizCustomerCoupons.templateId),
+      )
       .where(and(...conditions))
       .orderBy(desc(bizCustomerCoupons.id))
       .limit(safePageSize)

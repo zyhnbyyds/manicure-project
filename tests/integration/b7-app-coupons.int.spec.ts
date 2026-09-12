@@ -132,9 +132,12 @@ describe('app 域我的优惠券（本目标新增）', () => {
       'expireAt',
       'id',
       'status',
+      'templateName',
       'thresholdAmount',
       'usedAt',
     ]);
+    // 券名要给顾客看（他在页面上得知道这是张什么券）
+    expect(items[0].templateName).toBe('满 100 减 20');
     // 模板 id 与审计字段绝不出现在响应里
     const raw = JSON.stringify(res.body);
     expect(raw).not.toContain('templateId');

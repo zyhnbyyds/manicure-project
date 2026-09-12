@@ -50,6 +50,7 @@
         <view class="coupon__split"></view>
         <!-- 右侧信息区 -->
         <view class="coupon__info">
+          <view class="coupon__name ellipsis">{{item.nameText}}</view>
           <view class="coupon__status coupon__status--{{item.status}}">
             {{item.status === 'usable' ? '可使用' : item.status === 'used' ? '已使用' : item.status === 'expired' ? '已过期' : '已失效'}}
           </view>
