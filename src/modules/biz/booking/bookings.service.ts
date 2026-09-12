@@ -1594,6 +1594,14 @@ export class BookingsService implements BookingPort {
     memberConfig: { pointsDiscountPerYuan: number; maxPointsPermille: number };
     adjustAmount: number;
     useCard: boolean;
+    /**
+     * 券抵扣额（分）。**不传 = 0**，所以现有四个调用点行为完全不变。
+     *
+     * 券的位置由 `money.ts` 的 `quoteBooking` 决定（等级折扣之后、积分之前），
+     * 这里只负责把它带进去；**次卡分支要把它归零**（见下），
+     * 因为次卡 `payable = 0`，再叠一张券等于白送 —— 而且券会被消耗掉。
+     */
+    couponDiscountAmount?: number | undefined;
   }): QuoteResult {
     const quote = quoteBooking({
       items: input.items.map((item) => ({
@@ -1608,12 +1616,15 @@ export class BookingsService implements BookingPort {
       pointsDiscountPerYuan: input.memberConfig.pointsDiscountPerYuan,
       maxPointsPermille: input.memberConfig.maxPointsPermille,
       adjustAmount: input.adjustAmount,
+      couponDiscountAmount: input.couponDiscountAmount ?? 0,
     });
-    // 次卡核销：payable = 0，**不叠加**等级折扣与积分抵扣（卡价已是打包优惠，§5.7）
+    // 次卡核销：payable = 0，**不叠加**等级折扣与积分抵扣（卡价已是打包优惠，§5.7）；
+    // 券同样必须归零 —— 否则「次卡 + 券」会显示成负让利，且券白白被消耗。
     if (input.useCard) {
       return {
         ...quote,
         levelDiscountAmount: 0,
+        couponDiscountAmount: 0,
         pointsDiscountAmount: 0,
         pointsUsed: 0,
         adjustAmount: 0,
