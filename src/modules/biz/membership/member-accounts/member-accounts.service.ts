@@ -181,6 +181,7 @@ export class MemberAccountsService extends MemberAccountPort {
       )
       .limit(1);
     if (!row) throw new NotFoundException('会员不存在');
+    const memberConfig = await this.config.member();
     return {
       customerId: row.id,
       levelId: row.levelId,
@@ -188,6 +189,7 @@ export class MemberAccountsService extends MemberAccountPort {
       points: row.points,
       balancePrincipal: row.balancePrincipal,
       balanceBonus: row.balanceBonus,
+      maxPointsPermille: memberConfig.maxPointsPermille,
     };
   }
 
@@ -197,6 +199,7 @@ export class MemberAccountsService extends MemberAccountPort {
     customerId: number,
   ): Promise<PricingContext> {
     const row = await this.lockCustomerRow(tx, customerId);
+    const memberConfig = await this.config.member();
     return {
       customerId: row.id,
       levelId: row.levelId,
@@ -207,6 +210,7 @@ export class MemberAccountsService extends MemberAccountPort {
       points: row.points,
       balancePrincipal: row.balancePrincipal,
       balanceBonus: row.balanceBonus,
+      maxPointsPermille: memberConfig.maxPointsPermille,
     };
   }
 

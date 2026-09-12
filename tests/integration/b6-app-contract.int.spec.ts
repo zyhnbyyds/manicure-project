@@ -313,6 +313,9 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
         'customerId',
         'discountPermille',
         'levelName',
+        // 积分抵扣上限（‰）：**刻意对 C 端公开** —— 小程序要用它算预估，
+        // 前端不该硬编码服务端配置（曾经硬编码 500 而后端 300，预估必然对不上）
+        'maxPointsPermille',
         'name',
         'phone',
         'points',

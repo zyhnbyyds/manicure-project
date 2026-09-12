@@ -204,3 +204,27 @@
      （先用一个探针 key 证明 storage 不被清，否则无法区分「自愈」与「被清后重新登录」）；
   3. 进页面 → 期望 **自愈**：`items>0`、`err=none`，且 storage 里的 token
      变成**真实 JWT 长度**（几百字符）。
+
+---
+
+## 13. 前端硬编码「服务端配置」+ 单位混用（同一份规则两份实现必然漂移）
+
+- **现象**：确认预约页预估的「积分抵扣」与服务端算出来的对不上；
+  极端情况下**顾客少看抵扣、却多花积分**。
+- **根因（两个独立问题叠加）**：
+  1. **上限硬编码且两边不一样**：小程序写 `MAX_POINTS_PERMILLE = 500`，
+     而 web 与后端默认都是 `300`（`biz.member.maxPointsPermille`）
+     → 小程序预估的抵扣**比服务端允许的多**；
+  2. **单位混用**：`maxByPoints = Math.floor(points / 100)` 得到的是**元**，
+     却与「分」为单位的 `maxByRatio` 取 `min` → 抵扣额小了 **100 倍**；
+     而发给服务端的 `pointsToUse` 又是第三套算法（`pointsDisc * 100`）。
+- **正确做法**：
+  - **上限从服务端取**：`GET /app/member/me` 的 `maxPointsPermille`（前端只留兜底常量）；
+  - **换算严格照 `src/modules/biz/common/money.ts`**：
+    `pointsToCents = floor(积分 / rate) × 100`、`centsToPoints = ceil(金额分 / 100) × rate`
+    （`rate` = `pointsDiscountPerYuan`，默认 100，即 100 积分 = 1 元）；
+  - **web 侧 `views/biz/bookings/index.vue` 的写法是正确的参照**，小程序照它对齐。
+- **怎么发现的**：核对「小程序 500 vs web 300」这个常量差异时顺出来的 ——
+  **同一份服务端规则在前端存在两份实现，就是漂移的温床；能问服务端就别自己写。**
+- **回归**：后端加了用例钉住换算与上限（`b7-app-booking-detail`：
+  500 积分 = 减 500 分；申请 10000 积分按 300‰ 收敛到 3000 分，**超限不报错**）。

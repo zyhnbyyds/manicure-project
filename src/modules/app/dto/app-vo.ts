@@ -405,6 +405,17 @@ export const appMemberMeVo = z.object({
     .int()
     .openapi({ example: 950, description: '折扣率千分比；无等级 = 1000' }),
   points: z.number().int(),
+  /**
+   * 单笔积分抵扣上限（千分比，`biz.member.maxPointsPermille`，后端默认 300）。
+   *
+   * 给小程序**算预估**用；真正的抵扣金额仍由服务端算并夹取。
+   * 前端不得再硬编码这个值 —— 曾经小程序写 500、后端默认 300，
+   * 预估比服务端允许的多，顾客按预估下单后必然对不上。
+   */
+  maxPointsPermille: z
+    .number()
+    .int()
+    .openapi({ example: 300, description: '单笔积分抵扣上限（‰），服务端配置' }),
   balancePrincipal: z.number().int().openapi({ description: '储值本金（分）' }),
   balanceBonus: z.number().int().openapi({ description: '储值赠送（分）' }),
   cards: z.array(appMemberCardVo),

@@ -153,6 +153,48 @@ describe('我的预约详情（本目标新增）', () => {
     expect(res.status).toBe(404);
   });
 
+  it('**积分抵扣以后端为准**：换算与上限都要按 `money.ts`（小程序预估值必须与这里一致）', async () => {
+    const seed = await seedBase('积分顾客');
+    // 给顾客 10000 积分（走会员账务接口，保证有流水）
+    const granted = await ctx.request(
+      'POST',
+      `/api/v1/biz/members/${seed.customerId}/adjust`,
+      { body: { reason: '测试预置积分', pointsDelta: 10000 } },
+    );
+    expect([200, 201]).toContain(granted.status);
+
+    const { token } = await seedAppUser('points-owner', seed.customerId);
+
+    // ① 未超额：500 积分 = 5 元（`pointsToCents = floor(500/100)×100 = 500 分`）
+    const small = await ctx.request('POST', '/api/v1/app/bookings', {
+      token,
+      body: {
+        staffId: seed.staffId,
+        startAt: `${date}T10:00:00+08:00`,
+        serviceItemIds: [seed.serviceItemId],
+        pointsToUse: 500,
+      },
+    });
+    expect([200, 201]).toContain(small.status);
+    // 本项目价 10000 分、无等级折扣 → 10000 − 500 = 9500
+    expect((small.body as { payableAmount: number }).payableAmount).toBe(9500);
+
+    // ② 超额：申请用掉全部 10000 积分 → 按 `maxPointsPermille=300‰` 收敛到 3000 分
+    //    （`centsToPoints(floor(10000×300/1000)=3000) = ceil(3000/100)×100 = 3000`）
+    const big = await ctx.request('POST', '/api/v1/app/bookings', {
+      token,
+      body: {
+        staffId: seed.staffId,
+        startAt: `${date}T13:00:00+08:00`,
+        serviceItemIds: [seed.serviceItemId],
+        pointsToUse: 10000,
+      },
+    });
+    expect([200, 201]).toContain(big.status);
+    // 超限**不报错**、按上限收敛：10000 − 3000 = 7000
+    expect((big.body as { payableAmount: number }).payableAmount).toBe(7000);
+  });
+
   it('未绑定手机号 → 401 + needBind', async () => {
     const { token } = await seedAppUser('detail-unbound', null);
 

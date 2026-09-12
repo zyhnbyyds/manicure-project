@@ -31,7 +31,14 @@ import { hideLoading, showLoading, toast } from '../../utils/ui';
  * 待补：`GET /app/member/pricing-preview`（入参 serviceItemIds / pointsToUse / memberCardId）。
  */
 const POINTS_PER_YUAN = 100;
-const MAX_POINTS_PERMILLE = 500;
+/**
+ * 积分抵扣上限的**兜底值**（后端默认 300‰）。
+ *
+ * 真值来自服务端 `GET /app/member/me` 的 `maxPointsPermille` ——
+ * 这里曾经硬编码 500，比后端默认（300）大，导致**预估比服务端允许的多**，
+ * 顾客按预估下单、服务端一夹取就對不上。**不要在页面里再用这个常量算钱。**
+ */
+const FALLBACK_MAX_POINTS_PERMILLE = 300;
 
 Page({
   data: {
@@ -61,6 +68,8 @@ Page({
     /** 等级折扣率千分比（预估用；真实算价在服务端） */
     discountPermille: 1000,
     points: 0,
+    /** 单笔积分抵扣上限（千分比，来自服务端；未取到时用兜底值） */
+    maxPointsPermille: FALLBACK_MAX_POINTS_PERMILLE,
     /** 可用次卡（取第一张在用卡） */
     cardId: 0,
     cardName: '',
@@ -152,6 +161,8 @@ Page({
           levelName: me.levelName ?? '',
           discountText: formatDiscount(me.discountPermille),
           points: me.points,
+        maxPointsPermille:
+          me.maxPointsPermille ?? FALLBACK_MAX_POINTS_PERMILLE,
           hasCard: Boolean(activeCard),
           cardId: activeCard ? activeCard.id : 0,
           cardName: activeCard ? activeCard.cardName : '',
@@ -213,10 +224,20 @@ Page({
     // 页面上的开关互斥（见 onTogglePoints / onPickCoupon），这里再兜一层。
     const couponDisc = keepCoupon ? Math.min(couponDiscount, base) : 0;
 
-    const maxByPoints = Math.floor(points / POINTS_PER_YUAN);
-    const maxByRatio = Math.floor((base * MAX_POINTS_PERMILLE) / 1000);
+    // 积分抵扣：与后端 `money.ts` **完全同口径**（`rate` 积分 = 1 元 = 100 分）
+    //   可抵金额（分） = floor(积分 / rate) × 100
+    //   所需积分       = ceil(金额分 / 100) × rate
+    // 这里曾经写成 `floor(points / 100)`（得到的是**元**）再与「分」的
+    // `maxByRatio` 取 min —— 单位混用：显示出来的抵扣额小了 100 倍，
+    // 而发给服务端的 `pointsToUse` 又是另一套算法，顾客会**少看抵扣、多花积分**。
+    const rate = POINTS_PER_YUAN;
+    const maxRatioFen = Math.floor((base * this.data.maxPointsPermille) / 1000);
+    const maxPointsAllowed = Math.max(Math.ceil(maxRatioFen / 100), 0) * rate;
+    const usablePoints = Math.min(points - (points % rate), maxPointsAllowed);
     const pointsDisc =
-      usePoints && couponDisc === 0 ? Math.min(maxByPoints, maxByRatio) : 0;
+      usePoints && couponDisc === 0
+        ? Math.floor(usablePoints / rate) * 100
+        : 0;
 
     const totalDisc = levelDisc + couponDisc + pointsDisc;
     const payable = Math.max(original - totalDisc, 0);
@@ -233,7 +254,8 @@ Page({
       pointsDiscountText: fenToYuan(pointsDisc),
       totalDiscountText: fenToYuan(totalDisc),
       payableText: fenToYuan(payable),
-      pointsToUse: pointsDisc * POINTS_PER_YUAN,
+      // 用多少积分：与抵扣额同口径（不用积分时为 0）
+      pointsToUse: pointsDisc > 0 ? usablePoints : 0,
     });
   },
 

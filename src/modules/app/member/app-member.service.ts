@@ -279,6 +279,7 @@ export class AppMemberService {
       levelName,
       discountPermille: context.levelDiscountPermille,
       points: context.points,
+      maxPointsPermille: context.maxPointsPermille,
       balancePrincipal: context.balancePrincipal,
       balanceBonus: context.balanceBonus,
       cards: cards.map((row) => mapCard(row, displayCardStatus(row))),

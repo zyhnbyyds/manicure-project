@@ -297,6 +297,14 @@ export type PricingContext = {
   points: number;
   balancePrincipal: number;
   balanceBonus: number;
+  /**
+   * 单笔积分抵扣上限（千分比，`biz.member.maxPointsPermille`，默认 300）。
+   *
+   * **必须由服务端给**：小程序确认页要展示「预估可抵扣多少」，
+   * 而它曾经在前端硬编码这个值（500），与后端默认（300）不一致 ——
+   * 结果预估比服务端允许的多，顾客按预估下单、服务端一夹取就对不上。
+   */
+  maxPointsPermille: number;
 };
 
 export type PayChannel =

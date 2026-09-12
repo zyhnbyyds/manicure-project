@@ -108,6 +108,8 @@ export interface MemberMe {
   /** 折扣率千分比；无等级 = 1000 */
   discountPermille: number;
   points: number;
+  /** 单笔积分抵扣上限（千分比）：**服务端配置**，前端不得硬编码 */
+  maxPointsPermille: number;
   /** 储值本金（分） */
   balancePrincipal: number;
   /** 储值赠送（分） */
