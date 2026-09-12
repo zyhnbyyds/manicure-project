@@ -551,11 +551,30 @@ describe('B6 小程序预留（§16）', () => {
       '/api/v1/app/service-items',
     );
     expect(appWithBackendToken.status).toBe(401);
+    // 这一条**不能**因为「浏览类接口放开了访客访问」而放宽：
+    // `ctx.request` 不传 token 时默认带后台 token，所以这里断言的是
+    // 「后台 token 打 app 域被拒」，不是「没有凭证被拒」。
+    // 没有凭证的情形见下一个用例（那条现在是 200）。
+  });
 
-    const noToken = await ctx.request('GET', '/api/v1/app/service-items', {
-      token: null,
-    });
-    expect(noToken.status).toBe(401);
+  it('浏览类接口访客即可访问：不带任何凭证也 200（美甲列表 / 美甲师 / 可约时段）', async () => {
+    const row = await seed();
+    const guest = { token: null };
+
+    const items = await ctx.request('GET', '/api/v1/app/service-items', guest);
+    expect(items.status).toBe(200);
+    expect(Array.isArray(items.body.items)).toBe(true);
+
+    const staffs = await ctx.request('GET', '/api/v1/app/staffs', guest);
+    expect(staffs.status).toBe(200);
+    expect(Array.isArray(staffs.body.items)).toBe(true);
+
+    const slots = await ctx.request(
+      'GET',
+      `/api/v1/app/available-slots?staffId=${row.staffId}&date=${date}&serviceItemIds=${row.serviceItemId}`,
+      guest,
+    );
+    expect(slots.status).toBe(200);
   });
 
   it('只读接口只返回公开字段，且可约时段与后台一致', async () => {

@@ -55,8 +55,9 @@ export type BasePageData = {
   themeEmoji: string;
   /**
    * 登录态两个标志 —— 放进公共数据，**所有页面天然可用**：
-   * - `loggedIn`：有 app token，可浏览项目/美甲师/时段
-   * - `bound`：已绑定手机号，可下单、看会员与订单
+   * - `loggedIn`：有 app token（`wx.login` 静默换来的）。**不是浏览的前提** ——
+   *   项目 / 美甲师 / 可约时段访客也能看；它只用来决定「会员资产」这类个人入口的显隐；
+   * - `bound`：已绑定手机号，可下单、看会员与订单。
    *
    * 页面用它们决定展示（如未登录时把「会员资产」换成「登录后查看」入口）；
    * 需要身份的动作则统一走 `store/session.ts` 的 `requireSession()` 做引导。

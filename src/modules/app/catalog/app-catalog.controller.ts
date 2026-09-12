@@ -8,17 +8,23 @@ import {
 } from '@nestjs/swagger';
 import { Public } from '../../../common/auth/public.decorator.js';
 import { AppAccessTokenGuard } from '../auth/app-access-token.guard.js';
+import { AppOptionalToken } from '../auth/app-optional-token.decorator.js';
 import { AppCatalogService } from './app-catalog.service.js';
 
 /**
- * app 域目录（`/api/v1/app`）：只读接口，需要 app token。
+ * app 域目录（`/api/v1/app`）：只读接口，**访客即可浏览**。
  *
  * `@Public()` 跳过全局后台守卫 → 再由 `AppAccessTokenGuard` 做 app 域鉴权
  * （后台 token 打这里必然 401）。不接 RBAC，无权限点。
+ *
+ * `@AppOptionalToken()`：本控制器的三个接口**谁看都一样**（不含任何本人数据），
+ * 所以没带凭证时按访客放行 —— 用户还没登录也应该能翻款式、看美甲师、看可约时段，
+ * 而不是收到一个 `401 Unauthorized`。带了凭证仍严格校验，双向拒绝不受影响。
  */
 @ApiTags('小程序端')
 @ApiBearerAuth('app-token')
 @Public()
+@AppOptionalToken()
 @UseGuards(AppAccessTokenGuard)
 @Controller('app')
 export class AppCatalogController {
@@ -28,7 +34,8 @@ export class AppCatalogController {
   @ApiOperation({
     summary: '服务项目列表（启用中）',
     description:
-      '字段只有 id/name/category/durationMinutes/price/description/image，不含成本与备注。',
+      '字段只有 id/name/category/durationMinutes/price/description/image，不含成本与备注。' +
+      '**免登录可访问**（带凭证时按凭证鉴权）。',
   })
   @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
   @ApiQuery({
@@ -44,7 +51,7 @@ export class AppCatalogController {
   })
   @ApiResponse({
     status: 401,
-    description: '未登录（缺少 / 非法的 app token）',
+    description: '带了凭证但凭证非法 / 非 app token（访客不带凭证可正常访问）',
   })
   serviceItems(
     @Query('page') page?: string,
@@ -56,7 +63,8 @@ export class AppCatalogController {
   @Get('staffs')
   @ApiOperation({
     summary: '美甲师列表（启用中）',
-    description: '字段只有 id/nickname/avatar/bio，用于小程序端选择美甲师。',
+    description:
+      '字段只有 id/nickname/avatar/bio，用于小程序端选择美甲师。**免登录可访问**。',
   })
   @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
   @ApiQuery({
@@ -72,7 +80,7 @@ export class AppCatalogController {
   })
   @ApiResponse({
     status: 401,
-    description: '未登录（缺少 / 非法的 app token）',
+    description: '带了凭证但凭证非法 / 非 app token（访客不带凭证可正常访问）',
   })
   staffs(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
     return this.catalog.listStaffs(page, pageSize);
@@ -83,7 +91,7 @@ export class AppCatalogController {
     summary: '可约时段',
     description:
       '与后台复用同一个可约时段算法（§5）：班次 − 已有预约 − 缓冲 gap、美甲师可做项目过滤、' +
-      '店内本地日界；小程序渠道额外应用提前期 minLeadMinutes。结果与后台一致。',
+      '店内本地日界；小程序渠道额外应用提前期 minLeadMinutes。结果与后台一致。**免登录可访问**。',
   })
   @ApiQuery({
     name: 'staffId',
@@ -115,7 +123,7 @@ export class AppCatalogController {
   })
   @ApiResponse({
     status: 401,
-    description: '未登录（缺少 / 非法的 app token）',
+    description: '带了凭证但凭证非法 / 非 app token（访客不带凭证可正常访问）',
   })
   availableSlots(@Query() query: Record<string, unknown>) {
     return this.catalog.availableSlots(query);
