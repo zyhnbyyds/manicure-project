@@ -41,6 +41,16 @@ const PLATFORM_CERT_TTL_MS = 12 * 60 * 60 * 1000;
 const NOTIFY_CLOCK_SKEW_SECONDS = 300;
 /** 单次 HTTP 请求超时（毫秒）；回调处理必须在渠道 3 秒超时内应答，故取 5 秒并靠事务外的关单兜底 */
 const REQUEST_TIMEOUT_MS = 5000;
+/**
+ * 出站调用最多尝试次数（含首次）。
+ *
+ * 为什么敢重试：本 provider 的写操作都以**商户单号**为幂等键 ——
+ * 下单用 `out_trade_no`、退款用 `out_refund_no`，同号重试微信返回同一笔；
+ * 查单是 GET。所以「请求超时但实际已成功」也不会重复扣款/重复退款。
+ */
+const REQUEST_MAX_ATTEMPTS = 3;
+/** 重试退避基数（第 n 次重试等 n × 基数） */
+const REQUEST_RETRY_BASE_MS = 200;
 
 type WxpayCredential = {
   appId: string;
@@ -70,6 +80,8 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
   /** serial_no → 平台证书公钥（SPKI PEM） */
   private platformKeys = new Map<string, string>();
   private platformLoadedAt = 0;
+  /** 最近一次渠道调用的 Request-Id（排障用） */
+  private lastRequestId: string | null = null;
 
   constructor(private readonly appConfig: AppConfigService) {
     super();
@@ -99,7 +111,7 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
     const codeUrl = textField(data, 'code_url');
     if (status >= 400 || !codeUrl)
       throw new ConflictException(
-        `微信支付下单失败：${describeFailure(data, status)}`,
+        `微信支付下单失败：${this.failureText(data, status)}`,
       );
     return { codeUrl, expireAt: input.expireAt, raw: data };
   }
@@ -121,7 +133,7 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
       };
     if (status >= 400)
       throw new ConflictException(
-        `微信支付查单失败：${describeFailure(data, status)}`,
+        `微信支付查单失败：${this.failureText(data, status)}`,
       );
 
     const tradeState = textField(data, 'trade_state');
@@ -159,7 +171,7 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
     );
     if (status >= 400)
       throw new ConflictException(
-        `微信支付退款失败：${describeFailure(data, status)}`,
+        `微信支付退款失败：${this.failureText(data, status)}`,
       );
     const refundStatus = textField(data, 'status');
     return {
@@ -237,7 +249,7 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
       const downloadUrl = textField(data, 'download_url');
       if (status >= 400 || !downloadUrl) {
         this.logger.warn(
-          `微信支付账单不可得（${billDate}）：${describeFailure(data, status)}`,
+          `微信支付账单不可得（${billDate}）：${this.failureText(data, status)}`,
         );
         return [];
       }
@@ -313,7 +325,59 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
     return createSign('RSA-SHA256').update(message).sign(privateKey, 'base64');
   }
 
+  /**
+   * 调微信 API：**有界重试 + `Request-Id` 留痕**。
+   *
+   * ## 为什么要重试
+   * 只有超时、没有重试时，一次瞬时抖动就直接失败：下单失败要店员重来；
+   * 退款失败更糟 —— `refunds.service` 会把它标成 `failed` 并**把重试责任推给人**
+   * （「可重试或改为现金退」）。
+   *
+   * ## 重试边界（很重要）
+   * - **网络异常 / 超时** → 重试；
+   * - **5xx / 429** → 重试（服务端瞬时问题）；
+   * - **4xx** → **不重试**（参数错、签名错、余额不足……重试多少次都一样）。
+   *
+   * ## Request-Id
+   * 微信应答头带 `Request-Id`。失败时记进日志与报错文案，
+   * 微信侧凭它可以直接定位到那一次调用，是排障最快的线索。
+   */
   private async request(
+    method: 'GET' | 'POST',
+    urlPath: string,
+    body?: unknown,
+  ): Promise<{ status: number; data: unknown }> {
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= REQUEST_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const result = await this.requestOnce(method, urlPath, body);
+        const transient = result.status >= 500 || result.status === 429;
+        if (transient && attempt < REQUEST_MAX_ATTEMPTS) {
+          this.logger.warn(
+            `微信支付 ${method} ${urlPath} 返回 ${result.status}，第 ${attempt} 次重试`,
+          );
+          await this.sleep(REQUEST_RETRY_BASE_MS * attempt);
+          continue;
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt < REQUEST_MAX_ATTEMPTS) {
+          this.logger.warn(
+            `微信支付 ${method} ${urlPath} 调用异常：${messageOfError(error)}，第 ${attempt} 次重试`,
+          );
+          await this.sleep(REQUEST_RETRY_BASE_MS * attempt);
+          continue;
+        }
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new ConflictException('微信支付调用失败');
+  }
+
+  /** 单次调用（不重试） */
+  private async requestOnce(
     method: 'GET' | 'POST',
     urlPath: string,
     body?: unknown,
@@ -343,7 +407,33 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     const text = await response.text();
+    const requestId =
+      response.headers.get('request-id') ?? response.headers.get('Request-Id');
+    if (requestId) this.lastRequestId = requestId;
+    if (response.status >= 400) {
+      this.logger.warn(
+        `微信支付 ${method} ${urlPath} → ${response.status}` +
+          `（Request-Id ${requestId ?? '未返回'}）`,
+      );
+    }
     return { status: response.status, data: safeJsonParse(text) };
+  }
+
+  /**
+   * 报错文案 + 最近一次调用的 `Request-Id`。
+   *
+   * 微信客服/工单只要这一个 id 就能定位到那次请求，比让商户描述时间点高效得多。
+   */
+  private failureText(data: unknown, status: number): string {
+    const base = describeFailure(data, status);
+    return this.lastRequestId ? `${base}（Request-Id ${this.lastRequestId}）` : base;
+  }
+
+  /** 重试退避（测试里可 stub 掉，避免真的等待） */
+  protected sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   /** 平台证书公钥（按 `Wechatpay-Serial` 取，带 12 小时缓存） */
@@ -377,7 +467,7 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
     const { status, data } = await this.request('GET', '/v3/certificates');
     if (status >= 400)
       throw new ConflictException(
-        `微信支付平台证书下载失败：${describeFailure(data, status)}`,
+        `微信支付平台证书下载失败：${this.failureText(data, status)}`,
       );
     const list = asRecord(data)?.['data'];
     const keys = new Map<string, string>();
@@ -531,6 +621,10 @@ function parseBillLocalTime(value: string): Date | null {
   } catch {
     return null;
   }
+}
+
+function messageOfError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function describeFailure(data: unknown, status: number): string {
