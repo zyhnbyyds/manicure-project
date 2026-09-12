@@ -55,6 +55,7 @@ import {
   type BookingStatus,
   type BookingWithItems,
   CommissionPort,
+  CouponPort,
   CreditPort,
   CustomerPort,
   MemberAccountPort,
@@ -178,6 +179,7 @@ export class BookingsService implements BookingPort {
     private readonly refunds: RefundPort,
     private readonly notices: NoticePort,
     private readonly commissions: CommissionPort,
+    private readonly coupons: CouponPort,
   ) {}
 
   /* ---------------------------------------------------------------- *
@@ -540,6 +542,7 @@ export class BookingsService implements BookingPort {
         originalPrice: quote.originalPrice,
         levelDiscountPermille: quote.levelDiscountPermille,
         levelDiscountAmount: quote.levelDiscountAmount,
+        couponDiscountAmount: quote.couponDiscountAmount,
         pointsDiscountAmount: quote.pointsDiscountAmount,
         adjustAmount: quote.adjustAmount,
         adjustReason: input.adjustReason ?? null,
@@ -690,6 +693,8 @@ export class BookingsService implements BookingPort {
       serviceItemIds: number[];
       memberCardId?: number | null | undefined;
       pointsToUse?: number | undefined;
+      /** 优惠券 ID：**与积分二选一**（同时传 400），次卡也不可叠加 */
+      couponId?: number | undefined;
       remark?: string | undefined;
     },
   ) {
@@ -748,17 +753,51 @@ export class BookingsService implements BookingPort {
     if (useCard && itemIds.length !== 1)
       throw new BadRequestException('使用次卡时只能选择 1 个项目');
 
-    // ---- 步骤 3：算价（等级折扣 → 积分抵扣 → 应付；次卡 = 0）----
+    // ---- 步骤 3：算价（等级折扣 → 券抵扣 → 积分抵扣 → 应付；次卡 = 0）----
+    // 券与积分**同一单二选一**：同时传直接 400，**不静默忽略积分** ——
+    // 静默忽略会让顾客以为积分也抵了，那是对账纠纷的源头。
+    if (input.couponId != null && (input.pointsToUse ?? 0) > 0)
+      throw new BadRequestException('优惠券与积分抵扣不能同时使用');
+    // 次卡 payable = 0，再叠券等于白送，而且券会被真实消耗掉
+    if (input.couponId != null && useCard)
+      throw new BadRequestException('使用次卡时不能叠加优惠券');
+
     const memberConfig = await this.config.member();
     const pricing = await this.members.getPricingContext(customer.id);
-    const quote = this.buildQuote({
+    // 券抵扣额是算价的**输入**，而核销需要 bookingId —— 两者互相依赖，所以：
+    // 先用「无券」算一次拿到**等级折扣后**的金额（券门槛按折后金额判，与核销处同口径），
+    // 再读券、带券重算一次。`buildQuote` 是纯函数，调两次很便宜。
+    const quoteBase = this.buildQuote({
       items,
       levelDiscountPermille: pricing.levelDiscountPermille,
       pointsUsed: useCard ? 0 : input.pointsToUse,
       memberConfig,
       adjustAmount: 0,
       useCard,
+      couponDiscountAmount: 0,
     });
+    const coupon =
+      input.couponId != null && !useCard
+        ? await this.coupons.previewForBooking(this.database.db, {
+            couponId: input.couponId,
+            customerId: customer.id,
+            baseAmount: Math.max(
+              quoteBase.originalPrice - quoteBase.levelDiscountAmount,
+              0,
+            ),
+          })
+        : null;
+    const quote = coupon
+      ? this.buildQuote({
+          items,
+          levelDiscountPermille: pricing.levelDiscountPermille,
+          pointsUsed: useCard ? 0 : input.pointsToUse,
+          memberConfig,
+          adjustAmount: 0,
+          useCard,
+          couponDiscountAmount: coupon.discountAmount,
+        })
+      : quoteBase;
 
     // ---- 步骤 5~8：锁 → 复检 → 建单 → 收款（无收款时保持 unpaid）----
     const created = await this.database.db.transaction(async (tx) => {
@@ -784,6 +823,7 @@ export class BookingsService implements BookingPort {
         originalPrice: quote.originalPrice,
         levelDiscountPermille: quote.levelDiscountPermille,
         levelDiscountAmount: quote.levelDiscountAmount,
+        couponDiscountAmount: quote.couponDiscountAmount,
         pointsDiscountAmount: quote.pointsDiscountAmount,
         adjustAmount: 0,
         adjustReason: null,
@@ -794,6 +834,7 @@ export class BookingsService implements BookingPort {
         payStatus: 'unpaid',
         creditAccountId: null,
         memberCardId: useCard ? input.memberCardId : null,
+        couponId: coupon ? (input.couponId ?? null) : null,
         // 小程序提交 → 待确认；与店员代录（confirmed）区分（§9.7）
         status: 'pending',
         channel: 'miniapp',
@@ -820,6 +861,23 @@ export class BookingsService implements BookingPort {
           sort: index,
         })),
       );
+
+      // ---- 步骤 8a-2：券核销（**条件更新闸门**，与建单同一事务）----
+      // `affectedRows = 0` → 409 → 整个事务回滚。所以绝不会出现
+      // 「券用了但单没建成」或「单建成了但券还能再用」。
+      // 注意：这里才是闸门；步骤 3 的 `previewForBooking` 只用于算价。
+      if (coupon && input.couponId != null) {
+        await this.coupons.redeemForBooking(tx, {
+          couponId: input.couponId,
+          customerId: customer.id,
+          bookingId,
+          baseAmount: Math.max(
+            quote.originalPrice - quote.levelDiscountAmount,
+            0,
+          ),
+          actorId: null,
+        });
+      }
 
       // ---- 步骤 8a：积分抵扣（条件更新，余额不足抛 ConflictException）----
       if (quote.pointsUsed > 0) {

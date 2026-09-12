@@ -375,6 +375,7 @@ export class AppMemberService {
       serviceItemIds: number[];
       memberCardId?: number | null | undefined;
       pointsToUse?: number | undefined;
+      couponId?: number | undefined;
       remark?: string | null | undefined;
     },
   ): Promise<AppCreateBookingVo> {
@@ -385,6 +386,7 @@ export class AppMemberService {
       serviceItemIds: input.serviceItemIds,
       memberCardId: input.memberCardId ?? null,
       pointsToUse: input.pointsToUse,
+      couponId: input.couponId,
       remark: input.remark ?? undefined,
     });
     return {

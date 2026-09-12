@@ -12,7 +12,7 @@ import {
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { buildDocNo } from '../../common/doc-no.js';
 import { parsePagination } from '../../common/query.js';
-import type { BizDatabase } from '../../common/tx.js';
+import type { BizDatabase, BizTx } from '../../common/tx.js';
 
 export type CouponTemplateRow = typeof bizCouponTemplates.$inferSelect;
 export type CustomerCouponRow = typeof bizCustomerCoupons.$inferSelect;
@@ -248,19 +248,19 @@ export class CouponsService {
    * `baseAmount` 传**等级折扣之后**的金额（券在等级折扣后、积分前，见 `money.ts`）。
    * 抵扣额再夹一次 `min(面额, baseAmount)`，与算价里的夹取保持一致。
    */
-  async redeemForBooking(
-    tx: BizDatabase,
-    input: {
-      couponId: number;
-      customerId: number;
-      /** 建单场景传真实 bookingId；单测/预演可传 null（此时 `status` 仍会翻转，闸门照旧生效） */
-      bookingId: number | null;
-      /** 等级折扣之后的金额（分） */
-      baseAmount: number;
-      actorId?: number | null;
-    },
-  ): Promise<{ couponNo: string; discountAmount: number }> {
-    const [row] = await tx
+  /**
+   * 取券并做**可用性前置校验**（只读）。
+   *
+   * `previewForBooking`（算价取面额）与 `redeemForBooking`（真正核销）共用，
+   * 避免两处口径分叉 —— 否则会出现「算价时能用、核销时说不能」的诡异体验。
+   *
+   * **它不是闸门**：并发安全始终由 `redeemForBooking` 末尾的条件更新保证。
+   */
+  private async loadUsable(
+    db: BizTx | BizDatabase,
+    input: { couponId: number; customerId: number; baseAmount: number },
+  ): Promise<{ row: CustomerCouponRow; discountAmount: number }> {
+    const [row] = await db
       .select()
       .from(bizCustomerCoupons)
       .where(
@@ -275,7 +275,6 @@ export class CouponsService {
       // 不暴露「这张券属于谁」，只说不能用 —— 避免拿别人的券 id 探测
       throw new ConflictException('这张优惠券不可用');
     }
-
     const now = new Date();
     if (
       row.status !== 'usable' ||
@@ -287,18 +286,68 @@ export class CouponsService {
       const yuan = Math.ceil(row.thresholdAmount / 100);
       throw new ConflictException(`未达到优惠券使用门槛（满 ${yuan} 元可用）`);
     }
+    return {
+      row,
+      discountAmount: Math.min(
+        row.discountAmount,
+        Math.max(input.baseAmount, 0),
+      ),
+    };
+  }
 
-    const discountAmount = Math.min(
-      row.discountAmount,
-      Math.max(input.baseAmount, 0),
-    );
+  /**
+   * 算价阶段取券面额（**只读，不核销**）。
+   *
+   * 券抵扣额是算价的输入，而核销需要 bookingId —— 两者互相依赖，
+   * 所以建单处先用本方法拿到面额算价，建单拿到 id 后再调 `redeemForBooking`。
+   * 若在「读取」与「核销」之间这张券被别人用掉，核销会 409 并让整个建单事务回滚。
+   */
+  async previewForBooking(
+    db: BizTx | BizDatabase,
+    input: { couponId: number; customerId: number; baseAmount: number },
+  ): Promise<{ couponNo: string; discountAmount: number }> {
+    const { row, discountAmount } = await this.loadUsable(db, input);
+    return { couponNo: row.couponNo, discountAmount };
+  }
+
+  /**
+   * 核销：把券绑到某一单上，返回**实际抵扣额（分）**。
+   *
+   * ## 必须在建单的同一事务里调用（因此第一个参数是 `tx`）
+   *
+   * 否则会出现两类事故：券核销了但单没建成（顾客白丢一张券），
+   * 或者单建成了但券还能再用（门店白送一次让利）。
+   *
+   * ## 闸门是条件更新，不是「读出来判断再写」
+   *
+   * `WHERE id=? AND customer_id=? AND status='usable' AND used_booking_id IS NULL`，
+   * `affectedRows = 0` 一律 409。`loadUsable` 只用于给出**友好报错**，
+   * **并发安全完全由这条条件更新保证** —— 读-判断-写在并发下会让同一张券被两单同时用掉。
+   *
+   * ## 门槛基准
+   *
+   * `baseAmount` 传**等级折扣之后**的金额（券在等级折扣后、积分前，见 `money.ts`）。
+   */
+  async redeemForBooking(
+    tx: BizTx | BizDatabase,
+    input: {
+      couponId: number;
+      customerId: number;
+      /** 建单场景传真实 bookingId；单测/预演可传 null（此时 `status` 仍会翻转，闸门照旧生效） */
+      bookingId: number | null;
+      /** 等级折扣之后的金额（分） */
+      baseAmount: number;
+      actorId?: number | null;
+    },
+  ): Promise<{ couponNo: string; discountAmount: number }> {
+    const { row, discountAmount } = await this.loadUsable(tx, input);
 
     const result = await tx
       .update(bizCustomerCoupons)
       .set({
         status: 'used',
         usedBookingId: input.bookingId ?? null,
-        usedAt: now,
+        usedAt: new Date(),
         updatedBy: input.actorId ?? undefined,
       })
       .where(

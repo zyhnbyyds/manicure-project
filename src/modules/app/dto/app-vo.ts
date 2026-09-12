@@ -491,6 +491,12 @@ export const appCreateBookingRequestSchema = z.object({
     .nullable()
     .optional()
     .openapi({ description: '使用次卡时传入' }),
+  couponId: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .openapi({ description: '优惠券 ID；与积分抵扣二选一' }),
   pointsToUse: z
     .number()
     .int()

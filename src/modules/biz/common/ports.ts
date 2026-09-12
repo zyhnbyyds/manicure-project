@@ -18,7 +18,7 @@ import type {
   bizServiceItems,
   bizStaffs,
 } from '../../../database/schema/index.js';
-import type { BizTx } from './tx.js';
+import type { BizDatabase, BizTx } from './tx.js';
 
 export type ServiceItemRow = typeof bizServiceItems.$inferSelect;
 export type BookingRow = typeof bizBookings.$inferSelect;
@@ -700,6 +700,8 @@ export abstract class BookingPort {
       serviceItemIds: number[];
       memberCardId?: number | null | undefined;
       pointsToUse?: number | undefined;
+      /** 优惠券 ID。**与积分二选一**，同时传会被建单处 400 拒绝 */
+      couponId?: number | undefined;
       remark?: string | undefined;
     },
   ): Promise<BookingCreateResult>;
@@ -1027,4 +1029,37 @@ export abstract class CouponPort {
     page?: number,
     pageSize?: number,
   ): Promise<{ items: CustomerCouponView[]; page: number; pageSize: number }>;
+
+  /**
+   * 算价阶段取券面额（**只读，不核销**）。
+   *
+   * 券抵扣额是算价的输入，而核销需要 bookingId —— 两者互相依赖，
+   * 所以建单处先用本方法拿面额算价，建单拿到 id 后再调 `redeemForBooking`。
+   */
+  /**
+   * 传 BizTx 或非事务句柄都可以：它在**事务外**调用 —— 建单处明确要求
+   * 「事务内第一条语句必须是 staff 行锁」，所以这里不能借用建单事务。
+   */
+  abstract previewForBooking(
+    db: BizTx | BizDatabase,
+    input: { couponId: number; customerId: number; baseAmount: number },
+  ): Promise<{ couponNo: string; discountAmount: number }>;
+
+  /**
+   * 核销：把券绑到某一单上（**必须传入建单事务的 tx**）。
+   *
+   * 闸门是**条件更新**（`status='usable' AND used_booking_id IS NULL`），
+   * `affectedRows = 0` 一律 409 —— 这是防「一券多用」唯一可靠的做法。
+   */
+  abstract redeemForBooking(
+    tx: BizTx,
+    input: {
+      couponId: number;
+      customerId: number;
+      bookingId: number | null;
+      /** 等级折扣之后的金额（分） */
+      baseAmount: number;
+      actorId?: number | null;
+    },
+  ): Promise<{ couponNo: string; discountAmount: number }>;
 }
