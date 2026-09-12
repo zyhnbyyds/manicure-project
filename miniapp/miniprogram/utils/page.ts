@@ -9,6 +9,7 @@
  * 放在 `onShow` 而不是 `onLoad`：从主题页返回时要立刻生效，`onShow` 恰好触发。
  */
 import { isMockEnabled, MOCK_BADGE_TEXT } from '../config';
+import { getSession } from '../store/session';
 import { getThemeState, getThemeTokens, themeStyle } from '../theme/theme';
 
 export interface BasePageData {
@@ -22,11 +23,22 @@ export interface BasePageData {
   /** 当前是否在演示数据模式（UI 上必须可见，避免被误当成真实数据） */
   isMock: boolean;
   mockBadge: string;
+  /**
+   * 登录态两个标志 —— 放进公共数据，**所有页面天然可用**：
+   * - `loggedIn`：有 app token，可浏览项目/美甲师/时段
+   * - `bound`：已绑定手机号，可下单、看会员与订单
+   *
+   * 页面用它们决定展示（如未登录时把「会员资产」换成「登录后查看」入口）；
+   * 需要身份的动作则统一走 `store/session.ts` 的 `requireSession()` 做引导。
+   */
+  loggedIn: boolean;
+  bound: boolean;
 }
 
 export function basePageData(): BasePageData {
   const theme = getThemeState();
   const tokens = getThemeTokens();
+  const session = getSession();
   return {
     themeStyle: themeStyle(),
     themePrimary: tokens.primary,
@@ -35,5 +47,7 @@ export function basePageData(): BasePageData {
     themeEmoji: theme.emoji,
     isMock: isMockEnabled(),
     mockBadge: MOCK_BADGE_TEXT,
+    loggedIn: session.loggedIn,
+    bound: session.bound,
   };
 }

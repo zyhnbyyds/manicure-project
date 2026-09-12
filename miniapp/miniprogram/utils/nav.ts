@@ -119,9 +119,11 @@ export function goFeedback(): void {
   wx.navigateTo({ url: '/pages/feedback/index' });
 }
 
-/** 登录页（未绑定时的引导入口） */
-export function goLogin(): void {
-  wx.navigateTo({ url: '/pages/login/index' });
+/** 登录页（未绑定时的引导入口）。带 `reason` 时落地页会说明「为什么要登录」 */
+export function goLogin(options: { reason?: string } = {}): void {
+  const reason = options.reason ?? '';
+  const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+  wx.navigateTo({ url: `/pages/login/index${query}` });
 }
 
 /** 取消预约说明（带 bookingId）：先看规则再确认，替换原来的原生 confirm */

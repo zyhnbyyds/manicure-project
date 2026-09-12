@@ -137,3 +137,14 @@
   font-size: 24rpx;
   color: var(--c-text-sub);
 }
+
+/* 引导来源说明（由 goLogin({ reason }) 带过来） */
+.reason {
+  margin-top: 18rpx;
+  padding: 16rpx 24rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  font-size: 22rpx;
+  display: inline-block;
+}

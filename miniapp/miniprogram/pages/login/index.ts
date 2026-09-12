@@ -39,15 +39,19 @@ Page({
       { key: 'member', label: '会员卡', icon: 'card' as IconName },
     ],
     logging: false,
+    /** 从 `goLogin({ reason })` 带过来：说明**为什么**把用户带到这一页 */
+    reason: '',
   },
 
-  onLoad() {
+  onLoad(query: Record<string, string | undefined>) {
     try {
       const info = wx.getSystemInfoSync();
       this.setData({ statusBarHeight: info.statusBarHeight ?? 20 });
     } catch {
       /* 取不到就沿用默认值 */
     }
+    const reason = query.reason ? decodeURIComponent(query.reason) : '';
+    this.setData({ reason });
   },
 
   onShow() {

@@ -12,6 +12,8 @@
       <view class="brand__name">{{shop.name}}</view>
       <view class="brand__en">{{shop.nameEn}}</view>
       <view class="brand__slogan">{{shop.slogan}}</view>
+      <!-- 引导来源说明：别让用户觉得「凭什么突然让我登录」 -->
+      <view wx:if="{{reason}}" class="reason">{{reason}}</view>
     </view>
 
     <!-- 三个入口：未登录也能看 -->
