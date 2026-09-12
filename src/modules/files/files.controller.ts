@@ -80,6 +80,13 @@ export class FilesController {
     @Query('inline') inline?: string,
   ) {
     const { stream, mime, originalName } = await this.files.open(id);
+    // helmet 全局下发 `Cross-Origin-Resource-Policy: same-origin`，而图片**天生要被跨源嵌入**：
+    // 小程序的 `<image>`（开发者工具里由 127.0.0.1 的 pageframe 渲染）、后台换域名后的 `<img>`
+    // 与 API 不同源 → Chromium 直接拦掉这个 no-cors 子资源请求，且**只在控制台留一行警告**，
+    // 代码层看不到任何失败（「图片地址能 200，页面就是空白」）。
+    // 下载接口本来就 @Public（随机 UUID 文件名 + 注释里已声明公开），因此只在这一条响应上放开跨源嵌入，
+    // 其余 API 继续保留 same-origin，不整体削弱 helmet。
+    reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
     reply.header('Content-Type', mime);
     reply.header(
       'Content-Disposition',

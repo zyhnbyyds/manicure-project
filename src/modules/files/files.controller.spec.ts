@@ -84,6 +84,27 @@ describe('FilesController', () => {
     expect(reply.send).toHaveBeenCalledWith('stream');
   });
 
+  it('download 允许跨源嵌入：必须覆盖 helmet 的 CORP same-origin', async () => {
+    // 不覆盖的话，小程序 `<image>` / 异源后台 `<img>` 会被 Chromium 静默拦掉（图能 200 但页面空白）。
+    // 把这一行删掉，本用例立刻变红 —— 这是这个坑唯一的自动化护栏。
+    const s = mockService();
+    const c = new FilesController(s as FilesService);
+    const reply = mockReply();
+    await c.download(1, reply as any);
+    expect(reply.header).toHaveBeenCalledWith(
+      'Cross-Origin-Resource-Policy',
+      'cross-origin',
+    );
+  });
+
+  it('download 支持 inline=1 内联展示', async () => {
+    const s = mockService();
+    const c = new FilesController(s as FilesService);
+    const reply = mockReply();
+    await c.download(1, reply as any, '1');
+    expect(reply.header).toHaveBeenCalledWith('Content-Disposition', 'inline');
+  });
+
   it('detail returns file metadata', async () => {
     const s = mockService();
     const c = new FilesController(s as FilesService);

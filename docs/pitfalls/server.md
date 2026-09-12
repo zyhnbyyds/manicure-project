@@ -159,3 +159,25 @@
 
 **代价**：事务最终回滚时，渠道侧会留下一张**没人见过**的待支付单
 （`code_url` 从未返回给任何客户端），5 分钟后自然过期 —— 无资金流、不影响对账。
+
+---
+
+## 10. helmet 的 `Cross-Origin-Resource-Policy: same-origin` 会把「图片能被跨源嵌入」这条路堵死
+
+- **现象**：图片地址 `200 / image/png / 16524 字节`（`Invoke-WebRequest` 完全正常），
+  但**小程序 `<image>`、异源后台 `<img>` 一律空白**，且客户端几乎没有可用报错。
+- **根因**：`main.ts` 里 `await app.register(helmet)` 用的是默认值，
+  于是**每一条响应**（含 `GET /files/:id/download`）都带
+  `Cross-Origin-Resource-Policy: same-origin`。
+  `<img>` 跨源加载**不需要 CORS**，但 **CORP 正是用来拦它的**：
+  只要页面 origin ≠ 响应 origin，Chromium 直接丢弃这个 no-cors 子资源请求。
+  web 后台因为走 vite 代理是**同源**，所以一直没暴露。
+- **正确做法**：**只**在文件下载这一条响应上覆盖为 `cross-origin`
+  （`files.controller.ts` 的 `download()`，该接口本就 `@Public` + 随机 UUID 文件名）。
+  **不要**改全局 helmet 配置 —— 其余 API 的 `same-origin` 是有效的纵深防御。
+- **注意**：helmet 在 `onRequest` 阶段写头，handler 里 `reply.header()` 后写即覆盖，无需 unregister。
+- **验证**：`Invoke-WebRequest ... | Select-Object -ExpandProperty Headers` 看
+  `Cross-Origin-Resource-Policy` 是否已是 `cross-origin`；
+  端到端要用**异源页面**里的 `<img>` 实测（同源测不出来）。详见 `docs/pitfalls/miniapp.md` §15。
+- **另一个坑（同一片区）**：改了后端**必须重启**服务（见本文件 §7）——
+  头像/封面这类问题很容易在「代码已修但进程没重载」的状态下反复怀疑人生。

@@ -244,3 +244,24 @@
     所以模板里连 `wx:else` 兜底分支都不需要；
   - 排查口诀：**小程序里图片空白 = 先看 src 是不是相对路径**。
 - **来源**：实测（做「美甲师头像上传」时顺手排查到：后台上传没问题，是小程序这一页绑错了字段）。
+
+## 15. 地址已经拼成绝对 URL，图片**还是**空白：后端 helmet 的 `Cross-Origin-Resource-Policy: same-origin`
+
+- **现象**：按 §14 修完（`imageResolved` = `http://192.168.0.101:3000/api/v1/files/10/download?inline=1`），
+  图片**依旧一片空白**，且**控制台/日志里什么都看不到**（不是 404，不是 500，不是域名校验）。
+- **根因**：后端 helmet 全局下发 `Cross-Origin-Resource-Policy: same-origin`。
+  而小程序 `<image>` 在**开发者工具里是由 `127.0.0.1:<port>` 的 pageframe 渲染**的
+  （实证：相对路径时 devtools 日志打的是
+  `onProxyError /__pageframe__/api/v1/files/10/download`），
+  与 API 的 `192.168.0.101:3000` **不同源** → Chromium 把这条 no-cors 子资源请求**直接拦掉**。
+  **`<img>` 跨源本来不需要 CORS**，但 **CORP 是专门拦这个的**。
+- **正确做法**：`src/modules/files/files.controller.ts` 的 `download()` 里显式覆盖
+  `Cross-Origin-Resource-Policy: cross-origin`（该接口本就 `@Public`，文件名是随机 UUID）。
+  **不要**改全局 helmet 配置 —— 其余 API 应当继续留在 `same-origin`。
+- **怎么确诊的（可复用）**：用 headless Chromium 做**四格对照**，一次定性而不是猜：
+  ① 同源图 → LOAD；② 跨源**无** CORP 头 → LOAD；③ 跨源**带** CORP `same-origin` → ERROR；
+  ④ 真实接口地址 → ERROR。修完再跑一遍 → ④ 变 LOAD。
+  （做法：`chrome --headless=new --screenshot=... --window-size=...` 截一张写着四个 onload/onerror 结论的页面，
+  用读图直接看清。`--dump-dom` 在本机被「已有浏览器会话」吞掉，别在这上面浪费时间。）
+- **来源**：用户报「图片展示不出来」→ 读 devtools 日志确认第一层（相对路径）已修 →
+  发现第二层是**完全不同的根因，症状却一模一样**。**同一个症状要查到「能证明它好了」，不能停在「看起来修对了」。**
