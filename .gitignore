@@ -12,3 +12,11 @@ src/modules/generated/
 output/
 .workbuddy-ai/
 docs/superpowers/
+
+# ── 微信支付 Skill ────────────────────────────────────────────────
+# 官方知识库由 .agents/skills/wechatpay-payment-integration/scripts/
+# wechatpay-resource-sync.py 下载（3985 篇 / 31.6 MB），属于可再生缓存，不入库。
+# 技能自身的 SKILL.md / references/ / scripts/ 仍然入库。
+.agents/skills/wechatpay-payment-integration/assets/
+# 同步脚本的本地状态（上次同步时间/etag），每台机器不同
+.agents/skills/wechatpay-payment-integration/scripts/.wechatpay-resource-sync-state.json

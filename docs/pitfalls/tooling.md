@@ -114,3 +114,24 @@
 - **正确做法**：改完 storage 必须 **`simulator_refresh`** 重置 JS 上下文；
   并注意 **storage 本身不会被 refresh 清掉**（用探针 key 验证过）——
   这正是「自愈」能被观察到的前提。
+
+---
+
+## 9. 微信支付 Skill：CLI 只索引**接口文档**，概念类问题要查本地知识库
+
+- **现象**：按技能要求先跑
+  `wechatpay-dev-cli knowledge search "<用户原话>"`，
+  问概念类问题（如「微信支付有沙箱吗」）会返回
+  `{ "hit": false, "hints": [], "keywords": [] }` —— **看起来像「知识库没有」**。
+- **根因**：CLI 的知识索引覆盖的是**接口文档**（搜 `JSAPI下单` 能命中
+  `{api_version: v3, mch_type: 普通商户, product: jsapi支付}`），
+  **不含 FAQ / 概念类内容**。
+- **正确做法**：概念类问题走技能内置的「文档检索与问答」流程 ——
+  在 `<技能目录>/assets/微信支付官网文档/`（**3985 篇**）上 `Grep` 探路再精读，
+  并用 front matter 里的 `url` 溯源。
+- **附带两条环境事实**：
+  1. 该知识库是 `scripts/wechatpay-resource-sync.py` 下载的（**31.6 MB**），
+     属可再生缓存，**已加入 `.gitignore`**，不要提交；
+  2. 同步脚本还会**改写 `references/` 下的文档**（厂商更新，值得提交）
+     以及三个脚本的**行尾**（纯噪音 —— `git diff --numstat` 为空但状态是 `M`，
+     用 `git checkout -- <路径>` 回退即可）。
