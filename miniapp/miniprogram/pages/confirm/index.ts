@@ -1,3 +1,4 @@
+import { couponApi } from '../../api/index';
 import { bookingApi, memberApi } from '../../api/index';
 import { ensureLogin, isBound } from '../../store/auth';
 import {
@@ -69,6 +70,18 @@ Page({
     usePoints: false,
     useCard: false,
     couponText: '选择',
+    /** 可用券列表（真实接口） */
+    coupons: [] as {
+      id: number;
+      nameText: string;
+      thresholdText: string;
+      discountAmount: number;
+    }[],
+    /** 本单是否使用券；与 usePoints **互斥**（服务端也会拒绝同时传） */
+    useCoupon: false,
+    couponId: 0,
+    couponDiscount: 0,
+    couponDiscountText: '0.00',
     /** 本次预估要抵扣的积分数（提交时带给服务端） */
     pointsToUse: 0,
     /** 预估金额 */
@@ -117,7 +130,11 @@ Page({
   /** 会员信息只用于**预估**展示；算价以服务端为准 */
   async loadMember() {
     try {
-      const me = await memberApi.getMe();
+      // 可用券与会员信息一起取；券取不到不影响下单（各自 catch）
+      const [me, couponPage] = await Promise.all([
+        memberApi.getMe(),
+        couponApi.listMine('usable', 1, 50).catch(() => null),
+      ]);
       const activeCard = me.cards.find((card) => card.status === 'active');
       this.setData(
         {
@@ -129,32 +146,49 @@ Page({
           cardName: activeCard ? activeCard.cardName : '',
           cardRemain: activeCard ? activeCard.totalTimes - activeCard.usedTimes : 0,
           discountPermille: me.discountPermille,
+          coupons: (couponPage ? couponPage.items : []).map((c) => ({
+            id: c.id,
+            nameText: c.templateName ?? '优惠券',
+            thresholdText:
+              c.thresholdAmount > 0
+                ? '满 ' + fenToYuan(c.thresholdAmount) + ' 元'
+                : '无门槛',
+            discountAmount: c.discountAmount,
+          })),
         },
         () => this.recalc(),
       );
     } catch {
-      // 未绑定手机号或接口失败：不影响下单，只是不能预估优惠
+      // 未绑定手机号或接口失败：不影响下单，只是不能预估优惠与选券
+      this.setData({ coupons: [], useCoupon: false, couponId: 0, couponDiscount: 0 });
       this.recalc();
     }
   },
 
   /** 预估金额（与服务端同一套公开公式；最终以提交后的结算为准） */
   recalc() {
-    const { items, usePoints, points, discountPermille } = this.data;
+    const { items, usePoints, points, discountPermille, useCoupon, couponDiscount } =
+      this.data;
     const original = items.reduce((sum, item) => sum + item.price, 0);
     const permille = discountPermille;
     const levelDisc = Math.floor((original * (1000 - permille)) / 1000);
     const base = Math.max(original - levelDisc, 0);
 
+    // 券在**等级折扣之后、积分之前**；且与积分**同一单二选一**（与服务端一致）。
+    // 页面上的开关互斥（见 onTogglePoints / onPickCoupon），这里再兜一层。
+    const couponDisc = useCoupon ? Math.min(couponDiscount, base) : 0;
+
     const maxByPoints = Math.floor(points / POINTS_PER_YUAN);
     const maxByRatio = Math.floor((base * MAX_POINTS_PERMILLE) / 1000);
-    const pointsDisc = usePoints ? Math.min(maxByPoints, maxByRatio) : 0;
+    const pointsDisc =
+      usePoints && couponDisc === 0 ? Math.min(maxByPoints, maxByRatio) : 0;
 
-    const totalDisc = levelDisc + pointsDisc;
+    const totalDisc = levelDisc + couponDisc + pointsDisc;
     const payable = Math.max(original - totalDisc, 0);
 
     this.setData({
       levelDiscountText: fenToYuan(levelDisc),
+      couponDiscountText: fenToYuan(couponDisc),
       pointsDiscountText: fenToYuan(pointsDisc),
       totalDiscountText: fenToYuan(totalDisc),
       payableText: fenToYuan(payable),
@@ -163,7 +197,20 @@ Page({
   },
 
   onTogglePoints(event: WechatMiniprogram.SwitchChange) {
-    this.setData({ usePoints: event.detail.value }, () => this.recalc());
+    const usePoints = event.detail.value;
+    // 与券互斥：打开积分就**明确告知**并取消已选的券，不静默改掉用户的另一个选择
+    if (usePoints && this.data.useCoupon) {
+      toast('优惠券与积分抵扣不能同时使用，已取消优惠券');
+    }
+    this.setData(
+      {
+        usePoints,
+        ...(usePoints
+          ? { useCoupon: false, couponId: 0, couponDiscount: 0, couponText: '选择' }
+          : {}),
+      },
+      () => this.recalc(),
+    );
   },
 
   onToggleCard(event: WechatMiniprogram.SwitchChange) {
@@ -174,8 +221,41 @@ Page({
   },
 
   onPickCoupon() {
-    // 数据模型里没有优惠券：保留设计稿入口，交互如实降级
-    toast('优惠券功能开发中');
+    if (this.data.coupons.length === 0) {
+      toast('暂无可用优惠券');
+      return;
+    }
+    wx.showActionSheet({
+      itemList: [
+        ...this.data.coupons.map((c) => c.nameText + '（' + c.thresholdText + '）'),
+        '不使用优惠券',
+      ],
+      success: (res) => {
+        const picked = this.data.coupons[res.tapIndex];
+        if (!picked) {
+          this.setData(
+            { useCoupon: false, couponId: 0, couponDiscount: 0, couponText: '选择' },
+            () => this.recalc(),
+          );
+          return;
+        }
+        const patch: Record<string, unknown> = {
+          useCoupon: true,
+          couponId: picked.id,
+          couponDiscount: picked.discountAmount,
+          couponText: picked.nameText,
+        };
+        // 与积分互斥：同样明确告知，而不是悄悄把积分关掉
+        if (this.data.usePoints) {
+          toast('优惠券与积分抵扣不能同时使用，已关闭积分抵扣');
+          patch.usePoints = false;
+        }
+        this.setData(patch, () => this.recalc());
+      },
+      fail: () => {
+        /* 用户取消 */
+      },
+    });
   },
 
   onRemarkInput(event: WechatMiniprogram.Input) {
@@ -201,6 +281,7 @@ Page({
         startAt: snapshot.slot.startAt,
         serviceItemIds: snapshot.items.map((item) => item.id),
         pointsToUse: this.data.usePoints ? this.data.pointsToUse : 0,
+        couponId: this.data.useCoupon ? this.data.couponId : undefined,
         memberCardId: this.data.useCard ? this.data.cardId : null,
         remark: snapshot.remark ? snapshot.remark : null,
       });

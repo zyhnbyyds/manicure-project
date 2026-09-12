@@ -155,6 +155,8 @@ export interface CreateBookingRequest {
   serviceItemIds: number[];
   memberCardId?: number | null;
   pointsToUse?: number;
+  /** 优惠券 ID：**与 pointsToUse 二选一**（服务端会 400） */
+  couponId?: number | null;
   remark?: string | null;
 }
 
