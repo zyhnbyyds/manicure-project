@@ -1,8 +1,7 @@
 import { SHOP } from '../../config';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goServices } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['clock', 'location', 'headset', 'chat'];
@@ -13,10 +12,9 @@ const PAGE_ICONS: IconName[] = ['clock', 'location', 'headset', 'chat'];
  * 门店档案目前来自 `config.ts` 的 `SHOP` 常量（app 域还没有门店档案接口），
  * 页面本身只负责展示与三个真实动作：导航 / 拨号 / 复制微信号。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     shop: SHOP,
     /** 门店照片（本地占位素材） */
     shopImage: SHOP.image,
@@ -26,13 +24,6 @@ Page({
       { key: 'phone', label: '联系电话', value: SHOP.phone, icon: 'headset' as IconName },
       { key: 'wechat', label: '客服微信', value: SHOP.wechat, icon: 'chat' as IconName },
     ],
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   onRowTap(event: WechatMiniprogram.TouchEvent) {

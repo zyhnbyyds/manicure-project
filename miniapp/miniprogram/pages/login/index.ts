@@ -1,10 +1,9 @@
 import { getNavMetrics } from '../../utils/metrics';
 import { SHOP } from '../../config';
 import { bindPhone, ensureLogin, isBound } from '../../store/auth';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goBack, goMember, goServices } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
 
@@ -28,11 +27,11 @@ interface PhoneNumberEvent {
  * 两个动作都依赖后端凭据：未配置 `WX_MINIAPP_APPID/SECRET` 时登录接口按设计返回
  * 503「小程序端未启用」，这里如实把这句话展示给用户，而不是伪装成功。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
     statusBarHeight: 20,
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     shop: SHOP,
     entries: [
       { key: 'booking', label: '预约美甲', icon: 'calendar' as IconName },
@@ -53,13 +52,6 @@ Page({
     }
     const reason = query.reason ? decodeURIComponent(query.reason) : '';
     this.setData({ reason });
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   /** 微信一键登录：静默换 token，成功后返回上一页 */

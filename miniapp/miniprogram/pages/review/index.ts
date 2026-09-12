@@ -1,13 +1,10 @@
 import { bookingApi } from '../../api/index';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import { starIcons } from '../../utils/icons';
 import { goBack, goBookings } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
-
-const PAGE_ICONS: IconName[] = ['star'];
 
 /** 设计稿里的快捷标签（点选后拼进评价内容） */
 const TAGS = ['手艺细腻', '沟通耐心', '环境干净', '款式还原度高'];
@@ -23,11 +20,10 @@ const MAX_IMAGES = 9;
  * **图片上传降级**：app 域没有文件上传接口（后端的上传在管理端），
  * 所以图片位保留设计稿视觉，点击如实提示。
  */
-Page({
+definePage({
+  extra: () => starIcons(),
+
   data: {
-    ...basePageData(),
-    iconsStarOn: buildIcons(PAGE_ICONS, '#B45F6B', 24, true),
-    iconsStarOff: buildIcons(PAGE_ICONS, '#D9D2CD'),
     stars: [1, 2, 3, 4, 5],
     loading: true,
     errorText: '',
@@ -51,13 +47,6 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.targetBookingId = Number(query.bookingId ?? 0);
     this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      iconsStarOn: buildIcons(PAGE_ICONS, getThemeTokens().primary, 24, true),
-    });
   },
 
   async load() {

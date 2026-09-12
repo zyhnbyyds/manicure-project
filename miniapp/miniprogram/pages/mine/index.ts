@@ -3,8 +3,8 @@ import { bookingApi, memberApi, staffApi } from '../../api/index';
 import { ensureLogin, isBound, logout } from '../../store/auth';
 import { getStaffStatus, isGranted, setMode } from '../../store/mode';
 import { requireSession } from '../../store/session';
-import { getThemeState, getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
+import { getThemeState } from '../../theme/theme';
+import type { IconName } from '../../utils/icons';
 import {
   goAddress,
   goBookings,
@@ -16,9 +16,8 @@ import {
   goStaffWorkbench,
   goTheme,
 } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
-import { syncTabBar } from '../../utils/tabbar';
 import { confirm, toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = [
@@ -41,12 +40,12 @@ const ORDER_TABS = [
   { key: '', label: '全部订单', icon: 'grid' as IconName },
 ];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
     statusBarHeight: 20,
     navRightGap: 28,
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     orderTabs: ORDER_TABS,
     /** 用户区 */
     nickname: '亲爱的顾客',
@@ -63,7 +62,6 @@ Page({
       { key: 'feedback', label: '意见反馈', icon: 'chat' as IconName },
       { key: 'about', label: '关于我们', icon: 'person' as IconName },
     ],
-    bound: false,
     bindText: '',
     themeLine: '',
     logging: false,
@@ -87,13 +85,9 @@ Page({
   },
 
   onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-      ...this.snapshot(),
-    });
-    syncTabBar(this);
-    this.loadSummary();
+    // 主题 / 登录态 / 图标由 definePage 的 chrome 统一刷新，这里只补本页自己的快照
+    this.setData(this.snapshot());
+    void this.loadSummary();
   },
 
   /** 本地状态快照：绑定态与主题名都可能在别处被改，onShow 时重新取一次最省心 */

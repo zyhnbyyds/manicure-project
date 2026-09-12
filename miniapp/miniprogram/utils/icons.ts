@@ -8,7 +8,11 @@
  *
  * 用法：页面 `data` 里放 `icons: buildIcons([...], 颜色)`，WXML 用 `src="{{icons.clock}}"`。
  * 颜色取 `getThemeTokens().text / .textSub / .primary`，别写死，否则换主题图标不跟着变。
+ *
+ * **页面上不用手写这段**：`utils/page.ts` 的 `definePage({ chromeIcons })` 会自动生成并
+ * 在每次 `onShow` 重算（`whiteIcons` / `extra` 分别覆盖白图标与星标这类特例）。
  */
+import { getThemeTokens } from '../theme/theme';
 
 export type IconName =
   | 'shop'
@@ -126,4 +130,22 @@ export function buildIcons(
     result[name] = svgIcon(name, color, size, filled);
   });
   return result;
+}
+
+/**
+ * 评分星两态：实心（主色）+ 描边（弱色）。
+ *
+ * 抽出来是因为**同一套星的配色被复写了三处**（评价页的 data、评价页的 onShow、
+ * 工作台评价页），而其中一处的描边色还是手写的 `#D9D2CD` ——
+ * 换主题时手写色不会跟着变，正是「页面里别写死颜色」那条铁律要防的事。
+ */
+export function starIcons(): {
+  iconsStarOn: Record<string, string>;
+  iconsStarOff: Record<string, string>;
+} {
+  const tokens = getThemeTokens();
+  return {
+    iconsStarOn: buildIcons(['star'], tokens.primary, 24, true),
+    iconsStarOff: buildIcons(['star'], tokens.border, 24),
+  };
 }

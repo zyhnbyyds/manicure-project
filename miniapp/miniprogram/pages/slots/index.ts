@@ -14,9 +14,15 @@ import {
   type DateChip,
 } from '../../utils/format';
 import { goConfirm, goServices } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
-import { toSlotVM, toStaffVM, type SlotVM, type StaffVM } from '../../utils/present';
-import { isApiFailure } from '../../utils/request';
+import { runLoad } from '../../utils/load';
+import { definePage } from '../../utils/page';
+import {
+  toSlotVM,
+  toStaffVM,
+  resolveServiceImage,
+  type SlotVM,
+  type StaffVM,
+} from '../../utils/present';
 import { toast } from '../../utils/ui';
 
 /**
@@ -30,9 +36,8 @@ import { toast } from '../../utils/ui';
  * - 选了时间 → 只有该时段空闲的美甲师可选，其余置灰并提示。
  * 这样既守住了「时段必须由服务端算」的红线，也还原了设计稿的交互顺序。
  */
-Page({
+definePage({
   data: {
-    ...basePageData(),
     dateChips: [] as DateChip[],
     activeDate: '',
     loading: true,
@@ -76,9 +81,12 @@ Page({
         ),
         totalText: fenToYuan(items.reduce((sum, item) => sum + item.price, 0)),
         itemNames: items.map((item) => item.name).join(' · '),
-        pickedImage: items[0].image && items[0].image.length > 0
-          ? items[0].image
-          : `/assets/svc-${['a', 'b', 'c'][items[0].id % 3]}.png`,
+        // 必须走 resolveServiceImage：草稿里存的是接口原值（`/api/v1/files/...` 相对路径），
+        // 直接绑到 `<image>` 会被小程序当成**包内文件** → 静默空白。
+        pickedImage: resolveServiceImage({
+          id: items[0].id,
+          image: items[0].image,
+        }),
       },
       () => {
         this.loadAll();
@@ -86,76 +94,81 @@ Page({
     );
   },
 
-  onShow() {
-    this.setData(basePageData());
-  },
+  /**
+   * 拉美甲师 + 每位美甲师在该日的可约时段。
+   *
+   * `force` = 数据源整体换了（**换日期**）：必须回到骨架屏。
+   * 否则 `runLoad` 会走「静默刷新」—— 旧日期的时段继续显示且**可点**，
+   * 顾客可能在新日期上选中一个旧日期的钟点（`goNext` 会拿 activeDate + 旧 slot 拼草稿）。
+   * 时段是「按美甲师 × 按日」算出来的，换日等于换了整个数据集，不是同源刷新。
+   */
+  async loadAll(force = false) {
+    await runLoad(
+      this,
+      async () => {
+        const staffPage = await catalogApi.listStaffs();
+        const staffs = staffPage.items.map(toStaffVM);
+        const items = getDraftItems();
+        const serviceItemIds = items.map((item) => item.id);
 
-  /** 拉美甲师 + 每位美甲师在该日的可约时段 */
-  async loadAll() {
-    this.setData({ loading: true, errorText: '' });
-    try {
-      const staffPage = await catalogApi.listStaffs();
-      const staffs = staffPage.items.map(toStaffVM);
-      const items = getDraftItems();
-      const serviceItemIds = items.map((item) => item.id);
+        const results = await Promise.all(
+          staffs.map((staff) =>
+            catalogApi
+              .getAvailableSlots({
+                staffId: staff.id,
+                date: this.data.activeDate,
+                serviceItemIds,
+              })
+              .catch(() => null),
+          ),
+        );
+        return { staffs, results };
+      },
+      {
+        force,
+        merge: ({ staffs, results }) => {
+          const slotsByStaff: Record<string, SlotVM[]> = {};
+          let reason = '';
+          staffs.forEach((staff, index) => {
+            const result = results[index];
+            slotsByStaff[String(staff.id)] = result ? result.slots.map(toSlotVM) : [];
+            // 所有人都是空的时候，用第一位美甲师给出的原因解释（off / no_shift / …）
+            if (!reason && result && result.slots.length === 0 && result.reason) {
+              reason = formatSlotReason(result.reason);
+            }
+          });
 
-      const results = await Promise.all(
-        staffs.map((staff) =>
-          catalogApi
-            .getAvailableSlots({
-              staffId: staff.id,
-              date: this.data.activeDate,
-              serviceItemIds,
-            })
-            .catch(() => null),
-        ),
-      );
-
-      const slotsByStaff: Record<string, SlotVM[]> = {};
-      let reason = '';
-      staffs.forEach((staff, index) => {
-        const result = results[index];
-        slotsByStaff[String(staff.id)] = result ? result.slots.map(toSlotVM) : [];
-        // 所有人都是空的时候，用第一位美甲师给出的原因解释（off / no_shift / …）
-        if (!reason && result && result.slots.length === 0 && result.reason) {
-          reason = formatSlotReason(result.reason);
-        }
-      });
-
-      this.slotsByStaff = slotsByStaff;
-      this.setData({
-        loading: false,
-        staffList: staffs.map((staff) => ({
-          ...staff,
-          disabled: false,
-          selected: false,
-        })),
-        reasonText: reason,
-      });
-      this.refreshView();
-    } catch (error) {
-      this.setData({
-        loading: false,
-        errorText: isApiFailure(error) ? error.message : '网络连接失败',
-      });
-    }
+          this.slotsByStaff = slotsByStaff;
+          return {
+            staffList: staffs.map((staff) => ({
+              ...staff,
+              disabled: false,
+              selected: false,
+            })),
+            reasonText: reason,
+          };
+        },
+        after: () => this.refreshView(),
+      },
+    );
   },
 
   /** 按「已选美甲师 / 已选时间 / 已选日期」重算可选项 */
   refreshView() {
     const staff = getDraftStaff();
     const { selectedStart, activeDate } = this.data;
+    const slotsByStaff = this.slotsByStaff;
     // 不用 flatMap：它是 ES2019 的**运行时** API，tsc 只会降级语法、不会替换 API，
     // 老基础库上会 undefined。空值合并运算符则会被 tsc 降级 —— 两者风险不同，别混为一谈。
     // （注释里刻意不写该运算符的字面量，否则 `grep 该符号` 会把它当成漏网的语法。）
     const all: SlotVM[] = [];
-    Object.keys(this.slotsByStaff).forEach((key) => {
-      all.push(...(this.slotsByStaff[key] ?? []));
+    Object.keys(slotsByStaff).forEach((key) => {
+      all.push(...(slotsByStaff[key] ?? []));
     });
 
     // 时段：选了美甲师就只看他的；否则看并集（同一钟点去重）
     const source = staff
-      ? (this.slotsByStaff[String(staff.id)] ?? [])
+      ? (slotsByStaff[String(staff.id)] ?? [])
       : all;
     const seen = new Set<string>();
     const timeSlots = source
@@ -172,7 +185,7 @@ Page({
 
     // 美甲师：选了时间就只让该时段空闲的人可点
     const staffList = this.data.staffList.map((item) => {
-      const slots = this.slotsByStaff[String(item.id)] ?? [];
+      const slots = slotsByStaff[String(item.id)] ?? [];
       const busy = selectedStart
         ? !slots.some((slot) => slot.startAt === selectedStart)
         : slots.length === 0;
@@ -193,10 +206,10 @@ Page({
   onDate(event: WechatMiniprogram.TouchEvent) {
     const date = String(event.currentTarget.dataset.date);
     if (date === this.data.activeDate) return;
-    // 换日期要清掉已选时段：旧日期的时间在新日期没有意义
+    // 换日期要清掉已选时段：旧日期的时间在新日期没有意义；并**回骨架屏**（见 loadAll 的 force）
     this.setData(
       { activeDate: date, selectedStart: '', selectedTimeText: '' },
-      () => this.loadAll(),
+      () => this.loadAll(true),
     );
   },
 

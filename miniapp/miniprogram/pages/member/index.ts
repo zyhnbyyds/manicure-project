@@ -1,10 +1,9 @@
 import { couponApi, memberApi } from '../../api/index';
 import { bindPhone, isBound } from '../../store/auth';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDiscount } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goCardDetail, goPoints, goRecharge } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
 
@@ -38,10 +37,10 @@ interface PhoneNumberEvent {
  * - 「生日礼遇 / 优先预约 / 积分兑换」与「新客立减 ¥30」在模型里没有对应配置，
  *   按设计稿保留视觉，点击如实提示。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     benefits: BENEFITS,
     /** 活动配图（设计稿右侧有作品图），用本地占位素材 */
     promoImage: '/assets/svc-b.png',
@@ -72,11 +71,7 @@ Page({
 
   onShow() {
     const bound = isBound();
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-      needBind: !bound,
-    });
+    this.setData({ needBind: !bound });
     if (bound && !this.data.ready) this.load();
   },
 

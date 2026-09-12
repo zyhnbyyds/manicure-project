@@ -1,7 +1,6 @@
 import { memberApi } from '../../api/index';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { definePage } from '../../utils/page';
 import { requireSession } from '../../store/session';
 import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
@@ -29,10 +28,10 @@ const STATUS_TEXT: Record<string, string> = {
  *    动态码必须服务端签，否则客户端可离线造码）；
  * 2. 后端返回一次性 `ticket`，小程序端用 canvas 画码。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     loading: true,
     errorText: '',
     // 未绑定手机号：不是错误，是「仅浏览」态
@@ -58,13 +57,6 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.cardId = Number(query.cardId ?? 0);
     this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   async load() {

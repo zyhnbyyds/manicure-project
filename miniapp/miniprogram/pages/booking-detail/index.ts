@@ -1,10 +1,9 @@
 import { bookingApi } from '../../api/index';
 import type { Booking } from '../../api/types';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration, formatTimeRange, formatDateTimeLabel } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goCancel, goLogin, goPay, goReview } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { resolveStaffAvatar } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 
@@ -26,10 +25,10 @@ const STATUS_TEXT: Record<Booking['status'], string> = {
  * 入参 `bookingId`；金额全部取服务端的 `payableAmount / paidAmount / dueAmount`，
  * 客户端不参与任何计算（资金红线）。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     loading: true,
     errorText: '',
     /** 未绑定手机号：仅浏览态，不是错误 */
@@ -57,13 +56,6 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.bookingId = Number(query.bookingId ?? 0);
     this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   async load() {

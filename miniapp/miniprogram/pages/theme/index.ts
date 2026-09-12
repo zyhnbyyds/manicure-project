@@ -5,7 +5,7 @@ import {
   setCustomPrimary,
   setPreset,
 } from '../../theme/theme';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { toast } from '../../utils/ui';
 
 /**
@@ -21,9 +21,8 @@ import { toast } from '../../utils/ui';
  * 2. **不显示 emoji**：预设数据里保留了 `emoji` 字段（历史数据），但界面上不用 ——
  *    整套视觉的硬要求是不用 emoji，主题卡片改用**色板圆点**表达差异，更准确也更克制。
  */
-Page({
+definePage({
   data: {
-    ...basePageData(),
     presets: PRESETS,
     palette: CUSTOM_PALETTE,
     activePresetId: '',
@@ -42,7 +41,6 @@ Page({
   syncState() {
     const state = getThemeState();
     this.setData({
-      ...basePageData(),
       activePresetId: state.presetId,
       customPrimary: state.customPrimary ?? '',
       isCustom: state.isCustom,

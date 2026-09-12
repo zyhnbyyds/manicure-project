@@ -1,7 +1,7 @@
 import { getNavMetrics } from '../../utils/metrics';
 import { catalogApi } from '../../api/index';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
+import { runLoad } from '../../utils/load';
 import {
   goBookings,
   goNotices,
@@ -10,7 +10,7 @@ import {
   goShop,
   goStaffs,
 } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import {
   HERO_IMAGE,
   toServiceItemVM,
@@ -18,8 +18,6 @@ import {
   type ServiceItemVM,
   type StaffVM,
 } from '../../utils/present';
-import { isApiFailure } from '../../utils/request';
-import { syncTabBar } from '../../utils/tabbar';
 
 /** 本页用到的细线图标（设计稿：导航栏 2 个 + 快捷入口 4 个 + 「全部 ›」） */
 const PAGE_ICONS: IconName[] = [
@@ -45,25 +43,23 @@ const QUICK_ENTRIES: QuickEntry[] = [
   { icon: 'card', label: '会员卡', action: 'staffs' },
 ];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
     /** 自定义导航栏几何：状态栏高度 + 导航栏高度（对齐胶囊）+ 右侧给胶囊让位的宽度 */
     statusBarHeight: 20,
     navBarHeight: 44,
     navRightGap: 16,
     hero: HERO_IMAGE,
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     quickEntries: QUICK_ENTRIES,
-    loading: true,
-    errorText: '',
     services: [] as ServiceItemVM[],
     staffs: [] as StaffVM[],
   },
 
   onLoad() {
     this.applyNavMetrics();
-    this.load();
+    void this.load();
   },
 
   /**
@@ -93,40 +89,26 @@ Page({
     }
   },
 
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      // 图标颜色跟随主题，否则换主题后图标不跟着变
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
-    // 只报「当前在哪个页面」，下标由 TabBar 按当前模式自己算
-    // （顾客模式与工作台模式是两套 tab，写死下标切模式后会错位）
-    syncTabBar(this);
-  },
-
   async load() {
-    this.setData({ loading: true, errorText: '' });
-    try {
-      const [services, staffs] = await Promise.all([
-        catalogApi.listServiceItems(1, 50),
-        catalogApi.listStaffs(),
-      ]);
-      this.setData({
-        loading: false,
-        // 设计稿「人气款式」横向滑动、一屏露出约 2.5 张，取前 4 个足够
-        services: services.items.slice(0, 4).map(toServiceItemVM),
-        staffs: staffs.items.slice(0, 4).map(toStaffVM),
-      });
-    } catch (error) {
-      this.setData({
-        loading: false,
-        errorText: isApiFailure(error) ? error.message : '加载失败，请稍后再试',
-      });
-    }
+    await runLoad(
+      this,
+      () =>
+        Promise.all([
+          catalogApi.listServiceItems(1, 50),
+          catalogApi.listStaffs(),
+        ]),
+      {
+        merge: ([services, staffs]) => ({
+          // 设计稿「人气款式」横向滑动、一屏露出约 2.5 张，取前 4 个足够
+          services: services.items.slice(0, 4).map(toServiceItemVM),
+          staffs: staffs.items.slice(0, 4).map(toStaffVM),
+        }),
+      },
+    );
   },
 
   onRetry() {
-    this.load();
+    void this.load();
   },
 
   goServices,

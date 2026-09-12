@@ -18,19 +18,18 @@
  */
 import { staffApi } from '../../api/index';
 import { demoteToCustomer, setMode } from '../../store/mode';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, toLocalDateString } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
+import { runPullDownLoad } from '../../utils/load';
 import {
   goStaffBookings,
   goStaffPerformance,
   goStaffReviews,
 } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { dialCustomer } from '../../utils/phone';
 import { formatPeriod, toStaffBookingRow, type StaffBookingRow } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
-import { syncTabBar } from '../../utils/tabbar';
 import { confirm, toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['calendar', 'card', 'star', 'person', 'headset', 'clock'];
@@ -42,10 +41,10 @@ const ENTRIES = [
   { key: 'customer', label: '顾客模式', icon: 'person' as IconName },
 ];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     entries: ENTRIES,
     loading: true,
     errorText: '',
@@ -64,17 +63,11 @@ Page({
   },
 
   onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
-    syncTabBar(this);
     void this.load();
   },
 
-  async onPullDownRefresh() {
-    await this.load();
-    wx.stopPullDownRefresh();
+  onPullDownRefresh() {
+    return runPullDownLoad(() => this.load());
   },
 
   async load() {

@@ -1,7 +1,6 @@
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goServices } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['heart'];
@@ -20,22 +19,14 @@ const CATEGORIES = ['全部', '单色', '款式', '设计', '基础护理'];
  * 补这个功能需要：新表 `biz_customer_favorite`（customer_id + service_item_id + 唯一约束）
  * + `POST/DELETE /app/favorites` + `GET /app/favorites`。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     categories: CATEGORIES,
     activeCategory: '全部',
     /** 收藏数：模型里没有，恒为 0，等后端补表后再接 */
     total: 0,
     items: [] as unknown[],
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   onCategory(event: WechatMiniprogram.TouchEvent) {

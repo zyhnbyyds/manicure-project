@@ -1,12 +1,16 @@
 import { bookingApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { goCancel, goLogin, goPay, goReview, goServices } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { runLoad, runPullDownLoad } from '../../utils/load';
+import {
+  goCancel,
+  goLogin,
+  goPay,
+  goReview,
+  goServices,
+} from '../../utils/nav';
+import { definePage } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
-import { isApiFailure } from '../../utils/request';
-import { syncTabBar } from '../../utils/tabbar';
 
 interface FilterItem {
   /** 空串 = 不传 status（全部） */
@@ -25,15 +29,13 @@ const FILTERS: FilterItem[] = [
 
 const PAGE_ICONS: IconName[] = ['search', 'funnel', 'calendar'];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     filters: FILTERS,
     activeFilter: '' as '' | BookingStatus,
     keyword: '',
-    loading: true,
-    errorText: '',
     /** 未绑定手机号：**不是错误**，而是「仅浏览」态，单独一个标志 */
     guest: false,
     /** 后端返回的原始列表 */
@@ -42,43 +44,38 @@ Page({
     bookings: [] as BookingVM[],
   },
 
-  /** 只在 onShow 拉取：首次进入也会触发；下单/支付后返回能立刻看到新状态 */
+  /**
+   * 只在 onShow 拉取：首次进入也会触发；下单/支付后返回能立刻看到新状态。
+   * **不会回骨架屏**：`runLoad` 在已有数据时走静默刷新（切 Tab 回来不再闪白）。
+   */
   onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
-    syncTabBar(this);
-    this.load();
+    void this.load();
   },
 
-  async onPullDownRefresh() {
-    await this.load();
-    wx.stopPullDownRefresh();
+  onPullDownRefresh() {
+    return runPullDownLoad(() => this.load());
   },
 
   async load() {
     // 未绑定手机号时 /app/bookings 必然 401（后端 §8.3 只有本人数据）——
-    // 明知会失败还打一次，只会让「没登录」看起来像「加载失败」
+    // 明知会失败还打一次，只会让「没登录」看起来像「加载失败」。
+    // `loaded: true` 一起置上，否则每次切回本页都会再闪一次骨架屏。
     if (!this.data.bound) {
-      this.setData({ loading: false, guest: true, errorText: '', all: [], bookings: [] });
-      return;
-    }
-    this.setData({ loading: true, guest: false, errorText: '' });
-    try {
-      const page = await bookingApi.list({ page: 1, pageSize: 50 });
-      this.setData({ loading: false, all: page.items.map(toBookingVM) }, () => {
-        this.applyFilter();
-      });
-    } catch (error) {
       this.setData({
         loading: false,
+        refreshing: false,
+        errorText: '',
+        loaded: true,
+        guest: true,
         all: [],
         bookings: [],
-        // batch3 第 3 屏就是「网络连接失败」态
-        errorText: isApiFailure(error) ? error.message : '网络连接失败',
       });
+      return;
     }
+    await runLoad(this, () => bookingApi.list({ page: 1, pageSize: 50 }), {
+      merge: (page) => ({ guest: false, all: page.items.map(toBookingVM) }),
+      after: () => this.applyFilter(),
+    });
   },
 
   /** 状态筛选在服务端也支持，但列表一次取回后本地过滤更顺滑（切筛不闪） */

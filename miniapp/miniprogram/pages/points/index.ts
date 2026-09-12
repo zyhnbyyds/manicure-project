@@ -1,8 +1,8 @@
 import { memberApi, pointsApi, type PointsGoods } from '../../api/index';
 import { requireSession } from '../../store/session';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { runLoad } from '../../utils/load';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
 
@@ -36,10 +36,10 @@ interface GoodsRow extends PointsGoods {
  * 设计稿的「今日获得」已移除：`MemberMe` 没有这个字段，显示 `+0` 等于给出**假数据**。
  * 若确实需要，可由后端从 `biz_member_transaction` 的 `points_delta` 按当日汇总后提供。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     loading: true,
     errorText: '',
     points: 0,
@@ -55,37 +55,28 @@ Page({
     void this.load();
   },
 
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
-  },
-
   async load() {
-    this.setData({ loading: true, errorText: '' });
-    try {
-      const [list, me] = await Promise.all([
-        pointsApi.listGoods(1, 50),
-        this.data.bound
-          ? memberApi.getMe().catch(() => null)
-          : Promise.resolve(null),
-      ]);
-      this.setData({
-        loading: false,
-        points: me ? me.points : 0,
-        goods: list.items.map((item, index) => ({
-          ...item,
-          image: PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length] ?? '',
-        })),
-      });
-    } catch (error) {
-      this.setData({
-        loading: false,
-        goods: [],
-        errorText: isApiFailure(error) ? error.message : '网络连接失败',
-      });
-    }
+    await runLoad(
+      this,
+      async () => {
+        const [list, me] = await Promise.all([
+          pointsApi.listGoods(1, 50),
+          this.data.bound
+            ? memberApi.getMe().catch(() => null)
+            : Promise.resolve(null),
+        ]);
+        return { list, me };
+      },
+      {
+        merge: ({ list, me }) => ({
+          points: me ? me.points : 0,
+          goods: list.items.map((item, index) => ({
+            ...item,
+            image: PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length] ?? '',
+          })),
+        }),
+      },
+    );
   },
 
   onCategory(event: WechatMiniprogram.TouchEvent) {

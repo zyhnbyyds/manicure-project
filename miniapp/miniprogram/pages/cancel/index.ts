@@ -1,10 +1,9 @@
 import { bookingApi } from '../../api/index';
 import type { Booking } from '../../api/types';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDateTimeLabel, formatTimeRange } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goBack, goBookings } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
 
@@ -27,10 +26,10 @@ const RULES = [
   { icon: 'headset' as IconName, title: '特殊情况', text: '临时有事请联系门店，我们会尽力帮你协调改期' },
 ];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     rules: RULES,
     loading: true,
     errorText: '',
@@ -47,13 +46,6 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.bookingId = Number(query.bookingId ?? 0);
     this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   async load() {

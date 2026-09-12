@@ -1,16 +1,14 @@
 import { catalogApi } from '../../api/index';
 import { getDraftItems, setDraftStaff } from '../../store/draft';
 import { fenToYuan, formatDuration } from '../../utils/format';
+import { runLoad } from '../../utils/load';
 import { goServices, goSlots } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { toStaffVM, type StaffVM } from '../../utils/present';
-import { isApiFailure } from '../../utils/request';
 
-Page({
+definePage({
   data: {
-    ...basePageData(),
     loading: true,
-    errorText: '',
     staffs: [] as StaffVM[],
     /** 没选项目就不该往后走：时长算不出来，可约时段也没有意义 */
     hasItems: false,
@@ -20,26 +18,18 @@ Page({
   },
 
   onLoad() {
-    this.load();
+    void this.load();
   },
 
   onShow() {
-    this.setData(basePageData());
     // 从项目页返回时草稿可能已变，重新同步摘要
     this.syncDraft();
   },
 
   async load() {
-    this.setData({ loading: true, errorText: '' });
-    try {
-      const page = await catalogApi.listStaffs();
-      this.setData({ loading: false, staffs: page.items.map(toStaffVM) });
-    } catch (error) {
-      this.setData({
-        loading: false,
-        errorText: isApiFailure(error) ? error.message : '加载失败，请稍后再试',
-      });
-    }
+    await runLoad(this, () => catalogApi.listStaffs(), {
+      merge: (page) => ({ staffs: page.items.map(toStaffVM) }),
+    });
   },
 
   syncDraft() {

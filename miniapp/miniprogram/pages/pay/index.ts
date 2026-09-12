@@ -2,7 +2,7 @@ import { bookingApi, memberApi } from '../../api/index';
 import type { Booking } from '../../api/types';
 import { fenToYuan } from '../../utils/format';
 import { goBookings, goLogin, goPayResult } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
@@ -51,9 +51,8 @@ function isPaymentCancel(error: unknown): boolean {
   return message.includes('cancel');
 }
 
-Page({
+definePage({
   data: {
-    ...basePageData(),
     loading: true,
     errorText: '',
     /** 未绑定手机号：仅浏览态，不是错误 */
@@ -72,10 +71,6 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.bookingId = Number(query.bookingId ?? 0);
     this.load();
-  },
-
-  onShow() {
-    this.setData(basePageData());
   },
 
   async load() {

@@ -1,6 +1,5 @@
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { definePage } from '../../utils/page';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['chat'];
@@ -24,10 +23,10 @@ const IMAGE_SLOTS = [0, 1, 2];
  * （customer_id 可空以支持匿名 / type / content / images json / contact / created_at）
  * + `POST /app/feedback`，且匿名提交要**不写 customer_id**（否则「匿名」是假的）。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     types: TYPES,
     activeType: '',
     content: '',
@@ -35,13 +34,6 @@ Page({
     anonymous: false,
     imageSlots: IMAGE_SLOTS,
     submitting: false,
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   onType(event: WechatMiniprogram.TouchEvent) {

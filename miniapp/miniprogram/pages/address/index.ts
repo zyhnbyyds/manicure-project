@@ -1,6 +1,5 @@
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { definePage } from '../../utils/page';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['location'];
@@ -21,19 +20,12 @@ const PAGE_ICONS: IconName[] = ['location'];
  * （customer_id / 收货人 / 手机号 / 省市区 / 详址 / is_default + 唯一天然键）
  * + `GET/POST/PATCH/DELETE /app/addresses`，且默认地址要用条件更新保证唯一。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     /** 地址列表：模型不存在，恒为空 */
     addresses: [] as unknown[],
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   onAdd() {

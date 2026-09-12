@@ -15,7 +15,7 @@ import {
   formatTimeRange,
 } from '../../utils/format';
 import { goBookings } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { resolveStaffAvatar, staffEmoji } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
@@ -40,9 +40,8 @@ const POINTS_PER_YUAN = 100;
  */
 const FALLBACK_MAX_POINTS_PERMILLE = 300;
 
-Page({
+definePage({
   data: {
-    ...basePageData(),
     ready: false,
     items: [] as {
       id: number;
@@ -117,7 +116,9 @@ Page({
   onLoad() {
     const snapshot = getDraftSnapshot();
     if (!snapshot.staff || !snapshot.slot || snapshot.items.length === 0) {
-      this.setData({ ready: false, emptyDraft: true });
+      // `ready: false` 本身就是「草稿不完整」这一种状态（页面上只有这一个空洞），
+      // 原来还额外 setData 了一个从未声明、也从未被 wxml 读过的 `emptyDraft`，属死状态，已删。
+      this.setData({ ready: false });
       return;
     }
     const totals = getDraftTotals();
@@ -144,7 +145,7 @@ Page({
   },
 
   onShow() {
-    this.setData({ ...basePageData(), needBind: !isBound() });
+    this.setData({ needBind: !isBound() });
   },
 
   /** 会员信息只用于**预估**展示；算价以服务端为准 */

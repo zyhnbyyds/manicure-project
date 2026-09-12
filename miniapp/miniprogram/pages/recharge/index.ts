@@ -1,8 +1,7 @@
 import { memberApi } from '../../api/index';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
 
@@ -29,11 +28,11 @@ interface PlanVM {
   bonusText: string;
 }
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+  whiteIcons: WHITE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
-    iconsWhite: buildIcons(WHITE_ICONS, '#FFFFFF'),
     loading: true,
     errorText: '',
     needBind: false,
@@ -53,13 +52,6 @@ Page({
 
   onLoad() {
     this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   async load() {

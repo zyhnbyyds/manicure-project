@@ -1,12 +1,11 @@
 import { catalogApi } from '../../api/index';
 import { setDraftItems } from '../../store/draft';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
+import { runLoad, runPullDownLoad } from '../../utils/load';
 import { goServiceDetail, goSlots } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { toServiceItemVM, type ServiceItemVM } from '../../utils/present';
-import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
 
 /** 列表项 = VM + 选中态 */
@@ -24,15 +23,13 @@ const WHITE_ICONS: IconName[] = ['check'];
 /** 骨架屏行数：设计稿（batch3）里是 3 行 */
 const SKELETON_ROWS = [1, 2, 3];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+  whiteIcons: WHITE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
-    iconsWhite: buildIcons(WHITE_ICONS, '#FFFFFF'),
     skeletonRows: SKELETON_ROWS,
     loading: true,
-    errorText: '',
-    refreshing: false,
     /** 搜索关键词（客户端过滤已加载列表；app 域列表接口没有 keyword 参数） */
     keyword: '',
     /** 原始列表（不过滤），切换分类/搜索时不必重新请求 */
@@ -49,41 +46,27 @@ Page({
   },
 
   onLoad() {
-    this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
+    void this.load();
   },
 
   /** 下拉刷新（batch5 有「下拉刷新 / 正在刷新…」态） */
-  async onPullDownRefresh() {
-    await this.load();
-    wx.stopPullDownRefresh();
+  onPullDownRefresh() {
+    return runPullDownLoad(() => this.load());
   },
 
   async load() {
-    this.setData({ loading: true, errorText: '' });
-    try {
-      const page = await catalogApi.listServiceItems(1, 100);
-      const allItems = page.items.map(toServiceItemVM);
-      // 分类从数据里现取：后端没有「分类字典」接口，硬编码分类会与真实数据脱节
-      const categories = ['全部'];
-      allItems.forEach((item) => {
-        if (!categories.includes(item.category)) categories.push(item.category);
-      });
-      this.setData({ loading: false, allItems, categories }, () => {
-        this.refresh();
-      });
-    } catch (error) {
-      this.setData({
-        loading: false,
-        errorText: isApiFailure(error) ? error.message : '网络连接失败',
-      });
-    }
+    await runLoad(this, () => catalogApi.listServiceItems(1, 100), {
+      merge: (page) => {
+        const allItems = page.items.map(toServiceItemVM);
+        // 分类从数据里现取：后端没有「分类字典」接口，硬编码分类会与真实数据脱节
+        const categories = ['全部'];
+        allItems.forEach((item) => {
+          if (!categories.includes(item.category)) categories.push(item.category);
+        });
+        return { allItems, categories };
+      },
+      after: () => this.refresh(),
+    });
   },
 
   /** 由 allItems + 分类 + 关键词 + 排序 + 选中集推导视图，避免多处状态不同步 */
@@ -197,6 +180,6 @@ Page({
   },
 
   onRetry() {
-    this.load();
+    void this.load();
   },
 });

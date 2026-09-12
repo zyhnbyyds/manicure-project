@@ -9,11 +9,10 @@ import { staffApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
 import { demoteToCustomer } from '../../store/mode';
 import { addDays, toLocalDateString } from '../../utils/format';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import { dialCustomer } from '../../utils/phone';
 import { toStaffBookingRow, type StaffBookingRow } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
-import { syncTabBar } from '../../utils/tabbar';
 import { confirm, toast } from '../../utils/ui';
 
 interface FilterItem {
@@ -31,9 +30,8 @@ const FILTERS: FilterItem[] = [
 /** 日期条：从今天起 7 天，够覆盖「今天 + 本周」的查看需求 */
 const DATE_COUNT = 7;
 
-Page({
+definePage({
   data: {
-    ...basePageData(),
     loading: true,
     errorText: '',
     filters: FILTERS,
@@ -44,8 +42,6 @@ Page({
   },
 
   onShow() {
-    this.setData({ ...basePageData() });
-    syncTabBar(this);
     void this.load();
   },
 

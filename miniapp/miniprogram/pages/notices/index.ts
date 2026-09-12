@@ -1,6 +1,5 @@
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { definePage } from '../../utils/page';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['calendar', 'gift', 'star', 'chat', 'check'];
@@ -30,21 +29,14 @@ const TABS = [
  * 2. `POST /app/notices/read`（批量已读；必须带 `recipient_id` 条件，否则能改别人的）；
  * 3. 页签的分类需要落到模板：`sys_notice_template.code` 前缀或新增分类列。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     tabs: TABS,
     activeTab: 'all',
     /** 消息列表：缺读取接口，恒为空 */
     notices: [] as unknown[],
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
   },
 
   onTab(event: WechatMiniprogram.TouchEvent) {

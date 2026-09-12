@@ -1,10 +1,8 @@
 import { couponApi, type CouponStatusFilter, type CustomerCoupon } from '../../api/index';
 import { requireSession } from '../../store/session';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
-import { basePageData } from '../../utils/page';
+import type { IconName } from '../../utils/icons';
+import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
-import { syncTabBar } from '../../utils/tabbar';
 
 const PAGE_ICONS: IconName[] = ['coupon'];
 
@@ -41,10 +39,10 @@ function fenToYuanText(fen: number): string {
  * 2. **筛选走服务端**（`status` 查询参数），不是本地过滤 —— 否则分页会错；
  * 3. **未绑定先引导**：券是个人权益，未绑定时 `requireSession` 带去登录页并说明原因。
  */
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+
   data: {
-    ...basePageData(),
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
     tabs: TABS,
     activeTab: 'usable' as CouponStatusFilter,
     loading: true,
@@ -55,14 +53,6 @@ Page({
 
   onLoad() {
     void this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
-    syncTabBar(this);
   },
 
   async load() {

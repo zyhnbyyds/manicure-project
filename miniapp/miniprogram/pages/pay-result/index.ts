@@ -1,9 +1,8 @@
 import { bookingApi } from '../../api/index';
-import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan } from '../../utils/format';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
 import { goBookings, goHome } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 
 const WHITE_ICONS: IconName[] = ['check', 'clock'];
 const TEXT_ICONS: IconName[] = ['check'];
@@ -23,11 +22,11 @@ const TEXT_ICONS: IconName[] = ['check'];
  *
  * `status` 取 `success | pending`（失败态跳回收银台重试，不单独留一页）。
  */
-Page({
+definePage({
+  chromeIcons: TEXT_ICONS,
+  whiteIcons: WHITE_ICONS,
+
   data: {
-    ...basePageData(),
-    iconsWhite: buildIcons(WHITE_ICONS, '#FFFFFF'),
-    iconsText: buildIcons(TEXT_ICONS, '#B45F6B'),
     status: 'success' as 'success' | 'pending',
     title: '支付成功',
     subtitle: '定金已支付，预约已确认',
@@ -75,14 +74,6 @@ Page({
         status === 'success'
           ? `${bookingNo ? `订单号 ${bookingNo}\n` : ''}已支付 ${fenToYuan(amount)} 元，剩余尾款到店结算。`
           : '若已付款但状态未更新，稍后下拉刷新「我的预约」即可。',
-    });
-  },
-
-  onShow() {
-    const tokens = getThemeTokens();
-    this.setData({
-      ...basePageData(),
-      iconsText: buildIcons(TEXT_ICONS, tokens.primary),
     });
   },
 

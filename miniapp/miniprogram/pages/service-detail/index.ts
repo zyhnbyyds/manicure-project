@@ -1,17 +1,16 @@
 import { getNavMetrics } from '../../utils/metrics';
 import { catalogApi } from '../../api/index';
 import { setDraftItems } from '../../store/draft';
-import { getThemeTokens } from '../../theme/theme';
-import { buildIcons, type IconName } from '../../utils/icons';
+import type { IconName } from '../../utils/icons';
+import { runLoad } from '../../utils/load';
 import { goBack, goStaffs } from '../../utils/nav';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import {
   toServiceItemVM,
   toStaffVM,
   type ServiceItemVM,
   type StaffVM,
 } from '../../utils/present';
-import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['back', 'share', 'heart', 'headset', 'chevron'];
@@ -33,16 +32,15 @@ const COLOR_SWATCHES = [
   { name: '米白', hex: '#EFE2D8' },
 ];
 
-Page({
+definePage({
+  chromeIcons: PAGE_ICONS,
+  whiteIcons: WHITE_ICONS,
+
   data: {
-    ...basePageData(),
     statusBarHeight: 20,
     /** 右侧要给微信胶囊让位，否则分享按钮会被盖住（首页已踩过同一个坑） */
     navRightGap: 28,
-    icons: buildIcons(PAGE_ICONS, '#2D221E'),
-    iconsWhite: buildIcons(WHITE_ICONS, '#FFFFFF'),
     loading: true,
-    errorText: '',
     item: null as ServiceItemVM | null,
     /** 推荐美甲师：app 域没有「款式→美甲师」映射，取第一位在职美甲师 */
     staff: null as StaffVM | null,
@@ -69,14 +67,7 @@ Page({
     } catch {
       /* 取不到就沿用默认值 */
     }
-    this.load();
-  },
-
-  onShow() {
-    this.setData({
-      ...basePageData(),
-      icons: buildIcons(PAGE_ICONS, getThemeTokens().text),
-    });
+    void this.load();
   },
 
   async load() {
@@ -84,27 +75,29 @@ Page({
       this.setData({ loading: false, errorText: '没找到这个款式' });
       return;
     }
-    this.setData({ loading: true, errorText: '' });
-    try {
-      // app 域没有「单个款式详情」接口（spec §9.7 只有列表），
-      // 故拉列表按 id 取；项目量级在几十条，多一次列表请求可接受。
-      const [page, staffs] = await Promise.all([
-        catalogApi.listServiceItems(1, 100),
-        catalogApi.listStaffs(),
-      ]);
-      const found = page.items.find((candidate) => candidate.id === this.serviceItemId);
-      this.setData({
-        loading: false,
-        item: found ? toServiceItemVM(found) : null,
-        staff: staffs.items.length > 0 ? toStaffVM(staffs.items[0]) : null,
-        errorText: found ? '' : '这个款式可能已经下架了',
-      });
-    } catch (error) {
-      this.setData({
-        loading: false,
-        errorText: isApiFailure(error) ? error.message : '网络连接失败',
-      });
-    }
+    await runLoad(
+      this,
+      () =>
+        Promise.all([
+          // app 域没有「单个款式详情」接口（spec §9.7 只有列表），
+          // 故拉列表按 id 取；项目量级在几十条，多一次列表请求可接受。
+          catalogApi.listServiceItems(1, 100),
+          catalogApi.listStaffs(),
+        ]),
+      {
+        merge: ([page, staffs]) => {
+          const found = page.items.find(
+            (candidate) => candidate.id === this.serviceItemId,
+          );
+          return {
+            item: found ? toServiceItemVM(found) : null,
+            staff: staffs.items.length > 0 ? toStaffVM(staffs.items[0]) : null,
+            // runLoad 成功时会先把 errorText 清空，这里的「下架」态覆盖它
+            errorText: found ? '' : '这个款式可能已经下架了',
+          };
+        },
+      },
+    );
   },
 
   onBack() {
@@ -162,6 +155,6 @@ Page({
   },
 
   onRetry() {
-    this.load();
+    void this.load();
   },
 });

@@ -10,7 +10,7 @@
 import { staffApi } from '../../api/index';
 import { demoteToCustomer } from '../../store/mode';
 import { fenToYuan } from '../../utils/format';
-import { basePageData } from '../../utils/page';
+import { definePage } from '../../utils/page';
 import {
   formatCommissionStatus,
   formatPeriod,
@@ -44,9 +44,8 @@ interface CommissionRow {
   tone: string;
 }
 
-Page({
+definePage({
   data: {
-    ...basePageData(),
     loading: true,
     errorText: '',
     periodText: '',
@@ -63,7 +62,6 @@ Page({
   },
 
   onShow() {
-    this.setData({ ...basePageData() });
     if (this.data.year === 0) {
       const now = currentPeriod();
       this.setData({ year: now.year, month: now.month });
