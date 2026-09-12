@@ -1,5 +1,12 @@
 <view class="page" style="{{themeStyle}}">
-  <view wx:if="{{loading}}" class="loading">正在读取次卡…</view>
+  <view wx:if="{{guest}}" class="empty">
+    <view class="empty__badge"><view class="empty__badge-dot"></view></view>
+    <view class="empty__text">{{loggedIn ? '绑定手机号后查看次卡' : '登录后查看次卡'}}</view>
+    <view class="empty__hint">次卡跟着你的手机号，绑定后就能看到剩余次数</view>
+    <view class="btn btn--primary empty__action" bindtap="onGuestLogin">去登录 / 绑定</view>
+  </view>
+
+  <view wx:elif="{{loading}}" class="loading">正在读取次卡…</view>
 
   <view wx:elif="{{errorText}}" class="empty">
     <view class="empty__text">{{errorText}}</view>

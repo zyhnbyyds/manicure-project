@@ -2,6 +2,7 @@ import { memberApi } from '../../api/index';
 import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
 import { basePageData } from '../../utils/page';
+import { requireSession } from '../../store/session';
 import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
 
@@ -34,6 +35,8 @@ Page({
     icons: buildIcons(PAGE_ICONS, '#2D221E'),
     loading: true,
     errorText: '',
+    // 未绑定手机号：不是错误，是「仅浏览」态
+    guest: false,
     card: null as {
       id: number;
       cardNo: string;
@@ -65,7 +68,12 @@ Page({
   },
 
   async load() {
-    this.setData({ loading: true, errorText: '' });
+    // 未绑定不发请求：次卡接口必然 401，把它显示成「加载失败」会让人以为系统坏了
+    if (!this.data.bound) {
+      this.setData({ loading: false, guest: true, errorText: '' });
+      return;
+    }
+    this.setData({ loading: true, guest: false, errorText: '' });
     try {
       const page = await memberApi.listCards();
       const target =
@@ -122,6 +130,10 @@ Page({
 
   onMoreRecords() {
     toast('使用记录接口正在接入');
+  },
+
+  async onGuestLogin() {
+    await requireSession({ needBind: true, reason: '绑定手机号后查看次卡' });
   },
 
   onRetry() {
