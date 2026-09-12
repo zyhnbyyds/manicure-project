@@ -84,7 +84,7 @@
         <view class="grow">
           <view class="promo__title">新客专享</view>
           <view class="promo__sub">首次到店立减 ¥30</view>
-          <view class="btn btn--primary btn--sm promo__btn" bindtap="onClaim">立即领取</view>
+          <view wx:if="{{offerId}}" class="btn btn--primary btn--sm promo__btn" bindtap="onClaim">立即领取</view>
         </view>
         <image class="promo__photo" src="{{promoImage}}" mode="aspectFill" />
       </view>

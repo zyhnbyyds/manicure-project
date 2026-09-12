@@ -324,7 +324,37 @@ export type CouponStatusFilter = CustomerCoupon['status'] | 'all';
  * **需要绑定手机号**（券是个人权益）—— 未绑定时后端返回 401 + `needBind`，
  * 页面应先走 `requireSession` 引导，而不是把这个 401 显示成加载失败。
  */
+/** 可领取的券（模板）：与后端 `AppCouponOfferVo` 一致 */
+export interface CouponOffer {
+  id: number;
+  name: string;
+  thresholdAmount: number;
+  discountAmount: number;
+  /** 0 = 用 validTo 的绝对区间 */
+  validDays: number;
+  validTo: string | null;
+}
+
 export const couponApi = {
+  /** 可领取的券（**需要绑定手机号**）。已持有可用券的模板不会出现。 */
+  listOffers(): Promise<{ items: CouponOffer[] }> {
+    return request<{ items: CouponOffer[] }>({ path: '/app/coupon-offers' });
+  },
+
+  /**
+   * 领券。
+   *
+   * 重复领会 409（服务端事务内锁模板行，并发也只会成功一次），
+   * 所以这里**直接把后端的 message 转述**，不要自己编文案。
+   */
+  claim(templateId: number): Promise<CustomerCoupon> {
+    return request<CustomerCoupon>({
+      path: '/app/coupons/claim',
+      method: 'POST',
+      data: { templateId },
+    });
+  },
+
   listMine(
     status: CouponStatusFilter = 'all',
     page = 1,

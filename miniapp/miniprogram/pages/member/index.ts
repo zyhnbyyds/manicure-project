@@ -1,4 +1,4 @@
-import { memberApi } from '../../api/index';
+import { couponApi, memberApi } from '../../api/index';
 import { bindPhone, isBound } from '../../store/auth';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDiscount } from '../../utils/format';
@@ -60,6 +60,10 @@ Page({
     bonusText: '0.00',
     points: 0,
     cardCount: 0,
+    // 可领取的券（promo 区）
+    offerId: 0,
+    offerName: '',
+    offerSubText: '',
   },
 
   onLoad() {
@@ -80,6 +84,9 @@ Page({
     this.setData({ loading: true, errorText: '' });
     try {
       const me = await memberApi.getMe();
+      // 可领取的券与会员信息一起取；取不到不影响本页其它内容
+      const offers = await couponApi.listOffers().catch(() => ({ items: [] }));
+      const firstOffer = offers.items[0];
       const activeCards = me.cards.filter((card) => card.status === 'active');
       this.setData({
         loading: false,
@@ -95,6 +102,16 @@ Page({
         bonusText: fenToYuan(me.balanceBonus),
         points: me.points,
         cardCount: activeCards.length,
+        offerId: firstOffer ? firstOffer.id : 0,
+        offerName: firstOffer ? firstOffer.name : '暂无可领的券',
+        offerSubText: firstOffer
+          ? '可领 ' +
+            fenToYuan(firstOffer.discountAmount) +
+            ' 元券' +
+            (firstOffer.thresholdAmount > 0
+              ? '（满 ' + fenToYuan(firstOffer.thresholdAmount) + ' 元可用）'
+              : '（无门槛）')
+          : '门店有活动时会出现在这里',
       });
     } catch (error) {
       if (isApiFailure(error) && error.needBind) {
@@ -134,9 +151,26 @@ Page({
     toast('该权益以门店实际活动为准');
   },
 
-  onClaim() {
-    // 没有优惠券/活动模型：入口照设计稿保留，交互如实降级
-    toast('活动领取功能开发中，可先咨询门店');
+  async onClaim() {
+    if (!this.data.offerId) return;
+    showLoading('领取中');
+    try {
+      await couponApi.claim(this.data.offerId);
+      hideLoading();
+      wx.showModal({
+        title: '领取成功',
+        content: '券已放进「我的优惠券」，下单时可以选择使用。',
+        showCancel: false,
+        confirmText: '好',
+        confirmColor: '#B45F6B',
+        complete: () => {
+          void this.load();
+        },
+      });
+    } catch (error) {
+      hideLoading();
+      toast(isApiFailure(error) ? error.message : '领取失败，请稍后再试');
+    }
   },
 
   onRecharge() {
