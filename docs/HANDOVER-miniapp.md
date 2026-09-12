@@ -472,3 +472,50 @@ POST /app/bookings            建单新增 couponId（券核销同事务）
 4. **加后端路由后必须重启**：`bun src/main.ts` 不带 watch。
    本会话为此白排查了 4 次 —— **建议把「重启后端」写进验证脚本的第一步**，
    别靠记性。
+
+
+---
+
+## 12. 优惠券后台管理端（2026-09-12 完成）
+
+### 12.1 能力清单
+
+| 操作 | 接口 | 权限点 |
+| ---- | ---- | ------ |
+| 券模板 列表 / 详情 | `GET /biz/coupon-templates`、`GET /biz/coupon-templates/:id` | `biz:coupon:list` |
+| 券模板 新增 / 修改 / 停用 | `POST`、`PATCH :id`、`DELETE :id` | `biz:coupon:create/update/delete` |
+| **给顾客发券** | `POST /biz/members/:id/coupons` | `biz:member:coupon` |
+| 查某顾客的券 | `GET /biz/members/:id/coupons` | `biz:member:list` |
+
+页面：`web/src/views/biz/coupons/index.vue`（券模板维护，菜单 `biz_coupons`）+
+会员列表操作列的「发券」入口。菜单 seed 已含 `biz:coupon:*` 与 `biz:member:coupon`。
+
+### 12.2 两条发放口径**必须不一样**（已被测试固定）
+
+| 场景 | 口径 | 为什么 |
+| ---- | ---- | ------ |
+| 顾客**自助领券** `POST /app/coupons/claim` | **一次一张**，已持有可用券 → 409 | 防薅羊毛；且事务内锁模板行串行化 |
+| 后台**发券** `POST /biz/members/:id/coupons` | **允许重复发放** | 补偿、活动补发是正常诉求，加去重会把合法操作挡掉 |
+
+**不要「顺手统一」这两条** —— 各自都有测试钉着
+（`b7-coupon-claim` / `b7-coupon-issue`）。
+
+### 12.3 几个容易改坏的点
+
+1. **单号是「主键回填」且必须包在事务里**：先插占位号 → 拿自增 id → 回填正式号。
+   不能用「查当日最大号 +1」（并发必然重号）；不包事务则中途失败会
+   **永久留下一张 `TMP...` 号的券**；
+2. **模板停用/删除不影响已发出的券** —— 面额与门槛在发券时已快照到持有行。
+   列表里给 `claimedCount` 就是为了让运营看得见影响面；
+3. **错误要从 `cause` 链里找**：drizzle 把 mysql2 错误包成 `DrizzleQueryError`，
+   顶层 message 只有 `Failed query: ...`，约束名与 errno 在 `cause` 里。
+   只看顶层会让「同名模板」返回 500 而不是 409；
+4. **前端金额（元）↔ 接口金额（分）** 只在两个转换函数里做，页面不做任何折算。
+
+### 12.4 未做（按需再补，不是缺口）
+
+| 项 | 说明 |
+| -- | ---- |
+| 会员详情加「优惠券」Tab | 接口 `GET /biz/members/:id/coupons` 已就绪，页面还没用 |
+| **手工作废/核销券** | 目前券只能等下单自动核销。运营发错一张券时**没有手工纠正手段** —— 这是最值得补的一项（需要新接口 + 状态流转 + 审计原因） |
+| 发券记录页 | 现在只能按顾客查；没有「某模板发给了谁」的全局视角 |
