@@ -71,12 +71,23 @@ Page({
     useCard: false,
     couponText: '选择',
     /** 可用券列表（真实接口） */
+    /** 可选券（已按门槛过滤）；未达门槛的在 `allCoupons` 里 */
     coupons: [] as {
       id: number;
       nameText: string;
       thresholdText: string;
       discountAmount: number;
+      thresholdAmount: number;
     }[],
+    allCoupons: [] as {
+      id: number;
+      nameText: string;
+      thresholdText: string;
+      discountAmount: number;
+      thresholdAmount: number;
+    }[],
+    /** 因未达门槛而不可选的券数量（用于给顾客一个解释，而不是凭空少了几张） */
+    blockedCouponCount: 0,
     /** 本单是否使用券；与 usePoints **互斥**（服务端也会拒绝同时传） */
     useCoupon: false,
     couponId: 0,
@@ -146,7 +157,7 @@ Page({
           cardName: activeCard ? activeCard.cardName : '',
           cardRemain: activeCard ? activeCard.totalTimes - activeCard.usedTimes : 0,
           discountPermille: me.discountPermille,
-          coupons: (couponPage ? couponPage.items : []).map((c) => ({
+          allCoupons: (couponPage ? couponPage.items : []).map((c) => ({
             id: c.id,
             nameText: c.templateName ?? '优惠券',
             thresholdText:
@@ -154,29 +165,53 @@ Page({
                 ? '满 ' + fenToYuan(c.thresholdAmount) + ' 元'
                 : '无门槛',
             discountAmount: c.discountAmount,
+            thresholdAmount: c.thresholdAmount,
           })),
         },
         () => this.recalc(),
       );
     } catch {
       // 未绑定手机号或接口失败：不影响下单，只是不能预估优惠与选券
-      this.setData({ coupons: [], useCoupon: false, couponId: 0, couponDiscount: 0 });
+      this.setData({
+        coupons: [],
+        allCoupons: [],
+        blockedCouponCount: 0,
+        useCoupon: false,
+        couponId: 0,
+        couponDiscount: 0,
+      });
       this.recalc();
     }
   },
 
   /** 预估金额（与服务端同一套公开公式；最终以提交后的结算为准） */
   recalc() {
-    const { items, usePoints, points, discountPermille, useCoupon, couponDiscount } =
-      this.data;
+    const {
+      items,
+      usePoints,
+      points,
+      discountPermille,
+      useCoupon,
+      couponId,
+      couponDiscount,
+    } = this.data;
     const original = items.reduce((sum, item) => sum + item.price, 0);
     const permille = discountPermille;
     const levelDisc = Math.floor((original * (1000 - permille)) / 1000);
     const base = Math.max(original - levelDisc, 0);
 
+    // 券按**门槛**过滤：不让前端展示注定被服务端拒绝的选项。
+    // 门槛按「等级折扣之后」的金额判 —— 与核销处同一口径。
+    const selectable = this.data.allCoupons.filter(
+      (c) => c.thresholdAmount <= base,
+    );
+    const blockedCouponCount = this.data.allCoupons.length - selectable.length;
+    // 已选券若已不满足门槛（例如换了项目），就地清掉 —— 否则预估会与实际不一致
+    const keepCoupon = useCoupon && selectable.some((c) => c.id === couponId);
+
     // 券在**等级折扣之后、积分之前**；且与积分**同一单二选一**（与服务端一致）。
     // 页面上的开关互斥（见 onTogglePoints / onPickCoupon），这里再兜一层。
-    const couponDisc = useCoupon ? Math.min(couponDiscount, base) : 0;
+    const couponDisc = keepCoupon ? Math.min(couponDiscount, base) : 0;
 
     const maxByPoints = Math.floor(points / POINTS_PER_YUAN);
     const maxByRatio = Math.floor((base * MAX_POINTS_PERMILLE) / 1000);
@@ -187,6 +222,12 @@ Page({
     const payable = Math.max(original - totalDisc, 0);
 
     this.setData({
+      coupons: selectable,
+      blockedCouponCount,
+      useCoupon: keepCoupon,
+      couponId: keepCoupon ? couponId : 0,
+      couponDiscount: keepCoupon ? couponDiscount : 0,
+      couponText: keepCoupon ? this.data.couponText : '选择',
       levelDiscountText: fenToYuan(levelDisc),
       couponDiscountText: fenToYuan(couponDisc),
       pointsDiscountText: fenToYuan(pointsDisc),
@@ -222,7 +263,11 @@ Page({
 
   onPickCoupon() {
     if (this.data.coupons.length === 0) {
-      toast('暂无可用优惠券');
+      toast(
+        this.data.blockedCouponCount > 0
+          ? '有 ' + this.data.blockedCouponCount + ' 张券，但未达到使用门槛'
+          : '暂无可用优惠券',
+      );
       return;
     }
     wx.showActionSheet({

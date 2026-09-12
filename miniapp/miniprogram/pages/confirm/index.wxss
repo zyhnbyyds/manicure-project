@@ -180,3 +180,10 @@
 .empty__action {
   margin-top: 28rpx;
 }
+
+/* 券未达门槛的说明：让「少了几张券」有解释，而不是凭空消失 */
+.deduct__hint {
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  color: var(--c-text-weak);
+}
