@@ -22,13 +22,13 @@ flowchart LR
 
 ### 核心约定（流程编排，勿写入脚本输出）
 
-| 步骤                   | 职责                                                                                                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Step 1 `api list`**  | 确认 `mode`（merchant/partner）、接口ID 与查单参数，组装 `--params` JSON                                                                                        |
-| **Step 2 `api build`** | 用 Step 1 的 `--params` 生成 `signMessage`；缺参会报错，补全后重试；**Agent 从 CLI 输出的 JSON 中保存 `signMessage` 原文（禁止篡改）**                          |
-| **Step 3 方式 A**      | 开发者回传 `Authorization` 头，或 `serial_no` + `timestamp` + `nonce_str` + `signature`                                                                         |
-| **Step 3 方式 B**      | 本机 `extract_and_sign` 对 Step 2 的 `signMessage` 签名，回传脚本结果                                                                                           |
-| **Step 4 `api call`**  | **仅使用 Step 3 回传**的 `serial_no` / `timestamp` / `nonce_str` / `signature` 拼 `Authorization`；可与 Step 2 嵌入的 timestamp/nonce **不一致**（方式 A 常见） |
+| 步骤 | 职责 |
+|------|------|
+| **Step 1 `api list`** | 确认 `mode`（merchant/partner）、接口ID 与查单参数，组装 `--params` JSON |
+| **Step 2 `api build`** | 用 Step 1 的 `--params` 生成 `signMessage`；缺参会报错，补全后重试；**Agent 从 CLI 输出的 JSON 中保存 `signMessage` 原文（禁止篡改）** |
+| **Step 3 方式 A** | 开发者回传 `Authorization` 头，或 `serial_no` + `timestamp` + `nonce_str` + `signature` |
+| **Step 3 方式 B** | 本机 `extract_and_sign` 对 Step 2 的 `signMessage` 签名，回传脚本结果 |
+| **Step 4 `api call`** | **仅使用 Step 3 回传**的 `serial_no` / `timestamp` / `nonce_str` / `signature` 拼 `Authorization`；可与 Step 2 嵌入的 timestamp/nonce **不一致**（方式 A 常见） |
 
 > 方式 B 须对 Step 2 的 `signMessage` **原样**签名，故回传的 `timestamp`/`nonce_str` 应与该串内一致。
 
@@ -158,11 +158,11 @@ Step 3：获取签名值
 
 拼接规则：
 
-| 参数                           | Agent 如何填写                                                            |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| `--signString` / `-SignString` | Step 2 保存的 `signMessage` 原文（单引号包裹）                            |
-| `--filePath` / `-FilePath`     | 占位路径 `/path/to/apiclient_cert.p12` 或 `C:\path\to\apiclient_cert.p12` |
-| `--password` / `-Password`     | Step 1 的 `mchid`（merchant）或 `sp_mchid`（partner）                     |
+| 参数 | Agent 如何填写 |
+|------|----------------|
+| `--signString` / `-SignString` | Step 2 保存的 `signMessage` 原文（单引号包裹） |
+| `--filePath` / `-FilePath` | 占位路径 `/path/to/apiclient_cert.p12` 或 `C:\path\to\apiclient_cert.p12` |
+| `--password` / `-Password` | Step 1 的 `mchid`（merchant）或 `sp_mchid`（partner） |
 
 **macOS / Linux 示例**（`mchid=1900007291`）：
 
@@ -184,13 +184,13 @@ powershell -ExecutionPolicy Bypass -File "<SKILL目录>\scripts\powershell\extra
 
 Agent 从开发者回传内容中，在 **「签名结果开始」与「签名结果结束」** 标识之间提取下列字段，供 Step 4 使用：
 
-| 终端行前缀                     | 用途                          |
-| ------------------------------ | ----------------------------- |
-| `API 证书序列号（serial_no）:` | Step 4 `--serial_no`          |
-| `时间戳（timestamp）:`         | Step 4 `--timestamp`          |
-| `随机串（nonce_str）:`         | Step 4 `--nonce_str`          |
-| `签名值（signature）:`         | Step 4 `--signature`          |
-| `API 证书中的商户号:`          | Step 4.1 与 Step 1 商户号比对 |
+| 终端行前缀 | 用途 |
+|------------|------|
+| `API 证书序列号（serial_no）:` | Step 4 `--serial_no` |
+| `时间戳（timestamp）:` | Step 4 `--timestamp` |
+| `随机串（nonce_str）:` | Step 4 `--nonce_str` |
+| `签名值（signature）:` | Step 4 `--signature` |
+| `API 证书中的商户号:` | Step 4.1 与 Step 1 商户号比对 |
 
 ### 方式 B 预期输入（开发者从终端复制回传）
 
