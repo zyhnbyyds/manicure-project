@@ -836,6 +836,12 @@ export const bizBookings = mysqlTable(
     levelDiscountAmount: int('level_discount_amount', { unsigned: true })
       .default(0)
       .notNull(),
+    /** 使用的券（可空）。券与积分**同一单二选一**，口径见 money.ts 的 quoteBooking */
+    couponId: int('coupon_id', { unsigned: true }),
+    /** 券抵扣额（分）：券在等级折扣之后、积分之前 */
+    couponDiscountAmount: int('coupon_discount_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
     pointsDiscountAmount: int('points_discount_amount', { unsigned: true })
       .default(0)
       .notNull(),
