@@ -22,6 +22,7 @@ import type { Dept, User } from '~/types/api';
 import { renderStatus } from '~/utils/render';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+import { openImagePreview } from '~/composables/useImagePreview';
 
 // ---------- 列表 ----------
 const statusFilters = [
@@ -79,13 +80,18 @@ const columns: LewTableColumn[] = [
     field: 'avatar',
     width: 80,
     customRender: ({ row }) => {
-      const avatar = (row as unknown as User).avatar;
+      const user = row as unknown as User;
+      const avatar = user.avatar;
       if (!avatar)
         return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
+      // 头像走全局查看器（同一套缩放 / 拖拽交互，不另开新窗口）
       return h('img', {
         src: avatar,
         alt: 'avatar',
-        class: 'w-28px h-28px rounded-full object-cover',
+        class:
+          'w-28px h-28px rounded-full object-cover cursor-zoom-in transition-transform hover:scale-110',
+        title: '点击查看大图',
+        onClick: () => openImagePreview([avatar], 0, user.displayName),
       });
     },
   },

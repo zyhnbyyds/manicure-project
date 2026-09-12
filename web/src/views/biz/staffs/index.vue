@@ -31,6 +31,7 @@ import { useUserStore } from '~/store/user';
 import { renderStatus } from '~/utils/render';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+import { openImagePreview } from '~/composables/useImagePreview';
 
 const userStore = useUserStore();
 
@@ -60,13 +61,18 @@ const columns: LewTableColumn[] = [
     field: 'avatar',
     width: 76,
     customRender: ({ row }) => {
-      const avatar = (row as unknown as Staff).avatar;
+      const staff = row as unknown as Staff;
+      const avatar = staff.avatar;
       if (!avatar)
         return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
+      // 头像也走全局查看器：小图看不清五官时能放大（同一套交互，不另开新窗口）
       return h('img', {
         src: avatar,
         alt: 'avatar',
-        class: 'w-28px h-28px rounded-full object-cover',
+        class:
+          'w-28px h-28px rounded-full object-cover cursor-zoom-in transition-transform hover:scale-110',
+        title: '点击查看大图',
+        onClick: () => openImagePreview([avatar], 0, staff.nickname),
       });
     },
   },
@@ -169,61 +175,63 @@ const form = ref<FormValues>(emptyForm());
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
 
-const formOptions = computed<LewFormOption[]>(() => withPassThroughRule([
-  {
-    field: 'nickname',
-    label: '昵称',
-    as: 'input',
-    rule: "Yup.string().required('不能为空')",
-    props: { placeholder: '如 小美', clearable: true },
-  },
-  {
-    field: 'avatar',
-    label: '头像',
-    as: 'input',
-    props: { placeholder: '选填，图片地址', clearable: true },
-  },
-  {
-    field: 'phone',
-    label: '电话',
-    as: 'input',
-    props: { placeholder: '选填', clearable: true },
-  },
-  {
-    field: 'userId',
-    label: '后台账号',
-    as: canListUsers ? 'select' : 'input-number',
-    tips: canListUsers
-      ? '选填；一个账号只能绑定一位美甲师，绑定后该账号只能看自己的预约'
-      : '选填，填后台用户 ID（无「用户管理」列表权限时只能手填）',
-    props: canListUsers
-      ? {
-          options: userOptions,
-          placeholder: '不绑定后台账号',
-          clearable: true,
-        }
-      : { min: 1, placeholder: '选填，用户 ID' },
-  },
-  {
-    field: 'bio',
-    label: '简介',
-    as: 'textarea',
-    props: { placeholder: '选填，擅长风格', rows: 2 },
-  },
-  { field: 'status', label: '状态', as: 'switch' },
-  {
-    field: 'sort',
-    label: '排序',
-    as: 'input-number',
-    props: { min: 0 },
-  },
-  {
-    field: 'remark',
-    label: '备注',
-    as: 'textarea',
-    props: { placeholder: '选填', rows: 2 },
-  },
-]));
+const formOptions = computed<LewFormOption[]>(() =>
+  withPassThroughRule([
+    {
+      field: 'nickname',
+      label: '昵称',
+      as: 'input',
+      rule: "Yup.string().required('不能为空')",
+      props: { placeholder: '如 小美', clearable: true },
+    },
+    {
+      field: 'avatar',
+      label: '头像',
+      as: 'input',
+      props: { placeholder: '选填，图片地址', clearable: true },
+    },
+    {
+      field: 'phone',
+      label: '电话',
+      as: 'input',
+      props: { placeholder: '选填', clearable: true },
+    },
+    {
+      field: 'userId',
+      label: '后台账号',
+      as: canListUsers ? 'select' : 'input-number',
+      tips: canListUsers
+        ? '选填；一个账号只能绑定一位美甲师，绑定后该账号只能看自己的预约'
+        : '选填，填后台用户 ID（无「用户管理」列表权限时只能手填）',
+      props: canListUsers
+        ? {
+            options: userOptions,
+            placeholder: '不绑定后台账号',
+            clearable: true,
+          }
+        : { min: 1, placeholder: '选填，用户 ID' },
+    },
+    {
+      field: 'bio',
+      label: '简介',
+      as: 'textarea',
+      props: { placeholder: '选填，擅长风格', rows: 2 },
+    },
+    { field: 'status', label: '状态', as: 'switch' },
+    {
+      field: 'sort',
+      label: '排序',
+      as: 'input-number',
+      props: { min: 0 },
+    },
+    {
+      field: 'remark',
+      label: '备注',
+      as: 'textarea',
+      props: { placeholder: '选填', rows: 2 },
+    },
+  ]),
+);
 
 function openCreate() {
   editingId.value = null;

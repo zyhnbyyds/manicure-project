@@ -11,11 +11,7 @@ import {
   LewSelect,
   LewTable,
 } from 'lew-ui';
-import type {
-  LewFormOption,
-  LewTableColumn,
-  LewUploadFileItem,
-} from 'lew-ui';
+import type { LewFormOption, LewTableColumn, LewUploadFileItem } from 'lew-ui';
 import {
   createServiceItem,
   deleteServiceItem,
@@ -33,11 +29,9 @@ import { renderStatus } from '~/utils/render';
 import { withPassThroughRule } from '~/utils/form';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
-import ImageViewer from '~/components/ImageViewer.vue';
-import {
-  stripDisplayImageUrl,
-  toDisplayImageUrl,
-} from '~/utils/image-url';
+import { openImagePreview } from '~/composables/useImagePreview';
+import { useUploadImagePreview } from '~/composables/useUploadImagePreview';
+import { stripDisplayImageUrl, toDisplayImageUrl } from '~/utils/image-url';
 
 /** 金额口径：接口是「分」，展示 / 表单是「元」（保留两位） */
 function centsToYuan(cents: number | null | undefined): number {
@@ -80,11 +74,13 @@ function toUploadItems(urls: string[] | null | undefined): LewUploadFileItem[] {
 
 /** 只取上传成功的那些：`pending` / `fail` / `wrong_*` 不该进库 */
 function toImageUrls(items: LewUploadFileItem[] | null | undefined): string[] {
-  return (items ?? [])
-    .filter((item) => item.status === 'complete' || item.status === 'success')
-    // 剥掉显示用的扩展名标记，保证入库的是干净地址（否则每存一次就长一截）
-    .map((item) => stripDisplayImageUrl(item.url ?? ''))
-    .filter((url): url is string => Boolean(url));
+  return (
+    (items ?? [])
+      .filter((item) => item.status === 'complete' || item.status === 'success')
+      // 剥掉显示用的扩展名标记，保证入库的是干净地址（否则每存一次就长一截）
+      .map((item) => stripDisplayImageUrl(item.url ?? ''))
+      .filter((url): url is string => Boolean(url))
+  );
 }
 
 /** 交给 LewUpload 的上传实现：走统一文件接口，成功后回填可直接预览的地址 */
@@ -166,24 +162,26 @@ const columns: LewTableColumn[] = [
     field: 'images',
     width: 96,
     customRender: ({ row }) => {
-      const urls = (row as unknown as ServiceItem).images ?? [];
+      const item = row as unknown as ServiceItem;
+      const urls = item.images ?? [];
       const cover = urls[0];
       if (!cover)
         return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
-      // 点开**站内查看器**（弹层、可切换、可滚轮缩放）——
+      // 点开**全局查看器**（弹层、可切换、可滚轮缩放）——
       // 原来用 `<a target="_blank">` 会跳出后台新开标签页，丢掉上下文
       return h(
         'div',
         {
           class: 'inline-flex cursor-zoom-in items-center gap-1',
           title: '点击预览（可切换 / 滚轮缩放）',
-          onClick: () => openViewer(urls, 0),
+          onClick: () => openImagePreview(urls, 0, item.name),
         },
         [
           h('img', {
             src: cover,
             alt: '封面',
-            class: 'w-32px h-32px rounded object-cover border border-[var(--app-border)]',
+            class:
+              'w-32px h-32px rounded object-cover border border-[var(--app-border)]',
           }),
           urls.length > 1
             ? h(
@@ -251,26 +249,29 @@ const form = ref<FormValues>(emptyForm());
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
 
-// ---------- 图片查看器（弹层：多图切换 + 滚轮缩放）----------
-const viewerVisible = ref(false);
-const viewerImages = ref<string[]>([]);
-const viewerIndex = ref(0);
-
-/** 打开站内查看器（**不要**用 `window.open` / `<a target="_blank">`：会跳出后台） */
-function openViewer(images: string[], index = 0) {
-  if (!images.length) return;
-  viewerImages.value = images;
-  viewerIndex.value = index;
-  viewerVisible.value = true;
-}
-
-/** 弹窗里当前已上传/已保存的图片（供弹窗内的预览条用） */
+// ---------- 图片查看（全局单例，见 `~/components/ImageViewer.vue`）----------
+/** 弹窗里当前已上传/已保存的图片（顺序 = 上传区缩略图的顺序） */
 const formImages = computed(() =>
   (form.value.images ?? [])
     .filter((item) => item.status === 'complete' || item.status === 'success')
     .map((item) => stripDisplayImageUrl(item.url ?? ''))
     .filter((url): url is string => Boolean(url)),
 );
+
+/**
+ * 上传区缩略图 → 全局查看器。
+ *
+ * lew-ui 2.8.2 的缩略图**本身不可点**（库里没有图片预览实现），
+ * 所以这里挂一层代理监听；点缩略图打开的是**同一套**查看器，
+ * 页面里不再额外摆一条「大图预览」入口 —— 一件事只有一种做法。
+ */
+const uploadHostRef = ref<HTMLElement>();
+useUploadImagePreview(
+  uploadHostRef,
+  () => formImages.value,
+  () => form.value.name,
+);
+
 function emptyForm(): FormValues {
   return {
     name: '',
@@ -556,39 +557,23 @@ function handleReset() {
       ]"
     >
       <div class="p-5">
-        <LewForm
-          :key="formKey"
-          ref="formRef"
-          v-model="form"
-          label-width="80px"
-          :options="formOptions"
-        />
-        <!--
-          上传组件自带的预览只能「弹出 + 切换」（库限制：**不支持缩放**），
-          所以这里额外给一个入口打开站内查看器（滚轮缩放 / 拖拽 / 方向键切换）。
-        -->
-        <div v-if="formImages.length" class="mt-2">
-          <p class="mb-1 text-12px text-[var(--app-text-muted)]">
-            大图预览（点击放大 · 滚轮缩放 · 多图切换）
-          </p>
-          <div class="flex flex-wrap gap-2">
-            <img
-              v-for="(url, i) in formImages"
-              :key="url"
-              :src="url"
-              alt="预览"
-              class="h-14 w-14 cursor-zoom-in rounded-4px border border-[var(--app-border)] object-cover"
-              @click="openViewer(formImages, i)"
-            />
-          </div>
+        <!-- 上传区缩略图由 `useUploadImagePreview` 接管 → 点击打开全局查看器 -->
+        <div ref="uploadHostRef">
+          <LewForm
+            :key="formKey"
+            ref="formRef"
+            v-model="form"
+            label-width="80px"
+            :options="formOptions"
+          />
         </div>
+        <p
+          v-if="formImages.length"
+          class="mt-1 ml-80px text-12px text-[var(--app-text-muted)]"
+        >
+          点击缩略图可放大预览（缩放 / 拖拽 / 底部小图切换）
+        </p>
       </div>
     </LewModal>
-
-    <ImageViewer
-      v-model:visible="viewerVisible"
-      :images="viewerImages"
-      :start-index="viewerIndex"
-    />
   </div>
 </template>

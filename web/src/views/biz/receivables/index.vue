@@ -37,6 +37,7 @@ import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+import { openImagePreview } from '~/composables/useImagePreview';
 
 // ---------- 金额工具 ----------
 function fen2yuan(value: number | null | undefined): string {
@@ -505,7 +506,8 @@ function handleSwitchToCash() {
   confirmDanger({
     type: 'normal',
     title: '改现金收款',
-    content: '将关闭这张超时的在线支付单，然后请按现金方式重新销账。确定继续吗？',
+    content:
+      '将关闭这张超时的在线支付单，然后请按现金方式重新销账。确定继续吗？',
     confirmText: '改为现金',
     confirmColor: 'primary',
     onConfirm: async () => {
@@ -1093,7 +1095,9 @@ async function refreshAll() {
           v-if="qrIsImage"
           :src="qrCodeUrl"
           alt="收款二维码"
-          class="h-200px w-200px object-contain"
+          title="点击放大（方便顾客远距离扫码）"
+          class="h-200px w-200px cursor-zoom-in object-contain"
+          @click="openImagePreview([qrCodeUrl], 0, '在线收款码')"
         />
         <!--
           TODO(QR): 项目未内置二维码渲染库（web/package.json 不可改），
@@ -1116,9 +1120,16 @@ async function refreshAll() {
           <span v-else>已超时 · </span>
           <span>{{ qrStatusText }}</span>
         </div>
-        <div v-if="qrRemaining <= 0 && qrStatus !== 'success'" class="flex gap-2">
-          <LewButton type="fill" @click="handleReacquire">重新获取二维码</LewButton>
-          <LewButton type="light" @click="handleSwitchToCash">改现金收款</LewButton>
+        <div
+          v-if="qrRemaining <= 0 && qrStatus !== 'success'"
+          class="flex gap-2"
+        >
+          <LewButton type="fill" @click="handleReacquire"
+            >重新获取二维码</LewButton
+          >
+          <LewButton type="light" @click="handleSwitchToCash"
+            >改现金收款</LewButton
+          >
         </div>
         <div class="flex gap-2">
           <LewButton type="light" @click="copyQrUrl">复制支付链接</LewButton>

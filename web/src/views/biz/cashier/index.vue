@@ -33,6 +33,7 @@ import { previewPoints, type PointsPreview } from '~/api/biz/points-goods';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+import { openImagePreview } from '~/composables/useImagePreview';
 
 // ---------- 金额换算 ----------
 function fen2yuan(fen: number | null | undefined): string {
@@ -1033,7 +1034,17 @@ function renderPayStatus(status: string) {
             v-if="qrIsImage"
             :src="qrPayment?.codeUrl ?? ''"
             alt="支付二维码"
-            class="h-full w-full object-contain"
+            title="点击放大（方便顾客远距离扫码）"
+            class="h-full w-full cursor-zoom-in object-contain"
+            @click="
+              openImagePreview(
+                [qrPayment?.codeUrl ?? ''],
+                0,
+                qrPayment?.channel === 'alipay_qr'
+                  ? '支付宝收款码'
+                  : '微信收款码',
+              )
+            "
           />
           <div
             v-else

@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Download, Eye, Trash2, Upload } from 'lucide-vue-next';
-import {
-  LewButton,
-  LewMessage,
-  LewModal,
-  LewPagination,
-  LewTable,
-} from 'lew-ui';
+import { LewButton, LewMessage, LewPagination, LewTable } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
 import {
   deleteFile,
@@ -16,6 +10,7 @@ import {
   uploadFile,
 } from '~/api/files';
 import { useTable } from '~/composables/useTable';
+import { openImagePreview } from '~/composables/useImagePreview';
 import { formatDateTime, formatSize } from '~/composables/useFormat';
 import type { FileItem } from '~/types/api';
 import { confirmDanger } from '~/utils/confirm';
@@ -78,19 +73,25 @@ function handleDownload(row: FileItem) {
 }
 
 // ---------- 图片预览 ----------
-const previewVisible = ref(false);
-const previewFile = ref<FileItem | null>(null);
-const previewLoading = ref(true);
-
 function isImage(item: FileItem) {
   return item.mime?.toLowerCase().startsWith('image/');
 }
 
+/** 当前页里所有图片：交给全局查看器做底部小图切换（一次点开能左右翻完整页） */
+const pageImages = computed(() =>
+  items.value
+    .filter((item) => isImage(item))
+    .map((item) => ({ url: filePreviewUrl(item.id), name: item.originalName })),
+);
+
 function handlePreview(row: FileItem) {
   if (!isImage(row)) return;
-  previewFile.value = row;
-  previewLoading.value = true;
-  previewVisible.value = true;
+  const url = filePreviewUrl(row.id);
+  openImagePreview(
+    pageImages.value,
+    pageImages.value.findIndex((image) => image.url === url),
+    row.originalName,
+  );
 }
 
 // ---------- 删除 ----------
@@ -178,37 +179,5 @@ function handleDelete(row: FileItem) {
         />
       </div>
     </div>
-
-    <!-- 图片预览弹窗 -->
-    <LewModal
-      v-model:visible="previewVisible"
-      :title="previewFile?.originalName ?? '预览'"
-      width="720px"
-      :hide-footer="true"
-    >
-      <div class="p-5">
-        <div
-          v-if="previewLoading"
-          class="flex items-center justify-center h-400px text-13px text-[var(--app-text-muted)]"
-        >
-          加载中…
-        </div>
-        <img
-          v-show="!previewLoading && previewFile"
-          :key="previewFile?.id"
-          :src="previewFile ? filePreviewUrl(previewFile.id) : ''"
-          class="block max-w-full max-h-70vh mx-auto object-contain rounded-8px"
-          alt="预览"
-          @load="previewLoading = false"
-          @error="previewLoading = false"
-        />
-        <div
-          v-if="!previewLoading && !previewFile"
-          class="flex items-center justify-center h-200px text-13px text-[var(--app-text-muted)]"
-        >
-          无可预览文件
-        </div>
-      </div>
-    </LewModal>
   </div>
 </template>

@@ -5,6 +5,7 @@ import { LewButton, LewForm, LewMessage } from 'lew-ui';
 import type { LewFormOption } from 'lew-ui';
 import { changePassword, getProfile, updateProfile } from '~/api/auth';
 import { uploadFile } from '~/api/files';
+import { openImagePreview } from '~/composables/useImagePreview';
 import { useUserStore } from '~/store/user';
 
 const userStore = useUserStore();
@@ -179,7 +180,9 @@ async function handleChangePassword() {
             v-if="profile.avatar"
             :src="profile.avatar"
             alt="avatar"
-            class="w-64px h-64px rounded-full object-cover border border-[var(--app-border)]"
+            title="点击查看大图"
+            class="w-64px h-64px cursor-zoom-in rounded-full border border-[var(--app-border)] object-cover transition-transform hover:scale-105"
+            @click="openImagePreview([profile.avatar], 0, userStore.username)"
           />
           <span
             v-else
