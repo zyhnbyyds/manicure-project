@@ -60,7 +60,7 @@ metadata:
 `fileDownloadUrl(id)` 走附件下载。上传接口只要登录态，不需要额外权限点。
 
 **LewForm 原生支持 `as: 'upload'`**（底层就是 `LewUpload`），一步拿到多选、拖拽、缩略图、
-点击放大预览、删除，不用自己写 `input[type=file]`：
+删除，不用自己写 `input[type=file]`（**注意：缩略图点击放大要自己接，见下**）：
 
 ```ts
 {
@@ -89,14 +89,26 @@ metadata:
 - **`formOptions` 必须用 `withPassThroughRule(...)` 包一层**（`~/utils/form`），
   否则控制台会刷 `The schema does not contain the path: images`。原因见「常见坑」。
 
-列表要展示图片时，用 `customRender` 渲染缩略图 + 剩余张数徽标，点击新窗口预览：
+## 图片预览：**全站只有一个查看器**（别自己写弹窗 / 别跳新窗口）
+
+`~/components/ImageViewer.vue` 挂在 `App.vue` 上做**全局单例**，交互统一为：
+底部缩略图切换、围绕指针缩放（滚轮 / 双指 / `+` `-`）、拖拽平移（拖不出边界）、
+双击复位、`←` `→` / `Home` `End` 切换、`Esc` 关闭、失败可重试。
 
 ```ts
-h('a', { href: cover, target: '_blank', rel: 'noopener noreferrer' }, [
-  h('img', { src: cover, class: 'w-32px h-32px rounded object-cover border border-[var(--app-border)]' }),
-  urls.length > 1 ? h('span', { class: 'text-[var(--app-text-muted)] text-xs' }, `+${urls.length - 1}`) : null,
-]);
+import { openImagePreview } from '~/composables/useImagePreview';
+
+openImagePreview(urls, startIndex, '图集名');   // 空数组自动忽略；下标越界自动夹回
 ```
+
+**不要**再用 `window.open` / `<a target="_blank">` 预览图片（会跳出后台丢上下文），
+也不要在页面里另摆一套预览弹窗（同一件事两种做法 = 交互割裂）。
+纯逻辑（下标回绕、锚点缩放、平移夹取、标题）在 `~/utils/image-viewer.ts`，有单测。
+
+- 列表里展示图片：`customRender` 渲染缩略图 + 剩余张数徽标，点击 `openImagePreview(urls, 0, name)`。
+- 表单里 `as: 'upload'` 的缩略图：**lew-ui 2.8.2 没有图片预览，缩略图点了没反应**（见
+  `docs/pitfalls/web.md` §8）。用 `useUploadImagePreview(hostRef, () => urls, () => title)`
+  接管点击，别自己写「大图预览」缩略图带。
 
 ## 交互约定
 
@@ -131,3 +143,7 @@ h('a', { href: cover, target: '_blank', rel: 'noopener noreferrer' }, [
   两种写法都要包：脚本里的 `formOptions`，以及模板里内联的
   `:options="withPassThroughRule([...])"`。写新页面时直接包上，别等报错。
   （全项目 22 个文件 / 29 处已统一包好，2026-09-11。）
+- 图片预览用 `window.open` / `<a target="_blank">` → 跳出后台丢上下文；自己再写一个预览弹窗
+  → 与全局查看器两套手感。统一 `openImagePreview(...)`。
+- 浮层盖在 lew-ui 弹窗上时：`z-index` 要用任意值语法（`z-[3000]`，`z-3000` 不会被生成），
+  并且 `Esc` 要在**捕获阶段**拦掉，否则会连底下的弹窗一起关。详见 `docs/pitfalls/web.md` §10。

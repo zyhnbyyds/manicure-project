@@ -75,3 +75,61 @@
   表单如果按「元」录入，**只在两个转换函数里换**（提交前 `Math.round(元 * 100)`）。
 - **时间**：后端存 UTC，前端统一按 `Asia/Shanghai` 展示（`~/composables/useFormat.ts`）。
 - **来源**：技能 + 实测。
+
+---
+
+## 8. lew-ui 2.8.2 **没有**图片预览，上传缩略图点了没反应
+
+- **现象**：`LewUpload` 上传/回显的缩略图，点击后**什么都不发生**；想要「点击放大」只能自己接。
+  （此前技能与本文件曾写过「lew-ui 自带预览能切换、但不能缩放」—— **那是错的**，本次已纠正。）
+- **根因**：库只导出一个 `dist/index.js`，里面**搜不到任何 preview 实现**：
+  `LewUploadByCard` / `LewUploadByList` 给 `LewImage` 传的 `preview-group-key`
+  是个**没人消费的属性**（`LewImage` 的 props 里根本没有它），`dist/index.css` 里也没有
+  `.lew-*-preview` 之类样式。真正存在的只有「按扩展名判定渲染成图片还是文件图标」那一条正则。
+- **正确做法**：
+  1. 图片预览统一走自家全局查看器（`~/components/ImageViewer.vue`，挂在 `App.vue`，
+     任何页面 `openImagePreview(images, index, title)` 调用）；
+  2. 上传区缩略图要能点，用 `useUploadImagePreview(hostRef, () => urls)` 在**容器**上挂一层
+     捕获阶段代理（命中 `.lew-upload-file-image` 才接管，删除/重传按钮不受影响）；
+  3. 别再抄一条「大图预览」缩略图带 —— 一件事只留一种做法（本次删掉了服务项目弹窗里的重复入口）。
+- **来源**：实测（先按「库自带预览」的错误假设写了拦截方案，翻 `lew-ui/dist` 后推翻）。
+
+---
+
+## 9. 查看器的缩放：`transition` 的 `transform` 与内联 `transform` 会互相覆盖
+
+- **现象**：切图动画（`translateX` 淡入）加上去之后**不生效**，或者一加动画缩放就乱跳。
+- **根因**：缩放/平移是用内联 `style.transform` 表达的，而 Vue `<Transition>` 的
+  `*-enter-from` 也是改 `transform`；**内联样式优先级高于样式表**，动画类永远赢不了。
+- **正确做法**：分两层 —— 外层 `.iv-frame` 只负责「缩放 + 平移」（内联 transform），
+  内层 `<img class="iv-image">` 只负责「换图」动画（类里的 transform），互不打架。
+- **来源**：实测（重写查看器时踩）。
+
+---
+
+## 10. 盖在 lew-ui 弹窗之上的浮层：`z-index` 与 `Esc` 都要自己处理
+
+- **现象**：
+  1. `z-3000` 不生效，查看器被弹窗盖住；
+  2. 在「编辑服务项目」弹窗里打开查看器后按 `Esc`，**查看器和编辑弹窗一起关了**（未保存的表单直接丢）。
+- **根因**：
+  1. UnoCSS 预设只生成**已知刻度**（`z-10/50/1200/1201`…），`z-3000` 这种不在刻度里就不会有对应 CSS
+     —— 必须写任意值语法 `z-[3000]`；
+  2. lew-ui 有一套内部 z-index 管理器（`BASE_Z_INDEX = 2001` + `isTop(id)`），
+     `closeByEsc` 时只关「它自己认定的栈顶弹窗」，而**我们的浮层没登记**，
+     于是底下的弹窗依然认为自己是栈顶 → Esc 把它也关了。
+- **正确做法**：
+  1. 任意 z-index 用 `z-[3000]`（改完去**最新的**产物 CSS 里搜 `.z-\[3000\]` 确认）；
+  2. 浮层的 `keydown` 用 **捕获阶段** 注册（`addEventListener('keydown', fn, true)`），
+     处理掉 `Esc` / `←` `→` 时 `event.stopPropagation()`，事件就到不了 lew-ui 的监听。
+- **来源**：实测（两次都真踩了，`e379a3e` 修 z-index，本次修 Esc）。
+
+---
+
+## 11. 平移归零会算出 `-0`
+
+- **现象**：`expect({ x: 0, y: -0 }).toEqual({ x: 0, y: 0 })` 失败；样式里出现 `translate3d(0px, -0px, 0)`。
+- **根因**：`Math.max(-90, -0)` 得到 `-0`，`Object.is(-0, 0) === false`。
+- **正确做法**：夹取结果 `+ 0` 归一（`clampPan` 里已处理），别指望调用方擦屁股。
+- **来源**：实测（`image-viewer.spec.ts` 第一次跑就红）。
+
