@@ -14,6 +14,7 @@ import {
   type MemberCardRow,
   NoticePort,
   PointsGoodsPort,
+  CouponPort,
   type BookingWithItems,
   ReviewPort,
 } from '../../biz/common/ports.js';
@@ -28,6 +29,7 @@ import type {
   AppMemberMeVo,
   AppPointsGoodsListVo,
   AppPointsRedeemVo,
+  AppCustomerCouponListVo,
   AppReviewVo,
   AppSubscribeVo,
 } from '../dto/app-vo.js';
@@ -59,6 +61,7 @@ export class AppMemberService {
     private readonly notices: NoticePort,
     private readonly bookingPort: BookingPort,
     private readonly pointsGoods: PointsGoodsPort,
+    private readonly coupons: CouponPort,
   ) {}
 
   /**
@@ -130,6 +133,41 @@ export class AppMemberService {
       points: result.points,
       cardNo: result.cardNo,
       cardId: result.cardId,
+    };
+  }
+
+  /**
+   * 我的优惠券（§15 / 本目标新增）。
+   *
+   * **必须要身份**（券是个人权益，与「积分商品目录」那种公开目录不同）。
+   * 状态筛选下推到 SQL（由 `CouponsService.listMine` 负责），
+   * 这里只做**字段白名单投影**：`templateId` / `remark` / 审计字段一律不出。
+   */
+  async listCoupons(
+    appUserId: number,
+    filter: 'usable' | 'used' | 'expired' | 'void' | 'all' = 'all',
+    page = 1,
+    pageSize = 20,
+  ): Promise<AppCustomerCouponListVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const result = await this.coupons.listMine(
+      customerId,
+      filter,
+      page,
+      pageSize,
+    );
+    return {
+      items: result.items.map((row) => ({
+        id: row.id,
+        couponNo: row.couponNo,
+        discountAmount: row.discountAmount,
+        thresholdAmount: row.thresholdAmount,
+        status: row.displayStatus,
+        expireAt: row.expireAt ? row.expireAt.toISOString() : null,
+        usedAt: row.usedAt ? row.usedAt.toISOString() : null,
+      })),
+      page: result.page,
+      pageSize: result.pageSize,
     };
   }
 

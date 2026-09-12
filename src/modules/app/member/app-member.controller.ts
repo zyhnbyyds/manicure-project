@@ -31,6 +31,7 @@ import {
   appCancelBookingRequestSchema,
   appCreateBookingRequestSchema,
   appCreateReviewRequestSchema,
+  appCouponsQuerySchema,
   appListQuerySchema,
   appMemberCardsQuerySchema,
   appPointsRedeemRequestSchema,
@@ -169,6 +170,44 @@ export class AppMemberController {
     if (!appUser) throw new UnauthorizedException();
     const input = appPointsRedeemRequestSchema.parse(body);
     return this.member.redeemPoints(appUser.id, input.goodsId);
+  }
+
+  @Get('coupons')
+  @ApiOperation({
+    summary: '我的优惠券',
+    description:
+      '**需要绑定手机号**（券是个人权益）。只返回本人券，状态为**现算**后的展示状态：' +
+      '`usable` 但已过期的券在这里就是 `expired`，不依赖定时任务是否跑过。' +
+      '响应**不含** `templateId`、模板备注与审计字段。',
+  })
+  @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    description: '每页条数',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'usable / used / expired / void / all，不传 = all',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppCustomerCouponListVo' },
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  coupons(@Req() request: AppRequest, @Query() query: Record<string, unknown>) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    const { page, pageSize, status } = appCouponsQuerySchema.parse(query);
+    return this.member.listCoupons(
+      appUser.id,
+      status ?? 'all',
+      page ?? 1,
+      pageSize ?? 20,
+    );
   }
 
   /* ------------------------------------------------------------------ *

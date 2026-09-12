@@ -968,8 +968,7 @@ export type PointsGoodsView = {
   cardTypeName: string | null;
 };
 
-export abstract class PointsGoodsPort {
-  abstract list(
+export abstract class PointsGoodsPort {  abstract list(
     page: number,
     pageSize: number,
     filter?: { status?: 'active' | 'disabled'; keyword?: string },
@@ -997,4 +996,33 @@ export abstract class PointsGoodsPort {
     cardNo: string;
     points: number;
   }>;
+}
+
+/**
+ * 顾客持有的优惠券（顾客侧只读视图）。
+ *
+ * **刻意不包含 `templateId` / `remark` / 审计字段** —— 这些都是内部信息，
+ * §8.3 要求不出现在 app 侧响应里。放在端口类型上是为了让「不该出去的东西」
+ * 在 app 域**根本拿不到**，而不是靠投影时记得删。
+ */
+export type CustomerCouponView = {
+  id: number;
+  couponNo: string;
+  /** 面额快照（分） */
+  discountAmount: number;
+  /** 门槛快照（分） */
+  thresholdAmount: number;
+  /** **现算**后的展示状态：usable 但已过期 → expired */
+  displayStatus: 'usable' | 'used' | 'expired' | 'void';
+  expireAt: Date | null;
+  usedAt: Date | null;
+};
+
+export abstract class CouponPort {
+  abstract listMine(
+    customerId: number,
+    filter?: 'usable' | 'used' | 'expired' | 'void' | 'all',
+    page?: number,
+    pageSize?: number,
+  ): Promise<{ items: CustomerCouponView[]; page: number; pageSize: number }>;
 }

@@ -324,6 +324,48 @@ export const appPointsRedeemVo = z.object({
 });
 registerComponent('AppPointsRedeemVo', appPointsRedeemVo);
 export type AppPointsRedeemVo = z.infer<typeof appPointsRedeemVo>;
+
+/**
+ * 顾客持有的优惠券（对外字段）。
+ *
+ * **不含 `templateId`**（模板 id 是后台概念，顾客不需要也无法使用）、
+ * **不含 `remark` 与审计字段**。`status` 取的是**现算后**的展示状态 ——
+ * `usable` 但已过期的券在这里就是 `expired`，与次卡同一口径。
+ */
+export const appCustomerCouponVo = z.object({
+  id: z.number().int(),
+  couponNo: z.string(),
+  /** 面额（分） */
+  discountAmount: z.number().int(),
+  /** 使用门槛（分）；0 = 无门槛 */
+  thresholdAmount: z.number().int(),
+  status: z.enum(['usable', 'used', 'expired', 'void']),
+  expireAt: z
+    .string()
+    .nullable()
+    .openapi({ example: '2027-09-11T00:00:00.000Z' }),
+  usedAt: z.string().nullable(),
+});
+registerComponent('AppCustomerCouponVo', appCustomerCouponVo);
+export type AppCustomerCouponVo = z.infer<typeof appCustomerCouponVo>;
+
+export const appCouponsQuerySchema = appListQuerySchema.extend({
+  status: z
+    .enum(['usable', 'used', 'expired', 'void', 'all'])
+    .optional()
+    .openapi({ description: '按状态过滤（不传 = all）' }),
+});
+registerComponent('AppCouponsQuery', appCouponsQuerySchema);
+
+export const appCustomerCouponListVo = z.object({
+  items: z.array(appCustomerCouponVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppCustomerCouponListVo', appCustomerCouponListVo);
+export type AppCustomerCouponListVo = z.infer<
+  typeof appCustomerCouponListVo
+>;
 export type AppMemberCardListVo = z.infer<typeof appMemberCardListVo>;
 
 /** 会员信息：余额只有本金 + 赠送，无任何内部字段 */

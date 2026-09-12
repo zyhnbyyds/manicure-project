@@ -44,7 +44,8 @@ import { CustomersService } from './base-data/customers/customers.service.js';
 import { ServiceItemsService } from './base-data/service-items/service-items.service.js';
 import { StaffsService } from './base-data/staffs/staffs.service.js';
 import { PointsGoodsService } from './membership/points-goods/points-goods.service.js';
-import { PointsGoodsPort } from './common/ports.js';
+import { PointsGoodsPort, CouponPort } from './common/ports.js';
+import { CouponsService } from './membership/coupons/coupons.service.js';
 
 /**
  * 业务域根模块（B1~B6）。
@@ -89,6 +90,7 @@ import { PointsGoodsPort } from './common/ports.js';
     { provide: ReviewPort, useExisting: ReviewsService },
     // 积分兑换品：顾客侧只读目录（兑换动作仍走后台同一 service，避免算价口径分叉）
     { provide: PointsGoodsPort, useExisting: PointsGoodsService },
+    { provide: CouponPort, useExisting: CouponsService },
   ],
   exports: [
     ServiceItemPort,
@@ -109,6 +111,7 @@ import { PointsGoodsPort } from './common/ports.js';
     RecurrencePort,
     ReviewPort,
     PointsGoodsPort,
+    CouponPort,
     // 需要具体 service 时导出「模块」而不是 provider：Nest 不允许导出
     // 不属于当前模块的 provider（它们由 BookingModule 提供）
     BookingModule,
