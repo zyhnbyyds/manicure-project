@@ -409,3 +409,66 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 （若读取与核销之间券被别人用掉，核销 409 → 整个建单事务回滚）。
 实现时把 `redeemForBooking` 已有的三段前置校验（归属 / 状态与过期 / 门槛）
 抽成一个私有方法复用，避免两处口径分叉。
+
+---
+
+## 11. 真接口对接 / 优惠券 / 积分 —— 验证账本（2026-09-12）
+
+### 11.1 五条要求的达成证据
+
+| 要求 | 证据 |
+| ---- | ---- |
+| ① 清掉 mock、全部接真接口 | 小程序侧 grep `isMock / MOCK_BADGE / DEMO_CUSTOMER_ID / use-mock` **为 0**；`api/mock.ts`（552 行）已删；实测登录换真 token、11 个项目、4 位美甲师、33 个时段 |
+| ② 优惠券 + 积分 | app 域新增 6 条路由（见 11.2）；**6 个集成测试文件**；券核销与建单**同事务**；`used_booking_id` 唯一索引 + 条件更新防一券多用 |
+| ③ 未登录/已登录区分 | 统一门面 `store/session.ts`；**10 个页面**有 `guest / requireSession / needBind` 分支（bookings, booking-detail, pay, confirm, member, points, coupons, card-detail, recharge, mine）；引导链路端到端验证过 |
+| ④ 补接口 + 测试 | 两侧 `tsc --noEmit` **exit 0**；**1064 通过 / 0 失败**（整套 ~18 秒） |
+| ⑤ 一页/一链路一提交 | 本目标 35 个提交，每页或每条链路一次 |
+
+### 11.2 新增的 app 域接口
+
+```
+GET  /app/points-goods        积分兑换品目录（只要 token，不要求绑定）
+POST /app/points/redeem       兑换（复用后台 redeem() 的同事务实现）
+GET  /app/coupons             我的优惠券（状态**现算**：usable 但过期 → expired）
+GET  /app/coupon-offers       可领取的券（排除已持有可用券的模板）
+POST /app/coupons/claim       领券（事务内锁模板行串行化）
+POST /app/bookings            建单新增 couponId（券核销同事务）
+```
+
+### 11.3 关键口径（改之前先读这一段）
+
+1. **算价顺序**：原价 → 等级折扣 → **券抵扣** → 积分抵扣 → 手动改价 → 应付；
+   **券与积分同一单二选一**（同时传 → 400，**不静默忽略积分**）；
+2. **次卡 `payable = 0`，券必须同时归零**（`buildQuote` 的 `useCard` 分支）——
+   否则等于白送一次让利，**而且券会被真实消耗掉**；
+3. **核销的唯一闸门是条件更新**（`status='usable' AND used_booking_id IS NULL`），
+   `affectedRows=0` → 409 → 整个建单事务回滚。
+   `previewForBooking` 只用于算价，**不是闸门**；
+4. **券的门槛按「等级折扣后」金额判**，前端也要按这个口径过滤可选券
+   （否则会展示注定被 409 拒绝的选项）；
+5. **领券用行锁而非「先查再插」**：MySQL 没有部分唯一索引，
+   表达不了「同一顾客同一模板只能有一张**未使用**的券」。
+
+### 11.4 明确未做 / 已知取舍
+
+| 项 | 说明 |
+| -- | ---- |
+| 确认预约页的选券交互 | **只有手工验证**：用 `wx.showActionSheet`，原生弹层不便自动化断言。逻辑本身（门槛过滤、二选一、金额预估）已读页面 data 验证过 |
+| 会员卡页促销区的 `.catch` | 接口失败会被静默降级成「暂无可领的券」。取舍是「次要区块不该让整页失败」，但**下次应把「加载失败」与「确实没有」区分开** |
+| `biz_booking.coupon_id` 外键 | 未加。与 `biz_customer_coupon.used_booking_id → biz_booking` 会形成互相 SET NULL 的环；两表都软删，外键只剩装饰作用 |
+| JSAPI 支付通道 | 后端仍是 501 契约骨架（**原始范围外**，不是本次引入）。收银台的真实支付走不通，页面已如实提示 |
+| 微信凭据 | `.env` 未配置 `WX_MINIAPP_APPID/SECRET`，开发期用 `WX_MINIAPP_FAKE=true`（**生产强制失效**）。**上线前必须配真凭据** |
+
+### 11.5 测试基础设施（重要，别踩回去）
+
+1. **`resetBusinessData()` 用 `DELETE` 而不是 `TRUNCATE`**：
+   实测 37 张表 `TRUNCATE` 合计 **4067ms**、`DELETE` 合计 **56ms**（**差 73 倍**）。
+   InnoDB 的 `TRUNCATE` 是 DDL（重建表），而这里每张表在用例结束时空着。
+   整套回归因此从 **~530 秒降到 ~18 秒**。
+   **代价**：`AUTO_INCREMENT` 不重置 —— 用例一律用 `insertId`，**不要断言固定 id**；
+2. **reset 必须在一条连接上跑完**：`SET FOREIGN_KEY_CHECKS` 是**会话级**的，
+   而池子里有 10 条连接 —— 原来的 `pool.query` 可能换连接，那句 SET 形同虚设；
+3. `bunfig.toml` 的 `[test] timeout = 60000` 是**安全网**（hook 实测已 ~60ms）；
+4. **加后端路由后必须重启**：`bun src/main.ts` 不带 watch。
+   本会话为此白排查了 4 次 —— **建议把「重启后端」写进验证脚本的第一步**，
+   别靠记性。
