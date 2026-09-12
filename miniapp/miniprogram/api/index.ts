@@ -17,27 +17,7 @@
  * - 501 骨架：payments/wxpay/jsapi（JSAPI 支付契约位，JSAPI 下单在 P2 接通道）
  * 骨架接口在真接口模式下会抛「这个功能马上就来啦～」（`utils/request.ts` 里把 501 收敛了）。
  */
-import { isMockEnabled } from '../config';
 import { request } from '../utils/request';
-import {
-  MOCK_CARDS,
-  MOCK_MEMBER,
-  MOCK_SERVICE_ITEMS,
-  MOCK_STAFFS,
-  MOCK_STAFF_ME,
-  mockAvailableSlots,
-  mockBindPhone,
-  mockCancelBooking,
-  mockCreateBooking,
-  mockCreateReview,
-  mockListBookings,
-  mockLogin,
-  mockStaffApply,
-  mockStaffBookings,
-  mockStaffPerformance,
-  mockStaffReviews,
-  mockStaffSchedule,
-} from './mock';
 import type {
   AvailableSlots,
   BindPhoneVo,
@@ -63,26 +43,13 @@ import type {
   StaffSchedule,
 } from './types';
 
-let mockWarned = false;
 
 /** 演示数据只提示一次，避免每个请求都刷日志 */
-function useMock(): boolean {
-  const enabled = isMockEnabled();
-  if (enabled && !mockWarned) {
-    mockWarned = true;
-    console.warn(
-      '[manicure] 当前使用演示数据（config.isMockEnabled()=true）。' +
-        '配置 WX_MINIAPP_APPID/SECRET 后把 config.ts 的默认值改为 false 即切真接口。',
-    );
-  }
-  return enabled;
-}
 
 /* ── 认证 ──────────────────────────────────────────────────── */
 
 export const authApi = {
   login(payload: LoginRequest): Promise<LoginVo> {
-    if (useMock()) return Promise.resolve(mockLogin());
     return request<LoginVo>({
       path: '/app/auth/login',
       method: 'POST',
@@ -93,7 +60,6 @@ export const authApi = {
 
   /** 手机号绑定。返回里带工作台候选与授权状态（候选 ≠ 已开通，要店长后台确认） */
   bindPhone(code: string): Promise<BindPhoneVo> {
-    if (useMock()) return Promise.resolve(mockBindPhone());
     return request<BindPhoneVo>({
       path: '/app/auth/phone',
       method: 'POST',
@@ -106,9 +72,6 @@ export const authApi = {
 
 export const catalogApi = {
   listServiceItems(page = 1, pageSize = 50): Promise<Paged<ServiceItem>> {
-    if (useMock()) {
-      return Promise.resolve({ items: MOCK_SERVICE_ITEMS, page, pageSize });
-    }
     return request<Paged<ServiceItem>>({
       path: '/app/service-items',
       data: { page, pageSize },
@@ -116,8 +79,6 @@ export const catalogApi = {
   },
 
   listStaffs(): Promise<Paged<Staff>> {
-    if (useMock())
-      return Promise.resolve({ items: MOCK_STAFFS, page: 1, pageSize: 50 });
     return request<Paged<Staff>>({ path: '/app/staffs' });
   },
 
@@ -126,7 +87,6 @@ export const catalogApi = {
     date: string;
     serviceItemIds: number[];
   }): Promise<AvailableSlots> {
-    if (useMock()) return Promise.resolve(mockAvailableSlots(input));
     return request<AvailableSlots>({
       path: '/app/available-slots',
       data: {
@@ -142,17 +102,10 @@ export const catalogApi = {
 
 export const memberApi = {
   getMe(): Promise<MemberMe> {
-    if (useMock()) return Promise.resolve(MOCK_MEMBER);
     return request<MemberMe>({ path: '/app/member/me' });
   },
 
   listCards(status?: MemberCard['status']): Promise<Paged<MemberCard>> {
-    if (useMock()) {
-      const items = status
-        ? MOCK_CARDS.filter((card) => card.status === status)
-        : MOCK_CARDS;
-      return Promise.resolve({ items, page: 1, pageSize: 50 });
-    }
     return request<Paged<MemberCard>>({
       path: '/app/member/cards',
       data: status ? { status } : undefined,
@@ -166,7 +119,6 @@ export const bookingApi = {
   list(
     input: { status?: BookingStatus; page?: number; pageSize?: number } = {},
   ): Promise<Paged<Booking>> {
-    if (useMock()) return Promise.resolve(mockListBookings(input));
     return request<Paged<Booking>>({
       path: '/app/bookings',
       data: {
@@ -178,7 +130,6 @@ export const bookingApi = {
   },
 
   create(payload: CreateBookingRequest): Promise<Booking> {
-    if (useMock()) return Promise.resolve(mockCreateBooking(payload));
     return request<Booking>({
       path: '/app/bookings',
       method: 'POST',
@@ -187,7 +138,6 @@ export const bookingApi = {
   },
 
   cancel(bookingId: number, reason?: string): Promise<Booking | null> {
-    if (useMock()) return Promise.resolve(mockCancelBooking(bookingId));
     return request<Booking | null>({
       path: `/app/bookings/${bookingId}/cancel`,
       method: 'POST',
@@ -196,7 +146,6 @@ export const bookingApi = {
   },
 
   createReview(payload: CreateReviewRequest): Promise<{ id: number }> {
-    if (useMock()) return Promise.resolve(mockCreateReview(payload));
     return request<{ id: number }>({
       path: '/app/reviews',
       method: 'POST',
@@ -209,9 +158,6 @@ export const bookingApi = {
     bookingId: number;
     purpose: 'deposit' | 'final';
   }): Promise<JsapiPayment> {
-    if (useMock()) {
-      return Promise.reject(new Error('演示模式下不发起真实支付'));
-    }
     return request<JsapiPayment>({
       path: '/app/payments/wxpay/jsapi',
       method: 'POST',
@@ -227,12 +173,10 @@ export const bookingApi = {
 
 export const staffApi = {
   apply(): Promise<StaffApplyVo> {
-    if (useMock()) return Promise.resolve(mockStaffApply());
     return request<StaffApplyVo>({ path: '/app/staff/apply', method: 'POST' });
   },
 
   me(): Promise<StaffMe> {
-    if (useMock()) return Promise.resolve(MOCK_STAFF_ME);
     return request<StaffMe>({ path: '/app/staff/me' });
   },
 
@@ -244,7 +188,6 @@ export const staffApi = {
       pageSize?: number;
     } = {},
   ): Promise<Paged<StaffBooking>> {
-    if (useMock()) return Promise.resolve(mockStaffBookings(input));
     return request<Paged<StaffBooking>>({
       path: '/app/staff/bookings',
       data: {
@@ -257,7 +200,6 @@ export const staffApi = {
   },
 
   getSchedule(date: string): Promise<StaffSchedule> {
-    if (useMock()) return Promise.resolve(mockStaffSchedule(date));
     return request<StaffSchedule>({
       path: '/app/staff/schedule',
       data: { date },
@@ -265,7 +207,6 @@ export const staffApi = {
   },
 
   getPerformance(period?: string): Promise<StaffPerformance> {
-    if (useMock()) return Promise.resolve(mockStaffPerformance(period));
     return request<StaffPerformance>({
       path: '/app/staff/performance',
       data: period ? { period } : undefined,
@@ -273,7 +214,6 @@ export const staffApi = {
   },
 
   listReviews(page = 1, pageSize = 20): Promise<Paged<StaffReview>> {
-    if (useMock()) return Promise.resolve(mockStaffReviews(page, pageSize));
     return request<Paged<StaffReview>>({
       path: '/app/staff/reviews',
       data: { page, pageSize },
@@ -282,7 +222,6 @@ export const staffApi = {
 
   /** 按需取顾客真号（D11）：列表只给脱敏值，真号点拨号才取，且限本人单 */
   getBookingPhone(bookingId: number): Promise<StaffPhone> {
-    if (useMock()) return Promise.resolve({ phone: '13800000002' });
     return request<StaffPhone>({
       path: `/app/staff/bookings/${bookingId}/phone`,
     });
@@ -290,7 +229,6 @@ export const staffApi = {
 
   /** 标记顾客已到店；已在到店态返回 `changed:false`（幂等，不是失败） */
   markArrived(bookingId: number): Promise<StaffAction> {
-    if (useMock()) return Promise.resolve({ changed: true });
     return request<StaffAction>({
       path: `/app/staff/bookings/${bookingId}/arrived`,
       method: 'POST',
@@ -299,7 +237,6 @@ export const staffApi = {
 
   /** 标记服务完成（走后端既有完成动作：提成计提 + 到店次数 + 幂等闸门） */
   markCompleted(bookingId: number): Promise<StaffAction> {
-    if (useMock()) return Promise.resolve({ changed: true });
     return request<StaffAction>({
       path: `/app/staff/bookings/${bookingId}/complete`,
       method: 'POST',
