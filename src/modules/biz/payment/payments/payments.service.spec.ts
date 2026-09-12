@@ -1002,6 +1002,39 @@ describe('PaymentsService（§17 收银台）', () => {
       expect(h.settlement.recalc).toHaveBeenCalledWith(h.tx, 55);
     });
 
+    it('**本地已关单（closed）也要查渠道**：可能是最后一刻付款成功而回调丢了', async () => {
+      const h = createHarness({
+        dbSelect: [[payment({ status: 'closed' })]],
+        txUpdate: [[{ affectedRows: 1 }]],
+      });
+      h.wxpay.queryOrder.mockResolvedValueOnce({
+        status: 'success',
+        transactionId: '4200001',
+        amount: 10000,
+        paidAt: new Date(),
+        raw: {},
+      });
+
+      await expect(h.service.queryChannel(1, 7)).resolves.toEqual({
+        status: 'success',
+      });
+      // 关键：没有被「非 pending 就不打扰渠道」提前返回
+      expect(h.wxpay.queryOrder).toHaveBeenCalled();
+      expect(h.txInsertValues.mock.calls[0]?.[0]).toMatchObject({
+        event: 'query',
+      });
+    });
+
+    it('已退款（refunded）的支付单**不**会被重新落成 success', async () => {
+      const h = createHarness({
+        dbSelect: [[payment({ status: 'refunded' })]],
+      });
+      await expect(h.service.queryChannel(1, 7)).resolves.toEqual({
+        status: 'refunded',
+      });
+      expect(h.wxpay.queryOrder).not.toHaveBeenCalled();
+    });
+
     it('查单落地成功才发通知', async () => {
       const h = createHarness({
         dbSelect: [[payment({ purpose: 'card_buy' })]],
@@ -1025,7 +1058,7 @@ describe('PaymentsService（§17 收银台）', () => {
    * queryPending：批量兜底
    * ------------------------------------------------------------------ */
   describe('queryPending（批量兜底）', () => {
-    it('只挑「pending + 在线渠道 + 未过期」的单', async () => {
+    it('没有候选单时不查渠道', async () => {
       const h = createHarness({ dbSelect: [[]] });
       await expect(h.service.queryPending()).resolves.toEqual({
         checked: 0,

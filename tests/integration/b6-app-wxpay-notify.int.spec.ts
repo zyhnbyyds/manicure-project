@@ -226,6 +226,48 @@ describe('微信支付回调 /app/payments/wxpay/notify（A13）', () => {
     expect(response.body.code).toBe('FAIL');
     expect((await paymentRow(payment.id)).status).toBe('pending');
   });
+
+  it('**本地已关单（closed）+ 回调成功 → 仍要落地**（迟到的支付成功不能记丢）', async () => {
+    const payment = await seedPendingPayment(10000);
+    // 模拟关单任务已经把它关掉：顾客随后在最后一刻付款成功
+    await ctx.sql(`UPDATE biz_payment SET status = 'closed' WHERE id = ?`, [
+      payment.id,
+    ]);
+    const notify = buildWxpayNotify({
+      outTradeNo: payment.outTradeNo,
+      amount: 10000,
+    });
+
+    const response = await ctx.request(
+      'POST',
+      '/api/v1/app/payments/wxpay/notify',
+      { token: null, headers: notify.headers, body: notify.body },
+    );
+
+    // 只认 pending 的实现会在这里 0 行命中 → 当成「已处理」答 SUCCESS → 这笔钱永远记不上
+    expect(response.status).toBe(200);
+    expect(response.body.code).toBe('SUCCESS');
+
+    const row = await paymentRow(payment.id);
+    expect(row.status).toBe('success');
+    expect(row.transaction_id).toBeTruthy();
+
+    // 预约侧也要跟着重算（钱到账了）
+    const booking = await ctx.sql<{ paid_amount: number; pay_status: string }[]>(
+      `SELECT paid_amount, pay_status FROM biz_booking WHERE id = ?`,
+      [payment.bookingId],
+    );
+    expect(Number(booking[0].paid_amount)).toBe(10000);
+    expect(booking[0].pay_status).toBe('paid');
+
+    // 迟到落地要留痕，便于对账/复盘
+    const rows = await ctx.sql<{ raw: unknown }[]>(
+      `SELECT raw FROM biz_payment_log WHERE payment_id = ? AND event = 'callback'`,
+      [payment.id],
+    );
+    // `raw` 是 JSON 列，mysql2 直接给对象；序列化后再找标记
+    expect(JSON.stringify(rows[0]?.raw)).toContain('reopenedFrom');
+  });
 });
 
 /* ------------------------------------------------------------------ */

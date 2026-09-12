@@ -105,6 +105,24 @@ function temporaryToken(): string {
  *   `UPDATE ... WHERE out_trade_no=? AND status='pending'`（`settlePayment`）；
  * - 线上与线下**收款与建单同事务**（§6.5），挂账（`credit`）不走本 service。
  */
+/**
+ * 允许「落地为 success」的起始状态。
+ *
+ * **必须包含 `closed` / `failed`**：本地关单只是**我们自己的超时判断**，
+ * 而顾客完全可能在最后一刻付款成功。已验签的回调（或渠道查单结果）是
+ * **资金事实**，比本地的超时状态更权威。
+ *
+ * 只认 `pending` 会把这些钱记丢：回调到了 → 条件更新 0 行 → 被当成「已处理」
+ * → 回 SUCCESS 让微信停止重投 → 本地永远停在 closed（只能等对账发现）。
+ *
+ * 注意**不含** `success` / `refunded` / `partial_refunded`：那些是已经落过账的
+ * 状态，不能让它们被重新落成 success（那会把退款单的账冲坏）。
+ */
+const SETTLE_FROM_STATUSES = ['pending', 'closed', 'failed'] as const;
+
+/** 关单/失败后**继续主动查单**的时长：覆盖「最后一刻付款成功但回调丢了」 */
+const QUERY_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class PaymentsService extends PaymentPort {
   private readonly logger = new Logger(PaymentsService.name);
@@ -408,17 +426,25 @@ export class PaymentsService extends PaymentPort {
   /** 主动查单（回调丢失兜底，§17.3 第 4 步；与回调复用同一段幂等落地） */
   async queryPending(): Promise<{ checked: number; settled: number }> {
     const now = new Date();
+    // 关单/失败后**继续查 24 小时**：覆盖「最后一刻付款成功但回调丢了」。
+    // 代价是会给渠道多发几次查询（每 2 分钟一批、上限 200 条），
+    // 换来的是「钱收了但本地没记」不会拖到第二天对账才发现。
+    const lookbackFrom = new Date(now.getTime() - QUERY_LOOKBACK_MS);
     const rows = await this.database.db
       .select({ id: bizPayments.id })
       .from(bizPayments)
       .where(
         and(
-          eq(bizPayments.status, 'pending'),
+          inArray(bizPayments.status, SETTLE_FROM_STATUSES),
           inArray(bizPayments.channel, ONLINE_CHANNELS),
-          gt(bizPayments.expireAt, now),
+          // 未过期的照常查；过期后 24 小时内继续查
+          gt(bizPayments.expireAt, lookbackFrom),
+          // 已经拿到渠道交易号的说明落过账，不必再查
+          isNull(bizPayments.transactionId),
         ),
       )
-      .orderBy(asc(bizPayments.id))
+      // 最近过期的先查（最可能是「刚付款但回调丢了」的那批）
+      .orderBy(desc(bizPayments.expireAt))
       .limit(200);
     let settled = 0;
     for (const row of rows) {
@@ -440,8 +466,10 @@ export class PaymentsService extends PaymentPort {
     const payment = await this.requirePayment(id);
     if (!isOnlineChannel(payment.channel))
       throw new BadRequestException('该支付单不是在线支付，无需查单');
-    // 非 pending 的支付单已经定局（success / closed / failed 都是终态），不再打扰渠道
-    if (payment.status !== 'pending') return { status: payment.status };
+    // 只有「已经收到钱」与「已经退过款」才算真定局；**closed / failed 要继续查** ——
+    // 本地关单不等于渠道关单，顾客可能在最后一刻付款成功而回调丢了。
+    if (!(SETTLE_FROM_STATUSES as readonly string[]).includes(payment.status))
+      return { status: payment.status };
     const provider = this.providerFor(payment.channel);
     const state = await provider.queryOrder(payment.outTradeNo);
 
@@ -525,16 +553,27 @@ export class PaymentsService extends PaymentPort {
       .where(
         and(
           eq(bizPayments.outTradeNo, payment.outTradeNo),
-          eq(bizPayments.status, 'pending'),
+          // 允许从 closed / failed 落地（见 SETTLE_FROM_STATUSES 注释）
+          inArray(bizPayments.status, SETTLE_FROM_STATUSES),
         ),
       );
     if (!affected[0].affectedRows) return false;
+    if (payment.status !== 'pending') {
+      this.logger.warn(
+        `支付单 ${payment.paymentNo} 由 ${payment.status} 重新落地为 success` +
+          '（迟到的支付成功：本地已关单/失败，但渠道确实收到了钱）',
+      );
+    }
 
     await this.insertLog(tx, payment.id, event, {
       transactionId: input.transactionId,
       amount: input.amount,
       successTime: input.successTime.toISOString(),
       raw: input.raw,
+      // 迟到落地要留痕：对账/复盘时能看出「这单曾被我方关单又救回来」
+      ...(payment.status === 'pending'
+        ? {}
+        : { reopenedFrom: payment.status as string }),
     });
     await this.deliver(tx, payment, null);
     return true;
