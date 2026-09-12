@@ -25,12 +25,18 @@ function readMockOverride(): boolean | null {
 }
 
 /**
- * TODO(H3)：拿到 `WX_MINIAPP_APPID` / `WX_MINIAPP_SECRET` 并写进后端 `.env` 后，
- * 把默认值改为 `false` 并删除 `api/mock.ts` 的引用。
+ * 是否使用演示数据。
+ *
+ * **默认已是「用真接口」**（2026-09-12 起）：后端 25 条 `/app/**` 路由均已实现，
+ * 开发库里也有真实种子数据（11 个项目 / 4 位美甲师 / 排班齐），
+ * 并且通过 `WX_MINIAPP_FAKE=true`（**仅非生产**，见 `wxMiniappFake`）可以打通真登录链路。
+ *
+ * 保留本地覆盖开关的用途：后端没起、或想在无网络环境下看排版时，
+ * `wx.setStorageSync('manicure:use-mock', true)` 可临时切回演示数据。
  */
 export function isMockEnabled(): boolean {
   const override = readMockOverride();
-  return override === null ? true : override;
+  return override === null ? false : override;
 }
 
 export function setMockEnabled(enabled: boolean): void {
