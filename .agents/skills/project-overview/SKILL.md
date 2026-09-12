@@ -12,8 +12,10 @@ metadata:
 
 ## 一句话
 
-`manicure-api` —— 美甲店「到店预约 + 会员 + 收银 + 挂账 + 运营」的后台系统；
-微信小程序本期**只预留接口与认证域**，不做 UI。
+`manicure-api` —— 美甲店「到店预约 + 会员 + 收银 + 挂账 + 运营」的三端系统：
+后端 API + 后台管理前端（`web/`，44 页）+ **微信小程序（`miniapp/`，29 页）**，
+小程序已完成落地（顾客端 + 美甲师工作台双模式、7 套主题），不再是「只预留接口」。
+详见 [`README.md`](../../../README.md) 与 [`docs/HANDOVER-miniapp.md`](../../../docs/HANDOVER-miniapp.md)。
 
 ## 技术基线（不要换）
 
@@ -55,19 +57,27 @@ bun run db:seed:menus    # 菜单与权限点
 
 ```
 src/
-  database/schema/index.ts        # 32 张表 + defineRelations（唯一 schema 文件）
-  database/seed/menus.ts          # 菜单 + 权限点
-  database/seed/                  # 通知模板 / 退款判责规则 / 默认会员等级
-  modules/biz/                    # 业务模块（预约 / 会员 / 支付 / 挂账 / 运营）
-    common/                       # shop-time.ts、booking-config.ts、pay/、sms/
-  modules/app/                    # 小程序域（auth / catalog / member），独立守卫
-  modules/jobs/jobs.service.ts    # 注册 handler（本期共 10 个）
+  database/schema/index.ts        # 61 张表 + defineRelations（唯一 schema 文件）
+                                  #   biz 31 / sys 20 / ai 7 / app 3
+  database/seed/menus.ts          # 菜单 + 权限点（前端路由据此生成）
+  database/seed/                  # index(管理员) / biz(业务默认值) / nail(美甲基础数据) / demo(演示)
+  modules/biz/                    # 业务模块：base-data / scheduling / booking / membership
+                                  #            payment / credit / reports / operations / common
+                                  #   common/ 里有 shop-time.ts、booking-config.ts、money.ts、pay/、sms/
+  modules/app/                    # 小程序域（auth / catalog / member / payments / staff），独立守卫
+  modules/jobs/jobs.service.ts    # 注册 handler（当前 10 个）
 web/src/
   api/biz/*.ts                    # API 封装
-  views/biz/*/index.vue           # 24 个页面
+  views/biz/*/index.vue           # 26 个业务页面（另有 18 个基座页面）
   composables/useTable.ts         # 列表分页（无 total）
+  utils/table-text.ts             # 单元格文本省略统一走 lew-ui 的 LewTextTrim
+miniapp/miniprogram/              # 微信小程序（原生 TS，29 页）
+  pages/ · custom-tab-bar/ · store/ · theme/ · utils/ · assets/
+  utils/page.ts                   # definePage：页面 chrome + onShow 统一刷新
+  utils/load.ts                   # runLoad：统一加载状态机（首屏骨架 / 静默刷新）
 .agents/skills/                   # 本套技能（核心指引）
 docs/superpowers/specs/           # 设计文档（唯一事实来源）
+tests/integration/                # b1~b7 集成测试（真实 MySQL + harness）
 ```
 
 ## 实施批次（一次性全量交付，批次只是开发顺序）
@@ -79,9 +89,11 @@ docs/superpowers/specs/           # 设计文档（唯一事实来源）
 | **B3** | 收银：支付单/回调/对账 + 定金尾款 + 混合支付 + 退款（判责 + 审批）            | B1、B2       |
 | **B4** | 挂账应收月结 + 报表中心 + 提成                                                | B3           |
 | **B5** | 运营：评价 + 周期预约 + 美甲师可做项目 + 通知（短信/站内）                    | B1~B4        |
-| **B6** | 小程序预留：`app_` 表 + 认证域 + 4 个只读接口 + 写接口契约                    | B1（可并行） |
+| **B6** | ✅ 小程序：`app_` 表 + 认证域 + 全量接口 + **29 页 UI**（顾客端 + 工作台）    | B1（可并行） |
+| **B7** | ✅ 小程序收口：优惠券 / 积分兑换 / 充值方案 / 订单详情 + 对应集成用例         | B6           |
 
-**B1~B6 全部完成并通过 §12 全部验收才上线**；每批次必须单独跑通自己的集成验收，不许"最后一起测"。
+**B1~B7 均已完成**（仅 JSAPI 支付是 501 契约位，等支付通道开通后接）；上线前还须过 §12 验收与
+`docs/HANDOVER-miniapp.md` 第 5 节列出的人工门禁（备案 / 域名 / 正式 AppID / 证书等）。
 
 ## 技能索引（按模块加载）
 
