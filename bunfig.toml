@@ -4,8 +4,9 @@
 # 集成测试的**默认 hook / 用例超时**。
 #
 # 为什么需要它：`tests/integration/harness.ts` 的 `resetBusinessData()` 会
-# 逐个 `TRUNCATE` 约 40 张表（约 40 次数据库往返）。单独跑一个文件时很快，
-# 但整套回归（90+ 文件共享同一个 MySQL）满载时会**偶发超过 10 秒** ——
+# 逐个清空约 37 张业务表（用 `DELETE`，不是 `TRUNCATE` —— 见 harness 里的实测注释：
+# TRUNCATE 4067ms vs DELETE 56ms，差 73 倍）。单独跑一个文件时很快，
+# 但整套回归（100+ 文件共享同一个 MySQL）满载时会**偶发超过 10 秒** ——
 # 而 10 秒正是测试框架的默认值，于是表现为：
 #
 #   a beforeEach/afterEach hook timed out for this test

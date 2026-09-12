@@ -5,7 +5,7 @@
  * 具体实现由 `BizModule`（@Global）用 `useExisting` 绑定到这些 token 上。
  * 这样并行开发的模块之间没有编译期耦合，也不会出现循环依赖。
  *
- * 方法签名是冻结契约，见 `docs/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`。
+ * 方法签名是冻结契约，见 `project-design/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`。
  */
 import type {
   bizBookingItems,
@@ -1047,7 +1047,8 @@ export type PointsGoodsView = {
   cardTypeName: string | null;
 };
 
-export abstract class PointsGoodsPort {  abstract list(
+export abstract class PointsGoodsPort {
+  abstract list(
     page: number,
     pageSize: number,
     filter?: { status?: 'active' | 'disabled'; keyword?: string },

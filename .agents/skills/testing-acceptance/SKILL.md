@@ -4,7 +4,7 @@ description: 测试与验收：真实 MySQL 集成测试入口（.env.test + 独
 whenToUse: 写验收或集成测试；准备提交/上线前自检；复现并发、超订、账实不符类问题。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §12 / §11 / §6.2 / §6.6
 ---
 

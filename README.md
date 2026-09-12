@@ -4,8 +4,8 @@
 
 美甲门店的**到店预约与经营管理**系统，三端一体：
 
-- **后端 API** —— NestJS 12 + Fastify + Drizzle ORM + MySQL 8（61 张表：业务 31 / 系统 20 / AI 7 / 小程序身份 3）；
-- **后台管理前端** —— Vue 3 + Vite + lew-ui，**44 个页面**（业务 26 + 基座 18）；
+- **后端 API** —— NestJS 12 + Fastify + Drizzle ORM + MySQL 8（61 张表：业务 31 / 系统 18 / AI 7 / 小程序身份 3 / 通知 2）；
+- **后台管理前端** —— Vue 3 + Vite + lew-ui，**46 个页面**（业务 26 + 基座 18 + AI 面板等）；
 - **微信小程序** —— 原生 TypeScript，**29 个页面**，顾客端与**美甲师工作台**双模式、7 套预设主题 + 10 色自定义色板。
 
 业务覆盖：预约与排班（可约时段算法）· 会员（等级折扣 / 储值 / 次卡 / 积分 / 优惠券）· 收银（微信 Native、支付宝当面付、定金尾款、混合支付、退款判责与审批）· 挂账应收 · 报表与提成 · 运营（评价 / 周期预约 / 通知）。
@@ -13,7 +13,7 @@
 
 [![Bun](https://img.shields.io/badge/bun-%3E%3D1.4-orange)](https://bun.sh)
 [![NestJS](https://img.shields.io/badge/nestjs-12-red)](https://nestjs.com)
-[![TypeScript](https://img.shields.io/badge/typescript-5.9-blue)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/typescript-6-blue)](https://www.typescriptlang.org)
 [![Vue](https://img.shields.io/badge/vue-3.5-green)](https://vuejs.org)
 [![Vite](https://img.shields.io/badge/vite-8-purple)](https://vitejs.dev)
 [![WeChat MiniProgram](https://img.shields.io/badge/miniprogram-native%20TS-07C160)](https://developers.weixin.qq.com/miniprogram/dev/framework/)
@@ -39,15 +39,15 @@
 
 **后台管理端**
 
-<img src="docs/screenshots/login.png"  alt="登录页" width="45%" />
-<img src="docs/screenshots/dashboard.png" alt="首页数据看板" width="45%" />
+<img src="project-design/screenshots/login.png"  alt="登录页" width="45%" />
+<img src="project-design/screenshots/dashboard.png" alt="首页数据看板" width="45%" />
 
-**微信小程序端**（`docs/screenshots/miniapp/`）
+**微信小程序端**（`project-design/screenshots/miniapp/`）
 
-<img src="docs/screenshots/miniapp/02-home.png" alt="首页" width="22%" />
-<img src="docs/screenshots/miniapp/03-services.png" alt="款式库" width="22%" />
-<img src="docs/screenshots/miniapp/04-service-detail.png" alt="款式详情" width="22%" />
-<img src="docs/screenshots/miniapp/06-staff-workbench.png" alt="美甲师工作台" width="22%" />
+<img src="project-design/screenshots/miniapp/02-home.png" alt="首页" width="22%" />
+<img src="project-design/screenshots/miniapp/03-services.png" alt="款式库" width="22%" />
+<img src="project-design/screenshots/miniapp/04-service-detail.png" alt="款式详情" width="22%" />
+<img src="project-design/screenshots/miniapp/06-staff-workbench.png" alt="美甲师工作台" width="22%" />
 
 ## 功能模块
 
@@ -90,7 +90,7 @@
 - **app 域接口**：认证（`POST /app/auth/login`、`POST /app/auth/phone`）· 目录（`GET /app/service-items|staffs|available-slots`）· 会员（`GET /app/member/me|cards`、`GET /app/recharge-plans|points-goods|coupon-offers|coupons`、`POST /app/points/redeem|coupons/claim`）· 预约与支付（`GET/POST /app/bookings`、`/app/bookings/:id`、`/app/bookings/:id/cancel`、`POST /app/reviews|subscribe`、`POST /app/payments/wxpay/notify`）· 工作台（`POST /app/staff/apply`、`GET /app/staff/me|bookings|schedule|performance|reviews`、`GET /app/staff/bookings/:id/phone`、`POST /app/staff/bookings/:id/arrived|complete`）；
 - **尚未接通道的只有 JSAPI 支付**（`POST /app/payments/wxpay/jsapi` 仍是 501 契约位，小程序内支付等通道开通后在 P2 接），其余接口都是真实现。
 
-> 小程序「预留 → 落地」的完整背景、验收账本与遗留项见 [`docs/HANDOVER-miniapp.md`](./docs/HANDOVER-miniapp.md)。
+> 小程序「预留 → 落地」的完整背景、验收账本与遗留项见 [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md)。
 
 ## AI 操作助手
 
@@ -108,8 +108,8 @@
 
 | 端         | 选型                                                                                                        |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| **后端**   | NestJS 12 + Fastify · Drizzle ORM 1.0（MySQL 8）· Zod 4 校验 · jose（JWT）· Bun.password（argon2id）· @nestjs/schedule + cron · @nestjs/swagger |
-| **后台前端** | Vue 3.5 + Vite 8 + TypeScript 5.9 · Vue Router 5 · Pinia 3 · lew-ui · UnoCSS · ECharts 6 · axios（401 自动刷新 + 并发排队） |
+| **后端**   | NestJS 12 + Fastify · Drizzle ORM 1.0.0-rc.3（MySQL 8）· Zod 4 校验 · jose（JWT）· Bun.password（argon2id）· @nestjs/schedule + cron · @nestjs/swagger |
+| **后台前端** | Vue 3.5 + Vite 8 + TypeScript 6 · Vue Router 5 · Pinia 3 · lew-ui 2.8 · UnoCSS · ECharts 6 · axios（401 自动刷新 + 并发排队） |
 | **小程序** | 微信原生小程序 + TypeScript（glass-easel）· 自绘主题令牌 + 薄封装工具层（不引第三方 UI 库） |
 | **工程**   | Bun 1.4（唯一运行时：应用 / 迁移 / seed / 测试）· oxlint + oxfmt · bun test（断言沿用 vitest API） |
 
@@ -187,18 +187,25 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 │       ├── app/                      # 小程序域：auth · catalog · member · payments · staff（独立守卫）
 │       ├── system/ monitor/ dashboard/ jobs/ files/ generator/ health/
 │       └── generated/                # 代码生成器输出（gitignore）
-├── web/                              # 后台前端（Vue 3 + Vite，44 个页面）
+├── web/                              # 后台前端（Vue 3 + Vite，46 个页面）
 ├── miniapp/                          # 微信小程序（原生 TS，29 个页面）
 │   ├── miniprogram/                  # pages / custom-tab-bar / store / theme / utils / assets
 │   └── project.config.json           # appid 与编译配置
 ├── tests/integration/                # b1~b7 集成测试（真实 MySQL）+ harness
-├── docs/                             # 设计文档 / 踩坑记录 / 交接说明 / 截图 / 品牌资源
+├── docs/                             # 对客操作手册（Markdown + VitePress，面向门店人员）
+├── dev-docs/                         # 开发者文档（VitePress，架构 / 数据 / 接口 / 测试 / 部署）
+├── project-design/                   # 设计资料库（spec / 施工计划 / 踩坑 / UI 稿 / 品牌 / 截图）
 ├── .agents/skills/                   # 按模块拆分的开发技能（给人和 AI 共用）
+├── scripts/                          # 仓库脚本（文档死链校验等）
 ├── uploads/                          # 文件上传目录
 └── ecosystem.config.js               # PM2 部署配置
 ```
 
 ## 环境变量
+
+> ⚠️ **只有根目录的 `.env` 会被加载**：`src/app.module.ts` 里是 `ConfigModule.forRoot({ isGlobal: true })`，
+> 没传 `envFilePath`，所以 `.env.development` / `.env.prod` 不会被应用自动读取（集成测试 harness 另行手工解析 `.env.test`）。
+> 换环境请直接改 `.env`，或者用进程环境变量覆盖（`PORT=3000 bun run dev`）。
 
 **基础**
 
@@ -219,7 +226,7 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 | `UPLOAD_DIR`         |   否   | `uploads`               | 文件上传目录                      |
 | `SWAGGER_ENABLED`    |   否   | `true`                  | 是否启用 Swagger                  |
 | `SWAGGER_PATH`       |   否   | `docs`                  | Swagger 路径                      |
-| `SEED_ADMIN_PASSWORD` |  否   | —                       | `db:seed` 时的管理员密码          |
+| `SEED_ADMIN_PASSWORD` | **仅 seed** | —                  | `db:seed` 时的管理员密码；**不填会直接抛错** |
 
 **微信小程序**
 
@@ -274,10 +281,22 @@ bun run typecheck / lint
 bunx tsc --noEmit -p miniapp/tsconfig.json
 ```
 
+### 文档自检
+
+改完 `docs/` 或 `dev-docs/` 的 Markdown 后，用这两个脚本自检（两站都开着 `ignoreDeadLinks: false`，死链会让构建失败）：
+
+```bash
+bun scripts/verify-docs-links.mjs              # 死链 + 锚点 + frontmatter title（秒级，离线）
+bun scripts/verify-mermaid-render.mjs <站点URL> # 用真实 Chrome 验证 mermaid 图渲染成 SVG
+```
+
+`verify-mermaid-render.mjs` 只在需要时用（它要起一个无头 Chrome）：
+先 `cd dev-docs && bun run preview` 或任意静态服务，再把 URL 传进去。
+
 ## 测试
 
 ```bash
-bun run test                 # 全量：单元 + 集成（105 个文件 / 1158 条）
+bun run test                 # 全量：单元 + 集成（104 个文件：单元 82 + 集成 18 + 前端 4）
 bun run test:watch
 bun run test:coverage
 ```
@@ -286,7 +305,7 @@ bun run test:coverage
 - **集成测试** `tests/integration/*.int.spec.ts`（b1~b7）跑在**真实 MySQL** 上：
   按 `TEST_DATABASE_URL` → `.env.test` → `<DATABASE_URL>_test` 推导独立测试库，缺库自动建库、跑迁移、逐用例清表，
   覆盖并发抢单、幂等重放、时区边界、资金不变量、渠道回调验签等「单测测不出来」的路径；
-- 新增验收条目请对照 [`docs/pitfalls/`](./docs/pitfalls) 与 `.agents/skills/testing-acceptance`。
+- 新增验收条目请对照 [`project-design/pitfalls/`](./project-design/pitfalls) 与 `.agents/skills/testing-acceptance`。
 
 ## 部署
 
@@ -304,18 +323,45 @@ mkdir -p logs && pm2 start ecosystem.config.js && pm2 save
 
 > ⚠️ 上线前必须完成的外部事项（与代码无关但决定上线日）：小程序主体认证与备案、后台域名备案 + HTTPS、
 > 服务器域名白名单、正式 AppID/AppSecret、微信支付商户号与 APIv3 证书、订阅消息模板、隐私协议与用户协议正文替换。
-> 清单见 [`docs/HANDOVER-miniapp.md`](./docs/HANDOVER-miniapp.md) 第 5 节「人工门禁现状」。
+> 清单见 [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md) 第 5 节「人工门禁现状」。
+
+### 文档站构建
+
+两套 Markdown 文档都可以独立构建成静态站点：
+
+```bash
+# 对客操作手册（VitePress 2，端口 5190 / 预览 5191）
+cd docs && bun install && bun run dev          # http://localhost:5190
+cd docs && bun run build                       # 产物 .vitepress/dist
+
+# 开发者文档（VitePress 2，端口 5180 / 预览 5181）
+cd dev-docs && bun install && bun run dev      # http://localhost:5180
+cd dev-docs && bun run build                   # 产物 .vitepress/dist
+```
+
+`DOCS_BASE=/manicure/dev-docs/` 可把站点部署到子路径（两站同机时用不同子路径区分）。
 
 ## 文档与协作
 
-| 位置                                                     | 内容                                                                     |
-| -------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [`docs/superpowers/specs/`](./docs/superpowers/specs)     | **唯一事实来源**：表结构、状态机、金额与时段口径、接口契约               |
-| [`docs/superpowers/plans/`](./docs/superpowers/plans)     | 施工单与批次计划（B1~B6、小程序、重命名等）                              |
-| [`docs/pitfalls/`](./docs/pitfalls)                       | 踩坑记录：`server.md` / `web.md` / `miniapp.md` / `tooling.md`（改代码前先扫一眼） |
-| [`docs/HANDOVER-miniapp.md`](./docs/HANDOVER-miniapp.md)  | 小程序 + app 域身份的交接说明、验收账本、遗留项与人工门禁                |
-| [`docs/brand/`](./docs/brand)                             | 品牌 LOGO 母版与导出流程                                                 |
-| [`.agents/skills/`](./.agents/skills)                     | 按模块拆分的开发技能（项目总纲 / 资金不变量 / 预约主链路 / 排班 / 会员 / 收银 / 挂账 / 报表 / 通知 / 周期预约 / 小程序 / 后台前端 / 测试验收） |
+项目文档按**读者**分三层，不要混用：
+
+| 目录                                             | 读者                     | 内容                                                                 |
+| ------------------------------------------------ | ------------------------ | -------------------------------------------------------------------- |
+| [`docs/`](./docs)                                 | **门店人员（对客）**     | 操作手册：每个模块怎么用、注意事项、支付开通清单、模块之间的配合逻辑 |
+| [`dev-docs/`](./dev-docs)                         | **开发者 / 测试 / 运维** | 技术文档（VitePress 2）：架构、数据模型、状态机、接口契约、测试与部署 |
+| [`project-design/`](./project-design)             | **产品 / 设计 / 交接**   | 设计资料库：原始 spec、施工计划、UI 设计稿、踩坑记录、交接说明       |
+
+`project-design/` 细分：
+
+| 位置                                                                 | 内容                                                                     |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [`project-design/superpowers/specs/`](./project-design/superpowers/specs) | 需求与设计 spec（**早期设计意图**，表结构等现状以代码为准）           |
+| [`project-design/superpowers/plans/`](./project-design/superpowers/plans) | 施工单与批次计划（B1~B6、小程序、重命名等）                            |
+| [`project-design/pitfalls/`](./project-design/pitfalls)                   | 踩坑记录：`server.md` / `web.md` / `miniapp.md` / `tooling.md`（改代码前先扫一眼） |
+| [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md) | 小程序 + app 域身份的交接说明、验收账本、遗留项与人工门禁              |
+| [`project-design/brand/`](./project-design/brand)                         | 品牌 LOGO 母版与导出流程                                                 |
+| [`project-design/screenshots/`](./project-design/screenshots)             | 后台与小程序界面截图                                                     |
+| [`.agents/skills/`](./.agents/skills)                                     | 按模块拆分的开发技能（项目总纲 / 资金不变量 / 预约主链路 / 排班 / 会员 / 收银 / 挂账 / 报表 / 通知 / 周期预约 / 小程序 / 后台前端 / 测试验收） |
 
 几条贯穿全项目的口径（改代码前务必先看总纲技能）：
 

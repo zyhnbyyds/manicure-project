@@ -63,7 +63,7 @@
   （biz 层是 `pointsUsed`，app 那条是 `pointsToUse`）。
 - **正确做法**：改前先 `Select-String 'this\.buildQuote\('` 摸清调用点；
   只有 app 建单需要接券，改期/结算沿用原单。
-- **怎么发现的**：勘察阶段专门数了一遍调用点（详见 `docs/HANDOVER-miniapp.md` 第 10 节）。
+- **怎么发现的**：勘察阶段专门数了一遍调用点（详见 `project-design/HANDOVER-miniapp.md` 第 10 节）。
 
 ---
 
@@ -178,6 +178,6 @@
 - **注意**：helmet 在 `onRequest` 阶段写头，handler 里 `reply.header()` 后写即覆盖，无需 unregister。
 - **验证**：`Invoke-WebRequest ... | Select-Object -ExpandProperty Headers` 看
   `Cross-Origin-Resource-Policy` 是否已是 `cross-origin`；
-  端到端要用**异源页面**里的 `<img>` 实测（同源测不出来）。详见 `docs/pitfalls/miniapp.md` §15。
+  端到端要用**异源页面**里的 `<img>` 实测（同源测不出来）。详见 `project-design/pitfalls/miniapp.md` §15。
 - **另一个坑（同一片区）**：改了后端**必须重启**服务（见本文件 §7）——
   头像/封面这类问题很容易在「代码已修但进程没重载」的状态下反复怀疑人生。

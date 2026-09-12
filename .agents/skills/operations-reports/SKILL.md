@@ -4,7 +4,7 @@ description: 运营三件套：评价（一单一评/回复/隐藏/代录）、�
 whenToUse: 实现或修改 /biz/reviews、/biz/reports/*、/biz/commission-* 与对应页面；对不上营收数字；美甲师对提成有异议。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.6 / §9.11 / §20 / §12 B4
 ---
 

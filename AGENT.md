@@ -4,14 +4,14 @@
 
 本项目在 `.agents/skills/` 下维护了一套**按功能与模块拆分**的技能（每个 `<name>/SKILL.md`），
 是业务开发的**唯一入口指引**；设计细节的唯一事实来源仍是
-`docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md`（v1.3）。
+`project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md`（v1.3）。
 
 开工前先加载 `project-overview`，再按任务加载对应模块技能：
 
 | 技能                 | 覆盖范围                                               |
 | -------------------- | ------------------------------------------------------ |
 | `project-overview`   | 总纲：技术基线、铁律、实施批次 B1~B6、技能索引、DoD    |
-| `data-model`         | 32 张表分组、命名/索引/软删约定、迁移流程、派生字段    |
+| `data-model`         | 61 张表分组、命名/索引/软删约定、迁移流程、派生字段    |
 | `money-invariants`   | **资金红线**：条件更新、锁顺序、只追加、对账等式、幂等 |
 | `base-data`          | 服务项目 / 美甲师 / 美甲师可做项目 / 顾客档案          |
 | `scheduling`         | 周模板、日期例外、请假与既有预约冲突保护               |
@@ -22,11 +22,24 @@
 | `notification`       | 短信 + 站内消息、模板、重试与降级                      |
 | `operations-reports` | 评价、报表口径、提成规则与结算                         |
 | `recurring-bookings` | 周期预约规则与幂等批量生成                             |
-| `miniapp-reserved`   | `/api/v1/app/**` 独立认证域与 `app_` 表（本期不做 UI） |
-| `web-frontend`       | 24 个页面、lew-ui 列表模式、收银台等复杂交互           |
-| `testing-acceptance` | 集成测试入口、B1~B6 验收清单、完成定义                 |
+| `miniapp-reserved`   | `/api/v1/app/**` 独立认证域与 `app_` 表（除 JSAPI 支付外已真实实现） |
+| `web-frontend`       | 46 个页面、lew-ui 列表模式、收银台等复杂交互           |
+| `testing-acceptance` | 集成测试入口、B1~B7 验收清单、完成定义                 |
 
 > 任何涉及金额、余额、积分、次卡的改动，都必须同时加载 `money-invariants`。
+
+## 项目文档在哪（按读者分三层）
+
+| 目录 | 读者 | 内容 |
+| ---- | ---- | ---- |
+| `docs/` | **门店人员（对客）** | 操作手册：每个模块怎么用、注意事项、支付开通清单、模块间的配合逻辑（VitePress 站，`cd docs && bun run dev` → 5190） |
+| `dev-docs/` | **开发者 / 测试 / 运维** | 技术文档（VitePress 2）：架构、数据模型、状态机、接口契约、测试与部署（`cd dev-docs && bun run dev` → 5180） |
+| `project-design/` | **产品 / 设计 / 交接** | 设计资料库：`superpowers/specs`（早期设计意图）、`superpowers/plans`、`pitfalls/`、`HANDOVER-miniapp.md`、`brand/`、`screenshots/` |
+
+> ⚠️ spec 是**早期设计意图**（例如它写「32 张表」，现状是 61 张）。凡涉及现状，
+> **一律以 `src/`、`web/`、`miniapp/` 的实际代码为准**，不要用 spec 否定已实现的功能。
+>
+> 两套文档站改完 Markdown 后可自检：`bun scripts/verify-docs-links.mjs`（死链 + 锚点 + frontmatter）。
 
 ## 踩坑记录（**必读 / 必写**）
 
@@ -46,10 +59,10 @@
 
 | 文件 | 覆盖 | 典型内容 |
 | ---- | ---- | -------- |
-| `docs/pitfalls/server.md` | 后端（NestJS / Drizzle / MySQL） | 迁移、事务、并发闸门、测试基建 |
-| `docs/pitfalls/web.md` | 前端 / 管理端（Vue3 + lew-ui） | 列表模式、表单、菜单路由、金额口径 |
-| `docs/pitfalls/miniapp.md` | 小程序（微信原生 TS） | 样式、图标、登录态、验证手段 |
-| `docs/pitfalls/tooling.md` | **工具链**（PowerShell / 开发者工具 / 测试运行） | 不属于任何一端、但三端都会踩 |
+| `project-design/pitfalls/server.md` | 后端（NestJS / Drizzle / MySQL） | 迁移、事务、并发闸门、测试基建 |
+| `project-design/pitfalls/web.md` | 前端 / 管理端（Vue3 + lew-ui） | 列表模式、表单、菜单路由、金额口径 |
+| `project-design/pitfalls/miniapp.md` | 小程序（微信原生 TS） | 样式、图标、登录态、验证手段 |
+| `project-design/pitfalls/tooling.md` | **工具链**（PowerShell / 开发者工具 / 测试运行） | 不属于任何一端、但三端都会踩 |
 
 > 第 4 个文件是刻意加的：PowerShell 转义、`[System.IO.File]` 不认 `cd`、
 > 截图与真实尺寸不一致这类坑**不属于任何一端**，塞进某一端反而找不到。
@@ -62,7 +75,7 @@
 
 ## 业务模块地图（美甲预约，B1~B6 已交付）
 
-施工契约与跨模块方法签名冻结在 `docs/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`；
+施工契约与跨模块方法签名冻结在 `project-design/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`；
 实施阶段发现的口径修正与修掉的缺陷登记在 spec **附录 D.3**（以该节为准修订正文）。
 
 ```
@@ -96,7 +109,7 @@ bun test tests/integration/b1-booking.int.spec.ts   # 只跑 B1 集成验收
 
 ## 项目概述
 
-**manicure-api** 是「美甲店到店预约 + 会员 + 收银 + 挂账 + 运营」的后端 API。技术栈为 NestJS + Fastify 作为 HTTP 层，Drizzle ORM 操作数据库，Zod 做数据校验。业务侧覆盖预约排班与可约时段、会员等级/储值/次卡/积分、支付与退款判责、挂账应收、报表提成、评价与通知；基座侧保留 JWT 双 token 认证、基于权限字符串的 RBAC 访问控制、部门/菜单/岗位/字典管理、定时任务、文件上传、操作审计日志、在线用户跟踪、代码生成器。业务口径详见 `docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md`。
+**manicure-api** 是「美甲店到店预约 + 会员 + 收银 + 挂账 + 运营」的后端 API。技术栈为 NestJS + Fastify 作为 HTTP 层，Drizzle ORM 操作数据库，Zod 做数据校验。业务侧覆盖预约排班与可约时段、会员等级/储值/次卡/积分、支付与退款判责、挂账应收、报表提成、评价与通知；基座侧保留 JWT 双 token 认证、基于权限字符串的 RBAC 访问控制、部门/菜单/岗位/字典管理、定时任务、文件上传、操作审计日志、在线用户跟踪、代码生成器。业务口径详见 `project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md`。
 
 - **运行时 / 包管理器**：`bun@1.4.0`（唯一运行时与包管理器，锁文件 `bun.lock` 为准；应用、迁移、seed、测试全部跑在 Bun 上，不依赖 Node/tsx）
 - **数据库**：MySQL，通过 `mysql2` + `drizzle-orm@1.0.0-rc.3` 访问

@@ -4,7 +4,7 @@ description: 挂账与应收：挂账主体（顾客/公司/员工）、额度�
 whenToUse: 实现或修改 /biz/credit-accounts、/biz/receivables 接口与台账页面；处理月结、销账、逾期、账龄。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.5 / §9.9 / §18 / §15.7
 ---
 

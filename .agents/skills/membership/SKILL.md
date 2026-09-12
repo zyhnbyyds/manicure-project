@@ -4,7 +4,7 @@ description: 会员体系：顾客即会员的字段、等级折扣率（千分�
 whenToUse: 实现或修改会员等级/积分/储值/次卡接口与页面；写算价逻辑；排查"折扣算错""积分抵太多""次卡核销不了""退款该退多少"。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §5.7 / §15 / §9.6 / §9.10 / §12 B2
 ---
 

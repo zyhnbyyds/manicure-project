@@ -4,7 +4,7 @@ description: 通知模块：短信 + 站内消息的模板（code + 变量校验
 whenToUse: 实现或修改 sys_notice_template / sys_notice_log、短信通道、站内消息、提醒任务（次日提醒、次卡到期、应收逾期）。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.6 / §8.1 / §9.11 / §19 / §12 B5
 ---
 

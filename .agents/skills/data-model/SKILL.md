@@ -1,36 +1,47 @@
 ---
 name: data-model
-description: 32 张表的分组清单、命名与索引约定、软删与物理删豁免、Drizzle 迁移流程与派生字段口径。新增/修改表、生成迁移、设计索引、排查唯一索引与软删冲突时加载本技能。
+description: 61 张表的分组清单、命名与索引约定、软删与物理删豁免、Drizzle 迁移流程与派生字段口径。新增/修改表、生成迁移、设计索引、排查唯一索引与软删冲突时加载本技能。
 whenToUse: 建表或改表、跑 db:generate/db:migrate、加索引、处理唯一约束、弄清楚某张表归哪个模块时。
 metadata:
   version: '1.1.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §3 / §4.1~§4.6
 ---
 
 # 数据模型与迁移
 
-## 表分组（共 32 张，全部在 `src/database/schema/index.ts`）
+## 表分组（共 61 张，全部在 `src/database/schema/index.ts`）
 
-**A. 预约主链路（7，§4.3）**
-`biz_service_item`、`biz_staff`、`biz_staff_weekly_shift`、`biz_staff_schedule_override`、
-`biz_customer`（兼会员档案）、`biz_booking`、`biz_booking_item`
+> ⚠️ **数量与分组以 schema 文件为准**：历史上这里的清单是 32 张（spec §4.1 的早期设计），
+> 现状是 **61 张 = 业务 `biz_*` 31 / 系统 `sys_*` 20 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
+> 逐张字段表见开发者文档 `dev-docs/data/business-tables.md` 与 `dev-docs/data/system-tables.md`。
+> 下面按功能分组列出 **biz_* 业务表 31 张**（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
 
-**B. 会员（7，§4.4）**
+**A. 基础数据（6）**
+`biz_service_item`、`biz_staff`、`biz_staff_service_item`、`biz_customer`（兼会员档案）、
+`biz_staff_weekly_shift`、`biz_staff_schedule_override`
+
+**B. 预约（3）**
+`biz_booking`、`biz_booking_item`、`biz_booking_recurrence`
+
+**C. 会员与资产（11）**
 `biz_member_level`、`biz_recharge_plan`、`biz_member_card_type`、`biz_member_card_type_item`、
-`biz_member_card`、`biz_member_card_log`、`biz_member_transaction`
+`biz_member_card`、`biz_member_card_log`、`biz_member_transaction`、
+`biz_points_goods`、`biz_points_redeem`、`biz_coupon_template`、`biz_customer_coupon`
 
-**C. 支付与账务（8，§4.5）**
+**D. 支付与账务（8）**
 `biz_payment`、`biz_payment_log`、`biz_payment_diff`、`biz_refund`、`biz_refund_policy`、
 `biz_credit_account`、`biz_receivable`、`biz_receivable_payment`
 
-**D. 运营与配置（9，§4.6）**
-`biz_staff_service_item`、`biz_review`、`biz_commission_rule`、`biz_commission_record`、
-`biz_booking_recurrence`、`biz_points_goods`、`biz_points_redeem`、
-`sys_notice_template`、`sys_notice_log`
+**E. 运营与提成（3）**
+`biz_review`、`biz_commission_rule`、`biz_commission_record`
 
-**E. 小程序（1，§4.4）**
-`app_wx_user`
+> 💡 会员没有「账户表」：余额（本金/赠送）、积分、累计消费等**存在 `biz_customer` 上**，
+> `biz_member_transaction` 是只追加的资产流水（余额/积分/储值的每一次变动都留痕）。
+> `biz_coupon_template` / `biz_customer_coupon` 定义在 `schema/index.ts` **文件末尾**
+> （晚于 `sys_notice_*`，且在 `defineRelations()` 之后），按位置扫文件很容易漏；
+> 这两张表目前**未注册进 relations**，`db.query.*` 关系查询用不了。
+> 通知模板/日志是 `sys_notice_template` / `sys_notice_log`，属系统表而非业务表。
 
 ## 命名与结构约定
 

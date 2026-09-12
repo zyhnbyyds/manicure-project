@@ -4,7 +4,7 @@ description: 排班模块：周模板整体替换（PUT）、日期例外（请�
 whenToUse: 实现或修改 weekly-shifts / overrides 接口与排班页面；处理"请假当天还有预约""缩短班次会不会撞单"。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.3 / §6.4 / §9.3 / §5.2
 ---
 

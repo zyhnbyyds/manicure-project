@@ -1,10 +1,10 @@
 ---
 name: miniapp-reserved
-description: 小程序端预留：app_ 身份表、独立认证域 /api/v1/app/**、AppAccessTokenGuard 与后台 token 双向拒绝、app 域不接 RBAC、不复用后台 DTO、登录与手机号绑定流程、4 个只读接口真实现 + 写接口 501 契约骨架。做 app 域任何代码时加载。
+description: 小程序端预留：app_ 身份表、独立认证域 /api/v1/app/**、AppAccessTokenGuard 与后台 token 双向拒绝、app 域不接 RBAC、不复用后台 DTO、登录与手机号绑定流程；除小程序内 JSAPI 支付（501 契约位）外，app 域写接口均已真实现。做 app 域任何代码时加载。
 whenToUse: 实现或修改 src/modules/app/**、app_ 表、app 守卫与 Swagger 分组；讨论小程序联调与后续 P2 落地。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.4 / §8.3 / §9.7 / §16 / §12 B6
 ---
 
@@ -60,14 +60,19 @@ wx.login → code
 
 - 测试 code 能换到 app token；同一 openid 重复登录不产生第二条身份记录
 - app token 打 `/api/v1/biz/**` 被拒；后台 token 打 `/api/v1/app/**` 被拒
-- 4 个只读接口返回字段**不含**成本 / `createdBy` / 后台备注（用 Zod schema 断言字段集合）
+- app 域只读接口返回字段**不含**成本 / `createdBy` / 后台备注（用 Zod schema 断言字段集合）
 - `GET /app/available-slots` 与后台结果一致
 - 未绑定手机号访问 `/app/member/me` → 401 + `needBind`
-- 骨架接口在 Swagger 可见、schema 完整、调用返回 501 且不落库
+- **唯一仍是契约位的接口**：`POST /app/payments/wxpay/jsapi` → 501 且不落库；
+  其余 app 域接口（bookings 增查/取消、reviews、subscribe、member/cards、points/redeem、
+  券三件套、`app/staff/*` 工作台）**都已接真实 service 并落库**，验收要按真实现测，
+  不要因为控制器文件头的旧注释（写着"骨架本期全部返回 501"）就当成未实现。
 
 ## 常见坑
 
 - 为省事让 app 域复用后台 DTO / 直接返回实体 → 泄露成本与内部字段。
 - 忘记双向拒绝，导致会员 token 能打后台接口。
-- 本期就实现小程序写接口（下单/支付）→ 会引入小程序 UI 的依赖，超出范围；保持 501 契约。
-- 订阅消息现在就想发 → 必须由小程序客户端授权，本期只留枚举位。
+- 把文件头注释当现状：`app-member.controller.ts` 的旧注释仍写着"本期全部返回 501"，
+  实际除 `wxpay/jsapi` 外都已实现；**判断是否实现要看 handler 体**，不要看注释。
+- 订阅消息要真发出去，必须由小程序客户端先授权（`app_wx_subscribe_grant` 记授权额度）；
+  没配模板/额度时只落站内消息，不要以为"调用成功就等于用户收到了"。

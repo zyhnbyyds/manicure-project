@@ -4,7 +4,7 @@ description: 周期预约：规则字段（每周几 + 开始时间 + 生效区�
 whenToUse: 实现或修改 /biz/recurrences、generated_until 滚动生成任务、周期单与排班/请假的交互。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.6 / §5.9 / §9.11 / §21 / §12 B5
 ---
 

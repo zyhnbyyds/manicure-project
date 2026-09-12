@@ -1,0 +1,16 @@
+{
+  "name": "manicure-user-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "美甲店到店预约系统 —— 对客操作手册（VitePress）",
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "scripts": {
+    "dev": "vitepress dev . --port 5190",
+    "build": "vitepress build .",
+    "preview": "vitepress preview . --port 5191"
+  },
+  "devDependencies": {
+    "vitepress": "2.0.0-alpha.20"
+  }
+}

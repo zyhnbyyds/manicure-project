@@ -4,7 +4,7 @@ description: 基础数据模块：服务项目、美甲师档案、美甲师可�
 whenToUse: 实现/修改服务项目、美甲师、美甲师可做项目、顾客档案的接口与页面；处理引用保护与手机号唯一冲突。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.3 / §9.1~§9.4 / §9.11 / §22 / §4.4
 ---
 

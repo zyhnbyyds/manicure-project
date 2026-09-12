@@ -4,7 +4,7 @@ description: 资金相关写入的红线：金额事实的唯一来源、条件�
 whenToUse: 写任何改动余额 / 积分 / 次卡次数 / 支付单 / 退款单 / 应收的代码；评审他人资金代码；排查账实不符。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §6.5 / §6.6 / §15.7 / §17
 ---
 

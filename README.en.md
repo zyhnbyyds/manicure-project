@@ -39,15 +39,15 @@ Platform scope: RBAC, departments/posts/dictionaries/configs, login & operation 
 
 **Admin**
 
-<img src="docs/screenshots/login.png"  alt="Login" width="45%" />
-<img src="docs/screenshots/dashboard.png" alt="Dashboard" width="45%" />
+<img src="project-design/screenshots/login.png"  alt="Login" width="45%" />
+<img src="project-design/screenshots/dashboard.png" alt="Dashboard" width="45%" />
 
-**WeChat Mini Program** (`docs/screenshots/miniapp/`)
+**WeChat Mini Program** (`project-design/screenshots/miniapp/`)
 
-<img src="docs/screenshots/miniapp/02-home.png" alt="Home" width="22%" />
-<img src="docs/screenshots/miniapp/03-services.png" alt="Styles" width="22%" />
-<img src="docs/screenshots/miniapp/04-service-detail.png" alt="Style detail" width="22%" />
-<img src="docs/screenshots/miniapp/06-staff-workbench.png" alt="Technician workbench" width="22%" />
+<img src="project-design/screenshots/miniapp/02-home.png" alt="Home" width="22%" />
+<img src="project-design/screenshots/miniapp/03-services.png" alt="Styles" width="22%" />
+<img src="project-design/screenshots/miniapp/04-service-detail.png" alt="Style detail" width="22%" />
+<img src="project-design/screenshots/miniapp/06-staff-workbench.png" alt="Technician workbench" width="22%" />
 
 ## Features
 
@@ -292,17 +292,17 @@ It runs `output/server/main.js` with the `bun` interpreter, takes the port from 
 
 The admin frontend builds to `output/web/` — serve it with nginx (or any static host) and reverse-proxy `/api` to the backend.
 
-> ⚠️ Production prerequisites outside the codebase: mini-program entity verification & filing, ICP filing + HTTPS for the admin domain, request-domain allowlist, production AppID/AppSecret, WeChat Pay merchant id + APIv3 certificate, subscribe-message templates, and replacing the placeholder terms/privacy text. See section 5 of [`docs/HANDOVER-miniapp.md`](./docs/HANDOVER-miniapp.md).
+> ⚠️ Production prerequisites outside the codebase: mini-program entity verification & filing, ICP filing + HTTPS for the admin domain, request-domain allowlist, production AppID/AppSecret, WeChat Pay merchant id + APIv3 certificate, subscribe-message templates, and replacing the placeholder terms/privacy text. See section 5 of [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md).
 
 ## Docs & Conventions
 
 | Location                                                 | Contents                                                                       |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`docs/superpowers/specs/`](./docs/superpowers/specs)     | **Single source of truth**: schema, state machines, money/time rules, API contracts |
-| [`docs/superpowers/plans/`](./docs/superpowers/plans)     | Delivery plans (batches B1~B6, mini program, rename)                            |
-| [`docs/pitfalls/`](./docs/pitfalls)                       | Pitfall logs: `server.md` / `web.md` / `miniapp.md` / `tooling.md`              |
-| [`docs/HANDOVER-miniapp.md`](./docs/HANDOVER-miniapp.md)  | Mini program + `/app` identity handover, acceptance ledger, open items          |
-| [`docs/brand/`](./docs/brand)                             | Brand logo master + export pipeline                                             |
+| [`project-design/superpowers/specs/`](./project-design/superpowers/specs)     | **Single source of truth**: schema, state machines, money/time rules, API contracts |
+| [`project-design/superpowers/plans/`](./project-design/superpowers/plans)     | Delivery plans (batches B1~B6, mini program, rename)                            |
+| [`project-design/pitfalls/`](./project-design/pitfalls)                       | Pitfall logs: `server.md` / `web.md` / `miniapp.md` / `tooling.md`              |
+| [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md)  | Mini program + `/app` identity handover, acceptance ledger, open items          |
+| [`project-design/brand/`](./project-design/brand)                             | Brand logo master + export pipeline                                             |
 | [`.agents/skills/`](./.agents/skills)                     | Per-module skills (overview / money invariants / booking core / scheduling / membership / cashier / credit / reports / notifications / recurring / mini program / admin frontend / testing) |
 
 Project-wide rules worth knowing before changing code:

@@ -1,8 +1,8 @@
 # 交接说明：小程序端 + app 域身份（截至 2026-09-11）
 
 > 交接对象：接手的下一位执行者（人或 AI）。
-> 本文件只写**事实与入口**，不重复 spec。设计依据见 `docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md`，
-> 施工单见 `docs/superpowers/plans/2026-09-11-miniapp-development-plan.md`（含 §12 美甲师工作台需求变更）。
+> 本文件只写**事实与入口**，不重复 spec。设计依据见 `project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md`，
+> 施工单见 `project-design/superpowers/plans/2026-09-11-miniapp-development-plan.md`（含 §12 美甲师工作台需求变更）。
 
 ---
 
@@ -46,7 +46,7 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 | 后端端口    | `src/modules/biz/common/ports.ts`、`src/modules/biz/base-data/staffs/staffs.service.ts`                                   |
 | 迁移        | `src/database/migrations/20260911055121_clear_warhawk/`                                                                   |
 | 集成用例    | `tests/integration/b6-app-identity.int.spec.ts`、`tests/integration/harness.ts`                                           |
-| 设计/施工单 | `docs/superpowers/specs/...nail-salon-booking-design.md`、`docs/superpowers/plans/2026-09-11-miniapp-development-plan.md` |
+| 设计/施工单 | `project-design/superpowers/specs/...nail-salon-booking-design.md`、`project-design/superpowers/plans/2026-09-11-miniapp-development-plan.md` |
 
 ---
 
@@ -551,7 +551,7 @@ definePage({
 - 工厂注入的 data：`themeStyle / themePrimary / onPrimary / themeName / themeEmoji /
   loggedIn / bound` + `loading / refreshing / errorText / loaded`。
 - **`onShow` 只推「外观/身份」**（`pageAppearance`），**绝不推加载态** ——
-  推了会把 `runLoad` 的状态机打回首屏（详见 `docs/pitfalls/miniapp.md` §17）。
+  推了会把 `runLoad` 的状态机打回首屏（详见 `project-design/pitfalls/miniapp.md` §17）。
 - 配置项名是 **`chromeIcons`**（不是 `icons`）；拼错会被静默吞掉，工厂有防呆告警（§18）。
 
 ### 13.2 加载：`runLoad` 的四条语义（`utils/load.ts`）

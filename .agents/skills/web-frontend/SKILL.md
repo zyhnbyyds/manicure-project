@@ -1,10 +1,10 @@
 ---
 name: web-frontend
-description: 后台前端：24 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、文件与图片上传（LewForm `as:'upload'` + uploadHelper）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
+description: 后台前端：46 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、文件与图片上传（LewForm `as:'upload'` + uploadHelper）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
 whenToUse: 新增/修改 web/src/views/biz 页面、API 封装、表单与权限按钮；做文件/图片上传与预览；实现收银台、退款审批、对账、报表页。
 metadata:
   version: '1.3.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §10 / §9 / §3
 ---
 
@@ -27,14 +27,18 @@ metadata:
 - **金额**：后端单位是**分**，前端 ÷100 展示；不要在前端做折扣/抵扣计算（服务端重算，前端只展示与二次确认）。
 - **枚举**：状态、支付方式、流水类型等以后端枚举值为准，禁止前端自己映射成另一套字符串。
 
-## 页面清单（24 个，§10.1）
+## 页面清单（业务 26 个，§10.1）
+
+> 现状：`web/src/views/**` 下共 **46 个页面级 `.vue`**（业务 26 + 后台基座 18 + AI 面板 2）。
+> 下面列的是**业务页面 26 个**（基座页见 `docs/admin/*`）；完整清单（含路由与权限点）
+> 见开发者文档 `dev-docs/frontend/pages.md`。
 
 基础与预约：`service-items`、`staffs`、`schedules`、`customers`、`bookings`
 会员：`member-levels`、`recharge-plans`、`card-types`、`members`、`member-cards`
 收银与账务：`cashier`、`payments`、`refunds`、`payment-diffs`
 挂账：`credit-accounts`、`receivables`
 运营：`points-goods`、`reviews`、`reports`、`commission-rules`、`commission-records`、
-`recurrences`、`notice-templates`、`notice-logs`
+`recurrences`、`notice-templates`、`notice-logs`、`coupons`、`app-staff-grants`
 
 > 美甲师可做项目不单独建页：放在「美甲师」详情抽屉里用多选项目组件维护（整体 PUT）。
 

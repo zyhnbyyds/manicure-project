@@ -11,7 +11,14 @@ src/modules/generated/
 .playwright-mcp/
 output/
 .workbuddy-ai/
-docs/superpowers/
+project-design/superpowers/
+
+# ── 文档站构建产物 / 缓存 ─────────────────────────────────────────
+# ⚠️ 必须用 `**/` 前缀：`.vitepress/` 在 srcDir 里面（docs/.vitepress、dev-docs/.vitepress），
+# 而带 `/` 的 pattern 是相对 .gitignore 所在目录锚定的，`.vitepress/cache/` 匹配不到它们。
+# 另外目录 pattern 末尾不能带 `/`，否则匹配不到目录内的文件。
+**/.vitepress/dist
+**/.vitepress/cache
 
 # ── 微信支付 Skill ────────────────────────────────────────────────
 # 官方知识库由 .agents/skills/wechatpay-payment-integration/scripts/

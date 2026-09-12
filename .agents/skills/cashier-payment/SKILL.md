@@ -4,7 +4,7 @@ description: 收银与支付：微信 Native 扫码/支付宝当面付、线下�
 whenToUse: 实现/修改 /biz/payments、/biz/refunds、/biz/payment-diffs、收银台；处理回调、尾款补收、退款审批、对账差异。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §4.5 / §5.8 / §7.4 / §9.8 / §17 / §12 B3
 ---
 

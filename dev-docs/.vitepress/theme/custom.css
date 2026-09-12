@@ -1,0 +1,49 @@
+/**
+ * 开发者文档的轻量品牌配色（与后台/小程序一致的粉主色）。
+ * 深浅两套变量都给，避免暗色下对比度不足。
+ */
+:root {
+  --vp-c-brand-1: #b45f6b;
+  --vp-c-brand-2: #c4747f;
+  --vp-c-brand-3: #a8545f;
+  --vp-c-brand-soft: rgba(180, 95, 107, 0.14);
+  --vp-c-bg-soft: #fbf5f0;
+  --vp-c-bg-alt: #f7efe9;
+}
+
+.dark {
+  --vp-c-brand-1: #e2919c;
+  --vp-c-brand-2: #c4747f;
+  --vp-c-brand-3: #f0a9b3;
+  --vp-c-brand-soft: rgba(226, 145, 156, 0.16);
+  --vp-c-bg-soft: #241d1f;
+  --vp-c-bg-alt: #1c1517;
+}
+
+/* 技术文档的表格多且宽，窄屏允许横向滚动，避免撑破版心 */
+.vp-doc table {
+  display: block;
+  overflow-x: auto;
+}
+
+/**
+ * mermaid 在客户端渲染前先隐藏，避免用户看到一大段图源码（渲染完会被替换成 SVG）。
+ * 用 :not([data-processed]) 精确定位「还没渲染完」的那些。
+ */
+.vp-doc pre.mermaid:not([data-processed]) {
+  visibility: hidden;
+  min-height: 2rem;
+}
+
+/* 渲染出来的图居中，超宽时允许横向滚动 */
+.vp-doc .mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+.vp-doc .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

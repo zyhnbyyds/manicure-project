@@ -4,7 +4,7 @@ description: 美甲店到店预约系统的项目总纲——技术基线、目�
 whenToUse: 接到新任务（写接口 / 建表 / 改前端 / 排查 bug）而不知道该动哪块时；需要确认项目约定、命令、验收口径时。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   specVersion: v1.3
 ---
 
@@ -76,7 +76,7 @@ miniapp/miniprogram/              # 微信小程序（原生 TS，29 页）
   utils/page.ts                   # definePage：页面 chrome + onShow 统一刷新
   utils/load.ts                   # runLoad：统一加载状态机（首屏骨架 / 静默刷新）
 .agents/skills/                   # 本套技能（核心指引）
-docs/superpowers/specs/           # 设计文档（唯一事实来源）
+project-design/superpowers/specs/           # 设计文档（唯一事实来源）
 tests/integration/                # b1~b7 集成测试（真实 MySQL + harness）
 ```
 

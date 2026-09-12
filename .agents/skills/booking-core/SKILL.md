@@ -4,7 +4,7 @@ description: 预约主链路：可约时段算法（班次−预约−缓冲，�
 whenToUse: 实现或修改 available-slots / 创建预约 / 改期 / 状态流转 / settle；排查"为什么这个时段不可约""为什么会超订""尾款对不上"。
 metadata:
   version: '1.0.0'
-  spec: docs/superpowers/specs/2026-09-11-nail-salon-booking-design.md
+  spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §5 / §6.1~§6.4 / §7 / §9.5 / §12 B1
 ---
 
