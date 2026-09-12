@@ -503,6 +503,22 @@ export class AppMemberService {
       remark?: string | null | undefined;
     },
   ): Promise<AppCreateBookingVo> {
+    /**
+     * **下单时的次卡核销 / 积分抵扣也要过同一道闸门。**
+     *
+     * 这两个入参会把单据直接算成 0 元 / 已付清（`useCard → payable = 0`），
+     * 与支付页的 `settle` 是**同一个暴露面**：只闸 `settle` 而放过下单，
+     * 「小程序只做预约」这个模式就形同虚设 —— 顾客照样能自助把价格抹平。
+     *
+     * 优惠券不在此列：那是店家发的营销工具，不消耗预付价值。
+     */
+    const wantsSelfPay =
+      input.memberCardId != null || (input.pointsToUse ?? 0) > 0;
+    if (wantsSelfPay && !(await this.selfPayEnabledFor(appUserId)))
+      throw new NotImplementedException(
+        '小程序内暂不支持次卡核销 / 积分抵扣，请到店结算',
+      );
+
     const customerId = await this.requireCustomerId(appUserId);
     const created = await this.bookingPort.createForCustomer(customerId, {
       staffId: input.staffId,

@@ -77,6 +77,14 @@ definePage({
     /** 三个抵扣开关 */
     usePoints: false,
     useCard: false,
+    /**
+     * 服务端能力位：**次卡核销 / 积分抵扣是否开放**（合规闸门 + 灰度，见 `/app/member/me`）。
+     *
+     * 这两个开关会把单据直接算成 0 元 / 已付清，与支付页的 `settle` 是同一个暴露面 ——
+     * 所以「小程序只做预约」时它们也必须关闭，否则顾客照样能自助把价格抹平。
+     * 服务端 `POST /app/bookings` 有同一道闸门（客户端置灰挡不住手写请求）。
+     */
+    selfPayEnabled: false,
     couponText: '选择',
     /** 可用券列表（真实接口） */
     /** 可选券（已按门槛过滤）；未达门槛的在 `allCoupons` 里 */
@@ -133,8 +141,14 @@ definePage({
       })),
       staffName: snapshot.staff.nickname,
       staffEmoji: staffEmoji(snapshot.staff.id),
-      staffAvatar: resolveStaffAvatar({ id: snapshot.staff.id, avatar: snapshot.staff.avatar }),
-      dateText: formatDateTimeLabel(snapshot.slot.startAt).replace(/\s\d{2}:\d{2}$/, ''),
+      staffAvatar: resolveStaffAvatar({
+        id: snapshot.staff.id,
+        avatar: snapshot.staff.avatar,
+      }),
+      dateText: formatDateTimeLabel(snapshot.slot.startAt).replace(
+        /\s\d{2}:\d{2}$/,
+        '',
+      ),
       timeText: formatTimeRange(snapshot.slot.startAt, snapshot.slot.endAt),
       durationText: formatDuration(totals.durationMinutes),
       originalText: fenToYuan(totals.originalPrice),
@@ -157,18 +171,25 @@ definePage({
         couponApi.listMine('usable', 1, 50).catch(() => null),
       ]);
       const activeCard = me.cards.find((card) => card.status === 'active');
+      const selfPayEnabled = me.selfPayEnabled === true;
       this.setData(
         {
           levelName: me.levelName ?? '',
           discountText: formatDiscount(me.discountPermille),
           points: me.points,
-        maxPointsPermille:
-          me.maxPointsPermille ?? FALLBACK_MAX_POINTS_PERMILLE,
+          maxPointsPermille:
+            me.maxPointsPermille ?? FALLBACK_MAX_POINTS_PERMILLE,
           hasCard: Boolean(activeCard),
           cardId: activeCard ? activeCard.id : 0,
           cardName: activeCard ? activeCard.cardName : '',
-          cardRemain: activeCard ? activeCard.totalTimes - activeCard.usedTimes : 0,
+          cardRemain: activeCard
+            ? activeCard.totalTimes - activeCard.usedTimes
+            : 0,
           discountPermille: me.discountPermille,
+          selfPayEnabled,
+          // 闸门关闭时**强制**关掉两个抵扣开关：页面置灰只是提示，
+          // 状态里若残留 true，提交时仍会把 memberCardId / pointsToUse 发出去
+          ...(selfPayEnabled ? {} : { usePoints: false, useCard: false }),
           allCoupons: (couponPage ? couponPage.items : []).map((c) => ({
             id: c.id,
             nameText: c.templateName ?? '优惠券',
@@ -236,9 +257,7 @@ definePage({
     const maxPointsAllowed = Math.max(Math.ceil(maxRatioFen / 100), 0) * rate;
     const usablePoints = Math.min(points - (points % rate), maxPointsAllowed);
     const pointsDisc =
-      usePoints && couponDisc === 0
-        ? Math.floor(usablePoints / rate) * 100
-        : 0;
+      usePoints && couponDisc === 0 ? Math.floor(usablePoints / rate) * 100 : 0;
 
     const totalDisc = levelDisc + couponDisc + pointsDisc;
     const payable = Math.max(original - totalDisc, 0);
@@ -261,6 +280,10 @@ definePage({
   },
 
   onTogglePoints(event: WechatMiniprogram.SwitchChange) {
+    if (!this.data.selfPayEnabled) {
+      toast('积分抵扣暂未开放，可到店结算');
+      return;
+    }
     const usePoints = event.detail.value;
     // 与券互斥：打开积分就**明确告知**并取消已选的券，不静默改掉用户的另一个选择
     if (usePoints && this.data.useCoupon) {
@@ -270,7 +293,12 @@ definePage({
       {
         usePoints,
         ...(usePoints
-          ? { useCoupon: false, couponId: 0, couponDiscount: 0, couponText: '选择' }
+          ? {
+              useCoupon: false,
+              couponId: 0,
+              couponDiscount: 0,
+              couponText: '选择',
+            }
           : {}),
       },
       () => this.recalc(),
@@ -278,6 +306,10 @@ definePage({
   },
 
   onToggleCard(event: WechatMiniprogram.SwitchChange) {
+    if (!this.data.selfPayEnabled) {
+      toast('次卡核销暂未开放，可到店结算');
+      return;
+    }
     this.setData({ useCard: event.detail.value });
     if (event.detail.value) {
       toast('次卡抵扣金额由门店结算时确认');
@@ -295,14 +327,21 @@ definePage({
     }
     wx.showActionSheet({
       itemList: [
-        ...this.data.coupons.map((c) => c.nameText + '（' + c.thresholdText + '）'),
+        ...this.data.coupons.map(
+          (c) => c.nameText + '（' + c.thresholdText + '）',
+        ),
         '不使用优惠券',
       ],
       success: (res) => {
         const picked = this.data.coupons[res.tapIndex];
         if (!picked) {
           this.setData(
-            { useCoupon: false, couponId: 0, couponDiscount: 0, couponText: '选择' },
+            {
+              useCoupon: false,
+              couponId: 0,
+              couponDiscount: 0,
+              couponText: '选择',
+            },
             () => this.recalc(),
           );
           return;

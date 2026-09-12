@@ -91,12 +91,19 @@
         </view>
         <view class="bcard__actions">
           <view
-            wx:if="{{item.payStatus === 'unpaid' || item.payStatus === 'partial'}}"
+            wx:if="{{(item.payStatus === 'unpaid' || item.payStatus === 'partial') && selfPayEnabled}}"
             class="mini-btn press-sm"
             data-id="{{item.id}}"
             catchtap="onPay"
           >
             去支付
+          </view>
+          <!-- 未付清但小程序内自助支付未开放：只提示去路，不给点进去是死路的按钮 -->
+          <view
+            wx:if="{{(item.payStatus === 'unpaid' || item.payStatus === 'partial') && !selfPayEnabled}}"
+            class="bcard__pay-store"
+          >
+            到店支付
           </view>
           <view
             wx:if="{{item.reviewable}}"

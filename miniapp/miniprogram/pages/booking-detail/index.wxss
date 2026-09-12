@@ -153,3 +153,10 @@
   margin-left: 12rpx;
 }
 
+/* 待付但小程序内自助支付未开放：提示去门店结算，不占按钮位（避免像"点了没反应"） */
+.pay-store-tip {
+  margin-left: 12rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+}
+

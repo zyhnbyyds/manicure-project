@@ -44,21 +44,28 @@
         <view class="deduct">
           <view class="grow">
             <view class="deduct__title">积分抵扣</view>
-            <view class="deduct__sub">可用 {{points}} 积分，{{pointsRateText}}</view>
+            <view class="deduct__sub" wx:if="{{selfPayEnabled}}">可用 {{points}} 积分，{{pointsRateText}}</view>
+            <view class="deduct__sub" wx:else>暂未开放，到店结算</view>
           </view>
-          <switch checked="{{usePoints}}" color="{{themePrimary}}" bindchange="onTogglePoints" />
+          <switch
+            checked="{{usePoints}}"
+            color="{{themePrimary}}"
+            disabled="{{!selfPayEnabled}}"
+            bindchange="onTogglePoints"
+          />
         </view>
 
         <view class="deduct">
           <view class="grow">
             <view class="deduct__title">次卡使用</view>
-            <view class="deduct__sub" wx:if="{{hasCard}}">{{cardName}} · 剩余 {{cardRemain}} 次</view>
+            <view class="deduct__sub" wx:if="{{!selfPayEnabled}}">暂未开放，到店结算</view>
+            <view class="deduct__sub" wx:elif="{{hasCard}}">{{cardName}} · 剩余 {{cardRemain}} 次</view>
             <view class="deduct__sub" wx:else>暂无可用次卡</view>
           </view>
           <switch
             checked="{{useCard}}"
             color="{{themePrimary}}"
-            disabled="{{!hasCard}}"
+            disabled="{{!hasCard || !selfPayEnabled}}"
             bindchange="onToggleCard"
           />
         </view>

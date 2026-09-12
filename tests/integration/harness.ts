@@ -86,7 +86,8 @@ async function applyTestEnv(testUrl: string): Promise<void> {
   process.env.WXPAY_SERIAL_NO = wxpay.serialNo;
   process.env.WXPAY_PRIVATE_KEY = escapePem(wxpay.privateKeyPem);
   process.env.WXPAY_API_V3_KEY = wxpay.apiV3Key;
-  process.env.WXPAY_NOTIFY_URL = 'https://example.test/api/v1/app/payments/wxpay/notify';
+  process.env.WXPAY_NOTIFY_URL =
+    'https://example.test/api/v1/app/payments/wxpay/notify';
   process.env.WXPAY_PLATFORM_PUBLIC_KEY = escapePem(wxpay.publicKeyPem);
   // Redis 是可选依赖：留空字符串会让 z.url() 校验失败，必须删除变量
   delete process.env.REDIS_URL;
@@ -187,6 +188,16 @@ export type TestContext = {
   ) => Promise<{ status: number; body: any; headers: Record<string, any> }>;
   sql: <T = any>(statement: string, params?: unknown[]) => Promise<T>;
   resetBusinessData: () => Promise<void>;
+  /**
+   * 设置小程序自助支付的两道闸门（A14）。
+   *
+   * 写的是 `sys_config` —— **管理端「参数配置」页保存时改的就是这张表**，
+   * 所以这样测的是运营真实会走的那条路，而不是测试后门。
+   * 写完会 `invalidate()` 配置缓存（否则 10 秒 TTL 内读到上一轮的值，用例互相污染）。
+   *
+   * `percent`：`0` = 小程序只做预约，`100` = 全量，中间值按 `app_wx_user.id` 稳定分桶。
+   */
+  setPayGate: (enabled: boolean, percent: number) => Promise<void>;
 };
 
 /**
@@ -210,7 +221,9 @@ export async function createTestContext(
 
   const builder = Test.createTestingModule({ imports: [AppModule] });
   for (const override of options.providers ?? [])
-    builder.overrideProvider(override.provide as never).useValue(override.useValue);
+    builder
+      .overrideProvider(override.provide as never)
+      .useValue(override.useValue);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter({ logger: false }),
@@ -326,14 +339,25 @@ export async function createTestContext(
               AND (table_name LIKE 'biz\\_%' OR table_name LIKE 'app\\_%'
                    OR table_name LIKE 'sys\\_notice\\_%' OR table_name LIKE 'sys\\_job\\_log')`,
         );
-        for (const row of rows)
-          await conn.query(`DELETE FROM \`${row.name}\``);
+        for (const row of rows) await conn.query(`DELETE FROM \`${row.name}\``);
         // 定时任务在测试里必须静默（否则 CronJob 会在用例中途改数据）
         await conn.query(`UPDATE sys_job SET status = 'disabled'`);
         await conn.query('SET FOREIGN_KEY_CHECKS = 1');
       } finally {
         conn.release();
       }
+    },
+    setPayGate: async (enabled, percent) => {
+      await context.sql(
+        `INSERT INTO sys_config (name, config_key, value, builtin)
+         VALUES ('自助支付-合规闸门（测试）', 'app.pay.selfPayEnabled', ?, 1),
+                ('自助支付-放量比例（测试）', 'app.pay.rolloutPercent', ?, 1)
+         ON DUPLICATE KEY UPDATE value = VALUES(value)`,
+        [enabled ? 'true' : 'false', String(percent)],
+      );
+      const { BizConfigService } =
+        await import('../../src/modules/biz/common/biz-config.service.js');
+      app.get(BizConfigService).invalidate();
     },
   };
   await context.resetBusinessData();

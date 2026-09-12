@@ -179,6 +179,13 @@
   color: var(--c-text-weak);
 }
 
+/* 未付清但小程序内自助支付未开放：占「去支付」的位置给出去路，但不是可点按钮 */
+.bcard__pay-store {
+  font-size: 24rpx;
+  color: var(--c-text-sub);
+  padding: 0 8rpx;
+}
+
 .bcard__actions {
   display: flex;
   flex-wrap: wrap;

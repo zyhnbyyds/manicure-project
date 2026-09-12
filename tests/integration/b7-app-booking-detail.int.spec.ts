@@ -93,6 +93,10 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await ctx.resetBusinessData();
+  // 本文件测的是**下单时的积分抵扣 / 次卡核销**，它们与支付页的 `settle` 受同一道
+  // 合规闸门约束（`sys_config: app.pay.*`，默认关闭）。要测这些能力就先放量到 100%，
+  // 否则拿到的是 501 —— 那是与本文件业务无关的"红"。
+  await ctx.setPayGate(true, 100);
 }, 60_000);
 
 afterAll(async () => {

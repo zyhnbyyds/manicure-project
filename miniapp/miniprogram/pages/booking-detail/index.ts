@@ -1,13 +1,24 @@
-import { bookingApi } from '../../api/index';
+import { bookingApi, memberApi } from '../../api/index';
 import type { Booking } from '../../api/types';
-import { fenToYuan, formatDuration, formatTimeRange, formatDateTimeLabel } from '../../utils/format';
+import {
+  fenToYuan,
+  formatDuration,
+  formatTimeRange,
+  formatDateTimeLabel,
+} from '../../utils/format';
 import type { IconName } from '../../utils/icons';
 import { goCancel, goLogin, goPay, goReview } from '../../utils/nav';
 import { definePage } from '../../utils/page';
 import { resolveStaffAvatar } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 
-const PAGE_ICONS: IconName[] = ['calendar', 'clock', 'person', 'card', 'chevron'];
+const PAGE_ICONS: IconName[] = [
+  'calendar',
+  'clock',
+  'person',
+  'card',
+  'chevron',
+];
 
 /** 状态 → 顶部渐变卡的文案与色调 */
 const STATUS_TEXT: Record<Booking['status'], string> = {
@@ -41,7 +52,12 @@ definePage({
     dateText: '',
     timeText: '',
     durationText: '',
-    items: [] as { id: number; name: string; durationText: string; priceText: string }[],
+    items: [] as {
+      id: number;
+      name: string;
+      durationText: string;
+      priceText: string;
+    }[],
     payableText: '0.00',
     paidText: '0.00',
     dueText: '0.00',
@@ -49,6 +65,13 @@ definePage({
     canCancel: false,
     canReview: false,
     canPay: false,
+    /**
+     * 待付但**小程序内自助支付未开放**（合规闸门 / 灰度未命中）→ 显示「到店支付」。
+     *
+     * 不能只判断 `dueAmount > 0` 就给「去支付」：那样会把人领进支付页，
+     * 而支付页里每种方式都是灰的 —— 点进去什么也做不了，比不显示按钮更糟。
+     */
+    payAtStore: false,
   },
 
   bookingId: 0,
@@ -70,7 +93,12 @@ definePage({
     }
     this.setData({ loading: true, guest: false, errorText: '' });
     try {
-      const page = await bookingApi.list({ page: 1, pageSize: 50 });
+      // 能力位与单据一起取：`selfPayEnabled` 决定要不要给「去支付」入口
+      const [page, me] = await Promise.all([
+        bookingApi.list({ page: 1, pageSize: 50 }),
+        memberApi.getMe().catch(() => null),
+      ]);
+      const selfPayEnabled = me?.selfPayEnabled === true;
       const found = page.items.find((item) => item.id === this.bookingId);
       if (!found) {
         this.setData({ loading: false, errorText: '没找到这笔订单' });
@@ -91,7 +119,10 @@ definePage({
               ? 'done'
               : 'active',
         staffAvatar: resolveStaffAvatar({ id: found.staffId, avatar: null }),
-        dateText: formatDateTimeLabel(found.startAt).replace(/\s\d{2}:\d{2}$/, ''),
+        dateText: formatDateTimeLabel(found.startAt).replace(
+          /\s\d{2}:\d{2}$/,
+          '',
+        ),
         timeText: formatTimeRange(found.startAt, found.endAt),
         durationText: formatDuration(durationMinutes),
         items: found.items.map((item) => ({
@@ -106,7 +137,8 @@ definePage({
         dueAmount: found.dueAmount,
         canCancel: found.status === 'pending' || found.status === 'confirmed',
         canReview: found.status === 'completed',
-        canPay: found.dueAmount > 0,
+        canPay: found.dueAmount > 0 && selfPayEnabled,
+        payAtStore: found.dueAmount > 0 && !selfPayEnabled,
       });
     } catch (error) {
       this.setData({
@@ -118,7 +150,9 @@ definePage({
 
   onGuestLogin() {
     goLogin({
-      reason: this.data.loggedIn ? '绑定手机号后查看订单详情' : '登录后即可查看订单详情',
+      reason: this.data.loggedIn
+        ? '绑定手机号后查看订单详情'
+        : '登录后即可查看订单详情',
     });
   },
 

@@ -112,6 +112,10 @@ beforeAll(async () => {
 // 会给整个套件带来随机红（本文件曾因此挂过一次）；与既有 spec 的 beforeAll(..., 120_000) 同一约定。
 beforeEach(async () => {
   await ctx.resetBusinessData();
+  // 券本身不受闸门约束，但**「券与积分二选一」这一条**要传 `pointsToUse` 才会触发；
+  // 而 `pointsToUse` 与支付页的 settle 受同一道合规闸门约束（默认关闭）。
+  // 所以这里先放量到 100%，否则会在闸门处先拿到 501、测不到二选一的 400。
+  await ctx.setPayGate(true, 100);
 }, 60_000);
 
 afterAll(async () => {

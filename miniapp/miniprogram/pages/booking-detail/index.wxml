@@ -81,6 +81,8 @@
       <view wx:if="{{canCancel}}" class="btn btn--ghost cancel-btn" bindtap="onCancel">取消预约</view>
       <view wx:if="{{canReview}}" class="btn btn--soft cancel-btn" bindtap="onReview">去评价</view>
       <view wx:if="{{canPay}}" class="btn btn--primary pay-btn" bindtap="onPay">去支付</view>
+      <!-- 待付但小程序内自助支付未开放：给出去路（到店付），而不是把人领进一个全是灰按钮的支付页 -->
+      <view wx:if="{{payAtStore}}" class="pay-store-tip">请到店支付，门店会为你结算这笔尾款</view>
     </view>
   </block>
 </view>

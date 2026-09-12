@@ -1,4 +1,4 @@
-import { bookingApi } from '../../api/index';
+import { bookingApi, memberApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
 import type { IconName } from '../../utils/icons';
 import { runLoad, runPullDownLoad } from '../../utils/load';
@@ -43,6 +43,13 @@ definePage({
     all: [] as BookingVM[],
     /** 过滤后的展示列表 */
     bookings: [] as BookingVM[],
+    /**
+     * 服务端能力位：**小程序内自助支付是否开放**（合规闸门 + 灰度）。
+     *
+     * 未付清的卡片据此显示「去支付」还是「到店支付」—— 关闭时若还给「去支付」，
+     * 点进去是一个每种方式都灰掉的支付页，等于死路。
+     */
+    selfPayEnabled: false,
   },
 
   /**
@@ -70,13 +77,30 @@ definePage({
         guest: true,
         all: [],
         bookings: [],
+        // 退出登录后不要把上一轮的能力位留着（否则「去支付」会在未登录时又冒出来）
+        selfPayEnabled: false,
       });
       return;
     }
-    await runLoad(this, () => bookingApi.list({ page: 1, pageSize: 50 }), {
-      merge: (page) => ({ guest: false, all: page.items.map(toBookingVM) }),
-      after: () => this.applyFilter(),
-    });
+    await runLoad(
+      this,
+      async () => {
+        // 能力位与列表一起取：`selfPayEnabled` 决定未付清的卡片上显示「去支付」还是「到店支付」
+        const [page, me] = await Promise.all([
+          bookingApi.list({ page: 1, pageSize: 50 }),
+          memberApi.getMe().catch(() => null),
+        ]);
+        return { page, selfPayEnabled: me?.selfPayEnabled === true };
+      },
+      {
+        merge: ({ page, selfPayEnabled }) => ({
+          guest: false,
+          selfPayEnabled,
+          all: page.items.map(toBookingVM),
+        }),
+        after: () => this.applyFilter(),
+      },
+    );
   },
 
   /** 状态筛选在服务端也支持，但列表一次取回后本地过滤更顺滑（切筛不闪） */

@@ -75,6 +75,23 @@ async function grant(
   expect([200, 201]).toContain(response.status);
 }
 
+/** 自助下单请求（不 assert，方便测「被闸门拒绝」的分支） */
+function createBookingRequest(
+  row: Seed,
+  token: string,
+  extra: Record<string, unknown> = {},
+) {
+  return ctx.request('POST', '/api/v1/app/bookings', {
+    token,
+    body: {
+      staffId: row.staffId,
+      startAt: `${date}T10:00:00+08:00`,
+      serviceItemIds: [row.serviceItemId],
+      ...extra,
+    },
+  });
+}
+
 /**
  * 造一张「顾客自助下单、**尚未付款**」的单据 —— 就是支付页要处理的那种。
  *
@@ -83,16 +100,32 @@ async function grant(
  * 那边「全款模式必须收清」。
  */
 async function createUnpaidBooking(row: Seed, token: string): Promise<number> {
-  const response = await ctx.request('POST', '/api/v1/app/bookings', {
-    token,
+  const response = await createBookingRequest(row, token);
+  expect(response.status, JSON.stringify(response.body)).toBe(201);
+  return Number(response.body.id);
+}
+
+/** 给顾客发一张「单次卡」（卡种适用项目要含单据里的项目，否则核销会被拒） */
+async function issueCard(row: Seed): Promise<number> {
+  const cardType = await ctx.request('POST', '/api/v1/biz/card-types', {
     body: {
-      staffId: row.staffId,
-      startAt: `${date}T10:00:00+08:00`,
+      name: '单次卡',
+      price: 0,
+      totalTimes: 1,
+      validDays: 0,
       serviceItemIds: [row.serviceItemId],
     },
   });
-  expect(response.status, JSON.stringify(response.body)).toBe(201);
-  return Number(response.body.id);
+  expect([200, 201], JSON.stringify(cardType.body)).toContain(cardType.status);
+  const card = await ctx.request('POST', '/api/v1/biz/member-cards', {
+    body: {
+      customerId: row.customerId,
+      cardTypeId: cardType.body.id,
+      payChannel: 'cash',
+    },
+  });
+  expect([200, 201], JSON.stringify(card.body)).toContain(card.status);
+  return Number(card.body.id);
 }
 
 async function bookingOf(id: number) {
@@ -122,10 +155,18 @@ async function balanceOf(customerId: number): Promise<number> {
  * 直接写 `sys_config` —— 这正是管理端「参数配置」页保存时改的那张表，
  * 所以这里测的是**运营真实会走的那条路**，而不是测试专用后门。
  *
- * 写完必须 `invalidate()`：配置有 10 秒缓存，不失效会读到上一轮的值，
- * 用例之间互相污染。
+ * 实现放在 harness（`ctx.setPayGate`），与本仓库其它 app 域用例共用，
+ * 免得每个文件各写一遍 SQL 与缓存失效。
  */
-async function writePayConfig(enabled: string, percent: string): Promise<void> {
+function setGate(enabled: boolean, percent: number): Promise<void> {
+  return ctx.setPayGate(enabled, percent);
+}
+
+/** 设置成非法值（配置页是自由文本输入，填错很正常），用于测越界回落 */
+async function writeRawPayConfig(
+  enabled: string,
+  percent: string,
+): Promise<void> {
   await ctx.sql(
     `INSERT INTO sys_config (name, config_key, value, builtin)
      VALUES ('自助支付-合规闸门（测试）', 'app.pay.selfPayEnabled', ?, 1),
@@ -134,11 +175,6 @@ async function writePayConfig(enabled: string, percent: string): Promise<void> {
     [enabled, percent],
   );
   ctx.app.get(BizConfigService).invalidate();
-}
-
-/** 设置两道闸门：`0` = 小程序只做预约，`100` = 全量 */
-function setGate(enabled: boolean, percent: number): Promise<void> {
-  return writePayConfig(enabled ? 'true' : 'false', String(percent));
 }
 
 beforeAll(async () => {
@@ -263,31 +299,13 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     // 单据现在是全价 10000，未付
     expect((await bookingOf(bookingId)).payable_amount).toBe(10000);
 
-    const cardType = await ctx.request('POST', '/api/v1/biz/card-types', {
-      body: {
-        name: '单次卡',
-        price: 0,
-        totalTimes: 1,
-        validDays: 0,
-        // 卡种适用项目必须包含单据里的项目，否则核销会被拒
-        serviceItemIds: [row.serviceItemId],
-      },
-    });
-    expect([200, 201]).toContain(cardType.status);
-    const card = await ctx.request('POST', '/api/v1/biz/member-cards', {
-      body: {
-        customerId: row.customerId,
-        cardTypeId: cardType.body.id,
-        payChannel: 'cash',
-      },
-    });
-    expect([200, 201]).toContain(card.status);
+    const cardId = await issueCard(row);
 
     await setGate(true, 100);
     const response = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
-      { token, body: { memberCardId: card.body.id } },
+      { token, body: { memberCardId: cardId } },
     );
 
     expect(response.status).toBe(200);
@@ -296,11 +314,11 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     expect(response.body.payStatus).toBe('paid');
     const booking = await bookingOf(bookingId);
     expect(booking.payable_amount).toBe(0);
-    expect(booking.member_card_id).toBe(card.body.id);
+    expect(booking.member_card_id).toBe(cardId);
     // 卡的次数真的扣了
     const used = await ctx.sql<{ used_times: number }>(
       `SELECT used_times FROM biz_member_card WHERE id = ?`,
-      [card.body.id],
+      [cardId],
     );
     expect(Number(used[0]?.used_times)).toBe(1);
   });
@@ -460,14 +478,90 @@ describe('灰度放量旋钮（sys_config: app.pay.*）', () => {
     const token = await seedAppUser('rollout-out-of-range', row.customerId);
 
     // 合规开着，但比例是非法值 999：getInt 的 bounds 必须把它打回默认 0
-    await writePayConfig('true', '999');
+    await writeRawPayConfig('true', '999');
     const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(me.body.selfPayEnabled).toBe(false);
 
     // 非数字同理（配置页是自由文本输入，填错很正常）
-    await writePayConfig('true', 'abc');
+    await writeRawPayConfig('true', 'abc');
     ctx.app.get(BizConfigService).invalidate();
     const again = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(again.body.selfPayEnabled).toBe(false);
+  });
+});
+
+describe('下单时的次卡核销 / 积分抵扣同样受闸门约束', () => {
+  it('闸门关闭：**普通预约完全不受影响**（"只做预约"模式必须真的能预约）', async () => {
+    const row = await seed();
+    const token = await seedAppUser('create-plain', row.customerId);
+    await setGate(false, 0);
+
+    const response = await createBookingRequest(row, token);
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    // 预约照常落库，只是不收款、照旧 `unpaid`（尾款到店收）
+    expect(response.body.payStatus).toBe('unpaid');
+    expect(response.body.dueAmount).toBe(10000);
+  });
+
+  it('闸门关闭：传次卡 / 传积分都 → 501，且**一笔单都不落库**', async () => {
+    const row = await seed();
+    await grant(row.customerId, { pointsDelta: 5000 });
+    const token = await seedAppUser('create-gated', row.customerId);
+    const cardId = await issueCard(row);
+    await setGate(false, 0);
+
+    const byCard = await createBookingRequest(row, token, {
+      memberCardId: cardId,
+    });
+    expect(byCard.status).toBe(501);
+
+    const byPoints = await createBookingRequest(row, token, {
+      pointsToUse: 100,
+    });
+    expect(byPoints.status).toBe(501);
+
+    // 关键：被拒的是"用预付权益抵扣"，不是"预约"本身 —— 所以不能留下半张单
+    const rows = await ctx.sql<{ total: number }>(
+      `SELECT COUNT(*) AS total FROM biz_booking WHERE customer_id = ?`,
+      [row.customerId],
+    );
+    expect(Number(rows[0]?.total)).toBe(0);
+    // 次卡也没被核销
+    const used = await ctx.sql<{ used_times: number }>(
+      `SELECT used_times FROM biz_member_card WHERE id = ?`,
+      [cardId],
+    );
+    expect(Number(used[0]?.used_times)).toBe(0);
+  });
+
+  it('闸门打开：下单即可用次卡核销 → payable=0、已付清（与结算走同一份判定）', async () => {
+    const row = await seed();
+    const token = await seedAppUser('create-card', row.customerId);
+    const cardId = await issueCard(row);
+    await setGate(true, 100);
+
+    const response = await createBookingRequest(row, token, {
+      memberCardId: cardId,
+    });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    expect(response.body.payableAmount).toBe(0);
+    expect(response.body.payStatus).toBe('paid');
+    const used = await ctx.sql<{ used_times: number }>(
+      `SELECT used_times FROM biz_member_card WHERE id = ?`,
+      [cardId],
+    );
+    expect(Number(used[0]?.used_times)).toBe(1);
+  });
+
+  it('放量比例不能绕过合规：合规关 + 占比 100，下单用次卡照样 501', async () => {
+    const row = await seed();
+    const token = await seedAppUser('create-bypass', row.customerId);
+    const cardId = await issueCard(row);
+    await setGate(false, 100);
+
+    const response = await createBookingRequest(row, token, {
+      memberCardId: cardId,
+    });
+    expect(response.status).toBe(501);
   });
 });
