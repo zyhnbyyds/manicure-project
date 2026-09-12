@@ -115,7 +115,9 @@ definePage({
   /** 未登录 / 未绑定时的引导（两种说法不同） */
   onGuestLogin() {
     goLogin({
-      reason: this.data.loggedIn ? '绑定手机号后查看预约' : '登录后即可查看预约记录',
+      reason: this.data.loggedIn
+        ? '绑定手机号后查看预约'
+        : '登录后即可查看预约记录',
     });
   },
 
@@ -126,8 +128,10 @@ definePage({
       itemList: options,
       success: (res) => {
         const all = [...this.data.all];
-        if (res.tapIndex === 1) all.sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
-        if (res.tapIndex === 2) all.sort((a, b) => (a.startAt > b.startAt ? 1 : -1));
+        if (res.tapIndex === 1)
+          all.sort((a, b) => (a.startAt < b.startAt ? 1 : -1));
+        if (res.tapIndex === 2)
+          all.sort((a, b) => (a.startAt > b.startAt ? 1 : -1));
         this.setData({ all }, () => this.applyFilter());
       },
       fail: () => {

@@ -136,7 +136,11 @@ export class AppMemberService {
     goodsId: number,
   ): Promise<AppPointsRedeemVo> {
     const customerId = await this.requireCustomerId(appUserId);
-    const result = await this.pointsGoods.redeem(customerId, goodsId, appUserId);
+    const result = await this.pointsGoods.redeem(
+      customerId,
+      goodsId,
+      appUserId,
+    );
     return {
       redeemNo: result.redeemNo,
       points: result.points,
@@ -181,7 +185,7 @@ export class AppMemberService {
     };
   }
 
-/**
+  /**
    * 上架中的充值档位（C 端充值页展示）。
    *
    * **只给展示所需字段**（名称 / 实付 / 赠送），不带状态、排序、审计信息。

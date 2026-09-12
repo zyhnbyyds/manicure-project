@@ -389,9 +389,7 @@ export const appClaimCouponRequestSchema = z.object({
   templateId: z.number().int().positive(),
 });
 registerComponent('AppClaimCouponRequest', appClaimCouponRequestSchema);
-export type AppCustomerCouponListVo = z.infer<
-  typeof appCustomerCouponListVo
->;
+export type AppCustomerCouponListVo = z.infer<typeof appCustomerCouponListVo>;
 export type AppMemberCardListVo = z.infer<typeof appMemberCardListVo>;
 
 /** 会员信息：余额只有本金 + 赠送，无任何内部字段 */
@@ -412,10 +410,10 @@ export const appMemberMeVo = z.object({
    * 前端不得再硬编码这个值 —— 曾经小程序写 500、后端默认 300，
    * 预估比服务端允许的多，顾客按预估下单后必然对不上。
    */
-  maxPointsPermille: z
-    .number()
-    .int()
-    .openapi({ example: 300, description: '单笔积分抵扣上限（‰），服务端配置' }),
+  maxPointsPermille: z.number().int().openapi({
+    example: 300,
+    description: '单笔积分抵扣上限（‰），服务端配置',
+  }),
   balancePrincipal: z.number().int().openapi({ description: '储值本金（分）' }),
   balanceBonus: z.number().int().openapi({ description: '储值赠送（分）' }),
   cards: z.array(appMemberCardVo),

@@ -185,7 +185,12 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
 
         if (status === 501) {
           reject(
-            new ApiFailure('这个功能马上就来啦～', status, false, requestIdOf(body)),
+            new ApiFailure(
+              '这个功能马上就来啦～',
+              status,
+              false,
+              requestIdOf(body),
+            ),
           );
           return;
         }
@@ -203,11 +208,17 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
           if (!needBind && !alreadyRetried && reauthHandler) {
             reauthHandler()
               .then(() => resolve(send<T>(options, true)))
-              .catch(() => reject(new ApiFailure(message, status, false, requestIdOf(body))));
+              .catch(() =>
+                reject(
+                  new ApiFailure(message, status, false, requestIdOf(body)),
+                ),
+              );
             return;
           }
 
-          reject(new ApiFailure(message, status, needBind, body?.requestId ?? null));
+          reject(
+            new ApiFailure(message, status, needBind, body?.requestId ?? null),
+          );
           return;
         }
 

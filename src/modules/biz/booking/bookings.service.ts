@@ -558,9 +558,8 @@ export class BookingsService implements BookingPort {
       receivedAmount: payment.receivedAmount,
       memberCardId: payment.memberCardId ?? null,
     }));
-    const preparedOrders = await this.payments.prepareChannelOrders(
-      paymentDrafts,
-    );
+    const preparedOrders =
+      await this.payments.prepareChannelOrders(paymentDrafts);
     // ---- 步骤 5~8：锁 → 复检 → 建单 → 收款（同一事务，一起提交或一起回滚）----
     const created = await this.database.db.transaction(async (tx) => {
       // 步骤 5：必须是事务内第一条语句
@@ -1347,9 +1346,8 @@ export class BookingsService implements BookingPort {
       memberCardId: payment.memberCardId ?? null,
       remark: `预约 ${booking.bookingNo} 结算`,
     }));
-    const preparedOrders = await this.payments.prepareChannelOrders(
-      paymentDrafts,
-    );
+    const preparedOrders =
+      await this.payments.prepareChannelOrders(paymentDrafts);
 
     const result = await this.database.db.transaction(async (tx) => {
       // 锁顺序：customer → payment（本操作不改时段，无需锁美甲师）

@@ -134,7 +134,9 @@ export class AppMemberController {
     schema: { $ref: '#/components/schemas/AppRechargePlanListVo' },
   })
   @ApiResponse({ status: 401, description: '未登录' })
-  async rechargePlans(@Req() request: AppRequest): Promise<AppRechargePlanListVo> {
+  async rechargePlans(
+    @Req() request: AppRequest,
+  ): Promise<AppRechargePlanListVo> {
     const appUser = request.appUser;
     if (!appUser) throw new UnauthorizedException();
     return this.member.rechargePlans();
