@@ -10,21 +10,24 @@ const PAGE_ICONS: IconName[] = ['card'];
 const WHITE_ICONS: IconName[] = ['card'];
 
 /**
- * 充值档位。
+ * 充值档位的展示态。
  *
- * ⚠️ **应该来自后端**：`biz_recharge_plan` 表是有的（管理端有充值方案模块），
- * 但 app 域没有暴露（如 `GET /app/recharge-plans`），所以先本地化。
- * 「赠送金额」必须与本金分开记账（后端 `creditBalance` 支持 principal / bonus 分开入账），
- * 页面上也据此分列展示。
+ * 档位**来自服务端**（`GET /app/recharge-plans`），这里只做展示映射 ——
+ * 曾经硬编码在本页（充 2000 送 800…），门店改了后台配置、小程序还按旧比例宣传，
+ * 充值通道一接通就是资金纠纷。
+ * 「赠送金额」必须与本金分开记账（后端 `creditBalance` 支持 principal / bonus 分开入账）。
  */
-const PLANS = [
-  { amount: 10000, bonus: 2000, label: '100元' },
-  { amount: 20000, bonus: 5000, label: '200元' },
-  { amount: 50000, bonus: 15000, label: '500元' },
-  { amount: 100000, bonus: 35000, label: '1000元' },
-  { amount: 200000, bonus: 80000, label: '2000元' },
-  { amount: 500000, bonus: 220000, label: '5000元' },
-];
+interface PlanVM {
+  id: number;
+  /** 实付（分） */
+  amount: number;
+  /** 赠送（分） */
+  bonus: number;
+  /** 主标题：用门店自己起的档位名 */
+  label: string;
+  /** 赠送金额（元，展示用） */
+  bonusText: string;
+}
 
 Page({
   data: {
@@ -38,10 +41,8 @@ Page({
     balanceText: '0.00',
     principalText: '0.00',
     bonusText: '0.00',
-    plans: PLANS.map((plan) => ({
-      ...plan,
-      bonusText: fenToYuan(plan.bonus),
-    })),
+    /** 服务端下发的档位（加载前为空，不展示任何伪造档位） */
+    plans: [] as PlanVM[],
     activeIndex: -1,
     customAmount: '',
     /** 实付（分）与赠送（分） */
@@ -64,12 +65,22 @@ Page({
   async load() {
     this.setData({ loading: true, errorText: '' });
     try {
-      const me = await memberApi.getMe();
+      const [me, planPage] = await Promise.all([
+        memberApi.getMe(),
+        memberApi.rechargePlans(),
+      ]);
       this.setData({
         loading: false,
         balanceText: fenToYuan(me.balancePrincipal + me.balanceBonus),
         principalText: fenToYuan(me.balancePrincipal),
         bonusText: fenToYuan(me.balanceBonus),
+        plans: planPage.items.map((plan) => ({
+          id: plan.id,
+          amount: plan.payAmount,
+          bonus: plan.bonusAmount,
+          label: plan.name || `${fenToYuan(plan.payAmount)} 元`,
+          bonusText: fenToYuan(plan.bonusAmount),
+        })),
       });
     } catch (error) {
       if (isApiFailure(error) && error.needBind) {
@@ -90,7 +101,7 @@ Page({
       this.setData({ activeIndex: -1, customAmount: '' }, () => this.recalc());
       return;
     }
-    const plan = PLANS[index];
+    const plan = this.data.plans[index];
     this.setData(
       { activeIndex: index, customAmount: '', payAmount: plan.amount },
       () => this.recalc(),
@@ -114,7 +125,7 @@ Page({
   recalc() {
     const { payAmount, activeIndex } = this.data;
     // 赠送只随档位走：自定义金额没有赠送（与线下规则一致，避免刷赠送）
-    const bonus = activeIndex >= 0 ? PLANS[activeIndex].bonus : 0;
+    const bonus = activeIndex >= 0 ? (this.data.plans[activeIndex]?.bonus ?? 0) : 0;
     this.setData({
       payText: fenToYuan(payAmount),
       gainText: fenToYuan(bonus),

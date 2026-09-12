@@ -100,6 +100,20 @@ export interface MemberCard {
   status: MemberCardStatus;
 }
 
+/**
+ * 上架中的充值档位（服务端配置）。
+ *
+ * 小程序**不得**再硬编码档位：门店在后台改「充多少送多少」，小程序还按旧比例
+ * 宣传的话，充值通道一接通就是资金纠纷。
+ */
+export interface RechargePlan {
+  id: number;
+  name: string;
+  /** 实付金额（分） */
+  payAmount: number;
+  /** 赠送金额（分） */
+  bonusAmount: number;
+}
 export interface MemberMe {
   customerId: number;
   name: string;

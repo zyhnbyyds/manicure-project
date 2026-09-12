@@ -39,6 +39,7 @@ import {
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
   type AppBookingListVo,
+  type AppRechargePlanListVo,
   type AppBookingVo,
   type AppCancelBookingVo,
   type AppCreateBookingVo,
@@ -120,6 +121,24 @@ export class AppMemberController {
     );
   }
 
+  @Get('recharge-plans')
+  @ApiOperation({
+    summary: '上架中的充值档位',
+    description:
+      'C 端充值页展示用：只给名称、实付金额、赠送金额（分）。' +
+      '**需要 app token，不要求绑定手机号**（与积分商品目录同一口径）。',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppRechargePlanListVo' },
+  })
+  @ApiResponse({ status: 401, description: '未登录' })
+  async rechargePlans(@Req() request: AppRequest): Promise<AppRechargePlanListVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.rechargePlans();
+  }
   @Get('points-goods')
   @ApiOperation({
     summary: '积分兑换品目录',

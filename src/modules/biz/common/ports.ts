@@ -698,6 +698,30 @@ export type BookingCreateResult = {
   }[];
 };
 
+/**
+ * 上架中的充值档位（C 端展示用）。
+ *
+ * 只给「充多少 / 送多少 / 叫什么」——**不给**审计字段、状态、排序等内部信息。
+ */
+export type ActiveRechargePlan = {
+  id: number;
+  name: string;
+  /** 实付金额（分） */
+  payAmount: number;
+  /** 赠送金额（分） */
+  bonusAmount: number;
+};
+
+/**
+ * 充值档位（C 端只读）。
+ *
+ * 小程序充值页**必须**从这里取档位：它曾经把「充 2000 送 800」这类档位
+ * 硬编码在页面里，门店在后台改了配置、小程序还按旧比例宣传 ——
+ * 一旦充值通道接通，用户看到与实际到账不一致，直接就是资金纠纷。
+ */
+export abstract class RechargePlanPort {
+  abstract listActive(): Promise<ActiveRechargePlan[]>;
+}
 export abstract class BookingPort {
   /**
    * 美甲师本人的预约（S3）。

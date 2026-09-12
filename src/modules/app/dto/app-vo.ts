@@ -474,6 +474,21 @@ export const appBookingListVo = z.object({
   page: z.number().int(),
   pageSize: z.number().int(),
 });
+/** 上架中的充值档位（C 端展示用；只给名称与两个金额） */
+export const appRechargePlanVo = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  payAmount: z.number().int().openapi({ description: '实付金额（分）' }),
+  bonusAmount: z.number().int().openapi({ description: '赠送金额（分）' }),
+});
+registerComponent('AppRechargePlanVo', appRechargePlanVo);
+export type AppRechargePlanVo = z.infer<typeof appRechargePlanVo>;
+
+export const appRechargePlanListVo = z.object({
+  items: z.array(appRechargePlanVo),
+});
+registerComponent('AppRechargePlanListVo', appRechargePlanListVo);
+export type AppRechargePlanListVo = z.infer<typeof appRechargePlanListVo>;
 registerComponent('AppBookingListVo', appBookingListVo);
 export type AppBookingListVo = z.infer<typeof appBookingListVo>;
 

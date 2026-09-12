@@ -20,6 +20,7 @@ import {
   PointsGoodsPort,
   CouponPort,
   type BookingWithItems,
+  RechargePlanPort,
   ReviewPort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
@@ -36,6 +37,7 @@ import type {
   AppCustomerCouponListVo,
   AppCustomerCouponVo,
   AppCouponOfferListVo,
+  AppRechargePlanListVo,
   AppReviewVo,
   AppSubscribeVo,
 } from '../dto/app-vo.js';
@@ -68,6 +70,7 @@ export class AppMemberService {
     private readonly bookingPort: BookingPort,
     private readonly pointsGoods: PointsGoodsPort,
     private readonly coupons: CouponPort,
+    private readonly rechargePlanPort: RechargePlanPort,
   ) {}
 
   /**
@@ -178,7 +181,26 @@ export class AppMemberService {
     };
   }
 
-/** 可领取的券（需要绑定：领了就是自己的权益） */
+/**
+   * 上架中的充值档位（C 端充值页展示）。
+   *
+   * **只给展示所需字段**（名称 / 实付 / 赠送），不带状态、排序、审计信息。
+   * 小程序充值页必须用它 —— 它曾经把「充 2000 送 800」这类档位硬编码在页面里，
+   * 门店改了后台配置、小程序还按旧比例宣传（充值通道一接通就是资金纠纷）。
+   */
+  async rechargePlans(): Promise<AppRechargePlanListVo> {
+    const plans = await this.rechargePlanPort.listActive();
+    return {
+      items: plans.map((plan) => ({
+        id: plan.id,
+        name: plan.name,
+        payAmount: plan.payAmount,
+        bonusAmount: plan.bonusAmount,
+      })),
+    };
+  }
+
+  /** 可领取的券（需要绑定：领了就是自己的权益） */
   async listCouponOffers(appUserId: number): Promise<AppCouponOfferListVo> {
     const customerId = await this.requireCustomerId(appUserId);
     const rows = await this.coupons.listClaimable(customerId);

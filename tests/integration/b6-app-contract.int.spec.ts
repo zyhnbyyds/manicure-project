@@ -1036,3 +1036,47 @@ describe('B6 自助下单 / 我的预约 / 自助取消（A10）', () => {
     expect(Number(rows[0].total)).toBe(1);
   });
 });
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 充值档位 /app/recharge-plans（C 端只读）', () => {
+  it('只返回上架档位；**字段集合固定**（内部字段一个都不能漏）', async () => {
+    // 档位是**门店配置**：小程序必须从服务端取 ——
+    // 曾经硬编码在充值页（充 2000 送 800…），门店改了后台配置就会「宣传与实际到账不一致」
+    await ctx.sql(
+      `INSERT INTO biz_recharge_plan (name, pay_amount, bonus_amount, status, sort)
+       VALUES ('充 100 送 20', 10000, 2000, 'active', 1),
+              ('已停用档位', 50000, 15000, 'disabled', 2)`,
+    );
+    // 只需要 app token，**不要求绑定手机号**（与积分商品目录同一口径）
+    const { token } = await seedBoundAppUser('recharge-plans', null);
+
+    const res = await ctx.request('GET', '/api/v1/app/recharge-plans', {
+      token,
+    });
+    expect(res.status).toBe(200);
+
+    const items = (res.body as { items: Record<string, unknown>[] }).items;
+    // 停用的档位不能出现：否则小程序会宣传一个门店已经下掉的档位
+    expect(items).toHaveLength(1);
+    // 只给展示所需字段（状态 / 排序 / 审计字段都不该出现）
+    expect(Object.keys(items[0]).sort()).toEqual([
+      'bonusAmount',
+      'id',
+      'name',
+      'payAmount',
+    ]);
+    expect(items[0]).toMatchObject({
+      name: '充 100 送 20',
+      payAmount: 10000,
+      bonusAmount: 2000,
+    });
+  });
+
+  it('未登录 → 401', async () => {
+    const res = await ctx.request('GET', '/api/v1/app/recharge-plans', {
+      token: null,
+    });
+    expect(res.status).toBe(401);
+  });
+});

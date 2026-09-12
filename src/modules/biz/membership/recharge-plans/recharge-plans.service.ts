@@ -8,6 +8,7 @@ import { and, asc, eq, isNull, ne } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
 import { bizRechargePlans } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
+import { RechargePlanPort } from '../../common/ports.js';
 import { withoutUndefined } from '../../common/tx.js';
 import type { BizDatabase } from '../../common/tx.js';
 
@@ -43,11 +44,12 @@ export type UpdateRechargePlanInput = {
  * 都校验（§15.4 / §15.8）：方案是模板，充值才是真正加余额的动作。
  */
 @Injectable()
-export class RechargePlansService {
+export class RechargePlansService extends RechargePlanPort {
   constructor(
     private readonly database: DatabaseService,
     private readonly config: BizConfigService,
-  ) {}
+  ) {
+    super();}
 
   async list(
     page: number,
@@ -79,8 +81,8 @@ export class RechargePlansService {
     return plan;
   }
 
-  /** 启用中的方案（充值下拉用） */
-  async listActive(
+  /** 启用中的方案（充值下拉用；同时是 `RechargePlanPort` 的实现） */
+  override async listActive(
     executor: BizDatabase = this.database.db,
   ): Promise<RechargePlanRow[]> {
     return executor

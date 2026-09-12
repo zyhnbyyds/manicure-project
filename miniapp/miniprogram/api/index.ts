@@ -41,6 +41,7 @@ import type {
   StaffPhone,
   StaffReview,
   StaffSchedule,
+  RechargePlan,
 } from './types';
 
 
@@ -105,6 +106,14 @@ export const memberApi = {
     return request<MemberMe>({ path: '/app/member/me' });
   },
 
+  /**
+   * 上架中的充值档位。
+   *
+   * 充值页必须用它：档位是**门店配置**，硬编码在前端必然与实际到账对不上。
+   */
+  rechargePlans(): Promise<{ items: RechargePlan[] }> {
+    return request<{ items: RechargePlan[] }>({ path: '/app/recharge-plans' });
+  },
   listCards(status?: MemberCard['status']): Promise<Paged<MemberCard>> {
     return request<Paged<MemberCard>>({
       path: '/app/member/cards',

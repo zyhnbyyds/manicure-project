@@ -15,6 +15,7 @@ import {
   MemberCardPort,
   NoticePort,
   PaymentPort,
+  RechargePlanPort,
   RecurrencePort,
   RefundPort,
   ReviewPort,
@@ -26,6 +27,7 @@ import {
 } from './common/ports.js';
 import { CreditModule } from './credit/credit.module.js';
 import { ReceivablesService } from './credit/receivables/receivables.service.js';
+import { RechargePlansService } from './membership/recharge-plans/recharge-plans.service.js';
 import { MembershipModule } from './membership/membership.module.js';
 import { MemberAccountsService } from './membership/member-accounts/member-accounts.service.js';
 import { MemberCardsService } from './membership/member-cards/member-cards.service.js';
@@ -91,6 +93,7 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
     // 积分兑换品：顾客侧只读目录（兑换动作仍走后台同一 service，避免算价口径分叉）
     { provide: PointsGoodsPort, useExisting: PointsGoodsService },
     { provide: CouponPort, useExisting: CouponsService },
+    { provide: RechargePlanPort, useExisting: RechargePlansService },
   ],
   exports: [
     ServiceItemPort,
@@ -112,6 +115,7 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
     ReviewPort,
     PointsGoodsPort,
     CouponPort,
+    RechargePlanPort,
     // 需要具体 service 时导出「模块」而不是 provider：Nest 不允许导出
     // 不属于当前模块的 provider（它们由 BookingModule 提供）
     BookingModule,
