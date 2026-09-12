@@ -69,33 +69,36 @@ export class CouponsService {
     const now = new Date();
     const expireAt = this.resolveExpireAt(template, now);
 
-    // 单号「主键回填」：先插占位号，拿到自增 id 再回填正式号。
-    // 不能「查当日最大号 +1」—— 并发下必然重号（单号有唯一索引，会直接 1062）。
-    const inserted = await this.database.db.insert(bizCustomerCoupons).values({
-      couponNo: `TMP${Date.now()}${Math.floor(Math.random() * 1e6)}`,
-      customerId: input.customerId,
-      templateId: template.id,
-      discountAmount: template.discountAmount,
-      thresholdAmount: template.thresholdAmount,
-      status: 'usable',
-      expireAt,
-      source: input.source ?? 'manual',
-      createdBy: input.actorId ?? undefined,
+    // **整段放进事务**：单号是「主键回填」（先插占位号，拿到自增 id 再回填正式号，
+    // 因为「查当日最大号 +1」在并发下必然重号）。
+    // 不包事务的话，insert 与回填之间一旦失败，库里会永久留下一张 `TMP...` 号的券。
+    return this.database.db.transaction(async (tx) => {
+      const inserted = await tx.insert(bizCustomerCoupons).values({
+        couponNo: `TMP${Date.now()}${Math.floor(Math.random() * 1e6)}`,
+        customerId: input.customerId,
+        templateId: template.id,
+        discountAmount: template.discountAmount,
+        thresholdAmount: template.thresholdAmount,
+        status: 'usable',
+        expireAt,
+        source: input.source ?? 'manual',
+        createdBy: input.actorId ?? undefined,
+      });
+      const id = Number(inserted[0].insertId);
+
+      await tx
+        .update(bizCustomerCoupons)
+        .set({ couponNo: buildDocNo('X', id, timezone, now) })
+        .where(eq(bizCustomerCoupons.id, id));
+
+      const [row] = await tx
+        .select()
+        .from(bizCustomerCoupons)
+        .where(eq(bizCustomerCoupons.id, id))
+        .limit(1);
+      if (!row) throw new NotFoundException('发券失败，请重试');
+      return row;
     });
-    const id = Number(inserted[0].insertId);
-
-    await this.database.db
-      .update(bizCustomerCoupons)
-      .set({ couponNo: buildDocNo('X', id, timezone, now) })
-      .where(eq(bizCustomerCoupons.id, id));
-
-    const [row] = await this.database.db
-      .select()
-      .from(bizCustomerCoupons)
-      .where(eq(bizCustomerCoupons.id, id))
-      .limit(1);
-    if (!row) throw new NotFoundException('发券失败，请重试');
-    return row;
   }
 
   /**
@@ -550,6 +553,32 @@ export class CouponsService {
       page: safePage,
       pageSize: safePageSize,
     };
+  }
+
+  /** 某位顾客持有的券（后台用：发券后要能核对，会员详情也要看） */
+  async listByCustomer(
+    customerId: number,
+    page = 1,
+    pageSize = 20,
+  ): Promise<{ items: CustomerCouponRow[]; page: number; pageSize: number }> {
+    const {
+      page: safePage,
+      pageSize: safePageSize,
+      offset,
+    } = parsePagination(page, pageSize);
+    const rows = await this.database.db
+      .select()
+      .from(bizCustomerCoupons)
+      .where(
+        and(
+          eq(bizCustomerCoupons.customerId, customerId),
+          isNull(bizCustomerCoupons.deletedAt),
+        ),
+      )
+      .orderBy(desc(bizCustomerCoupons.id))
+      .limit(safePageSize)
+      .offset(offset);
+    return { items: rows, page: safePage, pageSize: safePageSize };
   }
 
   async findTemplate(id: number): Promise<CouponTemplateRow> {

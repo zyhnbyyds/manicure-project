@@ -181,7 +181,8 @@ const BIZ_PAGES: BizPageSeed[] = [
       // 充值 / 冲正退款默认只给店长（§8.1 钱的权限收窄）
       {
         resource: 'biz:member',
-        actions: ['update', 'adjust', 'recount', 'recharge', 'refund'],
+        // coupon = 给顾客发券（运营动作，复用券模板）
+        actions: ['update', 'adjust', 'recount', 'recharge', 'refund', 'coupon'],
       },
       // 发卡 / 核销也从会员详情发起
       { resource: 'biz:card', actions: ['issue', 'use'] },

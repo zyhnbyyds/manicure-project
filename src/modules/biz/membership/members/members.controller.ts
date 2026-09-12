@@ -23,6 +23,7 @@ import { registerComponent } from '../../../../common/swagger/zod-schema.helper'
 import { parsePagination } from '../../common/query.js';
 import { MemberAccountsService } from '../member-accounts/member-accounts.service.js';
 import { MemberCardsService } from '../member-cards/member-cards.service.js';
+import { CouponsService } from '../coupons/coupons.service.js';
 
 const ensureMemberSchema = z.object({
   customerId: z.number().int().positive(),
@@ -91,6 +92,7 @@ export class MembersController {
   constructor(
     private readonly accounts: MemberAccountsService,
     private readonly cards: MemberCardsService,
+    private readonly coupons: CouponsService,
   ) {}
 
   @Get()
@@ -235,6 +237,53 @@ export class MembersController {
     );
   }
 
+  /**
+   * 给指定顾客发券。
+   *
+   * **允许重复发放**（补偿、活动补发都是正常诉求）—— 这里**不做「已持有就拒绝」**，
+   * 那会把合法诉求也挡掉。防重复提交交给前端按钮态；发完可用 GET :id/coupons 核对。
+   *
+   * 停用的模板**不能发放**（issue() 里拦），需要时先把模板改回启用。
+   */
+  @Post(':id/coupons')
+  @RequirePermissions('biz:member:coupon')
+  @ApiOperation({ summary: '给顾客发券（面额/门槛按下发时快照）' })
+  @ApiParam({ name: 'id', description: '会员（顾客）ID' })
+  @ApiBody({ schema: { $ref: '#/components/schemas/IssueCouponRequest' } })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 404, description: '模板不存在' })
+  @ApiResponse({ status: 409, description: '模板已停用' })
+  issueCoupon(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+    @Req() request: AuthRequest,
+  ) {
+    const input = issueCouponSchema.parse(body);
+    return this.coupons.issue({
+      customerId: id,
+      templateId: input.templateId,
+      actorId: request.user.id,
+      source: 'admin',
+    });
+  }
+
+  /** 该顾客持有的券（发券后核对；会员详情也可用） */
+  @Get(':id/coupons')
+  @RequirePermissions('biz:member:list')
+  @ApiOperation({ summary: '顾客的优惠券列表' })
+  @ApiParam({ name: 'id', description: '会员（顾客）ID' })
+  @ApiQuery({ name: 'page', required: false, description: '页码' })
+  @ApiQuery({ name: 'pageSize', required: false, description: '每页条数' })
+  @ApiResponse({ status: 200, description: '成功' })
+  listCoupons(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('page') rawPage?: string,
+    @Query('pageSize') rawPageSize?: string,
+  ) {
+    const { page, pageSize } = parsePagination(rawPage, rawPageSize);
+    return this.coupons.listByCustomer(id, page, pageSize);
+  }
+
   @Post(':id/recount')
   @RequirePermissions('biz:member:recount')
   @ApiOperation({
@@ -250,6 +299,12 @@ export class MembersController {
     return { ok: true };
   }
 }
+
+/** 发券入参：只收 templateId（顾客来自路径参数） */
+const issueCouponSchema = z.object({
+  templateId: z.number().int().positive(),
+});
+registerComponent('IssueCouponRequest', issueCouponSchema);
 
 function toPositiveInt(raw?: string): number | undefined {
   if (raw === undefined || raw === '') return undefined;
