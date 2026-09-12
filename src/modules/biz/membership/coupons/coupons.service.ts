@@ -12,6 +12,7 @@ import {
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { buildDocNo } from '../../common/doc-no.js';
 import { parsePagination } from '../../common/query.js';
+import type { BizDatabase } from '../../common/tx.js';
 
 export type CouponTemplateRow = typeof bizCouponTemplates.$inferSelect;
 export type CustomerCouponRow = typeof bizCustomerCoupons.$inferSelect;
@@ -213,5 +214,91 @@ export class CouponsService {
       );
     }
     return eq(bizCustomerCoupons.status, filter);
+  }
+
+  /**
+   * 核销：把券绑到某一单上，返回**实际抵扣额（分）**。
+   *
+   * ## 必须在建单的同一事务里调用（因此第一个参数是 `tx`）
+   *
+   * 否则会出现两类事故：券核销了但单没建成（顾客白丢一张券），
+   * 或者单建成了但券还能再用（门店白送一次让利）。
+   *
+   * ## 闸门是条件更新，不是「读出来判断再写」
+   *
+   * `WHERE id=? AND customer_id=? AND status='usable' AND used_booking_id IS NULL`，
+   * `affectedRows = 0` 一律 409。上面那段「先查一遍」只用于给出**友好报错**
+   * （已过期 / 不到门槛 / 不是你的券），**并发安全完全由条件更新保证** ——
+   * 读-判断-写在并发下会让同一张券被两单同时用掉。
+   *
+   * ## 门槛基准
+   *
+   * `baseAmount` 传**等级折扣之后**的金额（券在等级折扣后、积分前，见 `money.ts`）。
+   * 抵扣额再夹一次 `min(面额, baseAmount)`，与算价里的夹取保持一致。
+   */
+  async redeemForBooking(
+    tx: BizDatabase,
+    input: {
+      couponId: number;
+      customerId: number;
+      /** 建单场景传真实 bookingId；单测/预演可传 null（此时 `status` 仍会翻转，闸门照旧生效） */
+      bookingId: number | null;
+      /** 等级折扣之后的金额（分） */
+      baseAmount: number;
+      actorId?: number | null;
+    },
+  ): Promise<{ couponNo: string; discountAmount: number }> {
+    const [row] = await tx
+      .select()
+      .from(bizCustomerCoupons)
+      .where(
+        and(
+          eq(bizCustomerCoupons.id, input.couponId),
+          isNull(bizCustomerCoupons.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new NotFoundException('优惠券不存在');
+    if (row.customerId !== input.customerId) {
+      // 不暴露「这张券属于谁」，只说不能用 —— 避免拿别人的券 id 探测
+      throw new ConflictException('这张优惠券不可用');
+    }
+
+    const now = new Date();
+    if (
+      row.status !== 'usable' ||
+      (row.expireAt && row.expireAt.getTime() <= now.getTime())
+    ) {
+      throw new ConflictException('优惠券已使用或已过期');
+    }
+    if (input.baseAmount < row.thresholdAmount) {
+      const yuan = Math.ceil(row.thresholdAmount / 100);
+      throw new ConflictException(`未达到优惠券使用门槛（满 ${yuan} 元可用）`);
+    }
+
+    const discountAmount = Math.min(
+      row.discountAmount,
+      Math.max(input.baseAmount, 0),
+    );
+
+    const result = await tx
+      .update(bizCustomerCoupons)
+      .set({
+        status: 'used',
+        usedBookingId: input.bookingId ?? null,
+        usedAt: now,
+        updatedBy: input.actorId ?? undefined,
+      })
+      .where(
+        and(
+          eq(bizCustomerCoupons.id, input.couponId),
+          eq(bizCustomerCoupons.customerId, input.customerId),
+          eq(bizCustomerCoupons.status, 'usable'),
+          isNull(bizCustomerCoupons.usedBookingId),
+        ),
+      );
+    if (!result[0].affectedRows) throw new ConflictException('优惠券已被使用');
+
+    return { couponNo: row.couponNo, discountAmount };
   }
 }
