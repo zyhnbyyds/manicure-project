@@ -225,6 +225,8 @@ void search();
 
 // ---------- 审批 / 详情弹窗 ----------
 const approvalVisible = ref(false);
+/** 审批执行中：通过会**立即发起渠道退款**，连点会重复打款请求 */
+const approving = ref(false);
 const approvalRow = ref<Refund | null>(null);
 const approvalIsPending = computed(
   () => approvalRow.value?.status === 'pending',
@@ -307,6 +309,7 @@ const approvalFooterButtons = computed<LewModalFooterButtonItem[]>(() => {
         color: 'primary',
         size: 'small',
         text: '通过',
+        loading: approving.value,
         request: handleApprove,
       },
     },
@@ -315,6 +318,7 @@ const approvalFooterButtons = computed<LewModalFooterButtonItem[]>(() => {
 
 /** 审批通过：立即执行退款且只能执行一次 → 二次确认 */
 function handleApprove() {
+  if (approving.value) return;
   const row = approvalRow.value;
   if (!row) return;
   confirmDanger({
@@ -325,10 +329,15 @@ function handleApprove() {
     confirmText: '确认通过',
     confirmColor: 'primary',
     onConfirm: async () => {
-      await approveRefund(row.id, {});
-      LewMessage.success('已通过并执行退款');
-      approvalVisible.value = false;
-      void refresh();
+      approving.value = true;
+      try {
+        await approveRefund(row.id, {});
+        LewMessage.success('已通过并执行退款');
+        approvalVisible.value = false;
+        void refresh();
+      } finally {
+        approving.value = false;
+      }
     },
   });
 }

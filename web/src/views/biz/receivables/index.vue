@@ -269,6 +269,8 @@ interface SettleRow {
   remark: string;
 }
 const settleVisible = ref(false);
+/** 销账提交中：销账是资金动作，连点会超额销账 */
+const settling = ref(false);
 const settleTarget = ref<Receivable | null>(null);
 const settleRows = ref<SettleRow[]>([]);
 const settleDetail = ref<ReceivableDetail | null>(null);
@@ -416,7 +418,12 @@ async function handleSettle() {
     confirmText: '确认销账',
     confirmColor: 'warning',
     onConfirm: async () => {
-      await submitSettle(target, payments);
+      settling.value = true;
+      try {
+        await submitSettle(target, payments);
+      } finally {
+        settling.value = false;
+      }
     },
   });
 }
@@ -425,6 +432,8 @@ async function submitSettle(
   target: Receivable,
   payments: SettlePaymentInput[],
 ) {
+  // 双保险：confirmDanger 已挡一层，这里挡「已提交但弹窗还没关」的窗口
+  if (settling.value) return;
   const result = await settleReceivable(target.id, { payments });
   await refreshAll();
   await loadAccounts();
@@ -670,7 +679,7 @@ async function refreshAll() {
             <IconButton
               permission="biz:receivable:settle"
               title="销账"
-              :disabled="!canSettle(row as unknown as Receivable)"
+              :disabled="!canSettle(row as unknown as Receivable) || settling"
               @click="openSettle(row as unknown as Receivable)"
             >
               <CheckCircle2 :size="14" />

@@ -19,6 +19,10 @@ export function confirmDanger(opts: {
   onConfirm: () => Promise<void> | void;
 }) {
   const method = (opts.type ?? 'warning') as 'warning' | 'normal';
+  // 防重入：连点两次「确认」绝不能发出两次请求。
+  // 收银结算 / 退款审批 / 应收销账都走这个弹窗，全是**资金写操作**，
+  // 重复请求会造成重复建单、超额销账。这里挡在公共出口，各页不必各写一遍。
+  let running = false;
   LewDialog[method]({
     title: opts.title,
     content: opts.content,
@@ -33,7 +37,13 @@ export function confirmDanger(opts: {
           color: opts.confirmColor ?? 'error',
           size: 'small',
           request: async () => {
-            await opts.onConfirm();
+            if (running) return;
+            running = true;
+            try {
+              await opts.onConfirm();
+            } finally {
+              running = false;
+            }
           },
         },
       },

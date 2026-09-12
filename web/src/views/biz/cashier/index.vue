@@ -311,8 +311,12 @@ async function handlePointsPreview() {
 
 /** 最近一次提交的请求体（二维码「重新获取」时原样重放） */
 const lastSubmitted = ref<SettleBookingBody | null>(null);
+/** 结算提交中：挡住连点导致的重复建单（混合支付会逐笔落 biz_payment） */
+const settling = ref(false);
 
 function handleSettle() {
+  if (settling.value) return;
+  if (detailLoading.value) return;
   const booking = selected.value;
   if (!booking) {
     LewMessage.error('请先选择待收款的单据');
@@ -394,8 +398,13 @@ function handleSettle() {
     confirmText: '确认收款',
     confirmColor: 'primary',
     onConfirm: async () => {
-      lastSubmitted.value = body;
-      await submitSettle(body);
+      settling.value = true;
+      try {
+        lastSubmitted.value = body;
+        await submitSettle(body);
+      } finally {
+        settling.value = false;
+      }
     },
   });
 }
@@ -969,7 +978,7 @@ function renderPayStatus(status: string) {
           <LewButton
             v-permission="'biz:payment:create'"
             type="fill"
-            :loading="detailLoading"
+            :loading="detailLoading || settling"
             @click="handleSettle"
           >
             <Wallet :size="14" style="margin-right: 4px" /> 去收款
