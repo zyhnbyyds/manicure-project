@@ -265,3 +265,86 @@
   用读图直接看清。`--dump-dom` 在本机被「已有浏览器会话」吞掉，别在这上面浪费时间。）
 - **来源**：用户报「图片展示不出来」→ 读 devtools 日志确认第一层（相对路径）已修 →
   发现第二层是**完全不同的根因，症状却一模一样**。**同一个症状要查到「能证明它好了」，不能停在「看起来修对了」。**
+
+## 16. 自定义 TabBar「切不动」：高亮下标不该由页面报、更不该拿它当点击闸门
+
+- **现象**（用户原话）：「切换有点不顺畅，而且有时候切换页面切不动」。
+  实测复现：人在**我的**，底部高亮却在**首页**；此时**点「首页」没有任何反应**。
+- **根因（两层，缺一不可）**：
+  1. 组件是**每个 tab 页各有一个实例**。新页面的 TabBar 带着 `currentRoute: ''` 出生，
+     `attached` / `pageLifetimes.show` 里 `findIndex === -1` → **退回 `selected: 0`**；
+     而页面 `onShow` 里的 `syncTabBar()` 只写 `currentRoute`、**不会重算 `selected`**
+     （时序上 `pageLifetimes.show` 还早于页面自己的 `onShow`）→ 高亮永远停在下标 0。
+  2. `onTap` 里有一句 `if (index === this.data.selected) return;` —— 高亮错位时，
+     **点那个「被错误高亮」的 tab 正好命中这句提前 return**，于是点击被吞掉 = 切不动。
+- **正确做法**：
+  - TabBar **自己**读 `getCurrentPages()` 算真实路由（`refresh()` 一次算清主题+模式+高亮），
+    不依赖任何页面配合；路由找不到时**保留当前高亮**，绝不退回 0；
+  - 提前 return 的判据改成 `realRoute() === tab.pagePath`（真在当前页才短路，并顺手校准高亮）；
+  - 点击先**乐观 `setData({selected})`**（高亮立刻跟手，`switchTab` 有延迟），
+    再加 `switching` 在途保护 + `fail` 回调里 `refresh()` 校准并 toast —— 静默失败最糟。
+- **怎么发现的**：用 `miniprogram-automator`（`cli auto --auto-port 9420`）驱动真机模拟器，
+  直接 `getTabBar().onTap({currentTarget:{dataset:{index}}})` 打点，读出
+  `{route: pages/mine/index, selected: 0}` —— **一行数据就定性了**，比截图猜快得多。
+- **来源**：实测（复现 → 修复 → 6 次切换 + 连点回归全绿）。
+
+## 17. 页面工厂的 `onShow` **不能**推全量 chrome，否则把加载状态机打回首屏
+
+- **现象**：`onLoad` 里发起请求的页面，骨架屏闪一下就没了（先露一瞬空态）；切 Tab 回来
+  仍然回骨架屏；刷新失败还会清空已有内容 —— 与 `runLoad` 承诺的语义**完全相反**。
+- **根因**：`definePage` 注入的 `onShow` 每次 `setData(chrome())`，而 chrome 里含
+  `loading: false, errorText: '', loaded: false`。生命周期是 `onLoad → onShow`，
+  于是 `onLoad` 里刚 `setData({loading:true})` 就被 `onShow` 打回 false；
+  且 `loaded` 每次被重置 → `runLoad` 永远判成「首屏」。
+- **正确做法**：拆成两份 —— `pageChrome()`（**只用于 `data` 初始化**，含加载态四件套初值）
+  与 `pageAppearance()`（`onShow` 每次只刷主题/登录态/图标）。
+  **加载态四件套只在 `data` 里播一次种，之后就只归 `runLoad` 所有。**
+- **来源**：子 agent 读代码时上报的推断（**没有运行时**也能推出来：`setData` 同步更新 `this.data`），
+  父 agent 复核实证后修复。**分工时「不许改 utils」这条纪律的价值就在这里：越界改会把问题掩盖掉。**
+
+## 18. `definePage` 的 chrome 配置项拼错 = 图标静默消失、tsc 还不报错
+
+- **现象**：整页图标全没了，但没有任何报错。
+- **根因**：`CustomOption = Record<string, any>`，拼错的键（如 `chromeIcon`）会被 `...rest`
+  原样透传给 `Page()` 当成自定义方法吞掉 —— 类型系统在这里**帮不上忙**。
+- **正确做法**：`definePage` 里加了防呆告警：`rest` 中以 `chrome` / `white` 开头但不在白名单的键
+  直接 `console.warn`，把「静默」变回「一眼可见」。新增配置项时同步白名单。
+- **来源**：实测（本轮重构真的写成了 `icons` 而文档/示例都是 `chromeIcons`，
+  三个并行子 agent 里的一个在开工时发现并上报）。
+
+## 19. 入场动画用了 `animation-fill-mode: both`，会把 `.press:active` 永久压掉
+
+- **现象**：加了入场动画的元素，按下没有缩放反馈了。
+- **根因**：`both` 让动画**末帧的 `transform` 一直生效**（`translateY(0) scale(1)`），
+  动画声明优先级高于普通声明 → `:active` 的 `transform` 永远不生效。
+- **正确做法**：入场动画统一 `backwards`（只在延迟期预置起始态，播完把 `transform` 还给元素）。
+- **来源**：读 CSS 规范即可预判，但**只有「真的去按一下」才会发现**——所以 `.anim-*` 与 `.press`
+  同时使用时必须肉眼验收一次。
+
+## 20. 同一零件每页抄一份，必然漂移成 N 套
+
+- **现象**：`.chip`（筛选胶囊）在 5 个页面各有一份，已经漂移成 3 套尺寸
+  （高 58/60rpx、字号 24/25/26rpx、未选中文字色两种）；`.mini-btn` 3 套；`.tips` 8 处 margin/字号各不相同；
+  `.empty__action` 15 处 3 种外边距。
+- **根因**：不是有人改错了，而是**复制粘贴本身**——第 2 份时没人看得出，第 5 份时就没有「标准」了。
+- **正确做法**：凡是**跨页面同形的零件**（筛选胶囊 / 小按钮 / 提示文字 / 空态按钮）一律进
+  `app.wxss`，页面只保留**排布**（外边距交给容器）。本轮已把上述 4 类收归全局：
+  **删掉约 30 个重复规则块**，`pages/*/index.wxss` 里再没有 `.chip` / `.mini-btn` / `.tips` / `.empty__action`。
+- **排查手法（可复用）**：把所有 `pages/*/index.wxss` 的**类选择器**聚合成
+  `选择器 → 出现在几个页面`，出现 ≥3 次的逐个看 —— 一眼就能看出哪些是真重复、哪些只是重名（如 `.hero`）。
+- **来源**：用户要求「有通用的地方注意封装」，用上述脚本普查后统一。
+
+## 21. 给「整块 `wx:else`」套入场动画，会把 `position: fixed` 的底栏顶飞
+
+- **现象**（只在动画那 0.3 秒里出现）：底部 `.action-bar`（app.wxss 里是 `position: fixed`）
+  先被摆到**内容底部**（可能在屏幕中段、也可能在视口外），动画一结束再「啪」地跳回屏幕底部。
+- **根因**：祖先元素只要有 `transform`（动画/`will-change` 都会产生），就会成为
+  `position: fixed` 后代的**包含块**。于是 fixed 不再相对视口定位，而是相对那个正在动的盒子。
+- **正确做法**：动画挂在**内容容器**上（`.page-body xxx-body`），**不要把整块 `wx:else` 包成一个带
+  `anim-rise` 的 view** —— 后者会把同级的 fixed 底栏一起圈进包含块。
+  页面里没有 fixed 元素时（首页、款式库列表），包整块才是安全的。
+- **排查手法（可复用）**：写个 10 行的**标签栈解析**扫一遍所有 wxml ——
+  遇到 `.action-bar` 就回头看祖先链里有没有 `anim-*` / `press*`，一次扫出全部风险点，
+  比逐页肉眼看来得可靠（本轮所有页面扫出来只有 1 处，即 `services` 的底栏**自己**带动画，那是安全的）。
+- **来源**：并行重构的子 agent 主动提出并拒绝了「字面统一」的做法 ——
+  **规范要跟着物理约束走，而不是反过来**。

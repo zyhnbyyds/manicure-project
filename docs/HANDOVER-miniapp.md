@@ -519,3 +519,81 @@ POST /app/bookings            建单新增 couponId（券核销同事务）
 | 会员详情加「优惠券」Tab | 接口 `GET /biz/members/:id/coupons` 已就绪，页面还没用 |
 | **手工作废/核销券** | 目前券只能等下单自动核销。运营发错一张券时**没有手工纠正手段** —— 这是最值得补的一项（需要新接口 + 状态流转 + 审计原因） |
 | 发券记录页 | 现在只能按顾客查；没有「某模板发给了谁」的全局视角 |
+
+---
+
+## 13. 小程序端基础设施（2026-09-12 重构，**新页面必须按这套写**）
+
+> 本轮把「每个页面各写一遍」的样板收成了四个件：`definePage` / `pageChrome` / `runLoad` /
+> 自定义 TabBar 自治。改小程序页面前先读本节，别再造第五个轮子。
+
+### 13.1 页面：`definePage`（`utils/page.ts`）
+
+```ts
+import { definePage } from '../../utils/page';
+import { runLoad, runPullDownLoad } from '../../utils/load';
+
+definePage({
+  chromeIcons: PAGE_ICONS,        // 跟随主题色生成 data.icons（whiteIcons / extra 同理）
+  data: { loading: true, items: [] },   // 只写本页自己的字段
+  onLoad() { void this.load(); },
+  onShow() { /* 主题/登录态/图标/TabBar 已由工厂刷新，这里只写业务 */ },
+  onPullDownRefresh() { return runPullDownLoad(() => this.load()); },
+  async load() {
+    await runLoad(this, () => api(), {
+      merge: (r) => ({ items: r.items.map(toVM) }),
+      after: () => this.refresh(),
+    });
+  },
+});
+```
+
+- 工厂注入的 data：`themeStyle / themePrimary / onPrimary / themeName / themeEmoji /
+  loggedIn / bound` + `loading / refreshing / errorText / loaded`。
+- **`onShow` 只推「外观/身份」**（`pageAppearance`），**绝不推加载态** ——
+  推了会把 `runLoad` 的状态机打回首屏（详见 `docs/pitfalls/miniapp.md` §17）。
+- 配置项名是 **`chromeIcons`**（不是 `icons`）；拼错会被静默吞掉，工厂有防呆告警（§18）。
+
+### 13.2 加载：`runLoad` 的四条语义（`utils/load.ts`）
+
+| 时机 | loading | refreshing | 内容 |
+| ---- | ------- | ---------- | ---- |
+| 首屏 | true | false | 骨架屏 |
+| 已有数据再刷新 | false | true | **保留旧内容**（切 Tab 回来不再闪白） |
+| 首屏失败 | false | false | errorText → 错误态 + 可重试 |
+| 刷新失败 | false | false | **保留旧内容** + toast |
+
+数据源**整体换了**（如时段页换日期）要传 `force: true` 回骨架屏，否则旧数据还留在屏幕上且**可点**。
+`onPullDownRefresh` 一律用 `runPullDownLoad`（它的 `finally` 保证下拉圈会停）。
+
+### 13.3 TabBar：高亮**由组件自己算**（`custom-tab-bar/index.ts`）
+
+- `refresh()` 自己读 `getCurrentPages()` 推主题+模式+高亮，**不依赖页面调用**；
+  页面侧的 `utils/tabbar.ts#syncTabBar` 只是「戳一下让它重算」。
+- 点击 = **乐观更新高亮 → 在途保护 → `switchTab`**；`fail` 必须校准 + 给反馈，不许静默。
+- 图标两态**同时渲染靠透明度交叉淡入**，不要换 `src`（会闪白）。
+
+### 13.4 样式与动效
+
+- **动效令牌**（`app.wxss` 的 `page{}`）：`--dur-instant/fast/mid/slow`、`--ease-out/back/in-out`。
+  **不要在页面里写 0.2s/ease 这类字面量**，否则全项目的快慢手感又会散掉。
+- **工具类**：`.anim-rise`（内容块入场）、`.anim-pop`（空态/小元素）、`.anim-item` + `style="--i:{{index}}"`（一次性列表逐项入场）、
+  `.press` / `.press-sm`（按下反馈）。
+  入场动画统一 `animation-fill-mode: backwards` —— 用 `both` 会压掉 `.press:active`（§19）。
+- **跨页面同形的零件一律进 `app.wxss`**：`.chip` / `.mini-btn` / `.tips` / `.empty__action`
+  已经收归全局，页面只保留排布（外边距交给容器）。新增零件时先 grep 一遍有没有同形的（§20）。
+- **不给横向 `scroll-view` 内的元素加 `.press`**：横向拖动会误触发 `:active`，看起来像卡住。
+- 不给**没有 `bindtap`** 的元素加 `.press`（会误导「可点」）。
+
+### 13.5 怎么验收（本轮用到的真手段，别再只靠 tsc）
+
+```bash
+# 1) 打开自动化端口（IDE 需已开着项目）
+"C:\Program Files (x86)\Tencent\微信web开发者工具\cli.bat" auto --project <项目路径> --auto-port 9420
+# 2) 用 miniprogram-automator（临时目录装，别进仓库依赖）
+#    connect({ wsEndpoint:'ws://127.0.0.1:9420' }) → mp.evaluate / page.data() / mp.screenshot()
+```
+
+- **`page.data()` 直接断言**（如 `loaded === true`、`selected === 2`）比截图猜快得多；
+- 改了 TabBar / 动效这种「体验类」问题，**必须真跑一遍并截图**——
+  `tsc` 与单页静态检查对这类问题完全无效（本轮两个真 bug 都是这么抓到的）。
