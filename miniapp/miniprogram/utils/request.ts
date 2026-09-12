@@ -249,9 +249,12 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
         }
 
         if (status === 501) {
+          // 501 = 契约位 / 合规闸门。**优先用后端给的说明**：
+          // 「小程序内自助支付暂未开放，请到店支付」比「这个功能马上就来啦」有用得多，
+          // 而且合规原因必须能如实传达给顾客。
           reject(
             new ApiFailure(
-              '这个功能马上就来啦～',
+              normalizeMessage(body, '这个功能马上就来啦～'),
               status,
               false,
               requestIdOf(body),

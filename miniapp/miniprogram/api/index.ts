@@ -32,6 +32,8 @@ import type {
   MemberMe,
   Paged,
   ServiceItem,
+  SettleBookingRequest,
+  SettleBookingResult,
   Staff,
   StaffAction,
   StaffApplyVo,
@@ -160,6 +162,26 @@ export const bookingApi = {
       path: `/app/bookings/${bookingId}/cancel`,
       method: 'POST',
       data: { reason },
+    });
+  },
+
+  /**
+   * 自助结算（付尾款）。
+   *
+   * 只支持**不依赖任何支付通道**的渠道：`balance` 储值余额、`card` 次卡核销；
+   * `pointsUsed` 是积分抵扣（不是通道 —— 有 `maxPointsPermille` 上限，盖不住全款）。
+   *
+   * ⚠️ 服务端有**合规闸门**（`APP_SELF_PAY_ENABLED`）：虚拟支付接入之前一律返回 501。
+   * 所以页面必须先看 `/app/member/me` 的 `selfPayEnabled`，不要盲目放开按钮。
+   */
+  settle(
+    bookingId: number,
+    payload: SettleBookingRequest,
+  ): Promise<SettleBookingResult> {
+    return request<SettleBookingResult>({
+      path: `/app/bookings/${bookingId}/settle`,
+      method: 'POST',
+      data: payload as unknown as Record<string, unknown>,
     });
   },
 

@@ -266,6 +266,17 @@ const paymentsTotalFen = computed(() =>
 const hasCardRow = computed(() =>
   paymentRows.value.some((row) => row.channel === 'card'),
 );
+/**
+ * 次卡行选中的卡片 id —— 结算时必须随请求带上。
+ *
+ * 服务端靠它把 `biz_booking.member_card_id` 落下来并**重算 `payable`**（次卡 → 0）。
+ * 只加一行 `channel='card'` 的支付行而漏传它，结果是「扣了顾客一次卡、价格却没减」，
+ * 而且次卡支付单的金额恒为 0，账面也看不出问题。
+ */
+const cardRowCardId = computed<number | null>(() => {
+  const row = paymentRows.value.find((item) => item.channel === 'card');
+  return row?.memberCardId ? Number(row.memberCardId) : null;
+});
 const hasCreditRow = computed(() =>
   paymentRows.value.some((row) => row.channel === 'credit'),
 );
@@ -410,6 +421,9 @@ function handleSettle() {
       hasCreditRow.value && creditAccountId.value
         ? Number(creditAccountId.value)
         : undefined,
+    // 次卡核销必须带上卡片 id：服务端靠它落 member_card_id 并**重算 payable**（次卡 → 0）。
+    // 只加一行 channel='card' 的支付行而漏传这个字段，会「扣了顾客一次卡、价格却没减」。
+    memberCardId: cardRowCardId.value ?? undefined,
     remark: remark.value.trim() || undefined,
   };
   confirmDanger({
@@ -780,7 +794,8 @@ function renderPayStatus(status: string) {
                   : memberForbidden
                     ? '无查看会员余额的权限（biz:member:list）'
                     : '非会员'
-              }}</span>
+              }}</span
+            >
           </div>
 
           <!-- 金额明细（全部来自服务端快照，前端只展示） -->

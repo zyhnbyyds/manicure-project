@@ -753,6 +753,33 @@ export abstract class BookingPort {
     bookingId: number,
   ): Promise<BookingWithItems | null>;
   /**
+   * 顾客自助结算（付尾款，A14）。
+   *
+   * **与后台 `settle` 共用同一份资金核心**（算价 / 条件更新 / 流水 / `recalc` 一行未重写），
+   * 只有两处差异：
+   * 1. 归属判定是「本人」：`customerId` 只来自 token，不接受客户端传顾客 id；
+   * 2. 渠道白名单只含**不需要通道对接**的 `balance` / `card`：在线渠道要等渠道对接，
+   *    现金与线下收款码是店员动作，挂账要占额度并由店员选定主体。
+   *
+   * `memberCardId` 是「到店后用次卡核销」：下单没选卡的预约可以在结算时补上，
+   * 服务端会**重算 `payable`**（次卡 → `payable = 0`），而不是简单记一笔 0 元支付单。
+   */
+  abstract settleForCustomer(
+    customerId: number,
+    bookingId: number,
+    input: {
+      payments?:
+        | {
+            channel: 'balance' | 'card';
+            amount: number;
+            memberCardId?: number | undefined;
+          }[]
+        | undefined;
+      pointsUsed?: number | undefined;
+      memberCardId?: number | undefined;
+    },
+  ): Promise<RecountResult & { payableAmount: number }>;
+  /**
    * 自助下单（A10）。
    *
    * **复用后台创建九步**（§9.5）：前置校验 → 算价 → 锁美甲师行 → 冲突复检 →

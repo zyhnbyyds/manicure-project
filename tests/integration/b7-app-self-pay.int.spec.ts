@@ -1,0 +1,350 @@
+/**
+ * app 域自助结算（`POST /app/bookings/:id/settle`）+ **合规闸门**。
+ *
+ * ## 这一组用例守的是什么
+ *
+ * 1. **闸门必须在服务端**：`APP_SELF_PAY_ENABLED` 默认关闭时接口返回 501，
+ *    且**一笔都不落库**。客户端把按钮藏起来不算数 —— 手写请求同样要挡住。
+ * 2. **钱走的是同一份资金核心**：余额扣减是条件更新（余额不足 → 409 且
+ *    **不部分扣**），不是「读出来减一减再写回去」。
+ * 3. **到店用次卡核销会重算 `payable`**：不是简单记一笔 0 元支付单 ——
+ *    否则就是「扣了顾客一次卡、价格却没减」（这正是后台收银台原来的缺口）。
+ * 4. **归属只认 token**：不是本人的预约一律 403。
+ */
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { AppConfigService } from '../../src/config/app-config.service.js';
+import {
+  addLocalDays,
+  shopToday,
+  shopWeekday,
+} from '../../src/modules/biz/common/shop-time.js';
+import { createTestContext, type TestContext } from './harness.js';
+
+let ctx: TestContext;
+let date: string;
+
+type Seed = {
+  serviceItemId: number;
+  staffId: number;
+  customerId: number;
+};
+
+async function seed(): Promise<Seed> {
+  const weekday = shopWeekday(date);
+  const items = await ctx.sql<{ insertId: number }[]>(
+    `INSERT INTO biz_service_item (name, category, duration_minutes, buffer_minutes, price, status, sort)
+     VALUES ('基础美甲', '基础', 60, 15, 10000, 'active', 1)`,
+  );
+  const staffs = await ctx.sql<{ insertId: number }[]>(
+    `INSERT INTO biz_staff (nickname, status, sort) VALUES ('小美', 'active', 1)`,
+  );
+  await ctx.sql(
+    `INSERT INTO biz_staff_weekly_shift (staff_id, weekday, start_time, end_time)
+     VALUES (?, ?, '10:00:00', '20:00:00')`,
+    [staffs.insertId, weekday],
+  );
+  const customers = await ctx.sql<{ insertId: number }[]>(
+    `INSERT INTO biz_customer (name, phone) VALUES ('张女士', '13800000001')`,
+  );
+  return {
+    serviceItemId: items.insertId,
+    staffId: staffs.insertId,
+    customerId: customers.insertId,
+  };
+}
+
+/** 绑定一个小程序身份（`customerId` 非空 = 已绑定手机号） */
+async function seedAppUser(openid: string, customerId: number) {
+  const inserted = await ctx.sql<{ insertId: number }>(
+    `INSERT INTO app_wx_user (openid, customer_id, staff_status) VALUES (?, ?, 'none')`,
+    [openid, customerId],
+  );
+  return ctx.appToken(openid, inserted.insertId);
+}
+
+/** 走会员账务接口加钱/加积分，保证有流水（不直接 UPDATE 字段） */
+async function grant(
+  customerId: number,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const response = await ctx.request(
+    'POST',
+    `/api/v1/biz/members/${customerId}/adjust`,
+    { body: { reason: '测试预置', ...payload } },
+  );
+  expect([200, 201]).toContain(response.status);
+}
+
+/**
+ * 造一张「顾客自助下单、**尚未付款**」的单据 —— 就是支付页要处理的那种。
+ *
+ * 必须走 app 域下单（`POST /app/bookings`）：小程序下单**不收款**，
+ * 落 `pending` + `unpaid`、`dueAmount` = 全价。后台 `/biz/bookings` 建不出来，
+ * 那边「全款模式必须收清」。
+ */
+async function createUnpaidBooking(row: Seed, token: string): Promise<number> {
+  const response = await ctx.request('POST', '/api/v1/app/bookings', {
+    token,
+    body: {
+      staffId: row.staffId,
+      startAt: `${date}T10:00:00+08:00`,
+      serviceItemIds: [row.serviceItemId],
+    },
+  });
+  expect(response.status, JSON.stringify(response.body)).toBe(201);
+  return Number(response.body.id);
+}
+
+async function bookingOf(id: number) {
+  const rows = await ctx.sql<{
+    payable_amount: number;
+    paid_amount: number;
+    due_amount: number;
+    pay_status: string;
+    member_card_id: number | null;
+  }>(
+    `SELECT payable_amount, paid_amount, due_amount, pay_status, member_card_id
+     FROM biz_booking WHERE id = ?`,
+    [id],
+  );
+  return rows[0]!;
+}
+
+async function balanceOf(customerId: number): Promise<number> {
+  const rows = await ctx.sql<{ total: number }>(
+    `SELECT (balance_principal + balance_bonus) AS total FROM biz_customer WHERE id = ?`,
+    [customerId],
+  );
+  return Number(rows[0]?.total ?? -1);
+}
+
+/**
+ * 打开合规闸门。
+ *
+ * **不改环境变量**：`bun test` 不做文件级隔离，`process.env` 会被后续文件继承；
+ * 而 `APP_SELF_PAY_ENABLED` 是构造时快照的，改了也只会污染别人。
+ * 直接给这个单例盖一个自有属性（自有属性优先于原型上的 getter），
+ * 作用域就限制在本文件。
+ */
+function setGate(enabled: boolean): void {
+  const config = ctx.app.get(AppConfigService) as object;
+  Object.defineProperty(config, 'appSelfPayEnabled', {
+    value: enabled,
+    configurable: true,
+  });
+}
+
+beforeAll(async () => {
+  ctx = await createTestContext();
+  date = addLocalDays(shopToday(), 3);
+}, 120_000);
+
+beforeEach(async () => {
+  await ctx.resetBusinessData();
+}, 60_000);
+
+afterAll(async () => {
+  await ctx.close();
+});
+
+describe('app 域自助结算（A14）+ 合规闸门', () => {
+  it('闸门关闭（默认）→ 501，且一笔都不落库、余额一分不动', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('selfpay-gate-off', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    const before = await balanceOf(row.customerId);
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      {
+        token,
+        body: { payments: [{ channel: 'balance', amount: 10000 }] },
+      },
+    );
+
+    expect(response.status).toBe(501);
+    expect(String(response.body.message)).toContain('暂未开放');
+    // 关键：不只是回个错 —— 账上也不能有任何变化
+    expect(await balanceOf(row.customerId)).toBe(before);
+    const booking = await bookingOf(bookingId);
+    expect(booking.pay_status).toBe('unpaid');
+    expect(booking.paid_amount).toBe(0);
+    const payments = await ctx.sql<{ total: number }>(
+      `SELECT COUNT(*) AS total FROM biz_payment WHERE booking_id = ?`,
+      [bookingId],
+    );
+    expect(Number(payments[0]?.total)).toBe(0);
+  });
+
+  it('/app/member/me 如实回报闸门状态（前端据此置灰，而不是「显示可用、点了报错」）', async () => {
+    const row = await seed();
+    const token = await seedAppUser('selfpay-me', row.customerId);
+
+    const off = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(off.status).toBe(200);
+    expect(off.body.selfPayEnabled).toBe(false);
+
+    setGate(true);
+    const on = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(on.body.selfPayEnabled).toBe(true);
+  });
+
+  it('闸门打开：余额付清 → paid，且余额恰好少了应收金额', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('selfpay-balance', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    setGate(true);
+    const before = await balanceOf(row.customerId);
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      {
+        token,
+        body: { payments: [{ channel: 'balance', amount: 10000 }] },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.payStatus).toBe('paid');
+    expect(response.body.dueAmount).toBe(0);
+    expect(await balanceOf(row.customerId)).toBe(before - 10000);
+
+    const booking = await bookingOf(bookingId);
+    expect(booking.pay_status).toBe('paid');
+    expect(booking.paid_amount).toBe(10000);
+    const payments = await ctx.sql<{ channel: string; amount: number }[]>(
+      `SELECT channel, amount FROM biz_payment WHERE booking_id = ?`,
+      [bookingId],
+    );
+    expect(payments).toHaveLength(1);
+    expect(payments[0]!.channel).toBe('balance');
+  });
+
+  it('余额不足 → 409，**不部分扣减**（钱与单都不动）', async () => {
+    const row = await seed();
+    // 只给 50 元，单据应收 100 元
+    await grant(row.customerId, { balancePrincipalDelta: 5000 });
+    const token = await seedAppUser('selfpay-short', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    setGate(true);
+    const before = await balanceOf(row.customerId);
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await balanceOf(row.customerId)).toBe(before);
+    const booking = await bookingOf(bookingId);
+    expect(booking.pay_status).toBe('unpaid');
+    expect(booking.paid_amount).toBe(0);
+  });
+
+  it('**到店用次卡核销：会重算 payable（不是记一笔 0 元支付单）**', async () => {
+    const row = await seed();
+    const token = await seedAppUser('selfpay-card', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+    // 单据现在是全价 10000，未付
+    expect((await bookingOf(bookingId)).payable_amount).toBe(10000);
+
+    const cardType = await ctx.request('POST', '/api/v1/biz/card-types', {
+      body: {
+        name: '单次卡',
+        price: 0,
+        totalTimes: 1,
+        validDays: 0,
+        // 卡种适用项目必须包含单据里的项目，否则核销会被拒
+        serviceItemIds: [row.serviceItemId],
+      },
+    });
+    expect([200, 201]).toContain(cardType.status);
+    const card = await ctx.request('POST', '/api/v1/biz/member-cards', {
+      body: {
+        customerId: row.customerId,
+        cardTypeId: cardType.body.id,
+        payChannel: 'cash',
+      },
+    });
+    expect([200, 201]).toContain(card.status);
+
+    setGate(true);
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { memberCardId: card.body.id } },
+    );
+
+    expect(response.status).toBe(200);
+    // 核心断言：payable 被重算成 0，而不是「payable 还是 10000、只是多了一笔 0 元支付」
+    expect(response.body.payableAmount).toBe(0);
+    expect(response.body.payStatus).toBe('paid');
+    const booking = await bookingOf(bookingId);
+    expect(booking.payable_amount).toBe(0);
+    expect(booking.member_card_id).toBe(card.body.id);
+    // 卡的次数真的扣了
+    const used = await ctx.sql<{ used_times: number }>(
+      `SELECT used_times FROM biz_member_card WHERE id = ?`,
+      [card.body.id],
+    );
+    expect(Number(used[0]?.used_times)).toBe(1);
+  });
+
+  it('不是本人的预约 → 403（归属只认 token）', async () => {
+    const row = await seed();
+    // 单据属于 row.customerId（用**本人** token 下的单）
+    const ownerToken = await seedAppUser('selfpay-owner', row.customerId);
+    const bookingId = await createUnpaidBooking(row, ownerToken);
+
+    // 另一个顾客（同样已绑定、同样有钱）来结这笔单
+    const other = await ctx.sql<{ insertId: number }[]>(
+      `INSERT INTO biz_customer (name, phone) VALUES ('李女士', '13800000002')`,
+    );
+    await grant(other.insertId, { balancePrincipalDelta: 100000 });
+    const strangerToken = await seedAppUser('selfpay-stranger', other.insertId);
+
+    setGate(true);
+    const response = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      {
+        token: strangerToken,
+        body: { payments: [{ channel: 'balance', amount: 10000 }] },
+      },
+    );
+    expect(response.status).toBe(403);
+    // 而且一分钱都没从"别人"账上扣走
+    const booking = await bookingOf(bookingId);
+    expect(booking.pay_status).toBe('unpaid');
+    expect(booking.paid_amount).toBe(0);
+  });
+
+  it('付清后再付 → 400（金额超过待收尾款），不会重复扣钱', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('selfpay-twice', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    setGate(true);
+    const first = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+    expect(first.status).toBe(200);
+    const afterFirst = await balanceOf(row.customerId);
+
+    const second = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+    expect(second.status).toBe(400);
+    expect(await balanceOf(row.customerId)).toBe(afterFirst);
+  });
+});

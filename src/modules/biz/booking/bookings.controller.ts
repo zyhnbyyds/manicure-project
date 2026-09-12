@@ -154,6 +154,16 @@ const settleSchema = z.object({
     .openapi({ description: '累计使用积分数（只能增加）' }),
   creditAccountId: z.number().int().positive().optional(),
   remark: z.string().max(500).optional(),
+  memberCardId: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .openapi({
+      description:
+        '到店用次卡核销（下单没选卡时在结算补上）。服务端会重算应付：次卡 → payable = 0。' +
+        '只写 memberCardId 不传 card 支付行，等于「按次卡重新算价并核销」。',
+    }),
 });
 
 const reasonSchema = z.object({

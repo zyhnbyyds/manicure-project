@@ -111,7 +111,23 @@ export type SettleBookingInput = {
   pointsUsed?: number | undefined;
   creditAccountId?: number | undefined;
   remark?: string | undefined;
+  /**
+   * 到店后用次卡核销：**结算时**才指定次卡（下单没选卡的场景）。
+   *
+   * 不传 = 沿用建单时已经绑定的卡（`biz_booking.member_card_id`），所以既有调用点行为不变。
+   */
+  memberCardId?: number | undefined;
 };
+
+/**
+ * 小程序自助结算允许的渠道（§17.1 里**不需要任何通道对接**的那几个）。
+ *
+ * 排除项与理由：
+ * - `wxpay_*` / `alipay_qr`：要等渠道对接（商户号 / 证书），本期只有契约位；
+ * - `cash` / `*_offline`：线下收款码是**店员动作**，顾客端不该自己记账；
+ * - `credit`：挂账要选挂账主体并占用额度，是店员与店长的事。
+ */
+const APP_SETTLE_CHANNELS: readonly PayChannel[] = ['balance', 'card'];
 
 export type BookingListFilter = {
   date?: string | undefined;
@@ -1284,6 +1300,43 @@ export class BookingsService implements BookingPort {
 
   async settle(id: number, input: SettleBookingInput, actor: RequestActor) {
     const booking = await this.findOne(id, actor);
+    return this.applySettlement(booking, input, actor.id, null);
+  }
+
+  /**
+   * 小程序自助结算（顾客付尾款）。
+   *
+   * 与后台 `settle` **共用同一份资金核心** `applySettlement` —— 算价、条件更新、
+   * 流水、`recalc` 一行都没有重写（money-invariants：资金逻辑复制一份必然会漂移）。
+   * 差异只有两处：
+   * 1. 归属判定改成「**本人**」：`customerId` 只来自 token，不接受客户端传顾客 id；
+   * 2. 渠道白名单 = `APP_SETTLE_CHANNELS`（余额 / 次卡），不依赖任何支付通道。
+   *
+   * `actorId` 传 `null`：顾客自助操作没有后台操作者，与 `createForCustomer` 口径一致。
+   */
+  async settleForCustomer(
+    customerId: number,
+    id: number,
+    input: SettleBookingInput,
+  ) {
+    const booking = await this.findOne(id);
+    if (booking.customerId !== customerId)
+      throw new ForbiddenException('这不是本人的预约');
+    return this.applySettlement(booking, input, null, APP_SETTLE_CHANNELS);
+  }
+
+  /**
+   * 结算核心（**后台与小程序两条入口唯一允许的入口**）。
+   *
+   * @param allowedChannels `null` = 后台入口，不限渠道；传数组 = 该入口的渠道白名单。
+   */
+  private async applySettlement(
+    booking: Awaited<ReturnType<BookingsService['findOne']>>,
+    input: SettleBookingInput,
+    actorId: number | null,
+    allowedChannels: readonly PayChannel[] | null,
+  ) {
+    const id = booking.id;
     if (['cancelled', 'no_show'].includes(booking.status))
       throw new ConflictException('已取消 / 爽约的预约不能结算');
 
@@ -1292,8 +1345,31 @@ export class BookingsService implements BookingPort {
       booking.pointsDiscountAmount,
       memberConfig.pointsDiscountPerYuan,
     );
-    const requestedPoints =
-      input.pointsUsed === undefined
+
+    // ---- 次卡：可以是建单时绑的，也可以是**结算时**才指定的（到店核销）----
+    if (
+      booking.memberCardId !== null &&
+      input.memberCardId != null &&
+      input.memberCardId !== booking.memberCardId
+    )
+      throw new BadRequestException(
+        '该预约已绑定次卡，不能换卡结算（如要换卡请先撤销核销）',
+      );
+    const effectiveCardId = input.memberCardId ?? booking.memberCardId ?? null;
+    const useCard = effectiveCardId !== null;
+    // 与下单口径一致：次卡整单核销，所以只能有一个项目
+    if (useCard && booking.items.length !== 1)
+      throw new BadRequestException('次卡核销只能用于只有一个项目的预约');
+    if (useCard && input.pointsUsed)
+      throw new BadRequestException('次卡与积分抵扣二选一，不能同时使用');
+    if (useCard && previousPoints > 0)
+      throw new BadRequestException(
+        '该预约已用积分抵扣，不能再改用次卡（请先冲正积分）',
+      );
+
+    const requestedPoints = useCard
+      ? 0
+      : input.pointsUsed === undefined
         ? previousPoints
         : Math.max(Math.trunc(input.pointsUsed), 0);
     if (requestedPoints < previousPoints)
@@ -1310,21 +1386,56 @@ export class BookingsService implements BookingPort {
       pointsUsed: requestedPoints,
       memberConfig,
       adjustAmount: booking.adjustAmount,
-      useCard: booking.memberCardId !== null,
+      useCard,
     });
 
     const payments = input.payments ?? [];
     const creditPayments = payments.filter(
       (payment) => payment.channel === 'credit',
     );
-    const realPayments = payments.filter(
-      (payment) => payment.channel !== 'credit',
-    );
+    const realPayments = payments
+      .filter((payment) => payment.channel !== 'credit')
+      // 次卡行的 memberCardId 允许省略：直接用结算时确定的那张卡，免得同一张卡写两遍
+      .map((payment) =>
+        payment.channel === 'card'
+          ? {
+              ...payment,
+              memberCardId:
+                payment.memberCardId ?? effectiveCardId ?? undefined,
+            }
+          : payment,
+      );
     if (creditPayments.length && !input.creditAccountId)
       throw new BadRequestException('挂账必须指定挂账主体');
+    if (
+      creditPayments.length &&
+      allowedChannels &&
+      !allowedChannels.includes('credit')
+    )
+      throw new BadRequestException('该入口不支持挂账');
     for (const payment of realPayments) {
+      if (allowedChannels && !allowedChannels.includes(payment.channel))
+        throw new BadRequestException(`该入口不支持「${payment.channel}」收款`);
       if (payment.channel === 'card' && !payment.memberCardId)
         throw new BadRequestException('次卡核销必须选择次卡');
+    }
+    /**
+     * 次卡核销必须真的**消耗一次卡**：核销动作发生在 `payments.createInTx`
+     * （`channel='card'` → `memberCards.useCard` 写 log + `used_times + 1`）。
+     *
+     * 只传 `memberCardId` 而没带 card 支付行的话，`payable` 会被重算成 0、
+     * 单据直接变 `paid`，但**卡一次都没扣** —— 等于白送一次服务。
+     * 所以这里补一行 0 元核销行（金额固定 0，不是"少收"）。
+     */
+    if (
+      useCard &&
+      !realPayments.some((payment) => payment.channel === 'card')
+    ) {
+      realPayments.push({
+        channel: 'card',
+        amount: 0,
+        memberCardId: effectiveCardId ?? undefined,
+      });
     }
 
     const dueAmount = Math.max(quote.payableAmount - booking.paidAmount, 0);
@@ -1360,7 +1471,7 @@ export class BookingsService implements BookingPort {
           bookingId: id,
           type: 'points_spend',
           remark: `预约 ${booking.bookingNo} 结算追加积分抵扣`,
-          actorId: actor.id,
+          actorId,
         });
       }
       await tx
@@ -1368,7 +1479,9 @@ export class BookingsService implements BookingPort {
         .set({
           pointsDiscountAmount: quote.pointsDiscountAmount,
           payableAmount: quote.payableAmount,
-          updatedBy: actor.id,
+          // 结算时才指定次卡的场景：把卡落到预约上，派生金额与会员账务都以它为准
+          memberCardId: effectiveCardId,
+          updatedBy: actorId,
         })
         .where(eq(bizBookings.id, id));
 
@@ -1378,7 +1491,7 @@ export class BookingsService implements BookingPort {
           await this.payments.createInTx(
             tx,
             { ...draft, channelOrder: preparedOrders[index] ?? undefined },
-            actor.id,
+            actorId,
           ),
         );
       }
@@ -1388,7 +1501,7 @@ export class BookingsService implements BookingPort {
           bookingId: id,
           customerId: booking.customerId,
           amount: payment.amount,
-          actorId: actor.id,
+          actorId,
         });
       }
       const settlement = await this.settlement.recalc(tx, id);
@@ -1400,7 +1513,7 @@ export class BookingsService implements BookingPort {
           bookingId: id,
           payChannel: await this.dominantChannel(tx, id),
           remark: `预约 ${booking.bookingNo} 结算消费`,
-          actorId: actor.id,
+          actorId,
         });
       }
       return { settlement, outcomes };

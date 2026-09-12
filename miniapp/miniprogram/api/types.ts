@@ -129,6 +129,13 @@ export interface MemberMe {
   /** 储值赠送（分） */
   balanceBonus: number;
   cards: MemberCard[];
+  /**
+   * 小程序内自助支付（余额 / 次卡 / 积分）是否可用 —— **合规闸门**。
+   *
+   * 在虚拟支付接入（或法务确认无需接入）之前，服务端一律返回 `false`；
+   * 页面据此**如实地**把入口置灰并说明原因，不要显示成「可用但点了报错」。
+   */
+  selfPayEnabled: boolean;
 }
 
 /* ── 预约 / 评价 / 支付 ────────────────────────────────────── */
@@ -174,6 +181,30 @@ export interface CreateBookingRequest {
   /** 优惠券 ID：**与 pointsToUse 二选一**（服务端会 400） */
   couponId?: number | null;
   remark?: string | null;
+}
+
+/** 自助结算请求（`POST /app/bookings/:id/settle`） */
+export interface SettleBookingRequest {
+  /** 只允许不依赖通道对接的两个渠道；次卡行金额恒为 0 */
+  payments?: {
+    channel: 'balance' | 'card';
+    amount: number;
+    memberCardId?: number;
+  }[];
+  /** 积分抵扣数（服务端按 maxPointsPermille 复算上限，盖不住全款） */
+  pointsUsed?: number;
+  /** 到店后用次卡核销：下单没选卡时在结算补上，服务端会重算应付 */
+  memberCardId?: number;
+}
+
+/** 自助结算响应：结算后的金额事实 */
+export interface SettleBookingResult {
+  payableAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  payStatus: PayStatus;
+  channelSummary: string | null;
+  settledAt: string | null;
 }
 
 export interface CreateReviewRequest {

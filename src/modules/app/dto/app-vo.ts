@@ -417,6 +417,17 @@ export const appMemberMeVo = z.object({
   balancePrincipal: z.number().int().openapi({ description: '储值本金（分）' }),
   balanceBonus: z.number().int().openapi({ description: '储值赠送（分）' }),
   cards: z.array(appMemberCardVo),
+  /**
+   * 小程序内自助支付渠道（余额 / 次卡 / 积分）是否可用。
+   *
+   * **合规闸门，默认 false**：在虚拟支付接入（或法务确认无需接入）之前，
+   * 小程序不得提供这些支付渠道。前端据此**如实地**把入口置灰并说明原因，
+   * 而不是显示成「可用但点了报错」。真正的闸门在服务端（`APP_SELF_PAY_ENABLED`）。
+   */
+  selfPayEnabled: z.boolean().openapi({
+    description:
+      'true=可用余额/次卡/积分自助支付；false=合规未就绪，请到店支付',
+  }),
 });
 registerComponent('AppMemberMeVo', appMemberMeVo);
 export type AppMemberMeVo = z.infer<typeof appMemberMeVo>;
@@ -515,6 +526,64 @@ export const appCancelBookingVo = z.object({
 });
 registerComponent('AppCancelBookingVo', appCancelBookingVo);
 export type AppCancelBookingVo = z.infer<typeof appCancelBookingVo>;
+
+/**
+ * 自助结算请求（A14，顾客付尾款）。
+ *
+ * 渠道只允许**不需要任何通道对接**的两个：
+ * - `balance` 储值余额（纯内部账务，走会员流水的条件更新扣减）；
+ * - `card` 次卡核销（不产生金额，`amount` 恒为 0）。
+ *
+ * 排除项：微信 / 支付宝要等渠道对接（本期只有契约位）；现金与线下收款码是**店员动作**
+ * （顾客能自己记账 = 谁都能把单标成已付）；挂账要占额度并由店员选定主体。
+ */
+export const appSettleBookingRequestSchema = z.object({
+  payments: z
+    .array(
+      z.object({
+        channel: z
+          .enum(['balance', 'card'])
+          .openapi({ description: 'balance=储值余额；card=次卡核销' }),
+        amount: z
+          .number()
+          .int()
+          .min(0)
+          .openapi({ example: 10000, description: '金额（分）；次卡恒为 0' }),
+        memberCardId: z.number().int().positive().optional().openapi({
+          description: '次卡行可省略，省略时用下面的 memberCardId',
+        }),
+      }),
+    )
+    .max(2)
+    .optional()
+    .openapi({ description: '最多 2 笔（如 余额 4000 + 次卡核销）' }),
+  pointsUsed: z.number().int().min(0).optional().openapi({
+    description:
+      '积分抵扣数。服务端按 `maxPointsPermille` 复算上限（默认 30%），所以积分**盖不住全款**',
+  }),
+  memberCardId: z.number().int().positive().optional().openapi({
+    description: '到店后用次卡核销：下单没选卡时在结算补上，服务端会重算应付',
+  }),
+});
+registerComponent('AppSettleBookingRequest', appSettleBookingRequestSchema);
+export type AppSettleBookingRequest = z.infer<
+  typeof appSettleBookingRequestSchema
+>;
+
+/** 自助结算响应（A14）：结算后的金额事实，前端据此刷新单据 */
+export const appSettleBookingVo = z.object({
+  payableAmount: z
+    .number()
+    .int()
+    .openapi({ description: '重算后的应付（分）' }),
+  paidAmount: z.number().int().openapi({ description: '累计实收（分）' }),
+  dueAmount: z.number().int().openapi({ description: '剩余待收（分）' }),
+  payStatus: appPayStatusSchema,
+  channelSummary: z.string().nullable(),
+  settledAt: isoDateTime.nullable(),
+});
+registerComponent('AppSettleBookingVo', appSettleBookingVo);
+export type AppSettleBookingVo = z.infer<typeof appSettleBookingVo>;
 
 export const appBookingListQuerySchema = appListQuerySchema.extend({
   status: appBookingStatusSchema

@@ -244,6 +244,14 @@ export interface SettleBookingBody {
   pointsUsed?: number;
   /** channel=credit 时必填：挂账主体 */
   creditAccountId?: number;
+  /**
+   * 到店用次卡核销（下单没选卡时在结算补上）。
+   *
+   * **必须传**：只加一行 `channel='card'` 的支付行是不够的 —— 服务端要靠它把
+   * `biz_booking.member_card_id` 落下来并**重算 `payable`**（次卡 → 0）。
+   * 只加支付行不传这个字段，会变成「扣了顾客一次卡、价格却没减」。
+   */
+  memberCardId?: number;
   remark?: string;
 }
 

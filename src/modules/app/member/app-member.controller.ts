@@ -36,6 +36,7 @@ import {
   appListQuerySchema,
   appMemberCardsQuerySchema,
   appPointsRedeemRequestSchema,
+  appSettleBookingRequestSchema,
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
   type AppBookingListVo,
@@ -44,6 +45,7 @@ import {
   type AppCancelBookingVo,
   type AppCreateBookingVo,
   type AppReviewVo,
+  type AppSettleBookingVo,
   type AppSubscribeVo,
 } from '../dto/app-vo.js';
 import { AppMemberService } from './app-member.service.js';
@@ -369,6 +371,52 @@ export class AppMemberController {
     return this.member.createBooking(
       appUser.id,
       appCreateBookingRequestSchema.parse(body),
+    );
+  }
+
+  @Post('bookings/:id/settle')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '自助结算（付尾款）',
+    description:
+      '与后台结算**共用同一份资金核心**（算价 / 条件更新 / 流水 / `recalc`），不另写一套。\n' +
+      '渠道只允许**不依赖任何通道对接**的两种：`balance`（储值余额）、`card`（次卡核销）；' +
+      '微信/支付宝是 P2 契约位，现金/线下收款码/挂账是店员动作。\n' +
+      '`memberCardId` 支持「**到店后用次卡核销**」：下单没选卡的预约可在结算补上，' +
+      '服务端会**重算应付**（次卡 → `payable = 0`），而不是记一笔 0 元支付单。\n' +
+      '`pointsUsed` 是积分抵扣，服务端按 `maxPointsPermille` 复算上限（默认 30%），' +
+      '因此积分**不可能单独付清全款**，剩余仍需余额支付或到店支付。',
+  })
+  @ApiParam({ name: 'id', description: '预约 ID', example: 55 })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppSettleBookingRequest' } })
+  @ApiResponse({
+    status: 200,
+    description: '结算后的金额事实',
+    schema: { $ref: '#/components/schemas/AppSettleBookingVo' },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      '金额超过待收尾款 / 次卡与积分同时使用 / 次卡不适用（项目数 ≠ 1）/ 渠道不在白名单',
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 403, description: '这不是本人的预约' })
+  @ApiResponse({ status: 404, description: '预约不存在' })
+  @ApiResponse({
+    status: 409,
+    description: '已取消 / 爽约不能结算；或储值余额不足',
+  })
+  settleBooking(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+  ): Promise<AppSettleBookingVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.settleBooking(
+      appUser.id,
+      id,
+      appSettleBookingRequestSchema.parse(body),
     );
   }
 

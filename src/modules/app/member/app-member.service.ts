@@ -1,9 +1,11 @@
 import {
   Injectable,
   NotFoundException,
+  NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { and, desc, eq, isNull } from 'drizzle-orm';
+import { AppConfigService } from '../../../config/app-config.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
   appWxUsers,
@@ -39,6 +41,8 @@ import type {
   AppCouponOfferListVo,
   AppRechargePlanListVo,
   AppReviewVo,
+  AppSettleBookingRequest,
+  AppSettleBookingVo,
   AppSubscribeVo,
 } from '../dto/app-vo.js';
 
@@ -71,6 +75,7 @@ export class AppMemberService {
     private readonly pointsGoods: PointsGoodsPort,
     private readonly coupons: CouponPort,
     private readonly rechargePlanPort: RechargePlanPort,
+    private readonly config: AppConfigService,
   ) {}
 
   /**
@@ -309,6 +314,8 @@ export class AppMemberService {
       balancePrincipal: context.balancePrincipal,
       balanceBonus: context.balanceBonus,
       cards: cards.map((row) => mapCard(row, displayCardStatus(row))),
+      // 合规闸门：前端据此把余额/次卡/积分入口如实地置灰（真正的闸门在 settleBooking）
+      selfPayEnabled: this.config.appSelfPayEnabled,
     };
   }
 
@@ -497,6 +504,46 @@ export class AppMemberService {
       dueAmount: created.dueAmount,
       payStatus: created.payStatus,
       items: created.items,
+    };
+  }
+
+  /**
+   * 自助结算（付尾款，A14）。
+   *
+   * 资金核心**一行都没重写**：全部在 `BookingPort.settleForCustomer` 里复用后台
+   * `settle`（同一份算价 / 条件更新 / 流水 / `recalc`）。这里只做三件事：
+   * 绑手机号闸门、把 `appUserId` 解析成 `customerId`（**不接受客户端传顾客 id**）、
+   * 把结果投影成 `AppSettleBookingVo`。
+   */
+  async settleBooking(
+    appUserId: number,
+    bookingId: number,
+    input: AppSettleBookingRequest,
+  ): Promise<AppSettleBookingVo> {
+    // 合规闸门：**在小程序里提供储值/次卡/积分支付属于虚拟支付业务的判定范围**，
+    // 虚拟支付接入（或法务确认无需接入）之前一律不开放。
+    // 放在服务层而不是只把按钮藏起来 —— 客户端隐藏挡不住手写请求。
+    if (!this.config.appSelfPayEnabled)
+      throw new NotImplementedException(
+        '小程序内自助支付暂未开放，请到店支付（如有疑问请联系门店）',
+      );
+    const customerId = await this.requireCustomerId(appUserId);
+    const result = await this.bookingPort.settleForCustomer(
+      customerId,
+      bookingId,
+      {
+        payments: input.payments,
+        pointsUsed: input.pointsUsed,
+        memberCardId: input.memberCardId,
+      },
+    );
+    return {
+      payableAmount: result.payableAmount,
+      paidAmount: result.paidAmount,
+      dueAmount: result.dueAmount,
+      payStatus: result.payStatus,
+      channelSummary: result.channelSummary,
+      settledAt: result.settledAt ? result.settledAt.toISOString() : null,
     };
   }
 

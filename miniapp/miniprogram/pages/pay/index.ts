@@ -25,9 +25,13 @@ import { toast } from '../../utils/ui';
  *
  * ## 支付方式的可用性如实反馈
  *
- * 余额 / 次卡 / 积分：app 域还没有对应接口 → **标为不可用**（不是「显示可用、
- * 点了才说正在接入」）。微信 JSAPI 目前是 501 契约位，请求层会转成
- * 「这个功能马上就来啦」。
+ * 余额 / 次卡 / 积分走 app 域自助结算（与后台 `settle` **共用同一份资金核心**），
+ * 它们**不依赖任何支付通道**。但在小程序里提供这些渠道落在「小程序内虚拟支付业务」
+ * 的判定范围内，所以服务端有**合规闸门** `APP_SELF_PAY_ENABLED`（默认关闭）：
+ * 虚拟支付接入 / 法务确认之前，接口返回 501，页面据此把入口**如实地**置灰并说明原因。
+ *
+ * 微信 JSAPI 仍是 501 契约位（要等支付通道对接），因此同样标为不可用 ——
+ * 不给「显示可用、点了才报错」的假象。
  */
 type PayMethod = 'balance' | 'wechat' | 'card' | 'points';
 
@@ -64,6 +68,13 @@ definePage({
     methods: [] as MethodItem[],
     activeMethod: 'wechat' as PayMethod,
     submitting: false,
+    /** 次卡核销要用的卡片 id（结算时作为 `memberCardId` 上送，服务端据此重算应付） */
+    activeCardId: 0,
+    /**
+     * 积分抵扣数。取「本人全部积分」，**上限由服务端复算**（`maxPointsPermille`，默认 30%）——
+     * 客户端不自己算上限，正是为了不重演「前端硬编码 500、后端默认 300」那次漂移。
+     */
+    pointsToUse: 0,
   },
 
   bookingId: 0,
@@ -104,36 +115,56 @@ definePage({
       }
       const activeCard = me?.cards.find((card) => card.status === 'active');
       const balance = me ? me.balancePrincipal + me.balanceBonus : 0;
+      /**
+       * **合规闸门**（服务端 `APP_SELF_PAY_ENABLED`）。
+       *
+       * 余额 / 次卡 / 积分虽然不需要任何支付通道对接，但在小程序里提供它们落在
+       * 「小程序内虚拟支付业务」的判定范围内 —— **虚拟支付接入（或法务确认无需接入）
+       * 之前不得开放**。这里只如实反映服务端给的能力位，不自行判断合规；
+       * 真正的闸门在 `POST /app/bookings/:id/settle`（客户端藏起来挡不住手写请求）。
+       */
+      const selfPay = me?.selfPayEnabled === true;
+      const gate = selfPay ? '' : ' · 合规审核中，暂未开放';
 
       this.setData({
         loading: false,
         booking: toBookingVM(booking),
         dueAmount: booking.dueAmount,
         dueText: fenToYuan(booking.dueAmount),
+        activeCardId: activeCard?.id ?? 0,
+        pointsToUse: me?.points ?? 0,
         methods: [
           {
             key: 'balance',
             title: '余额支付',
             sub: me
-              ? `全部余额 ${fenToYuan(balance)} 元 · 暂未开放`
+              ? `全部余额 ${fenToYuan(balance)} 元${gate}`
               : '未绑定会员，暂无余额',
-            // app 域没有余额支付接口：**如实标为不可用**，不展示「伪可用」
-            enabled: false,
+            // 余额要够付全额才让选：服务端不做部分扣减，余额不足会直接失败
+            enabled: selfPay && balance >= booking.dueAmount,
           },
-          { key: 'wechat', title: '微信支付', sub: '', enabled: true },
+          // 微信 JSAPI 仍是 501 契约位（要等支付通道对接），所以**如实标为不可用**
+          { key: 'wechat', title: '微信支付', sub: '即将开放', enabled: false },
           {
             key: 'card',
-            title: '次卡支付',
+            title: '次卡核销',
+            // 次卡是整单核销，只有一个项目的预约才能用（与下单/结算口径一致）
             sub: activeCard
-              ? `剩余 ${activeCard.totalTimes - activeCard.usedTimes} 次 · 暂未开放`
+              ? `剩余 ${activeCard.totalTimes - activeCard.usedTimes} 次${
+                  booking.items.length === 1 ? '' : ' · 仅限单个项目的预约'
+                }${gate}`
               : '暂无可用次卡',
-            enabled: false,
+            enabled:
+              selfPay && Boolean(activeCard) && booking.items.length === 1,
           },
           {
             key: 'points',
-            title: '积分支付',
-            sub: me ? `${me.points} 积分 · 暂未开放` : '暂不可用',
-            enabled: false,
+            title: '积分抵扣',
+            // 有上限（maxPointsPermille），所以它抵不完全款，剩余仍要余额或到店付
+            sub: me
+              ? `${me.points} 积分，最多抵 ${me.maxPointsPermille / 10}%${gate}`
+              : '暂不可用',
+            enabled: selfPay && me.points > 0,
           },
         ],
       });
@@ -150,7 +181,11 @@ definePage({
     const method = this.data.methods.find((item) => item.key === key);
     if (!method) return;
     if (!method.enabled) {
-      toast('该支付方式暂未开放，先选微信支付吧');
+      toast(
+        method.key === 'wechat'
+          ? '微信支付还没开放，请到店支付'
+          : '该支付方式暂未开放，请到店支付',
+      );
       return;
     }
     this.setData({ activeMethod: key });
@@ -158,18 +193,45 @@ definePage({
 
   async onConfirm() {
     if (this.data.submitting) return;
-    const { activeMethod, booking } = this.data;
+    const { activeMethod, booking, dueAmount, activeCardId } = this.data;
     const bookingId = this.bookingId;
     if (!booking) return;
 
     this.setData({ submitting: true });
     try {
-      if (activeMethod !== 'wechat') {
-        toast('该支付方式暂未开放，先选微信支付吧');
+      // ---- 余额 / 次卡 / 积分：走 app 域自助结算（与后台 settle 共用资金核心）----
+      // 这三个渠道**不依赖任何支付通道**；服务端有合规闸门，未开放时返回 501。
+      if (
+        activeMethod === 'balance' ||
+        activeMethod === 'card' ||
+        activeMethod === 'points'
+      ) {
+        const result = await bookingApi.settle(
+          bookingId,
+          activeMethod === 'balance'
+            ? { payments: [{ channel: 'balance', amount: dueAmount }] }
+            : activeMethod === 'card'
+              ? {
+                  memberCardId: activeCardId,
+                  // 次卡核销不产生金额：支付行金额恒为 0（服务端也会强制归零）
+                  payments: [
+                    { channel: 'card', amount: 0, memberCardId: activeCardId },
+                  ],
+                }
+              : { pointsUsed: this.data.pointsToUse },
+        );
+        // 成功与否**以服务端返回的金额事实为准**，不看本地推算：
+        // 积分抵扣有上限，抵完仍可能有尾款（那时状态是 partial 而不是 paid）
+        goPayResult({
+          status: result.payStatus === 'paid' ? 'success' : 'pending',
+          bookingId,
+          bookingNo: booking.bookingNo,
+          amount: result.paidAmount,
+        });
         return;
       }
-      // 后端 JSAPI 目前返回 501，请求层会转成「这个功能马上就来啦」；
-      // 这里保留完整调用位：拿到预支付参数 → 拉起微信支付 → **向服务端确认**。
+
+      // ---- 微信支付：JSAPI 下单仍是 501 契约位，保留完整调用位 ----
       const params = await bookingApi.createJsapiPayment({
         bookingId,
         purpose: 'final',
@@ -233,7 +295,9 @@ definePage({
 
   onGuestLogin() {
     goLogin({
-      reason: this.data.loggedIn ? '绑定手机号后才能支付' : '登录后即可继续支付',
+      reason: this.data.loggedIn
+        ? '绑定手机号后才能支付'
+        : '登录后即可继续支付',
     });
   },
 
