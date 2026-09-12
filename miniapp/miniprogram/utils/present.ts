@@ -5,6 +5,7 @@
  * 再格式化。所有「分→元」「ISO→店内钟点」「状态→文案」「补 emoji」都必须在 TS 侧算好，
  * 页面只负责渲染，这样所有页面的金额与时间口径天然一致（也是主题之外最容易分裂的地方）。
  */
+import { absoluteAssetUrl } from './asset-url';
 import type {
   AvailableSlots,
   Booking,
@@ -70,12 +71,15 @@ export const HERO_IMAGE = '/assets/hero.png';
 export function resolveServiceImage(
   item: Pick<ServiceItem, 'id' | 'image'>,
 ): string {
-  if (item.image && item.image.length > 0) return item.image;
+  // 服务端存的是相对路径，小程序必须拼成绝对地址（否则被当包内本地文件）
+  const image = absoluteAssetUrl(item.image);
+  if (image) return image;
   return SERVICE_IMAGE_FALLBACK[item.id % SERVICE_IMAGE_FALLBACK.length];
 }
 
 export function resolveStaffAvatar(staff: Pick<Staff, 'id' | 'avatar'>): string {
-  if (staff.avatar && staff.avatar.length > 0) return staff.avatar;
+  const avatar = absoluteAssetUrl(staff.avatar);
+  if (avatar) return avatar;
   return STAFF_AVATAR_FALLBACK[
     (staff.id - 1 + STAFF_AVATAR_FALLBACK.length) % STAFF_AVATAR_FALLBACK.length
   ];

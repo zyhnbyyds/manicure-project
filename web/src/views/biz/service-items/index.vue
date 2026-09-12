@@ -33,6 +33,11 @@ import { renderStatus } from '~/utils/render';
 import { withPassThroughRule } from '~/utils/form';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+import ImageViewer from '~/components/ImageViewer.vue';
+import {
+  stripDisplayImageUrl,
+  toDisplayImageUrl,
+} from '~/utils/image-url';
 
 /** 金额口径：接口是「分」，展示 / 表单是「元」（保留两位） */
 function centsToYuan(cents: number | null | undefined): number {
@@ -65,7 +70,9 @@ function toUploadItems(urls: string[] | null | undefined): LewUploadFileItem[] {
   return (urls ?? []).map((url, index) => ({
     key: `saved-${index}-${url}`,
     name: `图片 ${index + 1}`,
-    url,
+    // **反显的关键**：lew-ui 只把「以图片扩展名结尾」的 url 当图片渲染，
+    // 而 `/files/:id/download?inline=1` 不以扩展名结尾 → 之前显示成文件图标
+    url: toDisplayImageUrl(url),
     status: 'complete' as const,
     percent: 100,
   }));
@@ -75,7 +82,8 @@ function toUploadItems(urls: string[] | null | undefined): LewUploadFileItem[] {
 function toImageUrls(items: LewUploadFileItem[] | null | undefined): string[] {
   return (items ?? [])
     .filter((item) => item.status === 'complete' || item.status === 'success')
-    .map((item) => item.url)
+    // 剥掉显示用的扩展名标记，保证入库的是干净地址（否则每存一次就长一截）
+    .map((item) => stripDisplayImageUrl(item.url ?? ''))
     .filter((url): url is string => Boolean(url));
 }
 
@@ -162,15 +170,14 @@ const columns: LewTableColumn[] = [
       const cover = urls[0];
       if (!cover)
         return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
-      // 新窗口打开即预览（下载地址带 inline=1，不会触发下载）
+      // 点开**站内查看器**（弹层、可切换、可滚轮缩放）——
+      // 原来用 `<a target="_blank">` 会跳出后台新开标签页，丢掉上下文
       return h(
-        'a',
+        'div',
         {
-          href: cover,
-          target: '_blank',
-          rel: 'noopener noreferrer',
-          class: 'inline-flex items-center gap-1',
-          title: '点击预览',
+          class: 'inline-flex cursor-zoom-in items-center gap-1',
+          title: '点击预览（可切换 / 滚轮缩放）',
+          onClick: () => openViewer(urls, 0),
         },
         [
           h('img', {
@@ -244,6 +251,26 @@ const form = ref<FormValues>(emptyForm());
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
 
+// ---------- 图片查看器（弹层：多图切换 + 滚轮缩放）----------
+const viewerVisible = ref(false);
+const viewerImages = ref<string[]>([]);
+const viewerIndex = ref(0);
+
+/** 打开站内查看器（**不要**用 `window.open` / `<a target="_blank">`：会跳出后台） */
+function openViewer(images: string[], index = 0) {
+  if (!images.length) return;
+  viewerImages.value = images;
+  viewerIndex.value = index;
+  viewerVisible.value = true;
+}
+
+/** 弹窗里当前已上传/已保存的图片（供弹窗内的预览条用） */
+const formImages = computed(() =>
+  (form.value.images ?? [])
+    .filter((item) => item.status === 'complete' || item.status === 'success')
+    .map((item) => stripDisplayImageUrl(item.url ?? ''))
+    .filter((url): url is string => Boolean(url)),
+);
 function emptyForm(): FormValues {
   return {
     name: '',
@@ -278,8 +305,10 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     label: '时长',
     as: 'input-number',
     rule: "Yup.number().typeError('请输入数字').required('不能为空').min(1, '至少 1 分钟')",
-    tips: '分钟；参与可约时段计算',
-    props: { min: 1, max: 1440, step: 15 },
+    tips: '分钟；参与可约时段计算（任意整数，常用 15 的倍数）',
+    // 之前是 min: 1, step: 15 —— 合法值成了 1/16/31/46/61…，**60 反而非法**
+    // （组件会给非法值加删除线）。后端允许 1~1440 的任意整数，这里对齐。
+    props: { min: 1, max: 1440, step: 1 },
   },
   {
     field: 'bufferMinutes',
@@ -534,7 +563,32 @@ function handleReset() {
           label-width="80px"
           :options="formOptions"
         />
+        <!--
+          上传组件自带的预览只能「弹出 + 切换」（库限制：**不支持缩放**），
+          所以这里额外给一个入口打开站内查看器（滚轮缩放 / 拖拽 / 方向键切换）。
+        -->
+        <div v-if="formImages.length" class="mt-2">
+          <p class="mb-1 text-12px text-[var(--app-text-muted)]">
+            大图预览（点击放大 · 滚轮缩放 · 多图切换）
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <img
+              v-for="(url, i) in formImages"
+              :key="url"
+              :src="url"
+              alt="预览"
+              class="h-14 w-14 cursor-zoom-in rounded-4px border border-[var(--app-border)] object-cover"
+              @click="openViewer(formImages, i)"
+            />
+          </div>
+        </div>
       </div>
     </LewModal>
+
+    <ImageViewer
+      v-model:visible="viewerVisible"
+      :images="viewerImages"
+      :start-index="viewerIndex"
+    />
   </div>
 </template>
