@@ -109,6 +109,14 @@ void search();
 
 // ---------- 适用项目下拉 ----------
 const serviceItemOptions = reactive<{ label: string; value: number }[]>([]);
+/**
+ * 选项就绪 Promise：**打开弹窗要等它**。
+ *
+ * lew-ui 的 `LewSelect` 在 `setup` 时把 `options` 快照进内部状态，多选模式下
+ * 「已选项目的标签」就从这个快照渲染；`watch(options)` 只刷新下拉列表、不刷新快照。
+ * 所以选项晚于组件挂载到达 ⇒ 编辑时回填的「适用项目」一个都不显示（关掉重开才好）。
+ */
+let serviceItemsReady: Promise<void> | null = null;
 async function loadServiceItems() {
   const data = await listServiceItemOptions();
   serviceItemOptions.splice(
@@ -117,7 +125,14 @@ async function loadServiceItems() {
     ...data.map((item) => ({ label: item.name, value: item.id })),
   );
 }
-void loadServiceItems();
+function ensureServiceItems(): Promise<void> {
+  serviceItemsReady ??= loadServiceItems().catch(() => {
+    // 失败已由拦截器提示；放行让弹窗照常打开，并允许下次进入时重试
+    serviceItemsReady = null;
+  });
+  return serviceItemsReady;
+}
+void ensureServiceItems();
 
 // ---------- 新增 / 编辑 ----------
 const modalVisible = ref(false);
@@ -195,7 +210,9 @@ const formOptions: LewFormOption[] = withPassThroughRule([
   },
 ]);
 
-function openCreate() {
+async function openCreate() {
+  // 同 openEdit：选项就绪再挂载弹窗
+  await ensureServiceItems();
   editingId.value = null;
   formKey.value += 1;
   modalVisible.value = true;
@@ -214,7 +231,9 @@ function openCreate() {
   });
 }
 
-function openEdit(row: CardType) {
+async function openEdit(row: CardType) {
+  // 先等「适用项目」选项就绪：选项晚于弹窗挂载的话，多选框里回填的标签不会显示
+  await ensureServiceItems();
   editingId.value = row.id;
   formKey.value += 1;
   modalVisible.value = true;

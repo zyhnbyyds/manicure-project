@@ -32,6 +32,8 @@ import { renderStatus } from '~/utils/render';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
+import { withDisabledSelected } from '~/utils/select-options';
+import type { SelectOption } from '~/utils/select-options';
 
 const userStore = useUserStore();
 
@@ -306,11 +308,32 @@ function handleDelete(row: Staff) {
 // ---------- 详情抽屉：可做项目（§22） ----------
 const drawerVisible = ref(false);
 const detail = ref<Staff | null>(null);
-const itemOptions = ref<{ label: string; value: string; disabled?: boolean }[]>(
-  [],
-);
+const itemOptions = ref<SelectOption[]>([]);
 const selectedItemIds = ref<string[]>([]);
 const itemsLoading = ref(false);
+/** 选项拉取失败（网络 / 权限）：不要伪装成「没有可选项目」 */
+const optionsFailed = ref(false);
+/**
+ * 选择器的重建 key。
+ *
+ * ## 为什么必须等选项就绪再挂载（这个坑真踩过）
+ *
+ * lew-ui 的 `LewSelect` 在 `setup` 时把 `options` **快照**进内部的
+ * `sourceFlattenOptions`，而多选模式下「已选项目的标签」正是从这个快照渲染的
+ * （`lew-ui/dist/index.js`：`V = () => (c.sourceFlattenOptions || []).filter(...)`，
+ * 再交给 `LewSelectInput` 用 `formatItems` 逐个渲染 `LewTag`）。
+ * `watch(options)` 只刷新 `c.options`（下拉列表），**不刷新那个快照**。
+ *
+ * 抽屉体是 `v-if` 的（`LewDrawer` 里 `visible ? <div class="lew-drawer-body"> : null`），
+ * 所以：先 `drawerVisible = true` 再异步取选项 ⇒ 组件带着**空**选项挂载 ⇒
+ * 已配置的可做项目一个都不显示；关掉再打开（组件重建、这次选项已在）反而正常 ——
+ * 用户看到的就是「第一次渲染不出来」。
+ *
+ * 对策：① 选项没就绪时**不渲染** `LewSelect`（见模板 `v-if`）；
+ * ② 每次拿到新选项就换 `key`，保证挂载时快照就是最新的。
+ */
+const optionsKey = ref(0);
+
 /** 当前配置里已停用（保存会被后端拒绝）的项目名 */
 const disabledSelected = computed(() => {
   const disabled = new Set(
@@ -321,9 +344,9 @@ const disabledSelected = computed(() => {
   return selectedItemIds.value.filter((id) => disabled.has(id));
 });
 
-async function loadServiceItemOptions() {
+async function fetchItemOptions(): Promise<SelectOption[]> {
   const data = await listActiveServiceItems(200);
-  itemOptions.value = data.items.map((item) => ({
+  return data.items.map((item) => ({
     label: `${item.name}（${item.durationMinutes} 分钟）`,
     value: String(item.id),
   }));
@@ -333,28 +356,26 @@ async function openDetail(row: Staff) {
   detail.value = row;
   drawerVisible.value = true;
   itemsLoading.value = true;
+  optionsFailed.value = false;
   try {
-    const [selected] = await Promise.all([
+    const [selected, options] = await Promise.all([
       getStaffServiceItems(row.id),
-      loadServiceItemOptions(),
+      fetchItemOptions(),
     ]);
-    const known = new Map(
-      itemOptions.value.map((option) => [option.value, option]),
-    );
     // 已配置但已停用的项目：保留在选项里并标注，避免「保存后被静默丢弃」
-    for (const ref0 of selected) {
-      const key = String(ref0.id);
-      if (!known.has(key)) {
-        itemOptions.value = [
-          ...itemOptions.value,
-          { label: `${ref0.name}（已停用）`, value: key, disabled: true },
-        ];
-      }
-    }
+    itemOptions.value = withDisabledSelected(options, selected);
+    optionsKey.value += 1;
     selectedItemIds.value = selected.map((item) => String(item.id));
+  } catch {
+    // 失败原因由 request 拦截器统一提示；这里只保证 UI 不谎报「没有可选项目」
+    optionsFailed.value = true;
   } finally {
     itemsLoading.value = false;
   }
+}
+
+function retryItemOptions() {
+  if (detail.value) void openDetail(detail.value);
 }
 
 async function handleSaveItems() {
@@ -589,7 +610,39 @@ async function handleClearItems() {
             </div>
           </div>
 
+          <!--
+            选择器**必须等选项就绪再挂载**：LewSelect 会在 setup 时把 options
+            快照进内部状态（多选标签靠它渲染），选项后到的话标签永远刷不出来。
+            详见 `optionsKey` 的注释。
+          -->
+          <div
+            v-if="itemsLoading"
+            class="rounded-8px border border-dashed border-[var(--app-border)] px-3 py-4 text-center text-12.5px text-[var(--app-text-muted)]"
+          >
+            正在加载可选项目…
+          </div>
+          <div
+            v-else-if="optionsFailed"
+            class="flex items-center gap-2 rounded-8px border border-[var(--lew-color-error)] px-3 py-3 text-12.5px text-[var(--lew-color-error)]"
+          >
+            <span>可选项目加载失败。</span>
+            <LewButton
+              type="text"
+              color="error"
+              size="small"
+              @click="retryItemOptions"
+              >重试</LewButton
+            >
+          </div>
+          <div
+            v-else-if="!itemOptions.length"
+            class="rounded-8px border border-dashed border-[var(--app-border)] px-3 py-4 text-center text-12.5px text-[var(--app-text-muted)]"
+          >
+            暂无启用中的服务项目，请先到「服务项目」页新增并启用
+          </div>
           <LewSelect
+            v-else
+            :key="optionsKey"
             v-model="selectedItemIds"
             width="100%"
             multiple

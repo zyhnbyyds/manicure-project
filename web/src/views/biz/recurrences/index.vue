@@ -182,7 +182,22 @@ async function loadOptions() {
   for (const item of items.items) names[item.id] = item.name;
   serviceItemNames.value = names;
 }
-void loadOptions();
+/**
+ * 选项就绪 Promise：**打开弹窗要等它**。
+ *
+ * lew-ui 的 `LewSelect` 在 `setup` 时把 `options` 快照进内部状态，多选模式下
+ * 「已选项目的标签」就从这个快照渲染；`watch(options)` 只刷新下拉列表、不刷新快照。
+ * 选项晚于弹窗挂载到达 ⇒ 编辑时回填的「服务项目」一个都不显示（关掉重开才好）。
+ */
+let optionsReady: Promise<void> | null = null;
+function ensureOptions(): Promise<void> {
+  optionsReady ??= loadOptions().catch(() => {
+    // 失败已由拦截器提示；放行让弹窗照常打开，并允许下次进入时重试
+    optionsReady = null;
+  });
+  return optionsReady;
+}
+void ensureOptions();
 
 // ---------- 列表 ----------
 const query = ref<{ customerId?: string; staffId?: string; status?: string }>(
@@ -513,7 +528,9 @@ async function checkConflicts() {
   }
 }
 
-function openCreate() {
+async function openCreate() {
+  // 先等选项就绪：服务项目/顾客/美甲师三个下拉都是异步来的
+  await ensureOptions();
   editingId.value = null;
   createResult.value = null;
   conflictDates.value = [];
@@ -539,7 +556,9 @@ function openCreate() {
   });
 }
 
-function openEdit(row: Recurrence) {
+async function openEdit(row: Recurrence) {
+  // 同 openCreate：等选项就绪再挂载弹窗，否则回填的多选标签不显示
+  await ensureOptions();
   editingId.value = row.id;
   createResult.value = null;
   conflictDates.value = [];

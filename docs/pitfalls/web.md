@@ -164,4 +164,37 @@
 - **来源**：实测（用 PowerShell `-Form @{file = Get-Item x.png}` 复现了一版
   `application/octet-stream`，改用真实前端链路的文件则正常）。
 
+---
+
+## 14. 异步选项 + 多选 `LewSelect`：「第一次打开渲染不出来」
+
+- **现象**（用户报的原话）：「点击修改美甲师可做项目的时候，第一次渲染不出来可做项目」——
+  打开「美甲师详情」抽屉，「可做项目」多选框里**已配置的项目一个都不显示**；
+  关掉再打开（同样的数据）就正常了。
+- **根因**（读 `lew-ui/dist/index.js` 源码定位）：
+  1. `LewSelect` 在 `setup` 里把 `options` **快照**进内部状态：
+     `sourceFlattenOptions: tn(r.options)`；
+  2. 多选模式下，已选项的标签正是从这个快照渲染的：
+     `V = () => (c.sourceFlattenOptions || []).filter(...)` → 传给 `LewSelectInput`
+     的 `formatItems` → 逐个渲染 `LewTag`；
+  3. `watch(options)` 回调里只更新 `c.sourceOptions` / `c.options`（下拉列表），
+     **不更新 `sourceFlattenOptions`**；
+  4. `LewDrawer` 的抽屉体是 `v-if`（`visible ? <div class="lew-drawer-body"> : null`），
+     所以「先 `drawerVisible = true`，再 `await` 取选项」= 组件带着**空**选项挂载
+     ⇒ 标签渲染不出来；第二次打开时选项已在，快照就是对的 ⇒ 正常。
+  - 同一个家族：`LewTree` 也只在挂载时读 `dataSource`（`roles` 页早就改成
+    「先加载数据，再打开弹窗」，注释还在）。
+- **正确做法**：
+  1. **选项就绪再挂载**选择器 —— 打开弹窗/抽屉前 `await`（把请求包成
+     `ensureXxx()` 记住 Promise，成功前不重复发、失败后允许重试），或模板上用
+     `v-if` 门控「加载中 / 失败 / 空 / 就绪」四态；
+  2. 每次拿到新选项就换 `:key` 重建组件，保证挂载时的快照就是最新的；
+  3. 选项为空 / 拉取失败要**分别**给提示，别让它看起来像「本来就没有项目」。
+- **来源**：实测（用户报障 → 翻 lew-ui 源码定位；真实数据：12 个启用项目、
+  该美甲师配了 6 个，打开顺序天然命中）。
+- **同类已修**：`staffs`（抽屉）、`card-types` / `recurrences` / `users`（弹窗，
+  选项在页面挂载时就发请求，点得够快就会晚到）。`bookings` 的多选新建时是空的，
+  晚到只是短暂空列表、不会丢数据，故未改。
+
+
 

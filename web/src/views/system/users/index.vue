@@ -160,6 +160,13 @@ void search();
 
 // ---------- 角色选项 ----------
 const roleOptions = reactive<{ label: string; value: number }[]>([]);
+/**
+ * 选项就绪 Promise：**打开弹窗要等它**。
+ *
+ * lew-ui 的 `LewSelect`（多选）在 `setup` 时把 `options` 快照进内部状态，
+ * 「已选角色的标签」从快照渲染；选项晚于弹窗挂载到达 ⇒ 编辑时回填的角色不显示。
+ */
+let rolesReady: Promise<void> | null = null;
 async function loadRoles() {
   const roles = await listRoles();
   roleOptions.splice(
@@ -168,7 +175,14 @@ async function loadRoles() {
     ...roles.map((r) => ({ label: r.name, value: r.id })),
   );
 }
-void loadRoles();
+function ensureRoles(): Promise<void> {
+  rolesReady ??= loadRoles().catch(() => {
+    // 失败已由拦截器提示；放行让弹窗照常打开，并允许下次进入时重试
+    rolesReady = null;
+  });
+  return rolesReady;
+}
+void ensureRoles();
 
 // ---------- 新增/编辑弹窗 ----------
 const modalVisible = ref(false);
@@ -250,7 +264,9 @@ const formOptions: LewFormOption[] = withPassThroughRule([
   },
 ]);
 
-function openCreate() {
+async function openCreate() {
+  // 先等角色选项就绪再挂载弹窗（否则多选标签刷不出来）
+  await ensureRoles();
   editingId.value = null;
   formKey.value += 1;
   modalVisible.value = true;
@@ -269,7 +285,9 @@ function openCreate() {
   });
 }
 
-function openEdit(row: User) {
+async function openEdit(row: User) {
+  // 同 openCreate：等角色选项就绪
+  await ensureRoles();
   editingId.value = row.id;
   formKey.value += 1;
   modalVisible.value = true;
