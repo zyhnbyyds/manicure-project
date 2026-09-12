@@ -160,14 +160,30 @@ export class FilesService {
 
 /**
  * 纠正 multipart 文件名编码。
- * busboy 将 Content-Disposition 的 filename 按 latin1 解码，浏览器发送的中文名
- * （原始 UTF-8 字节）会被解成乱码；这里按 latin1 回编码再按 UTF-8 解码还原。
- * 若还原结果含 U+FFFD 替换符，说明原本就是合法 UTF-8 字符串，保持原样。
+ *
+ * busboy 默认按 latin1 解码 `Content-Disposition: filename`，浏览器/小程序发送的
+ * UTF-8 中文名会被解成乱码（`å¥¶è¶£`），所以要把 latin1 再编回去、按 UTF-8 重解一次。
+ *
+ * ⚠️ **不能无条件地做这个转换**：只有在「确实是 latin1 误解码」时才该转。
+ * latin1 误解码的字符串，每个字符都落在 **U+0080–U+00FF**；一旦文件名里出现
+ * 更高码位的字符（CJK 都 ≥ U+0100），说明拿到手的**本来就是正确字符串**，
+ * 再按 latin1 取低字节只会把它毁掉。
+ *
+ * 这不是假想：`奶茶色猫眼.jpg` 的每个字低字节恰好拼成合法 UTF-8（`v6r+<`），
+ * 于是「转一次」既不产生 U+FFFD、也不会被下面的兜底拦住 →
+ * 存进 `sys_file.original_name` 就成了 `v6r__.jpg`（确定性复现，见同名用例）。
+ *
+ * 兜底：转换后若出现 U+FFFD 替换符，说明这串本来就不是 latin1 误解码的产物，保持原样。
  */
 function decodeFilename(filename: string): string {
+  // 只在含 latin1 高位字符（即「可能是误解码」）时才尝试还原
+  if (!/[\u0080-\u00ff]/.test(filename)) return filename;
   const corrected = Buffer.from(filename, 'latin1').toString('utf8');
   return corrected.includes('\uFFFD') ? filename : corrected;
 }
+
+/** 供单测直接验证（不属于对外 API） */
+export const __decodeFilenameForTest = decodeFilename;
 
 function sanitizeFilename(name: string): string {
   const base = path

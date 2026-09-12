@@ -4,7 +4,7 @@ import {
   BadRequestException,
   PayloadTooLargeException,
 } from '@nestjs/common';
-import { FilesService } from './files.service';
+import { FilesService, __decodeFilenameForTest } from './files.service';
 
 vi.mock('node:fs', () => ({
   createReadStream: vi.fn().mockReturnValue('stream-object'),
@@ -247,5 +247,41 @@ describe('FilesService', () => {
       const service = new FilesService({ db } as any, buildConfig() as any);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
+  });
+});
+
+/**
+ * multipart 文件名编码。
+ *
+ * 这里的用例都是**实测出来的**，不是构造的：
+ * 用真实上传链路（FormData + Bun）传中文名时，`奶茶色猫眼.jpg` 被写成了 `v6r__.jpg`。
+ */
+describe('decodeFilename（multipart 中文名）', () => {
+  const decode = __decodeFilenameForTest;
+
+  it('busboy 按 latin1 误解码的 UTF-8 名 → 还原成中文', () => {
+    // '微信图片.png' 的 UTF-8 字节被 latin1 逐字节解码后的样子
+    const mojibake = Buffer.from('微信图片.png', 'utf8').toString('latin1');
+    expect(mojibake).not.toBe('微信图片.png');
+    expect(decode(mojibake)).toBe('微信图片.png');
+  });
+
+  it('**已经是正确中文名时不能被"修"坏**（回归：奶茶色猫眼 → v6r__.jpg）', () => {
+    // 这五个字的低字节恰好拼成合法 UTF-8（v6r+<），所以「无条件转一次」既不报错、也拦不住
+    expect(decode('奶茶色猫眼.jpg')).toBe('奶茶色猫眼.jpg');
+    expect(decode('法式裸粉渐变.jpg')).toBe('法式裸粉渐变.jpg');
+    expect(decode('手绘小雏菊.jpg')).toBe('手绘小雏菊.jpg');
+    expect(decode('莫兰迪撞色.jpg')).toBe('莫兰迪撞色.jpg');
+    expect(decode('金属镜面玫瑰金.jpg')).toBe('金属镜面玫瑰金.jpg');
+  });
+
+  it('纯 ASCII 名原样返回', () => {
+    expect(decode('nail-01.jpg')).toBe('nail-01.jpg');
+    expect(decode('a b_c-d.png')).toBe('a b_c-d.png');
+  });
+
+  it('看着像 latin1 高位字符、但重解会出替换符的，保持原样（兜底仍生效）', () => {
+    // 单独一个 'é'(U+00E9)：按 latin1 回编码是 0xE9，不是合法 UTF-8 → 会出 U+FFFD → 保持原样
+    expect(decode('café.jpg')).toBe('café.jpg');
   });
 });
