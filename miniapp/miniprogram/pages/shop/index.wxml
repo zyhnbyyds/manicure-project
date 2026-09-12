@@ -3,9 +3,12 @@
     <!-- 门店照片 -->
     <image class="hero" src="{{shopImage}}" mode="aspectFill" />
 
-    <!-- 门店名与一句话 -->
+    <!-- 门店名与一句话（左侧一枚品牌 LOGO，让「这是哪家店」一眼有据） -->
     <view class="head">
-      <view class="head__name">{{shop.name}}</view>
+      <view class="head__row">
+        <image class="head__logo" src="{{shop.logo}}" mode="aspectFit" />
+        <view class="head__name">{{shop.name}}</view>
+      </view>
       <view class="head__slogan">{{shop.slogan}}</view>
       <view class="head__tag">营业中 · {{shop.hours}}</view>
     </view>

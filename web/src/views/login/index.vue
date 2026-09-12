@@ -198,7 +198,7 @@ async function handleRegister() {
     >
       <div class="mb-7 text-center">
         <img
-          src="/image/logo.svg"
+          src="/image/logo.png"
           alt="美甲管理系统 Logo"
           class="w-56px h-56px mx-auto mb-3 object-contain"
         />

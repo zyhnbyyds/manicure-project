@@ -9,6 +9,8 @@
 
   <view class="body anim-rise">
     <view class="brand">
+      <!-- 品牌 LOGO（透明底 PNG；源图带一层半透明白板，已在生成资产时键掉） -->
+      <image class="brand__logo" src="{{shop.logo}}" mode="aspectFit" />
       <view class="brand__name">{{shop.name}}</view>
       <view class="brand__en">{{shop.nameEn}}</view>
       <view class="brand__slogan">{{shop.slogan}}</view>

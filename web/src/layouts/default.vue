@@ -74,9 +74,9 @@ const pageTransition = {
         class="flex items-center justify-center gap-2 h-14 shrink-0 px-3 overflow-hidden border-b border-[var(--app-border)]"
       >
         <img
-          src="/image/logo.svg"
+          src="/image/logo.png"
           alt="美甲管理系统 Logo"
-          class="w-30px h-30px shrink-0 object-contain"
+          class="w-34px h-34px shrink-0 object-contain"
         />
         <span
           v-if="!settings.collapsed"

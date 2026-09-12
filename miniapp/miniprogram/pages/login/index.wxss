@@ -59,6 +59,16 @@
   margin-top: -20rpx;
 }
 
+/**
+ * 品牌 LOGO：放在店名上方，是这块「品牌区」本来就缺的那枚标记。
+ * 尺寸取 128rpx —— 与 48rpx 的衬线店名成约 2.7:1，视觉上标记略重于文字但不喧宾夺主。
+ */
+.brand__logo {
+  width: 128rpx;
+  height: 128rpx;
+  margin-bottom: 12rpx;
+}
+
 .brand__name {
   font-family: var(--font-serif);
   font-size: 48rpx;

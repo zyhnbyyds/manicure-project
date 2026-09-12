@@ -55,4 +55,11 @@ export const SHOP = {
   longitude: 121.455,
   /** 门店照片（本地占位素材，正式应由门店档案提供） */
   image: '/assets/hero.png',
+  /**
+   * 品牌 LOGO（透明底 PNG）。
+   *
+   * 与 `image` 分开：`image` 是「门店照」（设计稿里的大图），LOGO 是品牌标识，
+   * 两者在页面上的位置与用法完全不同，混用会导致换 LOGO 时把门店照一起换掉。
+   */
+  logo: '/assets/logo.png',
 };

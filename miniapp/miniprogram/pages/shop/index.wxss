@@ -17,6 +17,19 @@
   margin-top: 28rpx;
 }
 
+.head__row {
+  display: flex;
+  align-items: center;
+}
+
+/* 门店名左侧的品牌标记：与 44rpx 的店名同高，行内对齐 */
+.head__logo {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
 .head__name {
   font-family: var(--font-serif);
   font-size: 44rpx;
