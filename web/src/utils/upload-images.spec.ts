@@ -10,7 +10,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { stripDisplayImageUrl } from './image-url';
-import { toImageUrls, toUploadItems, toUploadedItem } from './upload-images';
+import { IMAGE_ACCEPT } from './upload-limits';
+import {
+  toImageUrls,
+  toSingleImageUrl,
+  toUploadItems,
+  toUploadedItem,
+} from './upload-images';
 
 /** 照抄自 `lew-ui/dist/index.js` 的判定正则（lew-ui 改了这里要跟着改） */
 const LEW_IMAGE_RE =
@@ -92,5 +98,47 @@ describe('提交路径：表单值 → 接口 url 数组', () => {
     expect(stripDisplayImageUrl(toUploadItems(once)[0]?.url ?? '')).toBe(
       STORED,
     );
+  });
+});
+
+describe('单图字段（美甲师头像）', () => {
+  it('取第一张成功上传的图，且是干净地址', () => {
+    expect(toSingleImageUrl([toUploadedItem('a', STORED)])).toBe(STORED);
+    // 多传了一张也只是「取第一张」，不会拼成数组（接口要的是 string | null）
+    expect(
+      toSingleImageUrl([
+        toUploadedItem('a', STORED),
+        toUploadedItem('b', '/api/v1/files/9/download?inline=1'),
+      ]),
+    ).toBe(STORED);
+  });
+
+  it('没有可用图片时是 null（而不是空字符串 / 空数组）', () => {
+    expect(toSingleImageUrl([])).toBeNull();
+    expect(toSingleImageUrl(null)).toBeNull();
+    expect(
+      toSingleImageUrl([{ key: 'p', status: 'pending', url: STORED }]),
+    ).toBeNull();
+    expect(
+      toSingleImageUrl([{ key: 'f', status: 'fail', url: '' }]),
+    ).toBeNull();
+  });
+});
+
+describe('上传组件的 accept', () => {
+  it('只列后端白名单里有的图片类型（手机相册的 heic/avif 会被后端拒）', () => {
+    for (const type of [
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/gif',
+      'image/svg+xml',
+    ]) {
+      expect(IMAGE_ACCEPT).toContain(type);
+    }
+    expect(IMAGE_ACCEPT).not.toContain('image/avif');
+    expect(IMAGE_ACCEPT).not.toContain('image/heic');
+    // 别再写 image/* 图省事：那会给出注定上传失败的文件
+    expect(IMAGE_ACCEPT).not.toBe('image/*');
   });
 });

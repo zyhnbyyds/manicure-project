@@ -196,5 +196,20 @@
   选项在页面挂载时就发请求，点得够快就会晚到）。`bookings` 的多选新建时是空的，
   晚到只是短暂空列表、不会丢数据，故未改。
 
+---
+
+## 15. `accept: 'image/*'` 会把注定失败的文件递给后端
+
+- **现象**：手机上传头像/图片，选择器里挑了一张相册照片 → 提示「不支持的文件类型」。
+- **根因**：后端按**扩展名白名单**校验（`src/modules/files/files.service.ts` 的
+  `ALLOWED_EXTENSIONS`：图片只有 jpg/jpeg/png/gif/webp/svg），而 iPhone 相册的
+  `.heic`（以及 `.avif`）不在白名单里；`accept: 'image/*'` 恰好会把它们列出来。
+- **正确做法**：用 `~/utils/upload-limits` 的 `IMAGE_ACCEPT`
+  （`image/png,image/jpeg,image/webp,image/gif,image/svg+xml`）+ `MAX_UPLOAD_FILE_SIZE`
+  （与后端 `MAX_FILE_SIZE` 一致的 10MB）。**显式写 `image/jpeg` 还白捡一个好处**：
+  iOS 会在上传前把 HEIC 自动转成 JPEG，本来传不上的照片反而能传上去。
+- **来源**：实测（做美甲师头像上传时发现；顺带把服务项目图集的 `image/*` 也换掉了）。
+
+
 
 

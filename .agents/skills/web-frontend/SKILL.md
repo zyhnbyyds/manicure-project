@@ -94,6 +94,12 @@ metadata:
   提交前只挑 `status === 'complete' | 'success'` 的项，并剥掉显示标记再入库。
 - **`formOptions` 必须用 `withPassThroughRule(...)` 包一层**（`~/utils/form`），
   否则控制台会刷 `The schema does not contain the path: images`。原因见「常见坑」。
+- **单图字段**（美甲师头像等，接口要 `string | null`）：表单里同样存 `LewUploadFileItem[]`，
+  但 `props` 用 `{ limit: 1, viewMode: 'card' }`（不要 `multiple`），提交前用
+  **`toSingleImageUrl(items)`**（没有可用图片时返回 `null`，不是空数组/空串）。
+- 上传相关的常量都在 `~/utils/upload-limits`：`IMAGE_ACCEPT`（**别写 `image/*`**：
+  后端按扩展名白名单校验，`.heic`/`.avif` 必被拒；写 `image/jpeg` 还能让 iOS 自动转 JPEG）
+  与 `MAX_UPLOAD_FILE_SIZE`（= 后端 10MB）。
 
 ## 图片预览：**全站只有一个查看器**（别自己写弹窗 / 别跳新窗口）
 

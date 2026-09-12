@@ -32,6 +32,7 @@ import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
 import { useUploadImagePreview } from '~/composables/useUploadImagePreview';
 import { stripDisplayImageUrl } from '~/utils/image-url';
+import { IMAGE_ACCEPT, MAX_UPLOAD_FILE_SIZE } from '~/utils/upload-limits';
 import {
   toImageUrls,
   toUploadItems,
@@ -58,8 +59,6 @@ function renderMoney(cents: number | null | undefined) {
 // ---------- 图集上传 ----------
 /** 图集张数上限：与后端 zod 的 `.max(9)`、`normalizeImages` 的截断保持一致 */
 const MAX_IMAGES = 9;
-/** 单张图片大小上限：与后端 `MAX_FILE_SIZE` 对齐 */
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 /**
  * 表单里存的是上传组件的 `LewUploadFileItem[]`，接口收发的是 url 数组，
@@ -318,9 +317,9 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     props: {
       multiple: true,
       limit: MAX_IMAGES,
-      accept: 'image/*',
+      accept: IMAGE_ACCEPT,
       viewMode: 'card',
-      maxFileSize: MAX_IMAGE_SIZE,
+      maxFileSize: MAX_UPLOAD_FILE_SIZE,
       uploadHelper: uploadImage,
     },
   },

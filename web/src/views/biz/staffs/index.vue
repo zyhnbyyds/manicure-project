@@ -12,7 +12,7 @@ import {
   LewSelect,
   LewTable,
 } from 'lew-ui';
-import type { LewFormOption, LewTableColumn } from 'lew-ui';
+import type { LewFormOption, LewTableColumn, LewUploadFileItem } from 'lew-ui';
 import { withPassThroughRule } from '~/utils/form';
 import {
   createStaff,
@@ -22,6 +22,7 @@ import {
   updateStaff,
 } from '~/api/biz/staffs';
 import type { CreateStaffBody, Staff } from '~/api/biz/staffs';
+import { filePreviewUrl, uploadFile } from '~/api/files';
 import { listActiveServiceItems } from '~/api/biz/service-items';
 import { listUsers } from '~/api/system/users';
 import { useTable } from '~/composables/useTable';
@@ -32,8 +33,16 @@ import { renderStatus } from '~/utils/render';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
+import { useUploadImagePreview } from '~/composables/useUploadImagePreview';
 import { withDisabledSelected } from '~/utils/select-options';
 import type { SelectOption } from '~/utils/select-options';
+import {
+  toImageUrls,
+  toSingleImageUrl,
+  toUploadItems,
+  toUploadedItem,
+} from '~/utils/upload-images';
+import { IMAGE_ACCEPT, MAX_UPLOAD_FILE_SIZE } from '~/utils/upload-limits';
 
 const userStore = useUserStore();
 
@@ -147,7 +156,11 @@ void loadUserOptions();
 // ---------- 新增 / 编辑 ----------
 type FormValues = {
   nickname: string;
-  avatar: string;
+  /**
+   * 头像：表单里存上传组件的 `LewUploadFileItem[]`（**单张**），
+   * 接口收发的是 `string | null` —— 两侧互转见 `~/utils/upload-images`。
+   */
+  avatar: LewUploadFileItem[];
   phone: string;
   bio: string;
   /** 下拉是字符串，提交时转 number */
@@ -160,7 +173,7 @@ type FormValues = {
 function emptyForm(): FormValues {
   return {
     nickname: '',
-    avatar: '',
+    avatar: [],
     phone: '',
     bio: '',
     userId: '',
@@ -170,12 +183,50 @@ function emptyForm(): FormValues {
   };
 }
 
+/**
+ * 头像上传：走统一文件接口，成功后用 `toUploadedItem` 回填。
+ *
+ * **必须用 `toUploadedItem`**（它会做显示态归一化）——
+ * 直接塞 `filePreviewUrl(id)` 的话，刚传的头像会显示成文件图标（这个坑踩过）。
+ */
+async function uploadAvatar(params: {
+  fileItem: LewUploadFileItem;
+  setFileItem: (patch: Partial<LewUploadFileItem>) => void;
+}) {
+  const { fileItem, setFileItem } = params;
+  const file = fileItem.file;
+  if (!file) return;
+  try {
+    const uploaded = await uploadFile(file);
+    setFileItem(
+      toUploadedItem(fileItem.key, filePreviewUrl(uploaded.id), fileItem.name),
+    );
+  } catch {
+    // 失败原因（类型 / 体积 / 网络）已由 request 拦截器统一提示，这里只标记状态
+    setFileItem({ key: fileItem.key, status: 'fail', percent: 0 });
+  }
+}
+
 const modalVisible = ref(false);
 const editingId = ref<number | null>(null);
 const formRef = ref();
 const form = ref<FormValues>(emptyForm());
 /** 表单 key：每次打开弹窗自增，强制重建 LewForm 以回填数据 */
 const formKey = ref(0);
+
+/**
+ * 头像缩略图 → 全局查看器。
+ *
+ * lew-ui 的缩略图本身不可点（2.8.2 没有图片预览实现），这里挂一层代理监听：
+ * 上传完能立刻放大确认「是不是这张脸」，而不用先保存再回到列表看。
+ */
+const formAvatarImages = computed(() => toImageUrls(form.value.avatar));
+const avatarHostRef = ref<HTMLElement>();
+useUploadImagePreview(
+  avatarHostRef,
+  () => formAvatarImages.value,
+  () => form.value.nickname,
+);
 
 const formOptions = computed<LewFormOption[]>(() =>
   withPassThroughRule([
@@ -189,8 +240,15 @@ const formOptions = computed<LewFormOption[]>(() =>
     {
       field: 'avatar',
       label: '头像',
-      as: 'input',
-      props: { placeholder: '选填，图片地址', clearable: true },
+      as: 'upload',
+      tips: '选填；上传后展示为圆形头像',
+      props: {
+        limit: 1,
+        accept: IMAGE_ACCEPT,
+        viewMode: 'card',
+        maxFileSize: MAX_UPLOAD_FILE_SIZE,
+        uploadHelper: uploadAvatar,
+      },
     },
     {
       field: 'phone',
@@ -251,7 +309,8 @@ function openEdit(row: Staff) {
   void nextTick(() => {
     formRef.value?.setForm?.({
       nickname: row.nickname,
-      avatar: row.avatar ?? '',
+      // 库里是地址字符串，上传组件要的是 `LewUploadFileItem[]`
+      avatar: toUploadItems(row.avatar ? [row.avatar] : []),
       phone: row.phone ?? '',
       bio: row.bio ?? '',
       userId: row.userId === null ? '' : String(row.userId),
@@ -269,7 +328,8 @@ async function handleSubmit() {
   const userId = Number(values.userId);
   const body: CreateStaffBody = {
     nickname: values.nickname,
-    avatar: values.avatar || null,
+    // 上传组件的表单值 → 接口要的 `string | null`
+    avatar: toSingleImageUrl(values.avatar),
     phone: values.phone || null,
     bio: values.bio || null,
     userId: Number.isInteger(userId) && userId > 0 ? userId : null,
@@ -308,6 +368,8 @@ function handleDelete(row: Staff) {
 // ---------- 详情抽屉：可做项目（§22） ----------
 const drawerVisible = ref(false);
 const detail = ref<Staff | null>(null);
+/** 抽屉里展示的头像地址（空串表示没传过） */
+const detailAvatar = computed(() => detail.value?.avatar ?? '');
 const itemOptions = ref<SelectOption[]>([]);
 const selectedItemIds = ref<string[]>([]);
 const itemsLoading = ref(false);
@@ -529,13 +591,22 @@ async function handleClearItems() {
       ]"
     >
       <div class="p-5">
-        <LewForm
-          :key="formKey"
-          ref="formRef"
-          v-model="form"
-          label-width="80px"
-          :options="formOptions"
-        />
+        <!-- 头像缩略图由 `useUploadImagePreview` 接管 → 点击打开全局查看器 -->
+        <div ref="avatarHostRef">
+          <LewForm
+            :key="formKey"
+            ref="formRef"
+            v-model="form"
+            label-width="80px"
+            :options="formOptions"
+          />
+        </div>
+        <p
+          v-if="formAvatarImages.length"
+          class="mt-1 ml-80px text-12px text-[var(--app-text-muted)]"
+        >
+          点击头像缩略图可放大预览
+        </p>
       </div>
     </LewModal>
 
@@ -564,6 +635,24 @@ async function handleClearItems() {
         <div class="app-card p-4">
           <div class="mb-3 text-14px font-600">档案</div>
           <div class="grid grid-cols-2 gap-2 text-13px">
+            <div class="text-[var(--app-text-muted)]">头像</div>
+            <div>
+              <img
+                v-if="detailAvatar"
+                :src="detailAvatar"
+                alt="头像"
+                title="点击查看大图"
+                class="h-48px w-48px cursor-zoom-in rounded-full border border-[var(--app-border)] object-cover transition-transform hover:scale-105"
+                @click="
+                  openImagePreview(
+                    [detailAvatar],
+                    0,
+                    detail?.nickname ?? '美甲师头像',
+                  )
+                "
+              />
+              <span v-else class="text-[var(--app-text-muted)]">未上传</span>
+            </div>
             <div class="text-[var(--app-text-muted)]">昵称</div>
             <div>{{ detail?.nickname ?? '-' }}</div>
             <div class="text-[var(--app-text-muted)]">电话</div>

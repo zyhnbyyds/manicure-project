@@ -69,3 +69,15 @@ export function toImageUrls(
     .map((item) => stripDisplayImageUrl(item.url ?? ''))
     .filter((url): url is string => Boolean(url));
 }
+
+/**
+ * 单图字段（美甲师头像等）的提交值：第一张成功上传的图片，没有就 `null`。
+ *
+ * 与 `toImageUrls` 同一套过滤规则，只是收敛成「一个地址」——
+ * 头像字段在接口里是 `string | null`，塞数组过去会直接 400。
+ */
+export function toSingleImageUrl(
+  items: LewUploadFileItem[] | null | undefined,
+): string | null {
+  return toImageUrls(items)[0] ?? null;
+}
