@@ -3,6 +3,7 @@ import type { BookingStatus } from '../../api/types';
 import type { IconName } from '../../utils/icons';
 import { runLoad, runPullDownLoad } from '../../utils/load';
 import {
+  goBookingDetail,
   goCancel,
   goLogin,
   goPay,
@@ -133,6 +134,21 @@ definePage({
         /* 用户取消 */
       },
     });
+  },
+
+  onRetry() {
+    void this.load();
+  },
+
+  /**
+   * 点卡片进详情。
+   *
+   * 之前**只有美甲师端**能进详情页，顾客这边的卡片是不可点的 —— 明明有
+   * `pages/booking-detail`，顾客却只能从迷你按钮里操作。卡内按钮用 `catchtap`
+   * 阻止冒泡，避免「点取消却先跳了详情」。
+   */
+  onDetail(event: WechatMiniprogram.TouchEvent) {
+    goBookingDetail(Number(event.currentTarget.dataset.id));
   },
 
   onCancel(event: WechatMiniprogram.TouchEvent) {
