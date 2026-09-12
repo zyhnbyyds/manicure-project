@@ -232,6 +232,11 @@ function resetPayments() {
   pointsPreview.value = null;
   creditAccountId.value = undefined;
   addRow('cash', Number(fen2yuan(dueFen.value)));
+  // 待收尾款的单**默认预填全额**：这很容易被当成「就该收这么多」而误收全额
+  // （现金立刻入账，事后要退款走审批）。所以明确说一句，让员工知道自己可以改小。
+  if (selected.value?.payStatus === 'partial') {
+    LewMessage.info('默认已填入全部待收尾款，如只收一部分请直接改小金额');
+  }
 }
 
 /** 本次收款合计（分，次卡核销不产生金额） */

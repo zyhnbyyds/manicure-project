@@ -152,6 +152,19 @@ const SETTLE_FROM_STATUSES = ['pending', 'closed', 'failed'] as const;
 /** 关单/失败后**继续主动查单**的时长：覆盖「最后一刻付款成功但回调丢了」 */
 const QUERY_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * 回调里「落账 + 发货」超过这个耗时就打告警。
+ *
+ * 微信要求 **5 秒内应答**。我们**刻意选择同步落账**（先落账再应答）——
+ * 文档推荐「先应答再异步处理」，但异步一旦失败就会「应答了却没落账」，
+ * 对资金链路是更糟的失败模式。超时的后果也是良性的：微信会重投，
+ * 而重投命中幂等闸门后直接答 SUCCESS。
+ *
+ * 所以这里**不改行为，只做观测**：超过阈值就留一条 warn，
+ * 让「落账开始变慢」在变成故障之前被看见。
+ */
+const CALLBACK_SLOW_SETTLE_MS = 3000;
+
 @Injectable()
 export class PaymentsService extends PaymentPort {
   private readonly logger = new Logger(PaymentsService.name);
@@ -492,6 +505,7 @@ export class PaymentsService extends PaymentPort {
       return provider.failureReply('回调金额与订单不一致', 'business');
     }
 
+    const settleStartedAt = Date.now();
     const settled = await this.database.db.transaction((tx) =>
       this.settlePayment(tx, payment, {
         transactionId: payload.transactionId,
@@ -500,6 +514,13 @@ export class PaymentsService extends PaymentPort {
         raw: payload.raw,
       }),
     );
+    const settleMs = Date.now() - settleStartedAt;
+    if (settleMs > CALLBACK_SLOW_SETTLE_MS) {
+      this.logger.warn(
+        `回调落账耗时 ${settleMs}ms（超过 ${CALLBACK_SLOW_SETTLE_MS}ms）：` +
+          `单 ${payment.paymentNo}；微信要求 5 秒内应答，超时会被重投（幂等，不会重复发货）`,
+      );
+    }
     // affectedRows=0：重复 / 并发回调，直接答成功（渠道会重试，绝不能抛错）
     if (settled) void this.sendPaidNotice(payment).catch(() => undefined);
     return provider.successReply();
