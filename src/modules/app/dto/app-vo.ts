@@ -305,6 +305,25 @@ export const appPointsGoodsListVo = z.object({
 });
 registerComponent('AppPointsGoodsListVo', appPointsGoodsListVo);
 export type AppPointsGoodsListVo = z.infer<typeof appPointsGoodsListVo>;
+
+/** 兑换入参：**只收 goodsId** —— 顾客身份一律来自 token，不接受客户端传 customerId */
+export const appPointsRedeemRequestSchema = z.object({
+  goodsId: z.number().int().positive(),
+});
+registerComponent('AppPointsRedeemRequest', appPointsRedeemRequestSchema);
+export type AppPointsRedeemRequest = z.infer<
+  typeof appPointsRedeemRequestSchema
+>;
+
+/** 兑换结果：告诉顾客「扣了多少分、发到哪张卡」，不暴露内部流水 id 之外的账务细节 */
+export const appPointsRedeemVo = z.object({
+  redeemNo: z.string(),
+  points: z.number().int().openapi({ description: '本次扣减的积分' }),
+  cardNo: z.string(),
+  cardId: z.number().int(),
+});
+registerComponent('AppPointsRedeemVo', appPointsRedeemVo);
+export type AppPointsRedeemVo = z.infer<typeof appPointsRedeemVo>;
 export type AppMemberCardListVo = z.infer<typeof appMemberCardListVo>;
 
 /** 会员信息：余额只有本金 + 赠送，无任何内部字段 */

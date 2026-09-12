@@ -974,4 +974,27 @@ export abstract class PointsGoodsPort {
     pageSize: number,
     filter?: { status?: 'active' | 'disabled'; keyword?: string },
   ): Promise<{ items: PointsGoodsView[]; page: number; pageSize: number }>;
+
+  /**
+   * 兑换（§15.3）：**必须在后台现成的同事务实现里做**。
+   *
+   * 该方法内部依次完成：库存条件更新（`affectedRows=0` → 409 已兑完/已下架）
+   * → 每人限兑校验 → **扣积分条件更新**（不足 → 409）→ 发次卡 →
+   * 写 `biz_points_redeem` 与 `points_redeem` 流水。
+   *
+   * app 域**只做身份解析与转发**，绝不在这里重算积分或另写扣减 ——
+   * 两套实现必然分叉（`money-invariants`：扣减一律条件更新，禁止读-算-写）。
+   */
+  abstract redeem(
+    customerId: number,
+    goodsId: number,
+    actorId: number,
+  ): Promise<{
+    redeemId: number;
+    redeemNo: string;
+    transactionId: number;
+    cardId: number;
+    cardNo: string;
+    points: number;
+  }>;
 }

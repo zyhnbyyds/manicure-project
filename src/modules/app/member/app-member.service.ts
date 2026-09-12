@@ -27,6 +27,7 @@ import type {
   AppMemberCardVo,
   AppMemberMeVo,
   AppPointsGoodsListVo,
+  AppPointsRedeemVo,
   AppReviewVo,
   AppSubscribeVo,
 } from '../dto/app-vo.js';
@@ -104,6 +105,31 @@ export class AppMemberService {
       })),
       page: result.page,
       pageSize: result.pageSize,
+    };
+  }
+
+  /**
+   * 兑换积分商品（§15.3）。
+   *
+   * 三件事按顺序做对：
+   * 1. `requireCustomerId` —— **兑换必须要身份**（与「目录可匿名浏览」不同）；
+   * 2. 顾客身份只从 token 来，入参只有 `goodsId`（不接受客户端传 customerId）；
+   * 3. 真正的扣分/发卡/流水**全部委托给后台 `PointsGoodsService.redeem()`**，
+   *    app 域不重算、不另写扣减 —— 否则两套实现必然分叉。
+   *
+   * `actorId` 传 app 身份 id，用于审计字段 `created_by`。
+   */
+  async redeemPoints(
+    appUserId: number,
+    goodsId: number,
+  ): Promise<AppPointsRedeemVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const result = await this.pointsGoods.redeem(customerId, goodsId, appUserId);
+    return {
+      redeemNo: result.redeemNo,
+      points: result.points,
+      cardNo: result.cardNo,
+      cardId: result.cardId,
     };
   }
 

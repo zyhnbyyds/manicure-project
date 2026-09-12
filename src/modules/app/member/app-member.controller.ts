@@ -33,6 +33,7 @@ import {
   appCreateReviewRequestSchema,
   appListQuerySchema,
   appMemberCardsQuerySchema,
+  appPointsRedeemRequestSchema,
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
   type AppBookingListVo,
@@ -143,6 +144,31 @@ export class AppMemberController {
     // `appListQuerySchema` 的 page/pageSize 都是可选，这里给默认值（与分页口径一致）
     const { page = 1, pageSize = 20 } = appListQuerySchema.parse(query);
     return this.member.listPointsGoods(page, pageSize);
+  }
+
+  @Post('points/redeem')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '兑换积分商品',
+    description:
+      '**需要绑定手机号**（与目录不同：兑换是权益写入）。' +
+      '扣积分、发次卡、写兑换记录与 `points_redeem` 流水**全部在后台同一条事务里完成**，' +
+      'app 域只做身份解析与转发，不重算积分。' +
+      '积分不足 / 已兑完 / 已达每人限兑 → 409；未绑定手机号 → 401 + `needBind`。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppPointsRedeemRequest' } })
+  @ApiResponse({
+    status: 200,
+    description: '兑换成功',
+    schema: { $ref: '#/components/schemas/AppPointsRedeemVo' },
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 409, description: '积分不足 / 已兑完 / 超过限兑次数' })
+  redeemPoints(@Req() request: AppRequest, @Body() body: unknown) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    const input = appPointsRedeemRequestSchema.parse(body);
+    return this.member.redeemPoints(appUser.id, input.goodsId);
   }
 
   /* ------------------------------------------------------------------ *
