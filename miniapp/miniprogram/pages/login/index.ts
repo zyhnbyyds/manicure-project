@@ -1,3 +1,4 @@
+import { getNavMetrics } from '../../utils/metrics';
 import { SHOP } from '../../config';
 import { bindPhone, ensureLogin, isBound } from '../../store/auth';
 import { getThemeTokens } from '../../theme/theme';
@@ -45,8 +46,8 @@ Page({
 
   onLoad(query: Record<string, string | undefined>) {
     try {
-      const info = wx.getSystemInfoSync();
-      this.setData({ statusBarHeight: info.statusBarHeight ?? 20 });
+      const metrics = getNavMetrics();
+      this.setData({ statusBarHeight: metrics.statusBarHeight ?? 20 });
     } catch {
       /* 取不到就沿用默认值 */
     }

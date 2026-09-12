@@ -1,3 +1,4 @@
+import { getNavMetrics } from '../../utils/metrics';
 import { catalogApi } from '../../api/index';
 import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
@@ -74,15 +75,15 @@ Page({
    */
   applyNavMetrics() {
     try {
-      const info = wx.getSystemInfoSync();
-      const statusBarHeight = info.statusBarHeight ?? 20;
+      const metrics = getNavMetrics();
+      const statusBarHeight = metrics.statusBarHeight ?? 20;
       const rect = wx.getMenuButtonBoundingClientRect();
       if (rect && rect.height > 0) {
         this.setData({
           statusBarHeight,
           // 导航栏高度与胶囊垂直居中对齐（微信推荐的经典公式）
           navBarHeight: (rect.top - statusBarHeight) * 2 + rect.height,
-          navRightGap: info.windowWidth - rect.left + 8,
+          navRightGap: metrics.windowWidth - rect.left + 8,
         });
         return;
       }

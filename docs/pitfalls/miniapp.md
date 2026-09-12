@@ -122,9 +122,19 @@
   2. `project.config.json` 的 `es6: false` + `enhance: false` → 开发者工具**不做** Babel 降级。
 
   于是产物 JS 里带着 `??`，小程序编译/运行时直接语法报错。
-- **正确做法**：**把 `target` 降到 `ES2019`**（`lib` 保持 `ES2020` 不动）——
-  tsc 会把 `??` / `?.` 降级成条件表达式，而类型层面仍可用现代 API。
-  比开 `es6` / `enhance` 更可控，也**不依赖本机开发者工具设置**（团队成员一致）。
+- **正确做法（两层，缺一不可）**：
+  1. **`project.config.json` 里打开 `"enhance": true`（增强编译）** ——
+     这才是**真正解决问题的那一层**：开发者工具的 TS 插件**不会**按 tsconfig 的
+     `target` 降级语法，必须靠增强编译做 Babel 降级；
+     （社区答案里说的「启用 glass-easel」本项目**早已满足**（`app.json` 的
+     `componentFramework: glass-easel`），所以那不是缺的那一环。）
+  2. **同时把 tsconfig 的 `target` 降到 `ES2019`**（`lib` 保持 `ES2020`）——
+     这层不影响开发者工具，但让 `tsc`/CI 侧的产物也一致，属于双保险。
+
+  > ⚠️ **我第一版只做了第 2 层就宣称修好了**（并且在自己的模拟器里确实没复现）——
+  > 因为模拟器那次编译基于 `tsc` 的降级结果。真实预览仍然报错。
+  > **教训：只在我自己的模拟器里验证「语法兼容性」是不够的，预览/真机走的是同一套
+  > 编译配置，但缓存与工具链状态可能不同；声称修好前要按用户的实际路径复验。**
 - **区分两件事（很容易混）**：
   - `??` / `?.` 是**语法** → tsc **会**降级；
   - `Array.prototype.flatMap` / `Object.fromEntries` 等是**运行时 API** → tsc **只降级语法、
@@ -138,3 +148,28 @@
 - **坑里还有个小坑**：**注释里不要写该运算符的字面量**，否则第 1 步的 grep 会命中注释、
   当成漏网的语法（本会话就误报过一次，白查一轮）。已把注释改写成「空值合并运算符」。
 - **怎么发现的**：用户预览报错；先量规模（`??` 60 处 / 28 文件），再定位到编译设置。
+
+---
+
+## 11. `wx.getSystemInfoSync` 已弃用，而 vendored 类型包里没有新 API
+
+- **现象**：控制台每进一次页面就刷
+  `wx.getSystemInfoSync is deprecated. Please use wx.getSystemSetting/wx.getAppAuthorizeSetting/wx.getDeviceInfo/wx.getWindowInfo/wx.getAppBaseInfo instead.`
+  （调用栈指向各页面的 `onLoad` / `applyNavMetrics`）。
+- **根因**：
+  1. 代码里用 `wx.getSystemInfoSync()` 取 `statusBarHeight` / `windowWidth`（**4 个页面各写一遍**）；
+  2. 想改用新 API 时发现**类型包里没有** —— 本仓库的
+     `miniapp/typings/types/wx/lib.wx.api.d.ts` 是从 miniprogram-api-typings 拷来的**旧版**
+     （854 KB 那个），`getWindowInfo` / `getDeviceInfo` / `getAppBaseInfo` / `getSystemSetting`
+     **全都没有声明**，所以当初才用了旧接口。
+- **正确做法**：
+  1. **补声明**（`Wx` 接口在 `declare namespace WechatMiniprogram` 下，可声明合并）：
+     新增 `miniapp/typings/types/wx/lib.wx.api.modern.d.ts`，只声明用到的字段；
+  2. **收成一个工具函数** `miniapp/miniprogram/utils/metrics.ts` 的 `getNavMetrics()`：
+     优先 `wx.getWindowInfo()`，**老基础库**才回退到旧接口
+     （回退分支在老库上走，那时本来也没有弃用告警）；
+  3. 4 个页面改为调它 —— 顺带消掉了「同一段取法抄 4 遍、兜底口径容易漂」的问题。
+- **验证**：开发者工具清编译缓存 → 重新编译 → 依次进入 4 个页面 →
+  控制台里 `deprecated` 与 `getSystemInfoSync` 均 **0 条**，且页面正常渲染。
+- **注意**：**弃用告警会淹掉真问题**。这次就是它先出现、语法错误后出现，
+  两件事混在一起时容易只盯一个。控制台应当保持「零告警」。

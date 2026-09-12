@@ -1,3 +1,4 @@
+import { getNavMetrics } from '../../utils/metrics';
 import { bookingApi, memberApi, staffApi } from '../../api/index';
 import { ensureLogin, isBound, logout } from '../../store/auth';
 import { getStaffStatus, isGranted, setMode } from '../../store/mode';
@@ -73,12 +74,12 @@ Page({
 
   onLoad() {
     try {
-      const info = wx.getSystemInfoSync();
-      const statusBarHeight = info.statusBarHeight ?? 20;
+      const metrics = getNavMetrics();
+      const statusBarHeight = metrics.statusBarHeight ?? 20;
       const rect = wx.getMenuButtonBoundingClientRect();
       this.setData({
         statusBarHeight,
-        navRightGap: rect && rect.height > 0 ? info.windowWidth - rect.left + 8 : 28,
+        navRightGap: rect && rect.height > 0 ? metrics.windowWidth - rect.left + 8 : 28,
       });
     } catch {
       /* 取不到就沿用默认值 */

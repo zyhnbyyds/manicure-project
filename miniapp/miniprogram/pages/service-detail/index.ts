@@ -1,3 +1,4 @@
+import { getNavMetrics } from '../../utils/metrics';
 import { catalogApi } from '../../api/index';
 import { setDraftItems } from '../../store/draft';
 import { getThemeTokens } from '../../theme/theme';
@@ -57,13 +58,13 @@ Page({
   onLoad(query: Record<string, string | undefined>) {
     this.serviceItemId = Number(query.id ?? 0);
     try {
-      const info = wx.getSystemInfoSync();
-      const statusBarHeight = info.statusBarHeight ?? 20;
+      const metrics = getNavMetrics();
+      const statusBarHeight = metrics.statusBarHeight ?? 20;
       const rect = wx.getMenuButtonBoundingClientRect();
       this.setData({
         statusBarHeight,
         navRightGap:
-          rect && rect.height > 0 ? info.windowWidth - rect.left + 8 : 28,
+          rect && rect.height > 0 ? metrics.windowWidth - rect.left + 8 : 28,
       });
     } catch {
       /* 取不到就沿用默认值 */
