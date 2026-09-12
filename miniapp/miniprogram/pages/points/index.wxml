@@ -1,19 +1,20 @@
 <view class="page" style="{{themeStyle}}">
   <view class="page-body points-body">
-    <!-- 积分卡 -->
+    <!-- 积分卡：未绑定不显示 0（会让人误以为「我的积分是 0」） -->
     <view class="score">
       <view class="score__circle"></view>
       <view class="score__left">
         <view class="score__label">我的积分</view>
-        <view class="score__value">{{points}}</view>
+        <view wx:if="{{bound}}" class="score__value">{{points}}</view>
+        <view wx:else class="score__guest" bindtap="onGuestLogin">登录后查看 ›</view>
       </view>
       <view class="score__right">
-        <view class="score__label">今日获得</view>
-        <view class="score__today">+{{todayGained}}</view>
+        <view class="score__label">兑换说明</view>
+        <view class="score__hint">积分可兑项目次卡</view>
       </view>
     </view>
 
-    <!-- 分类 -->
+    <!-- 分类（后端目录没有分类字段，仅前端筛选骨架） -->
     <scroll-view class="cats" scroll-x enable-flex show-scrollbar="{{false}}">
       <view class="cats__row">
         <view
@@ -28,16 +29,17 @@
       </view>
     </scroll-view>
 
-    <view wx:if="{{loading}}" class="loading">正在读取积分…</view>
-
-    <view wx:elif="{{needBind}}" class="empty">
-      <view class="empty__text">绑定手机号后才能兑换</view>
-      <view class="empty__hint">积分跟着会员档案走，需要先确认你的身份</view>
-    </view>
+    <view wx:if="{{loading}}" class="loading">正在读取可兑换的项目…</view>
 
     <view wx:elif="{{errorText}}" class="empty">
       <view class="empty__text">{{errorText}}</view>
       <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <view wx:elif="{{goods.length === 0}}" class="empty">
+      <view class="empty__badge"><view class="empty__badge-dot"></view></view>
+      <view class="empty__text">暂时没有可兑换的项目</view>
+      <view class="empty__hint">门店上架兑换品后会出现在这里</view>
     </view>
 
     <block wx:else>
@@ -45,6 +47,7 @@
         <view wx:for="{{goods}}" wx:key="id" class="good">
           <image class="good__photo" src="{{item.image}}" mode="aspectFill" />
           <view class="good__name ellipsis">{{item.name}}</view>
+          <view wx:if="{{item.cardTypeName}}" class="good__card ellipsis">兑换：{{item.cardTypeName}}</view>
           <view class="good__foot">
             <view class="good__points">{{item.points}}<text class="good__unit">积分</text></view>
             <view class="good__btn" data-id="{{item.id}}" bindtap="onRedeem">兑换</view>
@@ -53,7 +56,7 @@
       </view>
 
       <view class="tips">
-        积分可通过消费、评价、签到获得；兑换后到店核销即可。
+        积分可通过消费、评价获得；兑换后到店核销即可。
         兑换会在同一事务里扣积分并发卡（后端保证），当前兑换通道正在接入。
       </view>
     </block>

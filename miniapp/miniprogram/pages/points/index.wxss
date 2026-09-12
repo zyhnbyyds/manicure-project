@@ -161,3 +161,25 @@
 .empty__action {
   margin-top: 28rpx;
 }
+
+/* 未绑定时的积分占位（点它去登录） */
+.score__guest {
+  margin-top: 8rpx;
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--c-primary-deep);
+}
+
+.score__hint {
+  margin-top: 8rpx;
+  font-size: 21rpx;
+  color: var(--c-text-sub);
+}
+
+/* 兑换后发放的卡种名 */
+.good__card {
+  margin-top: 6rpx;
+  font-size: 19rpx;
+  color: var(--c-text-weak);
+}

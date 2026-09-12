@@ -243,3 +243,33 @@ export const staffApi = {
     });
   },
 };
+
+/* ── 积分兑换 ──────────────────────────────────────────────── */
+
+/** 兑换品目录条目（与后端 `AppPointsGoodsVo` 一致：无后台备注、无成本） */
+export interface PointsGoods {
+  id: number;
+  name: string;
+  points: number;
+  /** -1 = 不限库存 */
+  stock: number;
+  /** 0 = 不限每人兑换次数 */
+  perLimit: number;
+  /** 兑换后发放的卡种名 */
+  cardTypeName: string | null;
+}
+
+/**
+ * 积分兑换品目录。
+ *
+ * 后端 `GET /app/points-goods` **只要求 app token、不要求绑定手机号** ——
+ * 这是非个人的目录信息，未绑定用户也能先看到「能换什么」，兑换那一步才需要身份。
+ */
+export const pointsApi = {
+  listGoods(page = 1, pageSize = 50): Promise<Paged<PointsGoods>> {
+    return request<Paged<PointsGoods>>({
+      path: '/app/points-goods',
+      data: { page, pageSize },
+    });
+  },
+};
