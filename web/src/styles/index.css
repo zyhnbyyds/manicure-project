@@ -141,3 +141,22 @@ body {
 .lew-modal-body-main {
   max-height: 70vh;
 }
+
+/* ============================================
+   LewUpload 缩略图：可点击放大
+   lew-ui 2.8.2 **没有**内置图片预览（`preview-group-key` 无人消费），
+   缩略图默认点了没反应；页面上用 `useUploadImagePreview` 接管点击后，
+   这里补上「可点击」的视觉提示（`:hover` 给主题色描边）。
+   ============================================ */
+
+.lew-upload-file-image {
+  cursor: zoom-in;
+  transition:
+    transform var(--app-transition),
+    box-shadow var(--app-transition);
+}
+
+.lew-upload-file-image:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 0 2px rgb(180 95 107 / 55%);
+}
