@@ -49,6 +49,7 @@ import type {
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 // 后端时间为 UTC，展示与本地日推算统一按东八区（与 useFormat 一致）
@@ -267,14 +268,7 @@ const columns: LewTableColumn[] = [
     field: 'serviceItemIds',
     width: 180,
     customRender: ({ row }) =>
-      h(
-        'span',
-        {
-          class: 'block w-full truncate',
-          title: serviceItemLabel(row as unknown as Recurrence),
-        },
-        serviceItemLabel(row as unknown as Recurrence),
-      ),
+      trimCell(serviceItemLabel(row as unknown as Recurrence), { empty: '' }),
   },
   {
     title: '周期',

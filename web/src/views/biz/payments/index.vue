@@ -24,6 +24,7 @@ import type {
 import { formatDateTime } from '~/composables/useFormat';
 import { useTable } from '~/composables/useTable';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 // ---------- 枚举映射 ----------
@@ -286,11 +287,7 @@ const logColumns: LewTableColumn[] = [
         return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
       }
       const text = JSON.stringify(raw).slice(0, 200);
-      return h(
-        'span',
-        { class: 'block max-w-320px truncate', title: text },
-        text,
-      );
+      return trimCell(text, { class: 'max-w-320px' });
     },
   },
   {

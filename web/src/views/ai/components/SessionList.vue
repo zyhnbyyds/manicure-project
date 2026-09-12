@@ -7,7 +7,7 @@ import {
   Pencil,
   Plus,
 } from 'lucide-vue-next';
-import { LewButton, LewInput } from 'lew-ui';
+import { LewButton, LewInput, LewTextTrim } from 'lew-ui';
 import { formatDateTime } from '~/composables/useFormat';
 import type { AiSession } from '~/types/api';
 
@@ -117,7 +117,7 @@ function cancelEdit() {
               class="group flex items-center gap-1"
               @dblclick.stop="startEdit(session)"
             >
-              <span class="truncate">{{ session.title }}</span>
+              <LewTextTrim class="min-w-0 flex-1" :text="session.title" />
               <Pencil
                 :size="11"
                 class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"

@@ -38,6 +38,7 @@ import type { BookingPayStatus, BookingStatus } from '~/api/biz/bookings';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 /** 枚举 → 中文展示（以后端枚举值为准，不另造字符串） */
@@ -173,12 +174,7 @@ const columns: LewTableColumn[] = [
     field: 'remark',
     customRender: ({ row }) => {
       const text = (row as unknown as Customer).remark;
-      if (!text) return '-';
-      return h(
-        'span',
-        { class: 'block w-full truncate align-middle', title: text },
-        text,
-      );
+      return trimCell(text);
     },
   },
   {

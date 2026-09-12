@@ -43,6 +43,7 @@ import {
   toUploadedItem,
 } from '~/utils/upload-images';
 import { IMAGE_ACCEPT, MAX_UPLOAD_FILE_SIZE } from '~/utils/upload-limits';
+import { trimCell } from '~/utils/table-text';
 
 const userStore = useUserStore();
 
@@ -99,12 +100,7 @@ const columns: LewTableColumn[] = [
     field: 'bio',
     customRender: ({ row }) => {
       const text = (row as unknown as Staff).bio;
-      if (!text) return '-';
-      return h(
-        'span',
-        { class: 'block w-full truncate align-middle', title: text },
-        text,
-      );
+      return trimCell(text);
     },
   },
   {

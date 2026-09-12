@@ -29,6 +29,7 @@ import {
   Plus,
   X,
 } from 'lucide-vue-next';
+import { LewTextTrim } from 'lew-ui';
 import { useImagePreview } from '~/composables/useImagePreview';
 import {
   CLICK_SLOP,
@@ -463,12 +464,11 @@ onBeforeUnmount(() => {
           class="flex shrink-0 items-center justify-between gap-4 px-4 py-3"
         >
           <div class="min-w-0">
-            <p class="m-0 truncate text-13.5px font-600" :title="heading">
-              {{ heading }}
-            </p>
-            <p class="m-0 mt-0.5 truncate text-11.5px text-[#FBF5F0]/50">
-              {{ subheading }}
-            </p>
+            <LewTextTrim class="text-13.5px font-600" :text="heading" />
+            <LewTextTrim
+              class="mt-0.5 text-11.5px text-[#FBF5F0]/50"
+              :text="subheading"
+            />
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <button

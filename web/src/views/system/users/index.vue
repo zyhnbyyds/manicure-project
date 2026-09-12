@@ -21,6 +21,7 @@ import { formatDateTime } from '~/composables/useFormat';
 import type { Dept, User } from '~/types/api';
 import { renderStatus } from '~/utils/render';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
 
@@ -121,16 +122,7 @@ const columns: LewTableColumn[] = [
     width: 180,
     customRender: ({ row }) => {
       const email = (row as unknown as User).email;
-      if (!email) return '-';
-      // 超出列宽时省略显示，悬停用 tooltip 查看完整邮箱
-      return h(
-        'span',
-        {
-          class: 'block w-full truncate align-middle cursor-default',
-          title: email,
-        },
-        email,
-      );
+      return trimCell(email);
     },
   },
   { title: '手机号', field: 'phone', width: 120 },

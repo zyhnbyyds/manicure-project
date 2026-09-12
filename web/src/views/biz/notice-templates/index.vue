@@ -27,6 +27,7 @@ import type {
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 const CHANNEL_OPTIONS = [
@@ -82,11 +83,7 @@ const columns: LewTableColumn[] = [
     field: 'content',
     customRender: ({ row }) => {
       const content = (row as unknown as NoticeTemplate).content;
-      return h(
-        'span',
-        { class: 'block w-full truncate cursor-default', title: content },
-        content,
-      );
+      return trimCell(content);
     },
   },
   {

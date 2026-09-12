@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ShieldAlert } from 'lucide-vue-next';
-import { LewButton, LewTag } from 'lew-ui';
+import { LewButton, LewTag, LewTextTrim } from 'lew-ui';
 import type { AiApprovalRequired } from '~/types/api';
 import { riskColor, riskText } from '../utils/display';
 
@@ -34,11 +34,10 @@ defineEmits<{
       >
         {{ riskText(approval.riskLevel) }}
       </LewTag>
-      <span
-        class="ml-auto min-w-0 truncate text-12px font-mono text-[var(--app-text-muted)]"
-      >
-        {{ approval.toolName }}
-      </span>
+      <LewTextTrim
+        class="ml-auto min-w-0 flex-1 text-12px font-mono text-[var(--app-text-muted)]"
+        :text="approval.toolName"
+      />
     </div>
 
     <!-- 操作预览 -->

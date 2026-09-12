@@ -8,7 +8,12 @@ import {
   Loader2,
   X,
 } from 'lucide-vue-next';
-import { LewCollapse, LewCollapseItem, LewTag } from 'lew-ui';
+import {
+  LewCollapse,
+  LewCollapseItem,
+  LewTag,
+  LewTextTrim,
+} from 'lew-ui';
 import {
   USER_TABLE_COLUMNS,
   formatArgs,
@@ -85,12 +90,11 @@ function prettyJson(value: unknown): string {
             />
             <Clock v-else :size="12" class="ml-1 shrink-0 text-orange-500" />
 
-            <!-- 参数摘要（截断） -->
-            <span
-              class="flex-1 min-w-0 text-12px text-[var(--app-text-muted)] truncate ml-1"
-            >
-              {{ formatArgs(args) }}
-            </span>
+            <!-- 参数摘要（超出省略，悬浮看完整内容） -->
+            <LewTextTrim
+              class="flex-1 min-w-0 text-12px text-[var(--app-text-muted)] ml-1"
+              :text="formatArgs(args)"
+            />
 
             <!-- 状态标签 -->
             <LewTag

@@ -33,6 +33,7 @@ import { openImagePreview } from '~/composables/useImagePreview';
 import { useUploadImagePreview } from '~/composables/useUploadImagePreview';
 import { stripDisplayImageUrl } from '~/utils/image-url';
 import { IMAGE_ACCEPT, MAX_UPLOAD_FILE_SIZE } from '~/utils/upload-limits';
+import { trimCell } from '~/utils/table-text';
 import {
   toImageUrls,
   toUploadItems,
@@ -182,12 +183,7 @@ const columns: LewTableColumn[] = [
     field: 'description',
     customRender: ({ row }) => {
       const text = (row as unknown as ServiceItem).description;
-      if (!text) return '-';
-      return h(
-        'span',
-        { class: 'block w-full truncate align-middle', title: text },
-        text,
-      );
+      return trimCell(text);
     },
   },
   { title: '排序', field: 'sort', width: 70 },

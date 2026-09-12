@@ -19,6 +19,7 @@ import type { AppStaffGrant, GrantStatus } from '~/api/biz/app-staff-grants';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 /**
@@ -125,12 +126,7 @@ const columns: LewTableColumn[] = [
     field: 'staffRejectReason',
     customRender: ({ row }) => {
       const text = (row as unknown as AppStaffGrant).staffRejectReason;
-      if (!text) return '-';
-      return h(
-        'span',
-        { class: 'block w-full truncate align-middle', title: text },
-        text,
-      );
+      return trimCell(text);
     },
   },
   { title: '操作', field: 'operation', width: 110, fixed: 'right' },

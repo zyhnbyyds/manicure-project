@@ -11,7 +11,13 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-vue-next';
-import { LewButton, LewCollapse, LewCollapseItem, LewTag } from 'lew-ui';
+import {
+  LewButton,
+  LewCollapse,
+  LewCollapseItem,
+  LewTag,
+  LewTextTrim,
+} from 'lew-ui';
 import { formatDateTime } from '~/composables/useFormat';
 import type { AiTaskInfo, AiTaskStep, AiToolCall } from '~/types/api';
 import {
@@ -270,7 +276,7 @@ function stepDot(status: string): string {
                   <span class="text-[var(--app-text-muted)] font-mono"
                     >#{{ step.stepIndex }}</span
                   >
-                  <span class="truncate">{{ step.toolName }}</span>
+                  <LewTextTrim class="min-w-0 flex-1" :text="step.toolName" />
                   <span class="ml-auto shrink-0 text-[var(--app-text-muted)]">
                     {{ stepText(step.status) }}
                   </span>
@@ -312,9 +318,10 @@ function stepDot(status: string): string {
                     <RotateCcw :size="12" />
                   </button>
                 </div>
-                <div class="text-[var(--app-text-muted)] mt-1 truncate">
-                  {{ task.goal }}
-                </div>
+                <LewTextTrim
+                  class="text-[var(--app-text-muted)] mt-1"
+                  :text="task.goal"
+                />
                 <div class="text-11px text-[var(--app-text-muted)] mt-0.5">
                   {{ formatDateTime(task.completedAt ?? task.createdAt) }}
                 </div>

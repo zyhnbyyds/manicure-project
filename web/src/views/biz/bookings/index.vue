@@ -68,6 +68,7 @@ import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { useUserStore } from '~/store/user';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 const userStore = useUserStore();
@@ -360,11 +361,7 @@ const columns: LewTableColumn[] = [
       if (booking.cancelReason) parts.push(`原因：${booking.cancelReason}`);
       if (!parts.length) return '-';
       const text = parts.join('；');
-      return h(
-        'span',
-        { class: 'block w-full truncate align-middle', title: text },
-        text,
-      );
+      return trimCell(text);
     },
   },
   { title: '操作', field: 'operation', width: 300, fixed: 'right' },

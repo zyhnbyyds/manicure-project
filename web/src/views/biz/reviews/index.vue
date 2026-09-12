@@ -26,6 +26,7 @@ import type { Review } from '~/api/biz/reviews';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
+import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
 
 const STATUS_OPTIONS = [
@@ -132,12 +133,7 @@ const columns: LewTableColumn[] = [
     field: 'content',
     customRender: ({ row }) => {
       const content = (row as unknown as Review).content;
-      if (!content) return '-';
-      return h(
-        'span',
-        { class: 'block w-full truncate cursor-default', title: content },
-        content,
-      );
+      return trimCell(content);
     },
   },
   {
@@ -157,11 +153,7 @@ const columns: LewTableColumn[] = [
       const reply = (row as unknown as Review).reply;
       if (!reply)
         return h('span', { class: 'text-[var(--app-text-muted)]' }, '未回复');
-      return h(
-        'span',
-        { class: 'block w-full truncate cursor-default', title: reply },
-        reply,
-      );
+      return trimCell(reply);
     },
   },
   {
