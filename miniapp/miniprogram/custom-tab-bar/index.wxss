@@ -1,4 +1,13 @@
-/* 自定义 TabBar —— 对齐设计稿：白底 + 顶部一条淡描边 + 细线图标（不用 emoji） */
+/**
+ * 自定义 TabBar —— 对齐设计稿：白底 + 顶部一条极淡的分隔 + 细线图标（不用 emoji）。
+ *
+ * 动效设计（与全局动效令牌同源，见 app.wxss）：
+ * - 图标两态**叠在一起交叉淡入**（不是换 src），切换不再闪白；
+ * - 选中：图标轻微上浮 + 放大，并播一次「弹一下」的关键帧（可爱风的关键手感）；
+ * - 按下：整项轻微缩小 + 压暗，给指尖即时反馈；
+ * - 文字：颜色走令牌过渡，选中加粗（不加背景块 —— 设计稿就没有背景块）。
+ */
+
 .tabbar {
   position: fixed;
   left: 0;
@@ -11,6 +20,8 @@
   padding: 12rpx 12rpx calc(12rpx + env(safe-area-inset-bottom));
   background: var(--c-card, #ffffff);
   border-top: 2rpx solid var(--c-border, #efe7e2);
+  /* 极淡的向上投影，让底栏从内容上「浮」起来一点 */
+  box-shadow: 0 -6rpx 20rpx var(--c-shadow, rgba(45, 34, 30, 0.06));
 }
 
 .tabbar__item {
@@ -19,26 +30,76 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* 只在 transform/opacity 上做动效，避免触发布局重排 */
+  transition: transform var(--dur-fast, 0.16s) var(--ease-out, ease),
+    opacity var(--dur-fast, 0.16s) var(--ease-out, ease);
+}
+
+.tabbar__item--press {
+  transform: scale(0.92);
+  opacity: 0.82;
+}
+
+.tabbar__icon-wrap {
+  position: relative;
+  width: 46rpx;
+  height: 46rpx;
+  transition: transform var(--dur-mid, 0.24s) var(--ease-back, ease);
 }
 
 .tabbar__icon {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 46rpx;
   height: 46rpx;
-  transition: transform 0.18s ease;
+  transition: opacity var(--dur-mid, 0.24s) var(--ease-out, ease);
+}
+
+/* 未选中：弱色图标可见，主色图标透明 */
+.tabbar__icon--idle {
+  opacity: 1;
+}
+
+.tabbar__icon--active {
+  opacity: 0;
+}
+
+.is-active .tabbar__icon--idle {
+  opacity: 0;
+}
+
+.is-active .tabbar__icon--active {
+  opacity: 1;
+}
+
+/* 选中：上浮 + 放大，并弹一下 */
+.is-active .tabbar__icon-wrap {
+  transform: translateY(-2rpx) scale(1.06);
+  animation: tab-pop var(--dur-slow, 0.32s) var(--ease-back, ease);
+}
+
+@keyframes tab-pop {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  55% {
+    transform: translateY(-4rpx) scale(1.14);
+  }
+  100% {
+    transform: translateY(-2rpx) scale(1.06);
+  }
 }
 
 .tabbar__label {
   margin-top: 4rpx;
   font-size: 20rpx;
+  line-height: 1.2;
   color: var(--c-text-weak, #b9b3ae);
-  transition: color 0.18s ease;
-}
-
-/* 选中态：图标略上浮 + 文字变主色（设计稿即如此，不做背景块） */
-.is-active .tabbar__icon {
-  transform: translateY(-2rpx);
+  transition: color var(--dur-mid, 0.24s) var(--ease-out, ease);
 }
 
 .is-active .tabbar__label {
   color: var(--c-primary, #b45f6b);
+  font-weight: 600;
 }

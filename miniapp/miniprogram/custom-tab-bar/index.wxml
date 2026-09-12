@@ -5,13 +5,18 @@
     class="tabbar__item {{selected === index ? 'is-active' : ''}}"
     data-index="{{index}}"
     bindtap="onTap"
-    hover-class="none"
+    hover-class="tabbar__item--press"
+    hover-start-time="0"
+    hover-stay-time="90"
   >
-    <image
-      class="tabbar__icon"
-      src="{{selected === index ? iconsActive[item.icon] : iconsIdle[item.icon]}}"
-      mode="aspectFit"
-    />
-    <view class="tabbar__label" style="{{selected === index ? '' : 'color:' + idleColor}}">{{item.text}}</view>
+    <!--
+      两态图标**同时渲染**、靠透明度交叉淡入：
+      直接换 `src` 会让小程序重新解码 data-URI 图片，切换瞬间闪一下空白（原来的观感问题之一）。
+    -->
+    <view class="tabbar__icon-wrap">
+      <image class="tabbar__icon tabbar__icon--idle" src="{{iconsIdle[item.icon]}}" mode="aspectFit" />
+      <image class="tabbar__icon tabbar__icon--active" src="{{iconsActive[item.icon]}}" mode="aspectFit" />
+    </view>
+    <view class="tabbar__label">{{item.text}}</view>
   </view>
 </view>
