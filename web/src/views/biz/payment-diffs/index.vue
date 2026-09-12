@@ -259,6 +259,8 @@ async function handleReconcileSubmit() {
 
 // ---------- 标记处理 ----------
 const diffVisible = ref(false);
+/** 处理差异的提交态：挡住连点（这是唯一一处**不走 confirmDanger** 的表单提交） */
+const formSubmitting = ref(false);
 const diffTarget = ref<PaymentDiff | null>(null);
 const diffFormRef = ref();
 const diffForm = ref<{ status: 'resolved' | 'ignored'; remark: string }>({
@@ -317,6 +319,8 @@ function openHandleDiff(row: PaymentDiff) {
 }
 
 async function handleDiffSubmit() {
+  // 唯一一处**没走 confirmDanger** 的表单提交：中心化的防重入盖不到它，单独挡一层
+  if (formSubmitting.value) return;
   const valid = await diffFormRef.value?.validate();
   if (!valid) return;
   const values = (diffFormRef.value?.getForm?.() ??
@@ -329,13 +333,18 @@ async function handleDiffSubmit() {
   }
   const status: 'resolved' | 'ignored' =
     values.status === 'ignored' ? 'ignored' : 'resolved';
-  await handlePaymentDiff(target.id, {
-    status,
-    remark: values.remark.trim(),
-  });
-  LewMessage.success(status === 'ignored' ? '已忽略该差异' : '已标记处理');
-  diffVisible.value = false;
-  void refresh();
+  formSubmitting.value = true;
+  try {
+    await handlePaymentDiff(target.id, {
+      status,
+      remark: values.remark.trim(),
+    });
+    LewMessage.success(status === 'ignored' ? '已忽略该差异' : '已标记处理');
+    diffVisible.value = false;
+    void refresh();
+  } finally {
+    formSubmitting.value = false;
+  }
 }
 </script>
 
@@ -479,6 +488,7 @@ async function handleDiffSubmit() {
             color: 'primary',
             size: 'small',
             text: '保存',
+            loading: formSubmitting,
             request: handleDiffSubmit,
           },
         },
