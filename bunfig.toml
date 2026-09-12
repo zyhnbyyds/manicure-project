@@ -1,0 +1,19 @@
+# Bun 运行时配置（只影响 `bun test`，不影响 `bun run` 与构建）
+
+[test]
+# 集成测试的**默认 hook / 用例超时**。
+#
+# 为什么需要它：`tests/integration/harness.ts` 的 `resetBusinessData()` 会
+# 逐个 `TRUNCATE` 约 40 张表（约 40 次数据库往返）。单独跑一个文件时很快，
+# 但整套回归（90+ 文件共享同一个 MySQL）满载时会**偶发超过 10 秒** ——
+# 而 10 秒正是测试框架的默认值，于是表现为：
+#
+#   a beforeEach/afterEach hook timed out for this test
+#
+# 这类失败最坑：不是断言失败、不是代码问题，重跑一次又全绿 ——
+# 本仓库确实出现过「一次 1056 pass / 3 fail，紧接着 1059 pass / 0 fail」。
+#
+# 60 秒足够覆盖满载时的抖动，又不会让真正卡死的用例拖太久。
+# 新写的 spec 仍建议**显式**给 hook 传超时（与既有
+# `beforeAll(async () => {...}, 120_000)` 的约定一致），双保险。
+timeout = 60000
