@@ -133,11 +133,14 @@ export function goCancel(bookingId: number): void {
 
 /** 支付结果：以 query 表达「已经发生的事实」，可直达自检 */export function goPayResult(input: {
   status?: 'success' | 'pending';
+  /** 结果页要用它**向服务端复核**，不能只信 query */
+  bookingId?: number;
   bookingNo?: string;
   amount?: number;
 }): void {
   const params = [
     `status=${input.status ?? 'success'}`,
+    `bookingId=${input.bookingId ?? 0}`,
     `bookingNo=${encodeURIComponent(input.bookingNo ?? '')}`,
     `amount=${input.amount ?? 0}`,
   ].join('&');

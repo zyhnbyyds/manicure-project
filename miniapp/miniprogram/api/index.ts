@@ -129,6 +129,16 @@ export const bookingApi = {
     });
   },
 
+  /**
+   * 单笔预约详情（本人）。
+   *
+   * 支付页用它：① 按 id 直取（不再从列表前 50 条里 find，老单会查不到）；
+   * ② **支付后轮询它确认** —— `payStatus`/`paidAmount` 是服务端事实。
+   */
+  detail(id: number): Promise<Booking> {
+    return request<Booking>({ path: `/app/bookings/${id}` });
+  },
+
   create(payload: CreateBookingRequest): Promise<Booking> {
     return request<Booking>({
       path: '/app/bookings',

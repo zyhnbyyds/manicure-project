@@ -1,3 +1,4 @@
+import { bookingApi } from '../../api/index';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
@@ -10,8 +11,16 @@ const TEXT_ICONS: IconName[] = ['check'];
 /**
  * 支付结果（docs/manicure-ui-batch2 第 1 屏）。
  *
- * 入参走 query（`status` / `bookingId` / `amount`）而不是内存草稿：
- * 支付结果是「已经发生的事实」，用参数表达更准确，也让该页可以直接自检。
+ * ## query 只用于**首屏渲染**，事实以服务端为准
+ *
+ * 入参走 query（`status` / `bookingId` / `amount`），但 **query 是可以被改的**：
+ * 改一下 URL 就能凭空得到一个「支付成功、金额任意」的页面。所以进入本页后
+ * **立刻用 `bookingId` 向服务端复核**（`GET /app/bookings/:id`），
+ * 用返回的 `payStatus` / `paidAmount` 覆盖 query 的展示。
+ *
+ * 复核失败（网络问题）时**保留 query 的展示**，不把结果页变成错误页 ——
+ * 服务端已经是事实来源，前端这一层只是「别把假话显示给用户」。
+ *
  * `status` 取 `success | pending`（失败态跳回收银台重试，不单独留一页）。
  */
 Page({
@@ -28,16 +37,39 @@ Page({
     warmTip: '到店前如需改期，请提前 2 小时联系门店，避免产生扣费。',
   },
 
-  onLoad(query: Record<string, string | undefined>) {
-    const status = query.status === 'pending' ? 'pending' : 'success';
-    const amount = Number(query.amount ?? 0);
-    const bookingNo = query.bookingNo ?? '';
+  async onLoad(query: Record<string, string | undefined>) {
+    const bookingId = Number(query.bookingId ?? 0);
+    // 先用 query 渲染，避免白屏
+    this.render(
+      query.status === 'pending' ? 'pending' : 'success',
+      Number(query.amount ?? 0),
+      query.bookingNo ?? '',
+    );
 
+    // 再用**服务端事实**纠正：payStatus 才是「钱到没到」的唯一依据
+    if (!bookingId) return;
+    try {
+      const booking = await bookingApi.detail(bookingId);
+      const paid = booking.payStatus === 'paid';
+      this.render(
+        paid ? 'success' : 'pending',
+        paid ? booking.paidAmount : booking.dueAmount,
+        booking.bookingNo,
+      );
+    } catch {
+      /* 复核失败就保留首屏展示（不把结果页变成错误页） */
+    }
+  },
+
+  /** 统一的渲染入口：状态与金额只从这里进 data，便于被服务端事实覆盖 */
+  render(status: 'success' | 'pending', amount: number, bookingNo: string) {
     this.setData({
       status,
       title: status === 'success' ? '支付成功' : '等待支付结果',
       subtitle:
-        status === 'success' ? '定金已支付，预约已确认' : '支付结果确认中，请稍后查看订单',
+        status === 'success'
+          ? '款项已到账，预约已确认'
+          : '支付结果确认中，请稍后查看订单',
       amountText: amount > 0 ? fenToYuan(amount) : '',
       orderTip:
         status === 'success'

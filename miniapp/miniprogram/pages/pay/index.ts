@@ -13,10 +13,21 @@ import { toast } from '../../utils/ui';
  * **入参是 `bookingId`，不是草稿** —— 订单已经落库，金额一律以服务端返回的
  * `dueAmount` 为准，客户端不做任何加减（资金红线的直接体现）。
  *
- * 支付方式的可达性（都会如实反馈，不假装成功）：
- * - 微信支付 JSAPI：`POST /app/payments/wxpay/jsapi` 目前是 501 契约位，
- *   请求层会把 501 统一转成「这个功能马上就来啦」；
- * - 余额 / 次卡 / 积分支付：app 域还没有对应接口（后端能力在管理端），点则提示开发中。
+ * ## 支付结果必须向**服务端**确认（本次修正的核心）
+ *
+ * `wx.requestPayment` 的 success **只代表微信收银台走完了**：回调可能延迟、
+ * 可能验签失败、可能还没落库。原先直接在 success 后跳「支付成功」，会出现
+ * 「顾客看到已支付、账上仍 `unpaid`」—— 店员在收银台会**再收一次钱**。
+ *
+ * 现在的流程：拉起支付 → **轮询本人预约详情**（`payStatus` 是服务端事实）→
+ * 只有 `payStatus === 'paid'` 才跳「支付成功」；轮询到上限仍未确认则跳
+ * **「等待支付结果」**（不是失败），顾客可在「我的预约」里再看。
+ *
+ * ## 支付方式的可用性如实反馈
+ *
+ * 余额 / 次卡 / 积分：app 域还没有对应接口 → **标为不可用**（不是「显示可用、
+ * 点了才说正在接入」）。微信 JSAPI 目前是 501 契约位，请求层会转成
+ * 「这个功能马上就来啦」。
  */
 type PayMethod = 'balance' | 'wechat' | 'card' | 'points';
 
@@ -25,6 +36,19 @@ interface MethodItem {
   title: string;
   sub: string;
   enabled: boolean;
+}
+
+/** 确认支付结果的轮询节奏：5 次 × 1.5s（首次快一点，别让用户等） */
+const PAID_POLL_TRIES = 5;
+const PAID_POLL_INTERVAL_MS = 1500;
+
+/** 判断是不是「用户主动取消支付」 */
+function isPaymentCancel(error: unknown): boolean {
+  const result = error as { errMsg?: string; errCode?: number } | undefined;
+  if (!result) return false;
+  if (result.errCode === -2) return true;
+  const message = String(result.errMsg ?? '');
+  return message.includes('cancel');
 }
 
 Page({
@@ -66,16 +90,21 @@ Page({
     }
     this.setData({ loading: true, guest: false, errorText: '' });
     try {
-      // app 域没有「单个订单详情」接口，从列表里按 id 取
-      const [list, me] = await Promise.all([
-        bookingApi.list({ page: 1, pageSize: 50 }),
+      // 按 id 直取（原来从列表前 50 条里 find，老单会查不到 → 误报「没找到」）
+      const [booking, me] = await Promise.all([
+        bookingApi.detail(this.bookingId),
         memberApi.getMe().catch(() => null),
       ]);
-      const found: Booking | undefined = list.items.find(
-        (item) => item.id === this.bookingId,
-      );
-      if (!found) {
-        this.setData({ loading: false, errorText: '没找到这笔订单' });
+      if (booking.payStatus === 'paid') {
+        // 已付清的单不该再进收银台（可能在别处已收）
+        this.setData({
+          loading: false,
+          booking: toBookingVM(booking),
+          dueAmount: 0,
+          dueText: fenToYuan(0),
+          methods: [],
+          errorText: '这笔订单已经付清了',
+        });
         return;
       }
       const activeCard = me?.cards.find((card) => card.status === 'active');
@@ -83,30 +112,33 @@ Page({
 
       this.setData({
         loading: false,
-        booking: toBookingVM(found),
-        dueAmount: found.dueAmount,
-        dueText: fenToYuan(found.dueAmount),
+        booking: toBookingVM(booking),
+        dueAmount: booking.dueAmount,
+        dueText: fenToYuan(booking.dueAmount),
         methods: [
           {
             key: 'balance',
             title: '余额支付',
-            sub: me ? `全部余额 ${fenToYuan(balance)} 元` : '未绑定会员，暂无余额',
-            enabled: me !== null && balance >= found.dueAmount,
+            sub: me
+              ? `全部余额 ${fenToYuan(balance)} 元 · 暂未开放`
+              : '未绑定会员，暂无余额',
+            // app 域没有余额支付接口：**如实标为不可用**，不展示「伪可用」
+            enabled: false,
           },
           { key: 'wechat', title: '微信支付', sub: '', enabled: true },
           {
             key: 'card',
             title: '次卡支付',
             sub: activeCard
-              ? `剩余 ${activeCard.totalTimes - activeCard.usedTimes} 次`
+              ? `剩余 ${activeCard.totalTimes - activeCard.usedTimes} 次 · 暂未开放`
               : '暂无可用次卡',
-            enabled: Boolean(activeCard),
+            enabled: false,
           },
           {
             key: 'points',
             title: '积分支付',
-            sub: me ? `可用 ${me.points} 积分` : '暂不可用',
-            enabled: me !== null && me.points > 0,
+            sub: me ? `${me.points} 积分 · 暂未开放` : '暂不可用',
+            enabled: false,
           },
         ],
       });
@@ -123,7 +155,7 @@ Page({
     const method = this.data.methods.find((item) => item.key === key);
     if (!method) return;
     if (!method.enabled) {
-      toast(key === 'balance' ? '余额不足，可用微信或组合支付' : '该项暂不可用');
+      toast('该支付方式暂未开放，先选微信支付吧');
       return;
     }
     this.setData({ activeMethod: key });
@@ -137,29 +169,63 @@ Page({
 
     this.setData({ submitting: true });
     try {
-      if (activeMethod === 'wechat') {
-        // 后端 JSAPI 目前返回 501，请求层会转成「这个功能马上就来啦」；
-        // 这里保留完整调用位：拿到预支付参数 → 拉起微信支付 → 跳结果页，
-        // 支付通道一接上就能直接work。
-        const params = await bookingApi.createJsapiPayment({
-          bookingId,
-          purpose: 'final',
-        });
-        await this.requestPayment(params);
-        goPayResult({
-          status: 'success',
-          bookingNo: booking.bookingNo,
-          amount: this.data.dueAmount,
-        });
+      if (activeMethod !== 'wechat') {
+        toast('该支付方式暂未开放，先选微信支付吧');
         return;
       }
-      // 余额 / 次卡 / 积分：app 域暂无对应接口
-      toast('该支付方式正在接入，先选微信支付吧');
+      // 后端 JSAPI 目前返回 501，请求层会转成「这个功能马上就来啦」；
+      // 这里保留完整调用位：拿到预支付参数 → 拉起微信支付 → **向服务端确认**。
+      const params = await bookingApi.createJsapiPayment({
+        bookingId,
+        purpose: 'final',
+      });
+      try {
+        await this.requestPayment(params);
+      } catch (error) {
+        if (isPaymentCancel(error)) return; // 用户自己取消：静默，不提示
+        toast('支付未完成，请重试');
+        return;
+      }
+      // **关键**：不把 requestPayment 的成功当结果，向服务端要事实
+      const confirmed = await this.waitForPaid(bookingId);
+      goPayResult({
+        status: confirmed ? 'success' : 'pending',
+        bookingId,
+        bookingNo: booking.bookingNo,
+        amount: confirmed ? confirmed.paidAmount : this.data.dueAmount,
+      });
     } catch (error) {
       toast(isApiFailure(error) ? error.message : '发起支付失败，请稍后再试');
     } finally {
       this.setData({ submitting: false });
     }
+  },
+
+  /**
+   * 轮询等待服务端确认收款。
+   *
+   * 返回**已确认的预约**（`payStatus === 'paid'`）或 `null`（到上限仍未确认）。
+   * `null` 不是失败：回调可能还在路上，主动查单任务（每 2 分钟）也会兜底；
+   * 结果页会显示「等待支付结果」并引导去「我的预约」查看。
+   */
+  async waitForPaid(bookingId: number): Promise<Booking | null> {
+    for (let i = 0; i < PAID_POLL_TRIES; i += 1) {
+      // 首次等短一点（回调通常很快），之后按固定间隔
+      await this.sleep(i === 0 ? 800 : PAID_POLL_INTERVAL_MS);
+      try {
+        const latest = await bookingApi.detail(bookingId);
+        if (latest.payStatus === 'paid') return latest;
+      } catch {
+        /* 单次查询失败不放弃，继续轮询 */
+      }
+    }
+    return null;
+  },
+
+  sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   },
 
   onGuestLogin() {
@@ -172,7 +238,12 @@ Page({
     goBookings();
   },
 
-  /** `wx.requestPayment` 的 Promise 封装（用户取消不算异常，单独静默处理） */
+  /**
+   * `wx.requestPayment` 的 Promise 封装。
+   *
+   * `fail` 会同时收到「用户取消」与「支付失败」，这里**只做原样抛出**，
+   * 由调用方用 `isPaymentCancel` 区分 —— 用户主动取消不该看到报错。
+   */
   requestPayment(params: {
     timeStamp: string;
     nonceStr: string;

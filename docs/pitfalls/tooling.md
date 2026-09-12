@@ -135,3 +135,31 @@
   2. 同步脚本还会**改写 `references/` 下的文档**（厂商更新，值得提交）
      以及三个脚本的**行尾**（纯噪音 —— `git diff --numstat` 为空但状态是 `M`，
      用 `git checkout -- <路径>` 回退即可）。
+
+---
+
+## 10. 开发者工具 CLI：URL 里的 `&` 会被 cmd 当命令分隔符
+
+- **现象**：`automation_navigate --url '/pages/x/index?a=1&b=2&c=3'` 之后，
+  页面只收到了**第一个参数**（`a=1`），其余全丢；用 `^&` 转义在
+  PowerShell → cmd 这一层**不可靠**（时好时坏）。
+- **根因**：`wechatide.cmd` 是批处理，参数最终由 cmd.exe 解析；`&` 是 cmd 的命令分隔符。
+- **正确做法**：**绕开命令行**——用百分比编码的 URL，在 JS 里解码：
+  ```
+  automation_evaluate --fn-source "function(){ wx.reLaunch({ url: decodeURIComponent('%2Fpages%2Fx%2Findex%3Fa%3D1%26b%3D2') }); return 'go'; }"
+  ```
+  编码串里没有 `&`/`?`，命令行安全。
+- **代价**：这个坑让我连续误判了两轮（以为是页面没重渲染），**发现前一直以为是代码问题**。
+
+## 11. 验证「登录态相关」改动前，先确认本地 token 的**来源**
+
+- **现象**：页面一直停在未绑定/401，代码看起来完全正确。
+- **根因**：开发者工具本地存的 token 可能是**更早某次登录**签发的
+  （本项目就出现过：token 是 `WX_MINIAPP_FAKE=true` 时代的 `fake-openid-…`、
+  对应的 app 用户在库里 `customer_id` 为空）。**改后端绑定不会刷新已签发的 token。**
+- **正确做法**：动手验证登录态之前先解码 token 的 payload 确认 `sub`/`openid`：
+  ```
+  automation_evaluate --fn-source "function(){ var p=String(wx.getStorageSync('manicure:token')).split('.')[1]; return p; }"
+  ```
+  再用 `SELECT id, openid, customer_id FROM app_wx_user` 对齐；必要时
+  `wx.removeStorageSync('manicure:token')` + `simulator_refresh` 让它重新静默登录。
