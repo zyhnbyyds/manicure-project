@@ -43,6 +43,8 @@ import { SchedulingService } from './scheduling/scheduling.service.js';
 import { CustomersService } from './base-data/customers/customers.service.js';
 import { ServiceItemsService } from './base-data/service-items/service-items.service.js';
 import { StaffsService } from './base-data/staffs/staffs.service.js';
+import { PointsGoodsService } from './membership/points-goods/points-goods.service.js';
+import { PointsGoodsPort } from './common/ports.js';
 
 /**
  * 业务域根模块（B1~B6）。
@@ -85,6 +87,8 @@ import { StaffsService } from './base-data/staffs/staffs.service.js';
     { provide: CommissionPort, useExisting: CommissionService },
     { provide: RecurrencePort, useExisting: RecurrencesService },
     { provide: ReviewPort, useExisting: ReviewsService },
+    // 积分兑换品：顾客侧只读目录（兑换动作仍走后台同一 service，避免算价口径分叉）
+    { provide: PointsGoodsPort, useExisting: PointsGoodsService },
   ],
   exports: [
     ServiceItemPort,

@@ -944,3 +944,34 @@ export abstract class RecurrencePort {
 }
 
 export { type RecurrenceRow as RecurrenceRowType };
+
+/**
+ * 积分兑换品（顾客侧只读）。
+ *
+ * **为什么单独开一个端口、而不是让 app 直接拿 `PointsGoodsService`**：
+ * app 域只允许依赖抽象端口（见 `biz.module.ts` 的说明），这样 app 侧天然拿不到
+ * 成本字段与后台维护方法，符合 §8.3「不复用后台 DTO、不返回内部字段」。
+ *
+ * 这里**只声明读**：兑换（扣积分 + 发次卡）属于资金/权益写入，必须复用后台
+ * `PointsGoodsService.redeem()` 的**同事务**实现，不能另写一套。
+ */
+export type PointsGoodsView = {
+  id: number;
+  name: string;
+  points: number;
+  /** -1 = 不限库存 */
+  stock: number;
+  /** 0 = 不限每人兑换次数 */
+  perLimit: number;
+  remark: string | null;
+  /** 兑换后发放的卡种名（让顾客知道换到的到底是什么） */
+  cardTypeName: string | null;
+};
+
+export abstract class PointsGoodsPort {
+  abstract list(
+    page: number,
+    pageSize: number,
+    filter?: { status?: 'active' | 'disabled'; keyword?: string },
+  ): Promise<{ items: PointsGoodsView[]; page: number; pageSize: number }>;
+}
