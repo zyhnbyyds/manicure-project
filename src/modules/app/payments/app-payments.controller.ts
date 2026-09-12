@@ -1,4 +1,4 @@
-import { Controller, Inject, Post, Req, Res } from '@nestjs/common';
+import { Controller, Inject, Logger, Post, Req, Res } from '@nestjs/common';
 import {
   ApiBody,
   ApiHeader,
@@ -59,6 +59,8 @@ type NotifyRequest = {
 @Public()
 @Controller('app/payments/wxpay')
 export class AppPaymentsController {
+  private readonly logger = new Logger(AppPaymentsController.name);
+
   constructor(@Inject(PaymentPort) private readonly payments: PaymentPort) {}
 
   @Post('notify')
@@ -98,8 +100,15 @@ export class AppPaymentsController {
     @Req() request: NotifyRequest,
     @Res() reply: FastifyReply,
   ): Promise<void> {
-    // 报文形态只做契约自检（safeParse）：真伪由验签决定，形态不对也必须回渠道应答而不是 HTTP 400。
-    appWxpayNotifyRequestSchema.safeParse(request.body);
+    // 报文形态只做契约自检：真伪由验签决定，形态不对也必须回渠道应答而不是 HTTP 400。
+    // 但**结果不能丢** —— 至少记一笔，便于发现「微信改了报文结构」这类问题
+    //（原先只 `safeParse` 不接返回值，读代码的人会以为校验生效了）。
+    const shape = appWxpayNotifyRequestSchema.safeParse(request.body);
+    if (!shape.success) {
+      this.logger.warn(
+        `微信回调报文形态与契约不符（仍按验签结果处理）：${shape.error.message}`,
+      );
+    }
     const result = await this.payments.handleNotify('wxpay_native', {
       headers: request.headers,
       body: request.body,

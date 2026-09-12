@@ -1185,6 +1185,38 @@ describe('PaymentsService（§17 收银台）', () => {
       expect(result.paymentNo).toBe('P20260911000001');
     });
 
+    it('findOne 的日志 raw **对店员脱敏**：回调里的 openid 不能原样返回', async () => {
+      const h = createHarness({
+        dbSelect: [
+          [payment()],
+          [
+            {
+              id: 1,
+              event: 'callback',
+              raw: {
+                out_trade_no: 'P000001ABCDEF',
+                transaction_id: '4200001',
+                trade_state: 'SUCCESS',
+                amount: { total: 10000 },
+                payer: { openid: 'oABC123SECRET', name: '张三' },
+              },
+            },
+          ],
+        ],
+      });
+
+      const result = await h.service.findOne(1);
+      const raw = result.logs[0]?.raw as Record<string, unknown>;
+
+      // 排障/对账要用的字段必须保留
+      expect(raw.out_trade_no).toBe('P000001ABCDEF');
+      expect(raw.transaction_id).toBe('4200001');
+      expect(raw.trade_state).toBe('SUCCESS');
+      // 渠道侧的顾客标识必须掩掉（键名命中即整棵子树掩码）
+      expect(JSON.stringify(raw)).not.toContain('oABC123SECRET');
+      expect(raw.payer).toBe('[已脱敏]');
+    });
+
     it('findOne 支付单不存在 → 404', async () => {
       const h = createHarness({ dbSelect: [[]] });
       await expect(h.service.findOne(1)).rejects.toThrow(

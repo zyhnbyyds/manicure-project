@@ -91,6 +91,30 @@ type SettleInput = {
 /** 在线渠道（唯一需要查单 / 验签 / 账单的两种） */
 const ONLINE_CHANNELS: OnlineChannel[] = ['wxpay_native', 'alipay_qr'];
 
+/**
+ * 渠道原始报文里**必须脱敏**的键（按名字匹配，大小写不敏感）。
+ *
+ * 原文进 `biz_payment_log.raw` 是**留证**需要（只追加、不修改），
+ * 但**给店员看的接口**不该带渠道侧的顾客标识：
+ * 微信 v3 回调含 `payer.openid`，支付宝回调含 `buyer_id` / `buyer_logon_id`。
+ * 这里按**键名递归掩码**（保留报文结构，便于排障），而不是整段丢掉。
+ */
+const SENSITIVE_RAW_KEY =
+  /openid|buyer|payer|phone|mobile|tel|id_?card|identity|real_?name/i;
+
+/** 递归掩码敏感键的值（深度上限 6，避免异常结构把栈打爆） */
+export function redactChannelRaw(value: unknown, depth = 0): unknown {
+  if (depth > 6 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value))
+    return value.map((item) => redactChannelRaw(item, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = SENSITIVE_RAW_KEY.test(key)
+      ? '[已脱敏]'
+      : redactChannelRaw(item, depth + 1);
+  }
+  return out;
+}
 /** 支付单落库时 `payment_no` / `out_trade_no` 是 NOT NULL + UNIQUE，先用一次性占位再回填主键 */
 function temporaryToken(): string {
   return globalThis.crypto.randomUUID().replaceAll('-', '');
@@ -710,7 +734,11 @@ export class PaymentsService extends PaymentPort {
       .from(bizPaymentLogs)
       .where(eq(bizPaymentLogs.paymentId, id))
       .orderBy(asc(bizPaymentLogs.id));
-    return { ...payment, logs };
+    // 只对**出参**脱敏：库里的 `raw` 保持原样（留证），店员接口不带顾客标识
+    return {
+      ...payment,
+      logs: logs.map((log) => ({ ...log, raw: redactChannelRaw(log.raw) })),
+    };
   }
 
   async statusOf(
