@@ -78,3 +78,53 @@ export function updateCouponTemplate(id: number, body: CouponTemplateBody) {
 export function deleteCouponTemplate(id: number) {
   return del<void>(`/biz/coupon-templates/${id}`);
 }
+
+
+/**
+ * 顾客持有的券（biz_customer_coupon）。
+ * 面额与门槛是**发券时的快照**，与当前模板可能不同 —— 以这里的值为准。
+ */
+export interface CustomerCoupon {
+  id: number;
+  couponNo: string;
+  customerId: number;
+  templateId: number;
+  discountAmount: number;
+  thresholdAmount: number;
+  status: 'usable' | 'used' | 'expired' | 'void';
+  expireAt: string | null;
+  usedBookingId: number | null;
+  usedAt: string | null;
+  source: string;
+  remark: string | null;
+  createdAt: string;
+}
+
+/** 启用中的券模板（发券下拉用） */
+export function listActiveCouponTemplates() {
+  return get<PageResult<CouponTemplate>>('/biz/coupon-templates', {
+    page: 1,
+    pageSize: 100,
+    status: 'active',
+  });
+}
+
+/**
+ * 给指定顾客发券（权限 `biz:member:coupon`）。
+ *
+ * **允许重复发放**（补偿/补发是正常诉求），服务端不会因为「已持有」而拒绝 ——
+ * 与顾客自助领券（一次一张）是两条不同口径。
+ */
+export function issueCouponToMember(memberId: number, templateId: number) {
+  return post<CustomerCoupon>(`/biz/members/${memberId}/coupons`, {
+    templateId,
+  });
+}
+
+/** 某位顾客持有的券（权限 biz:member:list） */
+export function listMemberCoupons(memberId: number, page = 1, pageSize = 20) {
+  return get<PageResult<CustomerCoupon>>(`/biz/members/${memberId}/coupons`, {
+    page,
+    pageSize,
+  });
+}

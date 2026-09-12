@@ -8,6 +8,7 @@ import {
   ScrollText,
   SlidersHorizontal,
   Ticket,
+  TicketPercent,
   UserPlus,
   Wallet,
 } from 'lucide-vue-next';
@@ -23,7 +24,11 @@ import {
   LewTable,
   LewTabs,
 } from 'lew-ui';
-import type { LewTableColumn, LewTabsOption } from 'lew-ui';
+import type {
+  LewFormOption,
+  LewTableColumn,
+  LewTabsOption,
+} from 'lew-ui';
 import { withPassThroughRule } from '~/utils/form';
 import type { PageResult } from '~/types/api';
 import {
@@ -64,6 +69,10 @@ import {
   type PointsGoods,
   type PointsPreview,
 } from '~/api/biz/points-goods';
+import {
+  issueCouponToMember,
+  listActiveCouponTemplates,
+} from '~/api/biz/coupons';
 import { formatDateTime } from '~/composables/useFormat';
 import { useTable } from '~/composables/useTable';
 import { confirmDanger } from '~/utils/confirm';
@@ -347,6 +356,69 @@ async function handleRowRecharge(row: Member) {
   await openRecharge();
 }
 
+// ---------- 发券（权限 biz:member:coupon）----------
+const couponVisible = ref(false);
+const couponMember = ref<Member | null>(null);
+const couponFormRef = ref();
+const couponFormKey = ref(0);
+const couponForm = ref({ templateId: undefined as number | undefined });
+const templateOptions = reactive<{ label: string; value: number }[]>([]);
+
+/** 券模板下拉：只列启用中的（停用的服务端也会拒 409，没必要让运营选到） */
+async function loadTemplateOptions() {
+  const page = await listActiveCouponTemplates();
+  templateOptions.splice(
+    0,
+    templateOptions.length,
+    ...page.items.map((tpl) => {
+      const threshold =
+        tpl.thresholdAmount > 0
+          ? `满 ${(tpl.thresholdAmount / 100).toFixed(2)} 元`
+          : '无门槛';
+      return {
+        label: `${tpl.name}（${threshold}减 ${(tpl.discountAmount / 100).toFixed(2)} 元）`,
+        value: tpl.id,
+      };
+    }),
+  );
+}
+
+const couponFormOptions: LewFormOption[] = withPassThroughRule([
+  {
+    field: 'templateId',
+    label: '券模板',
+    as: 'select',
+    rule: "Yup.number().required('请选择券模板')",
+    props: { options: templateOptions, placeholder: '选择要发放的券' },
+  },
+]);
+
+async function openCoupon(row: Member) {
+  await loadTemplateOptions();
+  couponMember.value = row;
+  couponFormKey.value += 1;
+  couponVisible.value = true;
+  void nextTick(() => {
+    couponFormRef.value?.setForm?.({ templateId: undefined });
+  });
+}
+
+/**
+ * 发券。
+ *
+ * 服务端**允许重复发放**（补偿/补发是正常诉求），所以这里不做任何去重提示；
+ * 发完提示「可在会员详情核对」，运营点开详情就能看到。
+ */
+async function submitCoupon() {
+  const valid = await couponFormRef.value?.validate();
+  if (!valid) return;
+  const values = couponFormRef.value?.getForm?.() ?? couponForm.value;
+  if (!values.templateId || !couponMember.value) return;
+  await issueCouponToMember(couponMember.value.id, values.templateId);
+  LewMessage.success('发券成功（可在会员详情核对）');
+  couponVisible.value = false;
+  await refresh();
+}
 // ---------- 子表格渲染 ----------
 const TXN_TYPE_TEXT: Record<string, string> = {
   recharge: '充值',
@@ -1199,6 +1271,12 @@ const balanceTotal = computed(
               @click="handleRowRecharge(row as unknown as Member)"
             >
               <Wallet :size="14" />
+            </IconButton><IconButton
+              permission="biz:member:coupon"
+              title="发券"
+              @click="openCoupon(row as unknown as Member)"
+            >
+              <TicketPercent :size="14" />
             </IconButton>
           </div>
         </template>
@@ -1419,6 +1497,44 @@ const balanceTotal = computed(
       </div>
     </LewDrawer>
 
+    <!-- 发券弹窗：只列启用模板；服务端允许重复发放，故不做去重提示 -->
+    <LewModal
+      v-model:visible="couponVisible"
+      :title="`发券给 ${couponMember?.name ?? ''}`"
+      width="480px"
+      :footer-buttons="[
+        {
+          props: {
+            type: 'text',
+            color: 'gray',
+            size: 'small',
+            text: '取消',
+            request: () => {
+              couponVisible = false;
+            },
+          },
+        },
+        {
+          props: {
+            type: 'fill',
+            color: 'primary',
+            size: 'small',
+            text: '发放',
+            request: submitCoupon,
+          },
+        },
+      ]"
+    >
+      <div class="p-5">
+        <LewForm
+          :key="couponFormKey"
+          ref="couponFormRef"
+          v-model="couponForm"
+          :options="couponFormOptions"
+          label-width="88px"
+        />
+      </div>
+    </LewModal>
     <!-- 充值弹窗：实付与赠送分开展示 -->
     <LewModal
       v-model:visible="rechargeVisible"
