@@ -3,6 +3,7 @@ import mysql from 'mysql2/promise';
 import {
   BIZ_CONFIG_DEFAULTS,
   BIZ_CONFIG_LABELS,
+  BIZ_CONFIG_REMARKS,
 } from '../../modules/biz/common/biz-config.service.js';
 import {
   bizMemberLevels,
@@ -369,7 +370,8 @@ async function seedBizConfigs(db: DbLike): Promise<SeedStat> {
         key,
         value,
         builtin: true,
-        remark: '美甲预约系统默认配置（§15.8）',
+        // 改错了会出事的项（如合规闸门）有专门备注，其余沿用默认说明
+        remark: BIZ_CONFIG_REMARKS[key] ?? '美甲预约系统默认配置（§15.8）',
       })),
     );
   }

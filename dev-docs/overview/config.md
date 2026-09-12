@@ -103,13 +103,20 @@ flowchart TD
 | `WX_MINIAPP_APPID` | 否 | — | 小程序 AppID | 与 Secret 一起决定 `wxMiniapp.configured` |
 | `WX_MINIAPP_SECRET` | 否 | — | 小程序 AppSecret | 同上 |
 | `WX_MINIAPP_FAKE` | 否 | `false` | `true` 走假微信实现 | `wxMiniappFake` getter：**生产环境一律 false** |
-| `APP_SELF_PAY_ENABLED` | 否 | `false` | 小程序内自助支付（余额/次卡/积分）**合规硬闸门** | `false` 时 `POST /app/bookings/:id/settle` 返回 501，且不落库 |
-| `APP_PAY_ROLLOUT_PERCENT` | 否 | `0` | 自助支付**放量比例** 0~100 | `0` = 小程序只做预约；中间值按 `app_wx_user.id` 稳定分桶 |
 
-::: warning `APP_SELF_PAY_ENABLED` 与 `APP_PAY_ROLLOUT_PERCENT` 是 **AND**，不是二选一
-合规是法规问题（虚拟支付接入 / 法务确认之前不得开放），放量是产品问题。
-合成一个数字的话，有人把比例调成 `100` 就等于顺手绕过了合规 —— 所以刻意分成两个：
-`ENABLED=false` 时，占比设多少都不生效。
+::: warning 小程序自助支付的两个开关**不在环境变量里**，在管理端「参数配置」页
+放量比例本来就是要随时调的，塞在 env 里得重启才能改。它们以 `sys_config` 为**唯一事实来源**
+（配置缓存 TTL 10 秒，改完最多 10 秒生效），默认值同样是安全侧：
+
+| `sys_config.config_key` | 默认 | 含义 |
+| --- | --- | --- |
+| `app.pay.selfPayEnabled` | `false` | 合规硬闸门：虚拟支付接入（或法务确认无需接入）之前必须保持 `false` |
+| `app.pay.rolloutPercent` | `0` | `0` = 小程序只做预约；`100` = 全量；`1~99` 按 `app_wx_user.id` 稳定分桶 |
+
+两者是 **AND**，不是二选一：合规是法规问题，放量是产品问题。合成一个数字的话，
+有人把比例调成 `100` 就等于顺手绕过了合规。越界值（如 `999` / `abc`）由
+`BizConfigService.getInt(..., { min: 0, max: 100 })` **回落 0** —— 宁可"没放量"，
+也不要"意外全量"。
 
 灰度分桶是**稳定**的（`src/modules/app/pay-rollout.ts` 的 FNV-1a，键 = `app_wx_user.id`），
 同一微信号结果恒定；`/app/member/me` 的 `selfPayEnabled` 与 settle 接口走**同一个判定函数**，

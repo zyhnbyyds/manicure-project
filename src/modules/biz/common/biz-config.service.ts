@@ -86,6 +86,15 @@ export const BIZ_CONFIG_DEFAULTS: Record<string, string> = {
   'biz.credit.defaultLimit': '0',
   'biz.credit.defaultSettleDay': '5',
   'biz.commission.periodCloseDay': '5',
+  /**
+   * 小程序自助支付的两道闸门（A14）。**放在这里而不是环境变量**：
+   * 放量比例本来就是要随时调的，塞在 env 里得重启才能改；
+   * 管理端「参数配置」页可直接编辑 `sys_config`，改完最多 10 秒（缓存 TTL）生效。
+   *
+   * 默认值是**安全侧**：`false` / `0` —— 全新库、没跑过 seed 时也是关闭的。
+   */
+  'app.pay.selfPayEnabled': 'false',
+  'app.pay.rolloutPercent': '0',
 };
 
 /** 配置中文名，供 seed 写入 `sys_config.name` */
@@ -113,15 +122,32 @@ export const BIZ_CONFIG_LABELS: Record<string, string> = {
   'biz.credit.defaultLimit': '新挂账主体默认额度（分）',
   'biz.credit.defaultSettleDay': '默认月结日',
   'biz.commission.periodCloseDay': '提成结算日',
+  'app.pay.selfPayEnabled': '小程序自助支付-合规闸门',
+  'app.pay.rolloutPercent': '小程序自助支付-放量比例（0~100）',
+};
+
+/**
+ * 需要额外解释的配置项（会写进 `sys_config.remark`，在「参数配置」列表里可见）。
+ *
+ * 只给**改错了会出事**的那几项写，其余沿用默认备注 —— 备注太长反而没人看。
+ */
+export const BIZ_CONFIG_REMARKS: Record<string, string> = {
+  'app.pay.selfPayEnabled':
+    '⚠️ 合规硬闸门：虚拟支付接入（或法务确认无需接入）之前必须保持 false。' +
+    'true 时小程序才可能出现余额/次卡/积分自助支付入口。',
+  'app.pay.rolloutPercent':
+    '0 = 小程序只做预约（不出现支付入口）；100 = 全量；1~99 按 app_wx_user.id ' +
+    '稳定分桶放量（同一微信号结果恒定）。只在上一项为 true 时生效。',
 };
 
 const CACHE_TTL_MS = 10_000;
 
 /**
- * 业务配置读取入口。
+ * 运行时配置读取入口。
  *
- * 所有 `biz.*` 配置项都在这里解析：`sys_config.value` 是字符串，缺失 / 非法 /
- * 越界一律回落默认值，不允许在各 service 里散落 `Number(...)`（§5.6）。
+ * 所有 `sys_config` 里的配置项（`biz.*` 业务配置、`app.*` 小程序运行时开关）都在这里解析：
+ * `sys_config.value` 是字符串，缺失 / 非法 / 越界一律回落默认值，
+ * 不允许在各 service 里散落 `Number(...)`（§5.6）。
  *
  * **必须带 `@Injectable()`**：否则 Nest 拿不到构造函数参数的元数据，
  * 会注入 `undefined`（表现为运行时报 `this.database` 不是对象），
@@ -181,6 +207,29 @@ export class BizConfigService {
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  /**
+   * 小程序自助支付的两道闸门（A14），**管理端「参数配置」可直接改**。
+   *
+   * - `enabled`：合规硬闸门。虚拟支付接入（或法务确认无需接入）之前必须为 `false`；
+   * - `rolloutPercent`：放量比例 `0~100`。`0` = 小程序只做预约；`100` = 全量；
+   *   中间值按 `app_wx_user.id` 稳定分桶（见 `modules/app/pay-rollout.ts`）。
+   *
+   * 两者是 **AND**：`enabled=false` 时比例设多少都不生效 —— 免得有人把比例调成 100
+   * 就顺手绕过了合规。
+   *
+   * 越界的比例（如填了 999）由 `getInt` 的 bounds **回落默认值 0**（安全侧），
+   * 而不是夹到 100 —— 填错时宁可"没放量"，也不要"意外全量"。
+   */
+  async appSelfPay(): Promise<{ enabled: boolean; rolloutPercent: number }> {
+    return {
+      enabled: await this.getBoolean('app.pay.selfPayEnabled', false),
+      rolloutPercent: await this.getInt('app.pay.rolloutPercent', 0, {
+        min: 0,
+        max: 100,
+      }),
+    };
   }
 
   async booking(): Promise<BookingConfig> {

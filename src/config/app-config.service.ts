@@ -39,33 +39,9 @@ const envSchema = z.object({
   WX_MINIAPP_SECRET: z.string().optional(),
   // 未拿到凭据时的开发/测试开关：走假微信实现（**生产强制失效**，见 wxMiniappFake）
   WX_MINIAPP_FAKE: z.enum(['true', 'false']).default('false'),
-  /**
-   * 小程序内自助支付渠道（储值余额 / 次卡核销 / 积分抵扣）总开关。**默认关闭**。
-   *
-   * ⚠️ 这是**业务/合规前提，不是技术开关**：这三个渠道在技术上不依赖任何支付通道
-   * （全是内部账务：扣已记录的余额 / 次数 / 积分），但在小程序里提供它们属于
-   * 「小程序内提供虚拟支付业务」的判定范围，**在虚拟支付接入（或法务确认无需接入）
-   * 之前不得开放**。
-   *
-   * 默认 `false` 是刻意的：**忘记配置 = 保持关闭**，而不是意外打开。
-   * 后台收银台（web）不受这个开关影响 —— 它不是小程序。
-   */
-  APP_SELF_PAY_ENABLED: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((value) => value === 'true'),
-  /**
-   * 小程序自助支付的**放量比例**（0~100，默认 `0` = 谁都不放）。
-   *
-   * 一个旋钮覆盖两种模式与灰度：`0` = 小程序只做预约（完全不出现支付入口）；
-   * `100` = 全量支持；中间值按 `app_wx_user.id` 稳定分桶放量
-   * （见 `src/modules/app/pay-rollout.ts`）。
-   *
-   * ⚠️ **与 `APP_SELF_PAY_ENABLED` 是 AND，不是二选一**：
-   * 合规是硬闸门（法规问题），放量是它之上的旋钮（产品问题）。
-   * 合成一个数字的话，有人把比例调成 100 就等于顺手绕过了合规 —— 所以刻意分开。
-   */
-  APP_PAY_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+  // 小程序内自助支付的两道闸门**不在这里**：它们要能随时调、不用重启，
+  // 所以放在 `sys_config`（管理端「参数配置」可编辑），读取入口是
+  // `BizConfigService.appSelfPay()`。默认值同样是安全侧（关闭 / 0%）。
   // 微信支付 Native 扫码（B3）：未配置时通道返回「未启用」
   WXPAY_APPID: z.string().optional(),
   WXPAY_MCHID: z.string().optional(),
@@ -214,24 +190,6 @@ export class AppConfigService {
   get wxMiniappFake(): boolean {
     if (this.environment === 'production') return false;
     return this.values.WX_MINIAPP_FAKE === 'true';
-  }
-  /**
-   * 小程序内自助支付渠道是否可用（默认 `false`）。
-   *
-   * 服务端闸门：客户端把按钮藏起来**不算数** —— 只要接口还开着，
-   * 一个手写的请求就能用这些渠道，合规风险并没有消失。
-   */
-  get appSelfPayEnabled(): boolean {
-    return this.values.APP_SELF_PAY_ENABLED;
-  }
-  /**
-   * 小程序自助支付的放量比例（0~100）。
-   *
-   * **必须与 `appSelfPayEnabled` 一起判断**（两者 AND）—— 单看这个值会把
-   * 「合规未确认」当成「已放量」。判断统一走 `AppMemberService.selfPayEnabledFor`。
-   */
-  get appPayRolloutPercent(): number {
-    return this.values.APP_PAY_ROLLOUT_PERCENT;
   }
   /** 微信支付 Native：`configured=false` 时通道返回「未启用」 */
   get wxpay(): {

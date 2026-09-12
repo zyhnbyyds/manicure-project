@@ -12,7 +12,7 @@
  * 4. **归属只认 token**：不是本人的预约一律 403。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AppConfigService } from '../../src/config/app-config.service.js';
+import { BizConfigService } from '../../src/modules/biz/common/biz-config.service.js';
 import {
   addLocalDays,
   shopToday,
@@ -119,25 +119,26 @@ async function balanceOf(customerId: number): Promise<number> {
 }
 
 /**
- * 设置两道闸门。
+ * 直接写 `sys_config` —— 这正是管理端「参数配置」页保存时改的那张表，
+ * 所以这里测的是**运营真实会走的那条路**，而不是测试专用后门。
  *
- * - `enabled` = 合规硬闸门 `APP_SELF_PAY_ENABLED`；
- * - `percent` = 灰度放量 `APP_PAY_ROLLOUT_PERCENT`（0 = 只预约，100 = 全量）。
- *
- * **不改环境变量**：`bun test` 不做文件级隔离，`process.env` 会被后续文件继承；
- * 而这些值是构造时快照的，改了也只会污染别人。
- * 直接给这个单例盖自有属性（自有属性优先于原型上的 getter），作用域就限制在本文件。
+ * 写完必须 `invalidate()`：配置有 10 秒缓存，不失效会读到上一轮的值，
+ * 用例之间互相污染。
  */
-function setGate(enabled: boolean, percent: number): void {
-  const config = ctx.app.get(AppConfigService) as object;
-  Object.defineProperty(config, 'appSelfPayEnabled', {
-    value: enabled,
-    configurable: true,
-  });
-  Object.defineProperty(config, 'appPayRolloutPercent', {
-    value: percent,
-    configurable: true,
-  });
+async function writePayConfig(enabled: string, percent: string): Promise<void> {
+  await ctx.sql(
+    `INSERT INTO sys_config (name, config_key, value, builtin)
+     VALUES ('自助支付-合规闸门（测试）', 'app.pay.selfPayEnabled', ?, 1),
+            ('自助支付-放量比例（测试）', 'app.pay.rolloutPercent', ?, 1)
+     ON DUPLICATE KEY UPDATE value = VALUES(value)`,
+    [enabled, percent],
+  );
+  ctx.app.get(BizConfigService).invalidate();
+}
+
+/** 设置两道闸门：`0` = 小程序只做预约，`100` = 全量 */
+function setGate(enabled: boolean, percent: number): Promise<void> {
+  return writePayConfig(enabled ? 'true' : 'false', String(percent));
 }
 
 beforeAll(async () => {
@@ -147,6 +148,9 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await ctx.resetBusinessData();
+  // 每个用例都从**安全侧**开始（合规关、占比 0），否则上一轮写进 sys_config 的
+  // 值会被下一个用例继承 —— 顺序一变就红，是最难查的一类不稳定。
+  await setGate(false, 0);
 }, 60_000);
 
 afterAll(async () => {
@@ -192,7 +196,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     expect(off.status).toBe(200);
     expect(off.body.selfPayEnabled).toBe(false);
 
-    setGate(true, 100);
+    await setGate(true, 100);
     const on = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(on.body.selfPayEnabled).toBe(true);
   });
@@ -203,7 +207,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     const token = await seedAppUser('selfpay-balance', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true, 100);
+    await setGate(true, 100);
     const before = await balanceOf(row.customerId);
     const response = await ctx.request(
       'POST',
@@ -237,7 +241,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     const token = await seedAppUser('selfpay-short', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true, 100);
+    await setGate(true, 100);
     const before = await balanceOf(row.customerId);
     const response = await ctx.request(
       'POST',
@@ -279,7 +283,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     });
     expect([200, 201]).toContain(card.status);
 
-    setGate(true, 100);
+    await setGate(true, 100);
     const response = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
@@ -314,7 +318,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     await grant(other.insertId, { balancePrincipalDelta: 100000 });
     const strangerToken = await seedAppUser('selfpay-stranger', other.insertId);
 
-    setGate(true, 100);
+    await setGate(true, 100);
     const response = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
@@ -336,7 +340,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
     const token = await seedAppUser('selfpay-twice', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true, 100);
+    await setGate(true, 100);
     const first = await ctx.request(
       'POST',
       `/api/v1/app/bookings/${bookingId}/settle`,
@@ -355,7 +359,7 @@ describe('app 域自助结算（A14）+ 合规闸门', () => {
   });
 });
 
-describe('灰度放量旋钮（APP_PAY_ROLLOUT_PERCENT）', () => {
+describe('灰度放量旋钮（sys_config: app.pay.*）', () => {
   it('**放量比例不能绕过合规**：合规关着时，占比 100 也照样 501', async () => {
     const row = await seed();
     await grant(row.customerId, { balancePrincipalDelta: 100000 });
@@ -363,7 +367,7 @@ describe('灰度放量旋钮（APP_PAY_ROLLOUT_PERCENT）', () => {
     const bookingId = await createUnpaidBooking(row, token);
 
     // 合规 = false，占比 = 100
-    setGate(false, 100);
+    await setGate(false, 100);
     const before = await balanceOf(row.customerId);
     const response = await ctx.request(
       'POST',
@@ -381,7 +385,7 @@ describe('灰度放量旋钮（APP_PAY_ROLLOUT_PERCENT）', () => {
     const token = await seedAppUser('rollout-zero', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true, 0);
+    await setGate(true, 0);
     const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(me.body.selfPayEnabled).toBe(false);
 
@@ -399,7 +403,7 @@ describe('灰度放量旋钮（APP_PAY_ROLLOUT_PERCENT）', () => {
     const token = await seedAppUser('rollout-half', row.customerId);
     const bookingId = await createUnpaidBooking(row, token);
 
-    setGate(true, 50);
+    await setGate(true, 50);
     const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
     const settle = await ctx.request(
       'POST',
@@ -421,12 +425,49 @@ describe('灰度放量旋钮（APP_PAY_ROLLOUT_PERCENT）', () => {
     await grant(row.customerId, { balancePrincipalDelta: 100000 });
     const token = await seedAppUser('rollout-monotonic', row.customerId);
 
-    setGate(true, 30);
+    await setGate(true, 30);
     const at30 = await ctx.request('GET', '/api/v1/app/member/me', { token });
-    setGate(true, 100);
+    await setGate(true, 100);
     const at100 = await ctx.request('GET', '/api/v1/app/member/me', { token });
 
     expect(at100.body.selfPayEnabled).toBe(true);
     if (at30.body.selfPayEnabled) expect(at100.body.selfPayEnabled).toBe(true);
+  });
+
+  it('配置项**不存在**时也是关闭的（安全默认，不依赖 seed 跑过）', async () => {
+    const row = await seed();
+    await grant(row.customerId, { balancePrincipalDelta: 100000 });
+    const token = await seedAppUser('rollout-missing', row.customerId);
+    const bookingId = await createUnpaidBooking(row, token);
+
+    await ctx.sql(
+      `DELETE FROM sys_config WHERE config_key IN ('app.pay.selfPayEnabled', 'app.pay.rolloutPercent')`,
+    );
+    ctx.app.get(BizConfigService).invalidate();
+
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.body.selfPayEnabled).toBe(false);
+    const settle = await ctx.request(
+      'POST',
+      `/api/v1/app/bookings/${bookingId}/settle`,
+      { token, body: { payments: [{ channel: 'balance', amount: 10000 }] } },
+    );
+    expect(settle.status).toBe(501);
+  });
+
+  it('放量比例填了越界值 → 回落 0（宁可"没放量"，也不要意外"全量"）', async () => {
+    const row = await seed();
+    const token = await seedAppUser('rollout-out-of-range', row.customerId);
+
+    // 合规开着，但比例是非法值 999：getInt 的 bounds 必须把它打回默认 0
+    await writePayConfig('true', '999');
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.body.selfPayEnabled).toBe(false);
+
+    // 非数字同理（配置页是自由文本输入，填错很正常）
+    await writePayConfig('true', 'abc');
+    ctx.app.get(BizConfigService).invalidate();
+    const again = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(again.body.selfPayEnabled).toBe(false);
   });
 });
