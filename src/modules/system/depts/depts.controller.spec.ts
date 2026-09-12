@@ -32,7 +32,7 @@ describe('DeptsController', () => {
     const controller = new DeptsController(service as DeptsService);
     const result = await controller.create(
       { name: 'New Dept' },
-      { user: { id: 1 } },
+      { user: { id: 1, roles: [], permissions: [] } },
     );
     expect(result).toEqual({ id: 1 });
   });
@@ -40,14 +40,18 @@ describe('DeptsController', () => {
   it('update updates a department', async () => {
     const service = mockDeptsService();
     const controller = new DeptsController(service as DeptsService);
-    await controller.update(1, { name: 'Updated' }, { user: { id: 1 } });
+    await controller.update(
+      1,
+      { name: 'Updated' },
+      { user: { id: 1, roles: [], permissions: [] } },
+    );
     expect(service.update).toHaveBeenCalledWith(1, { name: 'Updated' }, 1);
   });
 
   it('remove deletes a department', async () => {
     const service = mockDeptsService();
     const controller = new DeptsController(service as DeptsService);
-    await controller.remove(1, { user: { id: 1 } });
+    await controller.remove(1, { user: { id: 1, roles: [], permissions: [] } });
     expect(service.remove).toHaveBeenCalledWith(1, 1);
   });
 });

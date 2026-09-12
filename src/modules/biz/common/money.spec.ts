@@ -166,7 +166,7 @@ describe('money 算价（§5.7）', () => {
  * 原价 10000、9.5 折 → 等级优惠 500、折后 9500。
  */
 describe('quoteBooking 的券抵扣', () => {
-  const items = [{ price: 10000, durationMinutes: 60, bufferMinutes: 0 }];
+  const items = [item(10000, 60)];
   const base = {
     items,
     levelDiscountPermille: 950,

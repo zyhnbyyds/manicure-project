@@ -82,7 +82,7 @@ describe('DeptsService', () => {
       const service = new DeptsService({ db } as any);
       const result = await service.list();
       expect(result).toHaveLength(1);
-      expect(result[0].children).toHaveLength(1);
+      expect(result[0]!.children).toHaveLength(1);
     });
   });
 

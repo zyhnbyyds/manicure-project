@@ -8,7 +8,7 @@ type Row = Record<string, unknown>;
  * db.select(...) -> from(...) -> where(...) -> groupBy(...)
  * 每次调用 db.select 依次消费 results 中的一个值，作为该次查询的返回。
  */
-function selectChain(results: Row[]) {
+function selectChain(results: Row[][]) {
   let calls = 0;
   const makeThenable = (value: Row[]) => {
     const self = {
@@ -17,7 +17,7 @@ function selectChain(results: Row[]) {
       then: (onFulfilled: (v: Row[]) => unknown) =>
         Promise.resolve(value).then(onFulfilled),
     };
-    (self as { groupBy: unknown }).groupBy = vi
+    (self as unknown as { groupBy: unknown }).groupBy = vi
       .fn()
       .mockImplementation(() => makeThenable(value));
     return self;
@@ -31,7 +31,7 @@ function selectChain(results: Row[]) {
   });
 }
 
-function createService(results: Row[]) {
+function createService(results: Row[][]) {
   const db = { select: selectChain(results) };
   return { service: new DashboardService({ db } as any), db };
 }

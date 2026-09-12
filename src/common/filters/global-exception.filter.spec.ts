@@ -29,7 +29,7 @@ describe('GlobalExceptionFilter', () => {
     filter.catch(error, host);
 
     expect(status).toHaveBeenCalledWith(400);
-    const body = send.mock.calls[0][0];
+    const body = send.mock.calls[0]![0];
     expect(body.statusCode).toBe(400);
     expect(Array.isArray(body.message)).toBe(true);
     expect(body.message[0]).toContain('名称');
@@ -42,7 +42,7 @@ describe('GlobalExceptionFilter', () => {
 
     filter.catch(new BadRequestException('key 已存在'), host);
 
-    expect(send.mock.calls[0][0]).toMatchObject({ requestId: 'req-test-1' });
+    expect(send.mock.calls[0]![0]).toMatchObject({ requestId: 'req-test-1' });
   });
   it('passes HttpException through with its status', () => {
     const filter = new GlobalExceptionFilter();
@@ -66,7 +66,7 @@ describe('GlobalExceptionFilter', () => {
     filter.catch(rateLimited, host);
 
     expect(status).toHaveBeenCalledWith(429);
-    const body = send.mock.calls[0][0];
+    const body = send.mock.calls[0]![0];
     expect(body.statusCode).toBe(429);
     expect(body.message).toBe('请求过于频繁，请稍后再试');
   });
@@ -82,7 +82,7 @@ describe('GlobalExceptionFilter', () => {
     filter.catch(pluginError, host);
 
     expect(status).toHaveBeenCalledWith(500);
-    expect(send.mock.calls[0][0].message).toBe('服务器内部错误，请稍后重试');
+    expect(send.mock.calls[0]![0].message).toBe('服务器内部错误，请稍后重试');
   });
 
   it('falls back to 500 with a friendly message for unknown errors', () => {
@@ -92,7 +92,7 @@ describe('GlobalExceptionFilter', () => {
     filter.catch(new Error('boom'), host);
 
     expect(status).toHaveBeenCalledWith(500);
-    const body = send.mock.calls[0][0];
+    const body = send.mock.calls[0]![0];
     expect(body.message).toBe('服务器内部错误，请稍后重试');
   });
 });

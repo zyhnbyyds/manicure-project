@@ -10,7 +10,15 @@ import {
   pickUpgradeLevel,
 } from './member-levels.service.js';
 
-type Row = Record<string, unknown>;
+/** 等级行的最小形状（`pickUpgradeLevel` / `pickLowestLevel` 的泛型约束） */
+type LevelRow = {
+  id: number;
+  name: string;
+  sort: number;
+  status: string;
+  upgradeAmount: number;
+  discountPermille: number;
+};
 
 /** 造一条「怎么链都行、await 得到固定结果」的查询链（Promise 作节点挂链式方法） */
 function chainFor(result: unknown) {
@@ -45,7 +53,7 @@ function createHarness(
   return { service, select, insertValues, updateSet };
 }
 
-const level = (overrides: Row = {}): Row => ({
+const level = (overrides: Partial<LevelRow> = {}): LevelRow => ({
   id: 1,
   name: '普通会员',
   sort: 0,

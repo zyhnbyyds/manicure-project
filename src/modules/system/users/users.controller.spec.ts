@@ -66,7 +66,7 @@ describe('UsersController', () => {
       const controller = new UsersController(service as UsersService);
       const result = await controller.create(
         { username: 'newuser', displayName: 'New', password: 'password123456' },
-        { user: { id: 1 } },
+        { user: { id: 1, roles: [], permissions: [] } },
       );
       expect(result).toEqual({ id: 1 });
       expect(service.create).toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe('UsersController', () => {
       await controller.update(
         1,
         { displayName: 'Updated' },
-        { user: { id: 1 } },
+        { user: { id: 1, roles: [], permissions: [] } },
       );
       expect(service.update).toHaveBeenCalledWith(
         1,
@@ -94,7 +94,7 @@ describe('UsersController', () => {
     it('removes a user', async () => {
       const service = mockUsersService();
       const controller = new UsersController(service as UsersService);
-      await controller.remove(1, { user: { id: 1 } });
+      await controller.remove(1, { user: { id: 1, roles: [], permissions: [] } });
       expect(service.remove).toHaveBeenCalledWith(1, 1);
     });
   });

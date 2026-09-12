@@ -200,10 +200,14 @@ function createHarness() {
         };
       },
     ),
-    averageScore: vi.fn(async (staffId: number) => {
-      calls.averageScore.push(staffId);
-      return { count: 1, average: 4.8 };
-    }),
+    averageScore: vi.fn(
+      async (
+        staffId: number,
+      ): Promise<{ count: number; average: number | null }> => {
+        calls.averageScore.push(staffId);
+        return { count: 1, average: 4.8 };
+      },
+    ),
   };
 
   const service = new AppStaffWorkbenchService(

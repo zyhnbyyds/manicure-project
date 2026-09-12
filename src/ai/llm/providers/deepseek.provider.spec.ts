@@ -39,12 +39,20 @@ function sseResponse(chunks: string[]): Response {
 // 使测试同时兼容 vitest 与 bun test 两种运行器。
 const realFetch = globalThis.fetch;
 
-function stubFetch(mock: typeof fetch) {
-  (globalThis as { fetch: typeof fetch }).fetch = mock;
+/**
+ * 测试替身只需要「能当 fetch 用」，不需要长得和 `typeof fetch` 一模一样
+ * （Bun 的 `fetch` 上还挂着 `preconnect`，`vi.fn()` 不会有）。
+ * 因此这里收窄成调用签名，避免把 mock 硬断言成 `typeof fetch`。
+ */
+type FetchArgs = Parameters<typeof globalThis.fetch>;
+type FetchLike = (...args: FetchArgs) => Promise<Response>;
+
+function stubFetch(mock: FetchLike) {
+  (globalThis as unknown as { fetch: FetchLike }).fetch = mock;
 }
 
 afterEach(() => {
-  (globalThis as { fetch: typeof fetch }).fetch = realFetch;
+  (globalThis as unknown as { fetch: FetchLike }).fetch = realFetch;
 });
 
 describe('DeepSeekProvider.chat（非流式）', () => {
@@ -81,7 +89,7 @@ describe('DeepSeekProvider.chat（非流式）', () => {
 
   it('请求体带 stream=false，并把 assistant 的 reasoning_content 原样回传', async () => {
     const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      async (_input: FetchArgs[0], _init?: RequestInit) =>
         jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
     );
     stubFetch(fetchMock);
@@ -156,7 +164,7 @@ describe('DeepSeekProvider.chat（流式）', () => {
 
   it('流式请求体会携带 stream=true', async () => {
     const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      async (_input: FetchArgs[0], _init?: RequestInit) =>
         sseResponse([
           'data: {"choices":[{"delta":{"content":"hi"}}]}',
           '',

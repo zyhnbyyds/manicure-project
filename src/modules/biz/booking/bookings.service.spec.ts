@@ -55,6 +55,7 @@ function createHarness(
     {} as never, // refunds
     { send } as never, // notices
     { accrueForBooking, reverseForBooking } as never, // commissions
+    {} as never, // coupons
   );
   return {
     service,
@@ -100,15 +101,15 @@ describe('BookingsService —— app 域端口（S3 读 / S4 写）', () => {
       expect(result.pageSize).toBe(20);
       expect(result.items).toHaveLength(2);
       expect(h.select).toHaveBeenCalledTimes(2);
-      expect(result.items[0].items).toEqual([item()]);
-      expect(result.items[1].items).toEqual([]);
+      expect(result.items[0]!.items).toEqual([item()]);
+      expect(result.items[1]!.items).toEqual([]);
     });
 
     it('顾客「我的预约」同样带明细', async () => {
       const h = createHarness({ selectResults: [[booking()], [item()]] });
       const result = await h.service.listByCustomer(9, 1, 20);
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].items).toHaveLength(1);
+      expect(result.items[0]!.items).toHaveLength(1);
     });
 
     it('空结果不查明细（避免 IN () 的无效查询）', async () => {

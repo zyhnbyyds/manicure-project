@@ -24,7 +24,7 @@ describe('GeneratorService', () => {
       const service = new GeneratorService(buildDb(pool));
       const result = await service.listTables();
       expect(result).toHaveLength(1);
-      expect(result[0].tableName).toBe('sys_user');
+      expect(result[0]!.tableName).toBe('sys_user');
     });
 
     it('filters out drizzle migrations table', async () => {
@@ -56,9 +56,9 @@ describe('GeneratorService', () => {
       const service = new GeneratorService(buildDb(pool));
       const result = await service.getColumns('sys_user');
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('id');
-      expect(result[0].primaryKey).toBe(true);
-      expect(result[0].autoIncrement).toBe(true);
+      expect(result[0]!.name).toBe('id');
+      expect(result[0]!.primaryKey).toBe(true);
+      expect(result[0]!.autoIncrement).toBe(true);
     });
 
     it('throws BadRequestException for invalid table name', async () => {

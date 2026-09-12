@@ -71,7 +71,8 @@ function writeChain(
       }),
     };
   });
-  return { update: vi.fn(() => ({ set })), set };
+  // 记下 update() 的第一参（表对象）：用例据此断言「写的是哪张表」
+  return { update: vi.fn((_table: unknown) => ({ set })), set };
 }
 
 /** 只走 values 的写链（insert） */

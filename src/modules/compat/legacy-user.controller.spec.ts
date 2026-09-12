@@ -23,7 +23,7 @@ describe('LegacyUserController', () => {
     const s = mockService();
     const c = new LegacyUserController(s as UsersService);
     const result = await c.create(
-      { username: 'test', displayName: 'Test', password: 'password123456' },
+      { userName: 'test', nickName: 'Test', password: 'password123456' },
       { user: { id: 1 } },
     );
     expect(result).toHaveProperty('code', 200);

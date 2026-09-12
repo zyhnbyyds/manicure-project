@@ -33,7 +33,7 @@ function createHarness(
   const updateWhere = vi
     .fn()
     .mockResolvedValue([{ affectedRows: options.affectedRows ?? 1 }]);
-  const updateSet = vi.fn(() => ({ where: updateWhere }));
+  const updateSet = vi.fn((_patch: Row) => ({ where: updateWhere }));
   const update = vi.fn(() => ({ set: updateSet }));
 
   const service = new ServiceItemsService({

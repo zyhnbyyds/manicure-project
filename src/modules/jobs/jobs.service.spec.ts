@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  BookingOpsPort,
+  CreditPort,
+  MemberAccountPort,
+  MemberCardPort,
+  NoticePort,
+  PaymentPort,
+  RecurrencePort,
+} from '../biz/common/ports.js';
 import { JobsService } from './jobs.service';
 
 vi.mock('@nestjs/schedule', () => ({
@@ -47,7 +56,17 @@ function selectChain(result: unknown) {
 }
 
 /** 定时任务的业务端口桩（§11 的 handler 只依赖端口） */
-function stubPorts(): any[] {
+type PortTuple = [
+  BookingOpsPort,
+  PaymentPort,
+  CreditPort,
+  MemberAccountPort,
+  MemberCardPort,
+  NoticePort,
+  RecurrencePort,
+];
+
+function stubPorts(): PortTuple {
   const port = () => ({
     autoCompleteExpired: vi.fn().mockResolvedValue({ completed: 0 }),
     autoNoShowExpired: vi.fn().mockResolvedValue({ noShow: 0 }),
@@ -61,7 +80,8 @@ function stubPorts(): any[] {
     retryFailed: vi.fn().mockResolvedValue({ retried: 0, succeeded: 0 }),
     generate: vi.fn().mockResolvedValue({ generated: 0, skipped: 0 }),
   });
-  return Array.from({ length: 7 }, port);
+  // 返回**元组**（而不是 any[]），才能安全地展开进构造函数
+  return Array.from({ length: 7 }, port) as unknown as PortTuple;
 }
 
 describe('JobsService', () => {

@@ -23,5 +23,5 @@
     "types": ["bun"]
   },
   "include": ["src/**/*.ts", "drizzle.config.ts"],
-  "exclude": ["node_modules", "dist", "src/modules/generated", "**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "src/modules/generated"]
 }

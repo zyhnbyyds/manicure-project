@@ -29,7 +29,8 @@ describe('shop-time', () => {
       results.push(shopDayRange('2026-09-11').start.toISOString());
       results.push(shopLocalToUtc('2026-09-11', '10:00:00').toISOString());
     }
-    process.env.TZ = original;
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
     expect(new Set(results)).toEqual(
       new Set(['2026-09-10T16:00:00.000Z', '2026-09-11T02:00:00.000Z']),
     );

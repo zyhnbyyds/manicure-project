@@ -41,7 +41,7 @@ describe('OperationLogsService', () => {
       db.select = select;
       const service = new OperationLogsService({ db } as any);
       await service.list(1, 20);
-      expect(select.mock.results[0].value.leftJoin).toHaveBeenCalled();
+      expect(select.mock.results[0]!.value.leftJoin).toHaveBeenCalled();
     });
 
     it('filters by status, userId and username', async () => {

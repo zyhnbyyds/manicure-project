@@ -130,7 +130,7 @@ describe('UsersService', () => {
 
   describe('create', () => {
     it('creates a user successfully', async () => {
-      const { db, _ } = mockDbService();
+      const { db } = mockDbService();
       db.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({

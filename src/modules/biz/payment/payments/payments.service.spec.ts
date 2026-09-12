@@ -9,6 +9,10 @@ import {
   bizPaymentLogs,
 } from '../../../../database/schema/index.js';
 import type { PaymentDraft } from '../../common/ports.js';
+import type {
+  ChannelOrderState,
+  NotifyPayload,
+} from '../channels/channel.interface.js';
 import { PaymentsService } from './payments.service.js';
 
 type Row = Record<string, unknown>;
@@ -88,7 +92,7 @@ function createHarness(
     void payload;
     return Promise.resolve(txInsertQueue.shift() ?? [{ insertId: 1 }]);
   });
-  const txInsert = vi.fn(() => ({ values: txInsertValues }));
+  const txInsert = vi.fn((_table: unknown) => ({ values: txInsertValues }));
 
   const tx = { select: txSelect, insert: txInsert, update: txUpdate };
   const transaction = vi.fn(
@@ -155,7 +159,9 @@ function createHarness(
         raw: { prepay_id: 'wx123' },
       };
     }),
-    queryOrder: vi.fn(async () => {
+    // 显式标注返回类型：否则 `transactionId: null` / `paidAt: null` 会被窄化成
+    // 字面量 null，后续 `mockResolvedValueOnce({ transactionId: '4200001' })` 全部报错
+    queryOrder: vi.fn(async (): Promise<ChannelOrderState> => {
       log.push('wxpay.queryOrder');
       return {
         status: 'pending',
@@ -166,7 +172,7 @@ function createHarness(
       };
     }),
     refund: vi.fn(),
-    verifyNotify: vi.fn(async () => {
+    verifyNotify: vi.fn(async (): Promise<NotifyPayload> => {
       log.push('wxpay.verifyNotify');
       return {
         outTradeNo: 'P000001ABC',
@@ -197,7 +203,7 @@ function createHarness(
       expireAt: new Date(),
       raw: {},
     })),
-    queryOrder: vi.fn(async () => ({
+    queryOrder: vi.fn(async (): Promise<ChannelOrderState> => ({
       status: 'pending',
       transactionId: null,
       amount: 0,
