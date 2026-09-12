@@ -369,3 +369,43 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 - 券 + 积分同时传 → 400；
 - 券 + 次卡 → 400（或按 10.3 归零，二选一后必须**写测试钉住**）；
 - 不传券的建单**回归不变**（现有集成测试应全绿）。
+### 10.6 精确坐标（2026-09-12 二次勘察补充）
+
+上一版把端口方法名写成了 `BookingPort.create` —— **实际是 `createForCustomer`**
+（`ports.ts` 里 `createForCustomer` 出现两处：L695 与 L923，改的时候两处都要看）。
+补上完整调用链与逐处坐标，接手可直接动手、无需再探索：
+
+```
+小程序 → POST /app/bookings
+  → app-member.controller.ts      @Post('bookings')
+  → app-member.service.ts         createBooking(appUserId, input)   ← 入参加 couponId
+  → BookingPort.createForCustomer(customerId, input)                ← ports.ts 加 couponId
+  → bookings.service.ts:686       createForCustomer(customerId, input)  ← 入参加 couponId
+```
+
+`bookings.service.ts` 内要改的四处（行号为当前值）：
+
+| 行 | 现状 | 改法 |
+| -- | ---- | ---- |
+| L687-694 | `createForCustomer` 入参（`memberCardId` / `pointsToUse` / `remark`） | 加 `couponId?: number \| undefined` |
+| L747-761 | `useCard` 判定 + 步骤 3 算价 | 加两个 400 校验（见 10.3），并按 10.2 顺序取券、带券重算 |
+| L776-806 | `insert(bizBookings).values({...})` | 加 `couponId` 与 `couponDiscountAmount: quote.couponDiscountAmount` |
+| L825-834 | 步骤 8a 积分抵扣（`deductPoints` 的既有写法） | 紧邻其后加券核销 `redeemForBooking(tx, {...})` |
+
+另外两处：
+
+| 位置 | 改动 |
+| ---- | ---- |
+| `bookings.service.ts` 构造器（13 个依赖） | 注入 `CouponsService`（MembershipModule 已 export，BizModule 已 import） |
+| `app-vo.ts` 的 `appCreateBookingRequestSchema` | 在 `memberCardId` / `pointsToUse` 之后加 `couponId: z.number().int().positive().optional()` |
+
+**算价的既有写法可直接照抄**：L825-834 的积分抵扣就是「先算价 → 建单拿 id → 事务内扣减」
+的现成范例，券走同一形状，唯一差别是券要**两次算价**（10.2 的鸡生蛋问题）。
+
+### 10.7 `CouponsService` 还差一个只读方法
+
+`previewForBooking({couponId, customerId, baseAmount})` —— 算价阶段取券面额用。
+**它只读、不是闸门**：真正的并发安全在 `redeemForBooking` 的条件更新里
+（若读取与核销之间券被别人用掉，核销 409 → 整个建单事务回滚）。
+实现时把 `redeemForBooking` 已有的三段前置校验（归属 / 状态与过期 / 门槛）
+抽成一个私有方法复用，避免两处口径分叉。
