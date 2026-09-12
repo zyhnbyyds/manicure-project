@@ -69,6 +69,12 @@ Page({
     try {
       await ensureLogin();
       hideLoading();
+      // 若这页是被「需要身份」的动作引导来的（带 reason），**单靠微信登录并不满足要求**：
+      // 必须留在本页提示去授权手机号，否则 goBack 回原页又被拦一次，来回弹。
+      if (this.data.reason && !isBound()) {
+        toast('还需绑定手机号才能继续');
+        return;
+      }
       toast('登录成功', 'success');
       setTimeout(() => goBack(), 600);
     } catch (error) {
