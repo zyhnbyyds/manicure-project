@@ -40,8 +40,12 @@
         bindtap="onPick"
       >
         <view class="staff__avatar thumb">
-          <image wx:if="{{item.avatar}}" class="staff__img" src="{{item.avatar}}" mode="aspectFill" />
-          <view wx:else class="image-placeholder staff__img">{{item.initial}}</view>
+          <!--
+            绑 avatarResolved（已拼成绝对地址 + 有兜底图），**别绑 avatar**：
+            接口返回的是 `/api/v1/files/...` 相对路径，小程序会当成本包内文件 → 头像空白
+            （其他页面早就统一用 avatarResolved，这里漏了）。
+          -->
+          <image class="staff__img" src="{{item.avatarResolved}}" mode="aspectFill" />
         </view>
         <view class="grow">
           <view class="staff__name">{{item.nickname}}</view>
