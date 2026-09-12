@@ -424,7 +424,7 @@ function buildBizMenus(): MenuSeed[] {
   return rows;
 }
 
-const MENU_SEEDS: MenuSeed[] = [
+export const MENU_SEEDS: MenuSeed[] = [
   // ===== 首页 =====
   {
     name: 'dashboard',
@@ -698,6 +698,187 @@ async function upsertMenus(db: DbLike): Promise<Map<string, number>> {
   return idMap;
 }
 
+/* ------------------------------------------------------------------ *
+ * §15.9「角色建议」的落地：默认角色 + 菜单授权
+ *
+ * ## 为什么必须建这几个角色
+ *
+ * 在此之前只有 `admin`（靠 `*:*:*` 通配）与 `user`（零授权）两个角色，
+ * **§15.9 明确列出的「店长 / 前台 / 美甲师」一个都没落地**，而 `role_menu`
+ * 也只写给 `admin` —— 于是除 admin 外任何角色、包括你自己新建的角色，
+ * 权限集都是空的。后果最明显的一处：收银台要靠 `biz:member:list` 读会员余额
+ * （`GET /biz/members/:id` 的权限点），读不到时页面**静默降级**成余额 0、
+ * 报「储值余额不足」，把「店员没权限」伪装成「顾客没充钱」。
+ *
+ * ## 授权口径（严格照 spec；spec 没写的按最小权限，不隐式放权）
+ *
+ * - **店长**：§15.9「全部（含 recharge / refund / adjust / card:issue / card:refund）」，
+ *   且 §8.1「payment:create / refund:approve / recharge / card:issue / booking:adjust /
+ *   receivable:settle / commission:settle 默认只给店长」→ 业务域全量。
+ * - **前台**：§15.9「`member:list` / `card:list` / `card:use`」+ §8.1 注释里的
+ *   `manageall`（店长/前台应有）、`arrive`（前台能点到店）、`refund:apply`（可以给前台），
+ *   并**剔除**上面那批钱权限。
+ * - **美甲师**：§15.9「只读本人相关（会员列表按需，无任何资金动作）」→ 只给只读页面，
+ *   一个按钮都不给。日常在**小程序工作台**，后台只用于查自己的排班/预约/评价。
+ *
+ * 三个角色都**不是** `isSystem`（不设 `isSystem`，否则会被当成超级管理员拿到 `*:*:*`）。
+ * ------------------------------------------------------------------ */
+
+/** 业务域菜单：`biz` 目录本身 + 它的 26 个页面 + 页面下的按钮 */
+function isBizMenu(seed: MenuSeed): boolean {
+  return (
+    seed.name === 'biz' ||
+    seed.parentKey === 'biz' ||
+    (seed.parentKey?.startsWith('biz_') ?? false)
+  );
+}
+
+/**
+ * 前台的权限**白名单**（§15.9 + §8.1 注释）。
+ *
+ * ## 为什么用白名单而不是「扣掉钱权限」
+ *
+ * 先写的版本是「业务域全量 − 钱权限」，跑出来前台拿到 **79 个权限点**，
+ * 里面照样有支付对账、应收台账、提成结算、挂账主体 —— 因为「钱权限」只拦住了
+ * `xxx:settle` / `xxx:approve` 这类**动作**，拦不住 `biz:payment:list`、
+ * `biz:receivable:list` 这些**页面读权限**。而 §8.1 的意图是钱这块整体收窄。
+ * 白名单是唯一能保证「没写进去的一定没有」的写法，也符合「不做隐式默认」。
+ *
+ * 每一条都能在 spec 里找到出处；没出处的（如评价回复、通知模板）**一律不给**，
+ * 由店长按需在角色管理里单独勾。
+ */
+export const FRONTDESK_PERMISSIONS: readonly string[] = [
+  // 预约（本职）：§8.1 注释「店长/前台应有 manageall」「前台能点到店」→ arrive
+  'biz:booking:list',
+  'biz:booking:create',
+  'biz:booking:update',
+  'biz:booking:cancel',
+  'biz:booking:arrive',
+  'biz:booking:manageall',
+  // 顾客档案：开单前要建档/改档
+  'biz:customer:list',
+  'biz:customer:create',
+  'biz:customer:update',
+  // 基础资料：只读
+  'biz:serviceitem:list',
+  'biz:staff:list',
+  'biz:schedule:list',
+  // 会员：§15.9 前台只有 member:list；收银台读余额也靠它
+  'biz:member:list',
+  // 次卡：§15.9 给 card:list / card:use
+  'biz:card:list',
+  'biz:card:use',
+  // 退款：§8.1 注释「refund:apply 可以给前台」，approve 不给
+  'biz:refund:list',
+  'biz:refund:apply',
+  // 评价：只看（回复按钮不给，需要时店长单独放）
+  'biz:review:list',
+];
+
+/**
+ * §8.1 点名「默认只给店长」的那批钱权限 —— 前台白名单里天然没有它们，
+ * 这里单列出来是为了让「收窄口径」这件事在代码里看得见，并被单测钉住。
+ */
+export const MONEY_PERMISSIONS: readonly string[] = [
+  'biz:payment:create', // 发起收款
+  'biz:refund:approve', // 退款审批（与申请分离）
+  'biz:member:recharge', // 充值
+  'biz:member:refund', // 冲正退款
+  'biz:card:issue', // 发卡
+  'biz:booking:adjust', // 手动改价
+  'biz:receivable:settle', // 销账
+  'biz:commission:settle', // 提成结算
+];
+
+/** 美甲师可看的只读页面（不含任何按钮：F 菜单一律不匹配） */
+const STYLIST_READONLY_MENUS: readonly string[] = [
+  'biz_bookings', // 本人预约（数据范围由后端按 staff 限死）
+  'biz_schedules', // 本人排班
+  'biz_reviews', // 本人评价
+  'biz_commission_records', // 本人提成（只读，结算按钮不给）
+];
+
+export type RoleSeed = {
+  key: string;
+  name: string;
+  /** 这条口径来自 spec 的哪一句（便于复核，不用去翻文档） */
+  basis: string;
+  pick: (seed: MenuSeed) => boolean;
+};
+
+export const ROLE_SEEDS: RoleSeed[] = [
+  {
+    key: 'manager',
+    name: '店长',
+    basis: '§15.9 店长=全部；§8.1 钱的权限默认只给店长',
+    pick: (seed) => seed.name === 'dashboard' || isBizMenu(seed),
+  },
+  {
+    key: 'frontdesk',
+    name: '前台',
+    basis:
+      '§15.9 前台=member:list/card:list/card:use；§8.1 前台不授予钱的权限',
+    pick: (seed) =>
+      seed.name === 'dashboard' ||
+      seed.name === 'biz' ||
+      // 白名单：菜单带 permission 才算命中；`biz_cashier` 这类 permission 为空的
+      // 页面**不在白名单里**，所以天然不会被授予 —— 这正是白名单的好处
+      (typeof seed.permission === 'string' &&
+        FRONTDESK_PERMISSIONS.includes(seed.permission)),
+  },
+  {
+    key: 'stylist',
+    name: '美甲师',
+    basis: '§15.9 美甲师=只读本人相关，无任何资金动作',
+    pick: (seed) =>
+      seed.name === 'dashboard' ||
+      seed.name === 'biz' || // 父目录：不授的话子页面在路由树里成孤儿
+      (seed.type === 'C' && STYLIST_READONLY_MENUS.includes(seed.name)),
+  },
+];
+
+/**
+ * 写入默认角色与其菜单授权。**幂等**：只补缺失的授权，不删已有
+ * （运营自己在界面上调过的授权不会被 seed 覆盖掉）。
+ */
+async function grantRoleMenus(
+  db: DbLike,
+  idMap: Map<string, number>,
+): Promise<void> {
+  for (const role of ROLE_SEEDS) {
+    await db
+      .insert(roles)
+      .values({ name: role.name, key: role.key })
+      .onDuplicateKeyUpdate({ set: { name: role.name } });
+    const [row] = await db
+      .select()
+      .from(roles)
+      .where(eq(roles.key, role.key))
+      .limit(1);
+    if (!row) throw new Error(`角色写入失败：${role.key}`);
+
+    const wanted = MENU_SEEDS.filter(role.pick)
+      .map((seed) => idMap.get(seed.name))
+      .filter((id): id is number => typeof id === 'number');
+
+    const existing = await db
+      .select()
+      .from(roleMenus)
+      .where(eq(roleMenus.roleId, row.id));
+    const granted = new Set(existing.map((item) => item.menuId));
+    const missing = wanted.filter((menuId) => !granted.has(menuId));
+    if (missing.length > 0) {
+      await db
+        .insert(roleMenus)
+        .values(missing.map((menuId) => ({ roleId: row.id, menuId })));
+    }
+
+    console.log(
+      `[seed:menus] role ${role.key}(${role.name}) granted=${missing.length} total=${wanted.length} —— ${role.basis}`,
+    );
+  }
+}
+
 /** 给 admin 角色补齐菜单授权（只补缺失的，不删除已有授权） */
 async function grantAdminMenus(db: DbLike, menuIds: number[]): Promise<void> {
   const [adminRole] = await db
@@ -742,6 +923,8 @@ export async function seedMenus(pool?: mysql.Pool): Promise<void> {
     await db.transaction(async (tx) => {
       idMap = await upsertMenus(tx);
       await grantAdminMenus(tx, [...idMap.values()]);
+      // §15.9 的店长 / 前台 / 美甲师：不让「除 admin 外人人零权限」
+      await grantRoleMenus(tx, idMap);
     });
     console.log(
       `[seed:menus] Done. ${MENU_SEEDS.length} menu rows (M/C/F) in place`,

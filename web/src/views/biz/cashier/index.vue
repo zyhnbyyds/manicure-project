@@ -31,6 +31,7 @@ import { getMember, type MemberDetail } from '~/api/biz/members';
 import { listMemberCards, type MemberCard } from '~/api/biz/member-cards';
 import { previewPoints, type PointsPreview } from '~/api/biz/points-goods';
 import { formatDateTime } from '~/composables/useFormat';
+import { ApiError } from '~/request';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
@@ -99,6 +100,15 @@ const detailLoading = ref(false);
 
 const memberInfo = shallowRef<MemberDetail | null>(null);
 const memberLoading = ref(false);
+/**
+ * 会员信息读失败是因为**没权限**（403），而不是「这位顾客不是会员」。
+ *
+ * 两者都会让 `memberInfo` 为空、可用余额算成 0，但处置方式完全相反：
+ * 前者要找店长开 `biz:member:list`，后者跟权限无关。
+ * 原先一律静默降级，于是「店员没权限」被伪装成「顾客没充钱」——
+ * 余额支付永远失败，报错却是「储值余额不足」，排障方向完全错。
+ */
+const memberForbidden = ref(false);
 
 const customerCards = shallowRef<MemberCard[]>([]);
 
@@ -120,12 +130,18 @@ const cardOptions = computed(() =>
 
 async function loadMember(customerId: number | null) {
   memberInfo.value = null;
+  memberForbidden.value = false;
   if (!customerId) return;
   memberLoading.value = true;
   try {
     memberInfo.value = await getMember(customerId);
-  } catch {
-    // 非会员 / 无 biz:member:list 权限：静默降级，不影响收银
+  } catch (error) {
+    // 403 = 当前账号没有 `biz:member:list`：**不能**静默降级成「余额 0」，
+    // 否则余额支付只会报「储值余额不足」，把权限问题指成顾客没充钱
+    if (error instanceof ApiError && error.status === 403) {
+      memberForbidden.value = true;
+    }
+    // 其余（404 非会员等）仍静默降级：不影响现金 / 扫码收款
   } finally {
     memberLoading.value = false;
   }
@@ -360,8 +376,11 @@ function handleSettle() {
       row.channel === 'balance' &&
       yuan2fen(row.amount) > balanceAvailable.value
     ) {
+      // 分清两种原因：没权限读余额 ≠ 顾客余额不够
       LewMessage.error(
-        `储值余额不足：当前可用 ¥${fen2yuan(balanceAvailable.value)}，余额不足不会部分扣减`,
+        memberForbidden.value
+          ? '当前账号没有查看会员余额的权限（biz:member:list），无法用储值余额收款 —— 请让店长在「角色管理」里为这个角色勾上该权限'
+          : `储值余额不足：当前可用 ¥${fen2yuan(balanceAvailable.value)}，余额不足不会部分扣减`,
       );
       return;
     }
@@ -742,9 +761,26 @@ function renderPayStatus(status: string) {
               }}
               / 积分 {{ memberInfo.points }}
             </span>
-            <span v-else class="text-12px text-[var(--app-text-muted)]">{{
-              memberLoading ? '加载会员信息…' : '非会员 / 无会员查看权限'
-            }}</span>
+            <span
+              v-else
+              class="text-12px"
+              :class="
+                memberForbidden
+                  ? 'text-[var(--lew-color-error)]'
+                  : 'text-[var(--app-text-muted)]'
+              "
+              :title="
+                memberForbidden
+                  ? '当前账号缺少 biz:member:list，读不到会员余额'
+                  : ''
+              "
+              >{{
+                memberLoading
+                  ? '加载会员信息…'
+                  : memberForbidden
+                    ? '无查看会员余额的权限（biz:member:list）'
+                    : '非会员'
+              }}</span>
           </div>
 
           <!-- 金额明细（全部来自服务端快照，前端只展示） -->
@@ -909,12 +945,19 @@ function renderPayStatus(status: string) {
 
             <!-- 储值余额 -->
             <p v-if="row.channel === 'balance'" class="page-subtitle m-0 mt-1">
-              可用余额 ¥{{ fen2yuan(balanceAvailable) }}（本金 ¥{{
-                fen2yuan(memberInfo?.balancePrincipal)
-              }}
-              / 赠送 ¥{{
-                fen2yuan(memberInfo?.balanceBonus)
-              }}）；余额不足会直接失败，不做部分扣减。
+              <template v-if="memberForbidden">
+                当前账号没有查看会员余额的权限（biz:member:list），储值余额收款不可用。
+                这不是顾客余额不足 —— 请让店长在「角色管理」里为你的角色勾上
+                「会员管理」的查询权限。
+              </template>
+              <template v-else>
+                可用余额 ¥{{ fen2yuan(balanceAvailable) }}（本金 ¥{{
+                  fen2yuan(memberInfo?.balancePrincipal)
+                }}
+                / 赠送 ¥{{
+                  fen2yuan(memberInfo?.balanceBonus)
+                }}）；余额不足会直接失败，不做部分扣减。
+              </template>
             </p>
           </div>
 
