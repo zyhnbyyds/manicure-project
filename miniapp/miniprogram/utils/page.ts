@@ -8,7 +8,6 @@
  *
  * 放在 `onShow` 而不是 `onLoad`：从主题页返回时要立刻生效，`onShow` 恰好触发。
  */
-import { isMockEnabled, MOCK_BADGE_TEXT } from '../config';
 import { getSession } from '../store/session';
 import { getThemeState, getThemeTokens, themeStyle } from '../theme/theme';
 
@@ -20,9 +19,6 @@ export interface BasePageData {
   onPrimary: string;
   themeName: string;
   themeEmoji: string;
-  /** 当前是否在演示数据模式（UI 上必须可见，避免被误当成真实数据） */
-  isMock: boolean;
-  mockBadge: string;
   /**
    * 登录态两个标志 —— 放进公共数据，**所有页面天然可用**：
    * - `loggedIn`：有 app token，可浏览项目/美甲师/时段
@@ -45,8 +41,6 @@ export function basePageData(): BasePageData {
     onPrimary: tokens.onPrimary,
     themeName: theme.name,
     themeEmoji: theme.emoji,
-    isMock: isMockEnabled(),
-    mockBadge: MOCK_BADGE_TEXT,
     loggedIn: session.loggedIn,
     bound: session.bound,
   };

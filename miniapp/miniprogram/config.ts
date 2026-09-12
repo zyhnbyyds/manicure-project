@@ -15,42 +15,6 @@ export const API_BASE = 'http://127.0.0.1:3000/api/v1';
 /** 请求超时（毫秒） */
 export const REQUEST_TIMEOUT = 10000;
 
-/** 本地覆盖开关的 storage key：`wx.setStorageSync('manicure:use-mock', false)` 可临时切真接口 */
-const MOCK_OVERRIDE_KEY = 'manicure:use-mock';
-
-function readMockOverride(): boolean | null {
-  const raw = wx.getStorageSync(MOCK_OVERRIDE_KEY);
-  if (raw === '' || raw === null || raw === undefined) return null;
-  return raw === true || raw === 'true' || raw === 1 || raw === '1';
-}
-
-/**
- * 是否使用演示数据。
- *
- * **默认已是「用真接口」**（2026-09-12 起）：后端 25 条 `/app/**` 路由均已实现，
- * 开发库里也有真实种子数据（11 个项目 / 4 位美甲师 / 排班齐），
- * 并且通过 `WX_MINIAPP_FAKE=true`（**仅非生产**，见 `wxMiniappFake`）可以打通真登录链路。
- *
- * 保留本地覆盖开关的用途：后端没起、或想在无网络环境下看排版时，
- * `wx.setStorageSync('manicure:use-mock', true)` 可临时切回演示数据。
- */
-export function isMockEnabled(): boolean {
-  const override = readMockOverride();
-  return override === null ? false : override;
-}
-
-export function setMockEnabled(enabled: boolean): void {
-  wx.setStorageSync(MOCK_OVERRIDE_KEY, enabled);
-}
-
-/** 演示数据在多个页面都要提示，统一一处文案 */
-export const MOCK_BADGE_TEXT = '演示数据';
-
-/**
- * 演示模式下假装已绑定的顾客 ID。
- * 放在 config 而不是 mock 里，是为了让 `store/auth.ts` 不必反向依赖 mock 模块。
- */
-export const DEMO_CUSTOMER_ID = 1001;
 
 /**
  * 门店信息（门店信息页、客服、导航、拨号都用这一份）。

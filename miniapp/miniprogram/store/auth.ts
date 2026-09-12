@@ -14,7 +14,6 @@
 // module 'api.js' is not defined），这点和 Node/TS 的默认行为不同。
 import { authApi } from '../api/index';
 import type { BindPhoneVo } from '../api/types';
-import { DEMO_CUSTOMER_ID, isMockEnabled } from '../config';
 import { clearMode, rememberStaffStatus } from './mode';
 import { setBoundCustomerId, clearAuth, getBoundCustomerId, getToken, setToken } from '../utils/token';
 
@@ -83,7 +82,6 @@ export async function bindPhone(code: string): Promise<BindPhoneVo> {
   const result = await authApi.bindPhone(code);
   setBoundCustomerId(result.customerId);
   rememberStaffStatus(result.staffStatus);
-  if (isMockEnabled()) setBoundCustomerId(DEMO_CUSTOMER_ID);
   return result;
 }
 

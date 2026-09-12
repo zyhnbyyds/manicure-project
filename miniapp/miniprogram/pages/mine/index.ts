@@ -1,5 +1,4 @@
 import { bookingApi, memberApi, staffApi } from '../../api/index';
-import { isMockEnabled } from '../../config';
 import { ensureLogin, isBound, logout } from '../../store/auth';
 import { getStaffStatus, isGranted, setMode } from '../../store/mode';
 import { requireSession } from '../../store/session';
@@ -286,12 +285,9 @@ Page({
   },
 
   onAbout() {
-    const mockLine = isMockEnabled()
-      ? '\n\n当前展示的是演示数据：后端尚未配置小程序凭据，登录接口按设计返回「小程序端未启用」。'
-      : '';
     wx.showModal({
       title: '关于美甲小铺',
-      content: `到店预约 · 会员储值 · 次卡 · 积分\n有问题可直接联系门店～${mockLine}`,
+      content: `到店预约 · 会员储值 · 次卡 · 积分\n有问题可直接联系门店～`,
       showCancel: false,
       confirmText: '知道啦',
       confirmColor: '#B45F6B',
