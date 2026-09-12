@@ -1,13 +1,13 @@
 <view class="page" style="{{themeStyle}}">
   <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
 
-  <view wx:elif="{{errorText}}" class="empty">
+  <view wx:elif="{{errorText}}" class="empty anim-pop">
     <view class="empty__text">{{errorText}}</view>
     <view class="btn btn--primary btn--sm empty__action" bindtap="onBack">返回</view>
   </view>
 
   <block wx:else>
-    <view class="page-body review-body">
+    <view class="page-body review-body anim-rise">
       <!-- 评价对象：哪一单、什么项目 -->
       <view class="card target">
         <view class="target__label">项目卡</view>
@@ -22,7 +22,7 @@
           <image
             wx:for="{{stars}}"
             wx:key="*this"
-            class="rating__star"
+            class="rating__star press-sm"
             src="{{item <= rating ? iconsStarOn.star : iconsStarOff.star}}"
             data-value="{{item}}"
             bindtap="onPickStar"
@@ -39,7 +39,7 @@
           <view
             wx:for="{{tags}}"
             wx:key="label"
-            class="tag-chip {{item.checked ? 'is-checked' : ''}}"
+            class="tag-chip press-sm {{item.checked ? 'is-checked' : ''}}"
             data-index="{{index}}"
             bindtap="onToggleTag"
           >
@@ -65,7 +65,7 @@
           <view
             wx:for="{{imageSlots}}"
             wx:key="*this"
-            class="images__slot"
+            class="images__slot press-sm"
             bindtap="onAddImage"
           >
             <view class="images__plus">+</view>

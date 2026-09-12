@@ -50,57 +50,60 @@
     </block>
 
     <!-- 错误态（batch3：网络连接失败 + 重试） -->
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <image class="empty__icon" src="{{icons.search}}" mode="aspectFit" />
       <view class="empty__text">{{errorText}}</view>
       <view class="empty__hint">请检查网络后重试</view>
       <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
     </view>
 
-    <view wx:elif="{{items.length === 0}}" class="empty">
+    <view wx:elif="{{items.length === 0}}" class="empty anim-pop">
       <view class="empty__text">没有找到相关款式</view>
       <view class="empty__hint">换个关键词或分类试试～</view>
     </view>
 
     <block wx:else>
-      <view
-        wx:for="{{items}}"
-        wx:key="id"
-        class="card list-card {{item.checked ? 'is-checked' : ''}}"
-      >
-        <!-- 左：作品照（点击进详情） -->
-        <view class="list-card__photo thumb" data-id="{{item.id}}" bindtap="openDetail">
-          <image class="list-card__img" src="{{item.imageResolved}}" mode="aspectFill" />
-        </view>
-
-        <!-- 右：名称 / 时长分类 / 价格 -->
-        <view class="list-card__info" data-id="{{item.id}}" bindtap="openDetail">
-          <view class="list-card__name ellipsis">{{item.name}}</view>
-          <view class="list-card__meta ellipsis">{{item.durationText}} · {{item.category}}</view>
-          <view class="price list-card__price">
-            <text class="price__symbol">¥</text>
-            <text class="price__yuan">{{item.priceYuan}}</text>
-          </view>
-        </view>
-
-        <!-- 右上：圆形加号（未选）/ 对勾（已选） -->
+      <!-- 整块入场：骨架屏 → 内容只播一次，列表本身不逐项 stagger（13 项会拖到 0.6s，反而显得卡） -->
+      <view class="anim-rise">
         <view
-          class="list-card__add {{item.checked ? 'is-checked' : ''}}"
-          data-id="{{item.id}}"
-          bindtap="toggle"
+          wx:for="{{items}}"
+          wx:key="id"
+          class="card list-card press {{item.checked ? 'is-checked' : ''}}"
         >
-          <image
-            class="list-card__add-icon"
-            src="{{item.checked ? iconsWhite.check : icons.plus}}"
-            mode="aspectFit"
-          />
+          <!-- 左：作品照（点击进详情） -->
+          <view class="list-card__photo thumb" data-id="{{item.id}}" bindtap="openDetail">
+            <image class="list-card__img" src="{{item.imageResolved}}" mode="aspectFill" />
+          </view>
+
+          <!-- 右：名称 / 时长分类 / 价格 -->
+          <view class="list-card__info" data-id="{{item.id}}" bindtap="openDetail">
+            <view class="list-card__name ellipsis">{{item.name}}</view>
+            <view class="list-card__meta ellipsis">{{item.durationText}} · {{item.category}}</view>
+            <view class="price list-card__price">
+              <text class="price__symbol">¥</text>
+              <text class="price__yuan">{{item.priceYuan}}</text>
+            </view>
+          </view>
+
+          <!-- 右上：圆形加号（未选）/ 对勾（已选） -->
+          <view
+            class="list-card__add {{item.checked ? 'is-checked' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="toggle"
+          >
+            <image
+              class="list-card__add-icon"
+              src="{{item.checked ? iconsWhite.check : icons.plus}}"
+              mode="aspectFit"
+            />
+          </view>
         </view>
       </view>
     </block>
   </view>
 
-  <!-- 底部结算条：只在选了项目后出现（设计稿即如此） -->
-  <view wx:if="{{selectedCount > 0}}" class="action-bar">
+  <!-- 底部结算条：只在选了项目后出现（设计稿即如此）；出现时从下方轻轻浮起 -->
+  <view wx:if="{{selectedCount > 0}}" class="action-bar anim-rise">
     <view class="grow">
       <view class="action-bar__sum">已选 {{selectedCount}} 项 · {{durationText}}</view>
       <view class="action-bar__total">

@@ -2,18 +2,18 @@
   <view class="page-body">
     <view wx:if="{{loading}}" class="loading">正在看顾客怎么夸你…</view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
-    <view wx:elif="{{rows.length === 0}}" class="empty">
+    <view wx:elif="{{rows.length === 0}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">还没有收到评价</view>
       <view class="empty__hint">做完每一单都提醒顾客评价，攒起来很快～</view>
     </view>
 
-    <block wx:else>
+    <view wx:else class="anim-rise">
       <view class="count">{{countText}}</view>
 
       <view wx:for="{{rows}}" wx:key="id" class="review card">
@@ -40,6 +40,6 @@
 
         <view class="review__no">{{item.bookingNo}}</view>
       </view>
-    </block>
+    </view>
   </view>
 </view>

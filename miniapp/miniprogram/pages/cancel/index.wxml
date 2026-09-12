@@ -1,13 +1,13 @@
 <view class="page" style="{{themeStyle}}">
   <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
 
-  <view wx:elif="{{errorText}}" class="empty">
+  <view wx:elif="{{errorText}}" class="empty anim-pop">
     <view class="empty__text">{{errorText}}</view>
     <view class="btn btn--primary btn--sm empty__action" bindtap="onThinkAgain">返回</view>
   </view>
 
   <block wx:else>
-    <view class="page-body cancel-body">
+    <view class="page-body cancel-body anim-rise">
       <!-- 被取消的订单摘要 -->
       <view class="card target">
         <view class="target__name ellipsis">{{itemNames}}</view>

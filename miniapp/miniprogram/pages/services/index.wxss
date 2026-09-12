@@ -61,24 +61,7 @@
   display: flex;
 }
 
-.chip {
-  flex-shrink: 0;
-  height: 60rpx;
-  line-height: 60rpx;
-  padding: 0 30rpx;
-  margin-right: 16rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-card);
-  color: var(--c-text);
-  font-size: 26rpx;
-}
-
 /* 选中：主色实心 + 白字（设计稿「全部」即如此） */
-.chip.is-active {
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-}
-
 .filters__sort {
   position: relative;
   width: 60rpx;
@@ -114,10 +97,16 @@
   align-items: center;
   margin-bottom: 18rpx;
   padding: 20rpx;
+  /* 选中态描边与卡片底色都做过渡，点选时不会「啪」地跳一下 */
+  transition: border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
+/* 选中：主色描边 + 主色柔光（只加描边太「干」，柔光让选中更明确） */
 .list-card.is-checked {
   border: 2rpx solid var(--c-primary);
+  box-shadow: 0 8rpx 24rpx var(--c-primary-soft);
 }
 
 .list-card__photo {
@@ -169,11 +158,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
+/* 选中的瞬间弹一下（class 变化才会重播，不会每次 setData 都抖） */
 .list-card__add.is-checked {
   background: var(--c-primary);
   border-color: var(--c-primary);
+  animation: add-pop var(--dur-slow) var(--ease-back);
+}
+
+@keyframes add-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .list-card__add-icon {
@@ -249,6 +254,3 @@
   opacity: 0.5;
 }
 
-.empty__action {
-  margin-top: 28rpx;
-}

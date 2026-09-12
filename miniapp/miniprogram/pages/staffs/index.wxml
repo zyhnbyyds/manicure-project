@@ -8,7 +8,7 @@
       </view>
       <view class="summary__right">
         <view class="summary__meta">{{durationText}} · ¥{{totalText}}</view>
-        <view class="summary__change" bindtap="changeItems">改</view>
+        <view class="summary__change press-sm" bindtap="changeItems">改</view>
       </view>
     </view>
   </view>
@@ -16,17 +16,17 @@
   <view class="page-body">
     <view wx:if="{{loading}}" class="loading">正在叫美甲师们过来…</view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
-    <view wx:elif="{{staffs.length === 0}}" class="empty">
+    <view wx:elif="{{staffs.length === 0}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">暂时没有可预约的美甲师</view>
     </view>
 
-    <block wx:else>
+    <view wx:else class="anim-rise">
       <view class="hint" wx:if="{{!hasItems}}">
         <text class="hint__emoji"></text>
         <text>先选款式，再挑美甲师会更准哦</text>
@@ -35,7 +35,7 @@
       <view
         wx:for="{{staffs}}"
         wx:key="id"
-        class="staff card card--press"
+        class="staff card press"
         data-id="{{item.id}}"
         bindtap="onPick"
       >
@@ -53,6 +53,6 @@
         </view>
         <view class="btn btn--soft btn--sm">选 TA</view>
       </view>
-    </block>
+    </view>
   </view>
 </view>

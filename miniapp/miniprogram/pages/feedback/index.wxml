@@ -1,5 +1,5 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body fb-body">
+  <view class="page-body fb-body anim-rise">
     <!-- 反馈类型 -->
     <view class="section">
       <view class="section__title">反馈类型</view>
@@ -9,7 +9,7 @@
         <view
           wx:for="{{types}}"
           wx:key="*this"
-          class="type {{activeType === item ? 'is-active' : ''}}"
+          class="type press-sm {{activeType === item ? 'is-active' : ''}}"
           data-type="{{item}}"
           bindtap="onType"
         >
@@ -34,7 +34,7 @@
       <view class="counter">{{content.length}}/500</view>
 
       <view class="images">
-        <view wx:for="{{imageSlots}}" wx:key="*this" class="images__slot" bindtap="onAddImage">
+        <view wx:for="{{imageSlots}}" wx:key="*this" class="images__slot press-sm" bindtap="onAddImage">
           <view class="images__plus">+</view>
         </view>
       </view>
@@ -66,6 +66,6 @@
   </view>
 
   <view class="action-bar">
-    <view class="btn btn--primary btn--block" bindtap="onSubmit">提交反馈</view>
+    <view class="btn btn--primary btn--block press" bindtap="onSubmit">提交反馈</view>
   </view>
 </view>

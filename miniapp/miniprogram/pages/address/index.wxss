@@ -51,24 +51,6 @@
   margin-top: 18rpx;
 }
 
-.mini-btn {
-  height: 52rpx;
-  line-height: 52rpx;
-  padding: 0 24rpx;
-  margin-left: 14rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-  font-size: 22rpx;
-}
-
-.mini-btn--ghost {
-  background: transparent;
-  border: 2rpx solid var(--c-primary);
-  color: var(--c-primary);
-  line-height: 48rpx;
-}
-
 /* ── 空态 ─────────────────────────────────────────────────── */
 
 .empty__badge {
@@ -88,9 +70,3 @@
   opacity: 0.5;
 }
 
-.tips {
-  margin-top: 20rpx;
-  font-size: 21rpx;
-  line-height: 1.7;
-  color: var(--c-text-weak);
-}

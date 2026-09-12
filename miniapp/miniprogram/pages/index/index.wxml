@@ -26,7 +26,8 @@
     <view
       wx:for="{{quickEntries}}"
       wx:key="label"
-      class="quick__item"
+      class="quick__item press anim-item"
+      style="--i:{{index}}"
       data-action="{{item.action}}"
       bindtap="onQuickTap"
     >
@@ -37,12 +38,16 @@
 
   <view wx:if="{{loading}}" class="loading">正在准备今天的好心情…</view>
 
-  <view wx:elif="{{errorText}}" class="empty">
+  <view wx:elif="{{errorText}}" class="empty anim-pop">
+    <view class="empty__badge">
+      <view class="empty__badge-dot"></view>
+    </view>
     <view class="empty__text">{{errorText}}</view>
     <view class="btn btn--soft btn--sm empty__action" bindtap="onRetry">再试一次</view>
   </view>
 
-  <block wx:else>
+  <!-- 骨架屏 → 内容：整块做一次入场（`.anim-rise` 只在元素重新挂载时播，不会每次 setData 都抖） -->
+  <view wx:else class="anim-rise">
     <!-- 人气款式 -->
     <view class="section">
       <view class="section__title">人气款式</view>
@@ -82,7 +87,12 @@
       </view>
     </view>
     <view class="staffs">
-      <view wx:for="{{staffs}}" wx:key="id" class="staffs__item" bindtap="goStaffs">
+      <view
+        wx:for="{{staffs}}"
+        wx:key="id"
+        class="staffs__item press-sm"
+        bindtap="goStaffs"
+      >
         <view class="staffs__ring {{index === 0 ? 'is-featured' : ''}}">
           <image class="staffs__avatar" src="{{item.avatarResolved}}" mode="aspectFill" />
         </view>
@@ -90,7 +100,7 @@
         <view class="staffs__bio ellipsis">{{item.bio}}</view>
       </view>
     </view>
-  </block>
+  </view>
 
   <view class="safe-bottom"></view>
 </view>

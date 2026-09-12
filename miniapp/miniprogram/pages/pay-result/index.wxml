@@ -1,5 +1,5 @@
 <view class="page result" style="{{themeStyle}}">
-  <view class="page-body result-body">
+  <view class="page-body result-body anim-rise">
     <!-- 状态图标：主色实心圆 + 白色对勾（设计稿的视觉重心） -->
     <view class="badge {{status === 'pending' ? 'badge--pending' : ''}}">
       <image
@@ -24,6 +24,6 @@
     </view>
 
     <view class="btn btn--primary btn--block result__primary" bindtap="goOrders">查看订单</view>
-    <view class="result__link" bindtap="onDone">完成</view>
+    <view class="result__link press-sm" bindtap="onDone">完成</view>
   </view>
 </view>

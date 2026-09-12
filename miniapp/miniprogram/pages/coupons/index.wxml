@@ -5,7 +5,7 @@
       <view
         wx:for="{{tabs}}"
         wx:key="key"
-        class="tabs__item {{activeTab === item.key ? 'is-active' : ''}}"
+        class="tabs__item press-sm {{activeTab === item.key ? 'is-active' : ''}}"
         data-key="{{item.key}}"
         bindtap="onTab"
       >
@@ -14,27 +14,27 @@
     </view>
 
     <!-- 未绑定：券是个人权益，先引导而不是显示加载失败 -->
-    <view wx:if="{{guest}}" class="empty">
+    <view wx:if="{{guest}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{loggedIn ? '绑定手机号后查看优惠券' : '登录后查看优惠券'}}</view>
       <view class="empty__hint">券会跟着你的手机号，绑定后就能看到</view>
-      <view class="btn btn--primary empty__action" bindtap="onGuestLogin">去登录 / 绑定</view>
+      <view class="btn btn--primary empty__action press" bindtap="onGuestLogin">去登录 / 绑定</view>
     </view>
 
     <view wx:elif="{{loading}}" class="loading">正在读取优惠券…</view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__text">{{errorText}}</view>
-      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+      <view class="btn btn--primary btn--sm empty__action press-sm" bindtap="onRetry">重新加载</view>
     </view>
 
-    <view wx:elif="{{coupons.length === 0}}" class="empty">
+    <view wx:elif="{{coupons.length === 0}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">这里还没有券</view>
       <view class="empty__hint">门店有活动时会发到你的账户里</view>
     </view>
 
-    <block wx:else>
+    <view wx:else class="anim-rise">
       <view
         wx:for="{{coupons}}"
         wx:key="id"
@@ -57,12 +57,12 @@
           <view class="coupon__expire">{{item.expireText}}</view>
           <view class="coupon__no">{{item.couponNo}}</view>
         </view>
-        <view wx:if="{{item.actionable}}" class="coupon__use" bindtap="onUse">去使用</view>
+        <view wx:if="{{item.actionable}}" class="coupon__use press-sm" bindtap="onUse">去使用</view>
       </view>
 
       <view class="tips">
         券不可叠加使用，每单限用一张；与积分抵扣同一单二选一（门店口径）。
       </view>
-    </block>
+    </view>
   </view>
 </view>

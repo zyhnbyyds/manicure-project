@@ -1,30 +1,30 @@
 <view class="page detail" style="{{themeStyle}}">
   <view wx:if="{{loading}}" class="loading">加载中…</view>
 
-  <view wx:elif="{{!item}}" class="empty">
+  <view wx:elif="{{!item}}" class="empty anim-pop">
     <view class="empty__text">{{errorText}}</view>
     <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
   </view>
 
   <block wx:else>
     <!-- 沉浸式大图：返回/分享浮在图上，右下角图片计数角标 -->
-    <view class="hero">
+    <view class="hero anim-rise">
       <image class="hero__img" src="{{item.imageResolved}}" mode="aspectFill" />
       <view
         class="hero__nav"
         style="padding-top:{{statusBarHeight}}px;padding-right:{{navRightGap}}px"
       >
-        <view class="hero__btn" bindtap="onBack">
+        <view class="hero__btn press-sm" bindtap="onBack">
           <image class="hero__icon" src="{{iconsWhite.back}}" mode="aspectFit" />
         </view>
-        <view class="hero__btn" bindtap="onShare">
+        <view class="hero__btn press-sm" bindtap="onShare">
           <image class="hero__icon" src="{{iconsWhite.share}}" mode="aspectFit" />
         </view>
       </view>
       <view class="hero__count">{{photoCountText}}</view>
     </view>
 
-    <view class="body">
+    <view class="body anim-rise">
       <!-- 标题与价格同一行，设计稿里两者字号相当 -->
       <view class="head">
         <view class="head__name grow">{{item.name}}</view>
@@ -48,7 +48,7 @@
       <!-- 颜色选择（无对应字段：本地视觉态） -->
       <view class="section">
         <view class="section__title">颜色选择</view>
-        <view class="section__more" bindtap="onMoreColors">
+        <view class="section__more press-sm" bindtap="onMoreColors">
           更多
           <image class="section__arrow" src="{{icons.chevron}}" mode="aspectFit" />
         </view>
@@ -57,7 +57,7 @@
         <view
           wx:for="{{swatches}}"
           wx:key="hex"
-          class="swatch {{activeSwatch === index ? 'is-active' : ''}}"
+          class="swatch press-sm {{activeSwatch === index ? 'is-active' : ''}}"
           style="background: {{item.hex}}"
           data-index="{{index}}"
           bindtap="onPickSwatch"
@@ -65,7 +65,7 @@
       </view>
 
       <!-- 推荐美甲师 -->
-      <view wx:if="{{staff}}" class="staff-card" bindtap="onStaffTap">
+      <view wx:if="{{staff}}" class="staff-card press" bindtap="onStaffTap">
         <image class="staff-card__avatar" src="{{staff.avatarResolved}}" mode="aspectFill" />
         <view class="grow">
           <view class="staff-card__label">推荐美甲师</view>
@@ -80,11 +80,11 @@
 
     <!-- 底部操作条：收藏 / 客服 / 立即预约 -->
     <view class="action-bar detail-bar">
-      <view class="detail-bar__icon-btn" bindtap="onFavorite">
+      <view class="detail-bar__icon-btn press-sm" bindtap="onFavorite">
         <image class="detail-bar__icon" src="{{icons.heart}}" mode="aspectFit" />
         <view class="detail-bar__label">收藏</view>
       </view>
-      <view class="detail-bar__icon-btn" bindtap="onService">
+      <view class="detail-bar__icon-btn press-sm" bindtap="onService">
         <image class="detail-bar__icon" src="{{icons.headset}}" mode="aspectFit" />
         <view class="detail-bar__label">客服</view>
       </view>

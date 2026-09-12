@@ -16,26 +16,26 @@
 
     <view wx:if="{{loading}}" class="loading">正在读取今日安排…</view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__text">{{errorText}}</view>
     </view>
 
-    <block wx:else>
+    <view wx:else class="anim-rise">
       <!-- 今日业绩 -->
       <view class="section">
         <view class="section__title">今日业绩</view>
-        <view class="section__more" bindtap="goStaffPerformance">{{periodText}}</view>
+        <view class="section__more press-sm" bindtap="goStaffPerformance">{{periodText}}</view>
       </view>
       <view class="card stats">
-        <view class="stats__item" bindtap="goStaffPerformance">
+        <view class="stats__item press" bindtap="goStaffPerformance">
           <view class="stats__value">{{paidText}}</view>
           <view class="stats__label">服务收入</view>
         </view>
-        <view class="stats__item" bindtap="goStaffPerformance">
+        <view class="stats__item press" bindtap="goStaffPerformance">
           <view class="stats__value">{{completedCount}}</view>
           <view class="stats__label">完成单量</view>
         </view>
-        <view class="stats__item" bindtap="goStaffPerformance">
+        <view class="stats__item press" bindtap="goStaffPerformance">
           <view class="stats__value">{{accruedText}}</view>
           <view class="stats__label">已计提成</view>
         </view>
@@ -47,7 +47,7 @@
         <view
           wx:for="{{entries}}"
           wx:key="key"
-          class="entries__item"
+          class="entries__item press"
           data-key="{{item.key}}"
           bindtap="onEntryTap"
         >
@@ -59,10 +59,10 @@
       <!-- 今日待服务 -->
       <view class="section">
         <view class="section__title">今日待服务</view>
-        <view class="section__more" bindtap="goStaffBookings">全部 ›</view>
+        <view class="section__more press-sm" bindtap="goStaffBookings">全部 ›</view>
       </view>
 
-      <view wx:if="{{bookings.length === 0}}" class="empty empty--inline">
+      <view wx:if="{{bookings.length === 0}}" class="empty empty--inline anim-pop">
         <view class="empty__text">{{off ? '今天休息，好好放松一下' : '今天还没有预约'}}</view>
         <view class="empty__hint">有新的预约会出现在这里</view>
       </view>
@@ -86,7 +86,7 @@
         <view class="order__actions">
           <view
             wx:if="{{item.customerPhoneMasked}}"
-            class="mini-btn mini-btn--ghost"
+            class="mini-btn mini-btn--ghost press-sm"
             data-id="{{item.id}}"
             bindtap="onCall"
           >
@@ -94,7 +94,7 @@
           </view>
           <view
             wx:if="{{item.canArrive}}"
-            class="mini-btn mini-btn--ghost"
+            class="mini-btn mini-btn--ghost press-sm"
             data-id="{{item.id}}"
             bindtap="onArrive"
           >
@@ -102,7 +102,7 @@
           </view>
           <view
             wx:if="{{item.canComplete}}"
-            class="mini-btn"
+            class="mini-btn press-sm"
             data-id="{{item.id}}"
             bindtap="onComplete"
           >
@@ -110,6 +110,6 @@
           </view>
         </view>
       </view>
-    </block>
+    </view>
   </view>
 </view>

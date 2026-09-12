@@ -20,23 +20,6 @@
   display: flex;
 }
 
-.chip {
-  flex-shrink: 0;
-  height: 58rpx;
-  line-height: 58rpx;
-  padding: 0 26rpx;
-  margin-right: 14rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-card);
-  color: var(--c-text-sub);
-  font-size: 24rpx;
-}
-
-.chip.is-active {
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-}
-
 /* ── 空态 ─────────────────────────────────────────────────── */
 
 .empty__badge {
@@ -56,6 +39,3 @@
   opacity: 0.5;
 }
 
-.empty__action {
-  margin-top: 32rpx;
-}

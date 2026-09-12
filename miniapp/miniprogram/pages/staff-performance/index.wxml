@@ -2,19 +2,19 @@
   <view class="page-body">
     <!-- 月份切换 -->
     <view class="switcher">
-      <view class="switcher__btn" bindtap="onPrev">‹ 上一月</view>
+      <view class="switcher__btn press-sm" bindtap="onPrev">‹ 上一月</view>
       <view class="switcher__title">{{periodText}}</view>
-      <view class="switcher__btn {{canNext ? '' : 'is-muted'}}" bindtap="onNext">下一月 ›</view>
+      <view class="switcher__btn press-sm {{canNext ? '' : 'is-muted'}}" bindtap="onNext">下一月 ›</view>
     </view>
 
     <view wx:if="{{loading}}" class="loading">正在算这个月的账…</view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
       <view class="empty__text">{{errorText}}</view>
     </view>
 
-    <block wx:else>
+    <view wx:else class="anim-rise">
       <!-- 汇总 -->
       <view class="card summary">
         <view class="summary__grid">
@@ -68,6 +68,6 @@
           <view class="row-card__amount">+¥{{item.amountText}}</view>
         </view>
       </view>
-    </block>
+    </view>
   </view>
 </view>

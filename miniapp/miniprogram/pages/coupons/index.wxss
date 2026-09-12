@@ -128,16 +128,6 @@
   font-size: 23rpx;
 }
 
-.tips {
-  margin-top: 24rpx;
-  font-size: 21rpx;
-  line-height: 1.7;
-  color: var(--c-text-weak);
-}
-
-.empty__action {
-  margin-top: 28rpx;
-}
 /* 券名：卡片标题（模板名，后端已给到顾客侧） */
 .coupon__name {
   margin-bottom: 8rpx;

@@ -1,12 +1,12 @@
 <view class="page" style="{{themeStyle}}">
-  <view wx:if="{{!ready}}" class="empty">
+  <view wx:if="{{!ready}}" class="empty anim-pop">
     <view class="empty__text">预约信息不完整</view>
     <view class="empty__hint">请重新选择款式与时间</view>
     <view class="btn btn--primary btn--sm empty__action" bindtap="goPickService">返回上一步</view>
   </view>
 
   <block wx:else>
-    <view class="page-body confirm-body">
+    <view class="page-body confirm-body anim-rise">
       <!-- 预约摘要：美甲师 + 日期时间 + 预计时长 -->
       <view class="card summary">
         <view class="summary__row">
@@ -63,7 +63,7 @@
           />
         </view>
 
-        <view class="deduct deduct--last" bindtap="onPickCoupon">
+        <view class="deduct deduct--last press" bindtap="onPickCoupon">
           <view class="grow">
             <view class="deduct__title">优惠券</view>
             <view class="deduct__sub">暂无可叠加优惠券</view>

@@ -46,6 +46,28 @@ page {
   --gap-lg: 32rpx;
 
   /**
+   * ── 动效令牌（**全项目只有这一处定义**）────────────────────
+   *
+   * 为什么要有令牌：动效最怕「每页各写一套 0.2s/0.3s/ease/linear」——
+   * 单看都还行，连起来就是杂音。统一到三个时长 + 三条曲线后，
+   * 全项目的「快慢手感」天然一致，改也只改这里。
+   *
+   * - `--dur-*`：按下反馈(instant) / 小状态变化(fast) / 常规过渡(mid) / 出场动画(slow)
+   * - `--ease-out`：先快后慢，位移与透明度**默认用它**（最像物理惯性）
+   * - `--ease-back`：轻微过冲，只给「出现 / 选中」这类**值得被看见**的时刻（可爱风的关键）
+   * - `--ease-in-out`：两头慢中间快，适合宽度/颜色这类双向过渡
+   */
+  --dur-instant: 0.1s;
+  --dur-fast: 0.16s;
+  --dur-mid: 0.24s;
+  --dur-slow: 0.32s;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 列表逐项入场的步长（见 .anim-item） */
+  --anim-step: 45ms;
+
+  /**
    * 衬线字体栈 —— 设计稿的**标题与价格用宋体（明朝体）**，
    * 笔画有明显粗细对比、数字带衬线，是这套稿子最明显的风格特征；
    * 正文/副标题/按钮仍用无衬线（PingFang）。
@@ -129,13 +151,9 @@ page {
   background: var(--c-gradient);
 }
 
-.card--press {
-  transition: transform 0.15s ease;
-}
-
-.card--press:active {
-  transform: scale(0.985);
-}
+/* 卡片的按下反馈统一走 `.press`（见文末动效一节），
+   原来这里还有一套 `.card--press:active` 的 scale(0.985)，两套机制并存只会让
+   「同一张卡为什么这边弹、那边不弹」变成随机问题，已删。 */
 
 /* ── 文字 ─────────────────────────────────────────────────── */
 
@@ -212,12 +230,13 @@ page {
   font-size: 30rpx;
   font-weight: 600;
   box-sizing: border-box;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
 }
 
 .btn:active {
   transform: scale(0.97);
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 .btn--primary {
@@ -286,6 +305,94 @@ page {
 .tag--accent {
   background: var(--c-accent-soft);
   color: var(--c-text-sub);
+}
+
+/**
+ * 胶囊筛选条（bookings / services / points / favorites / notices 共用）。
+ *
+ * 原来这 5 个页面**各抄了一份**，而且已经漂移成 3 套尺寸
+ * （高 58/60rpx、字号 24/25/26rpx、未选中文字 text-sub / text）。
+ * 抄第二遍时没人会发现，抄到第五遍时「筛选条长什么样」就有五个答案了 ——
+ * 这类零件只该有一个定义。
+ */
+.chip {
+  flex-shrink: 0;
+  height: 58rpx;
+  line-height: 58rpx;
+  padding: 0 26rpx;
+  margin-right: 14rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-card);
+  color: var(--c-text-sub);
+  font-size: 25rpx;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.chip:active {
+  transform: scale(0.95);
+}
+
+/* 选中：主色实心 + 白字（设计稿「全部」即如此） */
+.chip.is-active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-weight: 600;
+}
+
+/**
+ * 列表卡内的小号操作按钮（去支付 / 去评价 / 取消预约 / 拨号 …）。
+ * 同样是「每页抄一份」：三处的内边距与字号各差 1~3rpx，排在一起就是「不一样齐」。
+ * **外边距留给容器**（各页排布不同），这里只定义按钮自身。
+ */
+.mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 22rpx;
+  transition: transform var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.mini-btn:active {
+  transform: scale(0.94);
+  opacity: 0.9;
+}
+
+.mini-btn--ghost {
+  background: transparent;
+  border: 2rpx solid var(--c-primary);
+  color: var(--c-primary);
+  line-height: 48rpx;
+}
+
+/**
+ * 相邻小按钮之间自动留缝。
+ * **不用 `gap`**：flex `gap` 在 iOS 老 WKWebView 上不生效（本项目已踩过，见踩坑记录），
+ * 相邻兄弟选择器在各端都可靠。
+ */
+.mini-btn + .mini-btn {
+  margin-left: 12rpx;
+}
+
+/** 卡片下方的说明/提示文字（8 个页面共用；原来 margin-top 10~24rpx、字号 21~22rpx 各不相同） */
+.tips {
+  margin-top: 20rpx;
+  font-size: 21rpx;
+  line-height: 1.7;
+  color: var(--c-text-weak);
+}
+
+/** 空态里的行动按钮（15 个页面共用；原来 24/28/32rpx 三种外边距） */
+.empty__action {
+  margin-top: 28rpx;
 }
 
 .tag--outline {
@@ -430,7 +537,7 @@ page {
   font-size: 26rpx;
 }
 
-/* 骨架屏 */
+/* 骨架屏：微光扫过。线性更耐看（缓动会让「扫」的节奏忽快忽慢） */
 .skeleton {
   background: linear-gradient(
     90deg,
@@ -439,7 +546,7 @@ page {
     var(--c-primary-soft) 63%
   );
   background-size: 400% 100%;
-  animation: skeleton-shimmer 1.4s ease infinite;
+  animation: skeleton-shimmer 1.2s linear infinite;
   border-radius: var(--r-md);
 }
 
@@ -452,36 +559,81 @@ page {
   }
 }
 
-/* ── 动效（可爱风：轻微弹跳，不做夸张位移）────────────────── */
+/* ── 动效（可爱风：轻微弹跳，不做夸张位移）──────────────────
+ *
+ * 用法约定：
+ * - `.anim-rise`：**内容块出现时**用（骨架屏 → 真实内容的切换、首屏卡片）。
+ *   挂在「会出现/消失的那一层」上，元素重新挂载才会重播，天然不会每次 setData 都抖一下。
+ * - `.anim-pop`：小元素的弹出（空态插画、成功图标、浮层）。
+ * - `.anim-item` + `style="--i:{{index}}"`：列表逐项入场（步长 `--anim-step`）。
+ *   **只给「一次成型」的列表**（静态入口、首屏固定条目）；反复增删的筛选列表别用，
+ *   否则只有新增项在动、看起来像卡住了。
+ * - `.press` / `.press-sm`：可点区域的按下反馈（比 `:active` 更稳，且能复用）。
+ *   不给**没有 `bindtap`** 的元素加（会误导「可点」），也不给横向 `scroll-view` 内的
+ *   元素加（横向拖动会误触发 `:active`，看起来像卡住）。
+ *
+ * 只动 `transform` / `opacity`：不触发布局重排，低端机也不掉帧。
+ *
+ * ⚠️ 两个坑（都真踩过）：
+ * 1. 入场动画统一 `animation-fill-mode: backwards`（**不是 `both`**）：
+ *    `both` 会让动画末帧的 transform 一直生效（`translateY(0) scale(1)`），
+ *    从而**永久压掉 `.press:active` 的缩放** —— 表现就是「加了入场动画后按下没反应」。
+ * 2. **别把带动画/transform 的元素套在 fixed 元素的祖先上**：
+ *    祖先一旦有 transform，就会成为 `position: fixed` 后代的**包含块**，
+ *    那 0.3s 内 `.action-bar` 会被摆到内容底部、播完再跳回视口底部（可见毛刺）。
+ *    所以带底栏的页面要把动画挂在**内容容器**上，而不是整块 `wx:else` 的包裹层。
+ */
 
-.pop-in {
-  animation: pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+.anim-rise {
+  animation: anim-rise var(--dur-slow) var(--ease-out) backwards;
 }
 
-@keyframes pop-in {
-  0% {
+@keyframes anim-rise {
+  from {
     opacity: 0;
-    transform: scale(0.94);
+    transform: translateY(20rpx);
   }
-  100% {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-pop {
+  animation: anim-pop var(--dur-slow) var(--ease-back) backwards;
+}
+
+@keyframes anim-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
     opacity: 1;
     transform: scale(1);
   }
 }
 
-.fade-up {
-  animation: fade-up 0.3s ease;
+/* 列表逐项入场：`--i` 由 wxml 的 `style="--i:{{index}}"` 传入 */
+.anim-item {
+  animation: anim-rise var(--dur-slow) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * var(--anim-step));
 }
 
-@keyframes fade-up {
-  0% {
-    opacity: 0;
-    transform: translateY(16rpx);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* 按下反馈 */
+.press {
+  transition: transform var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.press:active {
+  transform: scale(0.98);
+  opacity: 0.94;
+}
+
+.press-sm:active {
+  transform: scale(0.94);
+  opacity: 0.86;
 }
 
 /* 装饰性漂浮气泡（首页头图用） */

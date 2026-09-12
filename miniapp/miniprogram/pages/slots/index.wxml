@@ -14,7 +14,7 @@
       </view>
     </view>
 
-    <view wx:if="{{emptyDraft}}" class="empty">
+    <view wx:if="{{emptyDraft}}" class="empty anim-pop">
       <view class="empty__text">还没有选款式</view>
       <view class="empty__hint">先挑一款喜欢的款式，才知道要给你留多久～</view>
       <view class="btn btn--primary btn--sm empty__action" bindtap="goPickService">去挑款式</view>
@@ -22,12 +22,12 @@
 
     <view wx:elif="{{loading}}" class="loading">正在看哪位美甲师有空…</view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__text">{{errorText}}</view>
       <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
     </view>
 
-    <block wx:else>
+    <view wx:else class="anim-rise">
       <!-- 选择时间 -->
       <view class="section">
         <view class="section__title">选择时间</view>
@@ -51,7 +51,7 @@
         <view
           wx:for="{{timeSlots}}"
           wx:key="startAt"
-          class="slots__item {{selectedStart === item.startAt ? 'is-active' : ''}}"
+          class="slots__item press-sm {{selectedStart === item.startAt ? 'is-active' : ''}}"
           data-start="{{item.startAt}}"
           bindtap="onSlot"
         >
@@ -71,7 +71,7 @@
         <view
           wx:for="{{staffList}}"
           wx:key="id"
-          class="staffs__item {{item.disabled ? 'is-disabled' : ''}}"
+          class="staffs__item press-sm {{item.disabled ? 'is-disabled' : ''}}"
           data-id="{{item.id}}"
           bindtap="onPickStaff"
         >
@@ -94,7 +94,7 @@
         maxlength="200"
         bindinput="onRemarkInput"
       />
-    </block>
+    </view>
   </view>
 
   <view class="action-bar">

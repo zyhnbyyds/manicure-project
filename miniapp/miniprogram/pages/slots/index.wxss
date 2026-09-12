@@ -207,6 +207,3 @@
   flex-shrink: 0;
 }
 
-.empty__action {
-  margin-top: 28rpx;
-}

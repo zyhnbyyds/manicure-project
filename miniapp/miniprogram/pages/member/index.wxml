@@ -18,12 +18,12 @@
 
   <view wx:elif="{{loading}}" class="loading">正在读取会员信息…</view>
 
-  <view wx:elif="{{errorText}}" class="empty">
+  <view wx:elif="{{errorText}}" class="empty anim-pop">
     <view class="empty__text">{{errorText}}</view>
-    <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
+    <view class="btn btn--primary btn--sm empty__action press-sm" bindtap="onRetry">重新加载</view>
   </view>
 
-  <block wx:else>
+  <view wx:else class="anim-rise">
     <view class="page-body card-body">
       <!-- 会员卡：渐变卡面 + 装饰圆 + M 水印 -->
       <view class="mcard">
@@ -41,15 +41,15 @@
 
       <!-- 资产三列（余额/积分/次卡） -->
       <view class="assets">
-        <view class="assets__item" bindtap="onRecharge">
+        <view class="assets__item press-sm" bindtap="onRecharge">
           <view class="assets__value">{{balanceText}}</view>
           <view class="assets__label">储值余额</view>
         </view>
-        <view class="assets__item" bindtap="onPoints">
+        <view class="assets__item press-sm" bindtap="onPoints">
           <view class="assets__value">{{points}}</view>
           <view class="assets__label">可用积分</view>
         </view>
-        <view class="assets__item" bindtap="onCards">
+        <view class="assets__item press-sm" bindtap="onCards">
           <view class="assets__value">{{cardCount}}</view>
           <view class="assets__label">有效次卡</view>
         </view>
@@ -66,7 +66,7 @@
         <view
           wx:for="{{benefits}}"
           wx:key="key"
-          class="benefits__item"
+          class="benefits__item press-sm"
           data-key="{{item.key}}"
           bindtap="onBenefit"
         >
@@ -84,10 +84,10 @@
         <view class="grow">
           <view class="promo__title">新客专享</view>
           <view class="promo__sub">首次到店立减 ¥30</view>
-          <view wx:if="{{offerId}}" class="btn btn--primary btn--sm promo__btn" bindtap="onClaim">立即领取</view>
+          <view wx:if="{{offerId}}" class="btn btn--primary btn--sm promo__btn press-sm" bindtap="onClaim">立即领取</view>
         </view>
         <image class="promo__photo" src="{{promoImage}}" mode="aspectFill" />
       </view>
     </view>
-  </block>
+  </view>
 </view>

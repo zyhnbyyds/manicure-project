@@ -1,5 +1,5 @@
 <view class="page" style="{{themeStyle}}">
-  <view wx:if="{{guest}}" class="empty">
+  <view wx:if="{{guest}}" class="empty anim-pop">
     <view class="empty__badge"><view class="empty__badge-dot"></view></view>
     <view class="empty__text">{{loggedIn ? '绑定手机号后查看次卡' : '登录后查看次卡'}}</view>
     <view class="empty__hint">次卡跟着你的手机号，绑定后就能看到剩余次数</view>
@@ -8,13 +8,17 @@
 
   <view wx:elif="{{loading}}" class="loading">正在读取次卡…</view>
 
-  <view wx:elif="{{errorText}}" class="empty">
+  <view wx:elif="{{errorText}}" class="empty anim-pop">
     <view class="empty__text">{{errorText}}</view>
     <view class="empty__hint">办卡后就能在这里查看剩余次数</view>
   </view>
 
+  <!--
+    动画加在内容容器 `.card-body` 上，**不**把整个 `wx:else` 包成带 `anim-rise` 的 view：
+    块内还有 `position: fixed` 的 `.action-bar`，祖先一旦有 transform 就会成为它的包含块。
+  -->
   <block wx:else>
-    <view class="page-body card-body">
+    <view class="page-body card-body anim-rise">
       <!-- 卡头：名称 + 有效期 + 剩余次数 -->
       <view class="head">
         <view class="head__top">
@@ -37,7 +41,7 @@
       <view class="section">
         <view class="section__title">到店核销码</view>
       </view>
-      <view class="card code" bindtap="onCodeTap">
+      <view class="card code press" bindtap="onCodeTap">
         <view class="code__frame">
           <!-- 不伪造二维码：假码扫出来是错的，比没有更糟 -->
           <view class="code__placeholder">

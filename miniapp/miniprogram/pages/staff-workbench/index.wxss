@@ -228,24 +228,6 @@
   margin-top: 18rpx;
 }
 
-.mini-btn {
-  height: 56rpx;
-  line-height: 56rpx;
-  padding: 0 26rpx;
-  margin-left: 14rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-  font-size: 23rpx;
-}
-
-.mini-btn--ghost {
-  background: transparent;
-  border: 2rpx solid var(--c-primary);
-  color: var(--c-primary);
-  line-height: 52rpx;
-}
-
 .empty--inline {
   padding: 60rpx 40rpx;
   background: var(--c-card);

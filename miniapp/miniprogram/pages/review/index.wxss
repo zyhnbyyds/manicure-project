@@ -134,6 +134,3 @@
   color: var(--c-text-weak);
 }
 
-.empty__action {
-  margin-top: 28rpx;
-}

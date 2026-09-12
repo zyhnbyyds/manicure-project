@@ -13,26 +13,31 @@
 
     <view wx:if="{{loading}}" class="loading">正在读取账户…</view>
 
-    <view wx:elif="{{needBind}}" class="empty">
+    <view wx:elif="{{needBind}}" class="empty anim-pop">
       <view class="empty__text">绑定手机号后才能充值</view>
       <view class="empty__hint">手机号是会员与充值对账的唯一锚点</view>
     </view>
 
-    <view wx:elif="{{errorText}}" class="empty">
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
       <view class="empty__text">{{errorText}}</view>
       <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry">重新加载</view>
     </view>
 
+    <!--
+      注意：动画加在**内容容器** `.plans`/`.custom` 上，而不是把整个 `wx:else` 包成带
+      `anim-rise` 的 view —— 页面下方的 `.action-bar` 是 `position: fixed`，
+      祖先一旦有 transform 就会成为它的包含块，动画那 0.3s 底栏会先被摆到内容底部再跳回来。
+    -->
     <block wx:else>
       <!-- 选择充值金额 -->
       <view class="section">
         <view class="section__title">选择充值金额</view>
       </view>
-      <view class="plans">
+      <view class="plans anim-rise">
         <view
           wx:for="{{plans}}"
           wx:key="amount"
-          class="plan {{activeIndex === index ? 'is-active' : ''}}"
+          class="plan press {{activeIndex === index ? 'is-active' : ''}}"
           data-index="{{index}}"
           bindtap="onPickPlan"
         >

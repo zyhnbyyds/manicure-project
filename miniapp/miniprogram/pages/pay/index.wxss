@@ -126,13 +126,3 @@
   background: var(--c-primary);
 }
 
-.tips {
-  margin-top: 20rpx;
-  font-size: 22rpx;
-  line-height: 1.6;
-  color: var(--c-text-weak);
-}
-
-.empty__action {
-  margin-top: 28rpx;
-}

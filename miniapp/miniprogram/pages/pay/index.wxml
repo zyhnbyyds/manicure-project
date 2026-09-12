@@ -1,6 +1,6 @@
 <view class="page pay" style="{{themeStyle}}">
   <!-- 收银台必须先有身份：未绑定时引导，而不是显示加载失败 -->
-  <view wx:if="{{guest}}" class="empty">
+  <view wx:if="{{guest}}" class="empty anim-pop">
     <view class="empty__text">{{loggedIn ? '绑定手机号后才能支付' : '登录后才能支付'}}</view>
     <view class="empty__hint">支付需要确认订单归属，绑定手机号即可继续</view>
     <view class="btn btn--primary empty__action" bindtap="onGuestLogin">去登录 / 绑定</view>
@@ -8,13 +8,13 @@
 
   <view wx:elif="{{loading}}" class="loading">正在读取订单…</view>
 
-  <view wx:elif="{{errorText}}" class="empty">
+  <view wx:elif="{{errorText}}" class="empty anim-pop">
     <view class="empty__text">{{errorText}}</view>
     <view class="btn btn--primary btn--sm empty__action" bindtap="goBookings">看我的预约</view>
   </view>
 
   <block wx:else>
-    <view class="page-body pay-body">
+    <view class="page-body pay-body anim-rise">
       <!-- 待付金额：整页最重的视觉 -->
       <view class="amount">
         <view class="amount__label">待付金额</view>
@@ -25,7 +25,7 @@
       </view>
 
       <!-- 订单摘要（点击回订单列表） -->
-      <view class="card order" bindtap="onOrderTap">
+      <view class="card order press" bindtap="onOrderTap">
         <view class="grow">
           <view class="order__name ellipsis">{{booking.itemNames}}</view>
           <view class="order__meta">{{booking.dateText}} {{booking.timeText}} · {{booking.staffName}}</view>
@@ -41,7 +41,7 @@
         <view
           wx:for="{{methods}}"
           wx:key="key"
-          class="method {{item.enabled ? '' : 'is-disabled'}} {{activeMethod === item.key ? 'is-active' : ''}}"
+          class="method press {{item.enabled ? '' : 'is-disabled'}} {{activeMethod === item.key ? 'is-active' : ''}}"
           data-key="{{item.key}}"
           bindtap="onPickMethod"
         >

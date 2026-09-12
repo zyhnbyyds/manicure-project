@@ -116,9 +116,3 @@
   color: var(--c-text-weak);
 }
 
-.tips {
-  margin-top: 20rpx;
-  font-size: 21rpx;
-  line-height: 1.7;
-  color: var(--c-text-weak);
-}

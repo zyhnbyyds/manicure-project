@@ -117,18 +117,8 @@
   font-size: 26rpx;
 }
 
-.tips {
-  margin-top: 22rpx;
-  font-size: 21rpx;
-  line-height: 1.7;
-  color: var(--c-text-weak);
-}
-
 .action-bar__submit {
   width: 300rpx;
   flex-shrink: 0;
 }
 
-.empty__action {
-  margin-top: 28rpx;
-}

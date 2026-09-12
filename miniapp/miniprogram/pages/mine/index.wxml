@@ -5,7 +5,7 @@
     style="padding-top:{{statusBarHeight}}px;padding-right:{{navRightGap}}px"
   >
     <view class="navbar__avatar">{{nickname}}</view>
-    <view class="navbar__settings" bindtap="onSettings">
+    <view class="navbar__settings press-sm" bindtap="onSettings">
       <image class="navbar__settings-icon" src="{{icons.settings}}" mode="aspectFit" />
     </view>
   </view>
@@ -22,23 +22,23 @@
     </view>
 
     <!-- 三列数据：**只有已绑定才显示**。未登录时显示 0 会让人误以为「我的资产是 0」 -->
-    <view wx:if="{{bound}}" class="stats">
-      <view class="stats__item" data-key="booking" bindtap="onStatTap">
+    <view wx:if="{{bound}}" class="stats anim-rise">
+      <view class="stats__item press-sm" data-key="booking" bindtap="onStatTap">
         <view class="stats__value">{{bookingCount}}</view>
         <view class="stats__label">我的预约</view>
       </view>
-      <view class="stats__item" data-key="favorite" bindtap="onStatTap">
+      <view class="stats__item press-sm" data-key="favorite" bindtap="onStatTap">
         <view class="stats__value">{{favoriteCount}}</view>
         <view class="stats__label">收藏款式</view>
       </view>
-      <view class="stats__item" data-key="coupon" bindtap="onStatTap">
+      <view class="stats__item press-sm" data-key="coupon" bindtap="onStatTap">
         <view class="stats__value">{{couponCount}}</view>
         <view class="stats__label">优惠券</view>
       </view>
     </view>
 
     <!-- 未绑定：登录引导（文案区分「没登录」与「登录了没绑手机号」） -->
-    <view wx:else class="card guest">
+    <view wx:else class="card guest anim-pop">
       <view class="guest__title">
         {{loggedIn ? '绑定手机号，解锁会员权益' : '登录后查看会员权益'}}
       </view>
@@ -51,11 +51,11 @@
       <view class="section__title">我的订单</view>
       <view class="section__more" bindtap="goBookings">查看全部 ›</view>
     </view>
-    <view wx:if="{{bound}}" class="card orders">
+    <view wx:if="{{bound}}" class="card orders anim-rise">
       <view
         wx:for="{{orderTabs}}"
         wx:key="label"
-        class="orders__item"
+        class="orders__item press-sm"
         data-key="{{item.key}}"
         bindtap="onOrderTab"
       >
@@ -69,7 +69,7 @@
       <view
         wx:for="{{menu}}"
         wx:key="key"
-        class="menu__item"
+        class="menu__item press"
         data-key="{{item.key}}"
         bindtap="onMenuTap"
       >
@@ -77,7 +77,7 @@
         <view class="grow">{{item.label}}</view>
         <view class="menu__arrow">›</view>
       </view>
-      <view class="menu__item menu__item--last" bindtap="goTheme">
+      <view class="menu__item menu__item--last press" bindtap="goTheme">
         <image class="menu__icon" src="{{icons.settings}}" mode="aspectFit" />
         <view class="grow">主题设置</view>
         <view class="menu__value">{{themeLine}}</view>
@@ -86,7 +86,7 @@
     </view>
 
     <!-- 美甲师工作台（只有申请过的人才看得到，文案由 store/mode 决定） -->
-    <view wx:if="{{staffText}}" class="card staff-block">
+    <view wx:if="{{staffText}}" class="card staff-block anim-pop">
       <view class="staff-block__text">{{staffText}}</view>
       <view
         wx:if="{{granted}}"

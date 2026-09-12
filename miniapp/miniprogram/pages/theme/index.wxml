@@ -1,5 +1,5 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body theme-body">
+  <view class="page-body theme-body anim-rise">
     <!-- 当前主题 -->
     <view class="current">
       <view class="current__dot"></view>
@@ -42,7 +42,7 @@
       <view
         wx:for="{{presets}}"
         wx:key="id"
-        class="preset {{activePresetId === item.id && !isCustom ? 'is-active' : ''}}"
+        class="preset press {{activePresetId === item.id && !isCustom ? 'is-active' : ''}}"
         data-id="{{item.id}}"
         bindtap="onPreset"
       >
@@ -69,7 +69,7 @@
         <view
           wx:for="{{palette}}"
           wx:key="hex"
-          class="palette__item {{customPrimary === item.hex ? 'is-active' : ''}}"
+          class="palette__item press-sm {{customPrimary === item.hex ? 'is-active' : ''}}"
           style="background: {{item.hex}}"
           data-hex="{{item.hex}}"
           bindtap="onCustom"
@@ -82,7 +82,7 @@
       </view>
     </view>
 
-    <view class="btn btn--ghost btn--block reset" bindtap="onReset">恢复默认主题</view>
+    <view class="btn btn--ghost btn--block reset press" bindtap="onReset">恢复默认主题</view>
     <view class="safe-bottom"></view>
   </view>
 </view>

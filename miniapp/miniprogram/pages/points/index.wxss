@@ -69,23 +69,6 @@
   display: flex;
 }
 
-.chip {
-  flex-shrink: 0;
-  height: 58rpx;
-  line-height: 58rpx;
-  padding: 0 26rpx;
-  margin-right: 14rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-card);
-  color: var(--c-text-sub);
-  font-size: 24rpx;
-}
-
-.chip.is-active {
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-}
-
 /* ── 商品网格：两列 ───────────────────────────────────────── */
 
 .goods {
@@ -149,17 +132,6 @@
   background: var(--c-primary);
   color: var(--c-on-primary);
   font-size: 22rpx;
-}
-
-.tips {
-  margin-top: 10rpx;
-  font-size: 21rpx;
-  line-height: 1.7;
-  color: var(--c-text-weak);
-}
-
-.empty__action {
-  margin-top: 28rpx;
 }
 
 /* 未绑定时的积分占位（点它去登录） */

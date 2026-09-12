@@ -2,12 +2,12 @@
   <!-- 顶部门店照（沉浸式，压在状态栏下） -->
   <view class="hero">
     <image class="hero__img" src="{{shop.image}}" mode="aspectFill" />
-    <view class="hero__back" style="top:{{statusBarHeight}}px" bindtap="onSkip">
+    <view class="hero__back press-sm" style="top:{{statusBarHeight}}px" bindtap="onSkip">
       <text class="hero__back-icon">×</text>
     </view>
   </view>
 
-  <view class="body">
+  <view class="body anim-rise">
     <view class="brand">
       <view class="brand__name">{{shop.name}}</view>
       <view class="brand__en">{{shop.nameEn}}</view>
@@ -21,7 +21,7 @@
       <view
         wx:for="{{entries}}"
         wx:key="key"
-        class="entries__item"
+        class="entries__item press"
         data-key="{{item.key}}"
         bindtap="onEntry"
       >
@@ -33,14 +33,14 @@
     <!-- 登录动作 -->
     <view class="actions">
       <view
-        class="btn btn--primary btn--block"
+        class="btn btn--primary btn--block press"
         bindtap="onWechatLogin"
       >
         {{logging ? '处理中…' : '微信一键登录'}}
       </view>
 
       <button
-        class="btn btn--ghost btn--block phone-btn"
+        class="btn btn--ghost btn--block phone-btn press"
         open-type="getPhoneNumber"
         bindgetphonenumber="onGetPhone"
       >
@@ -55,6 +55,6 @@
       <text class="agree__link" data-kind="privacy" bindtap="onAgreement">隐私政策</text>
     </view>
 
-    <view class="skip" bindtap="onSkip">先逛逛 ›</view>
+    <view class="skip press-sm" bindtap="onSkip">先逛逛 ›</view>
   </view>
 </view>

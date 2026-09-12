@@ -79,9 +79,3 @@
   color: var(--c-text-sub);
 }
 
-.tips {
-  margin-top: 22rpx;
-  font-size: 22rpx;
-  line-height: 1.6;
-  color: var(--c-text-weak);
-}

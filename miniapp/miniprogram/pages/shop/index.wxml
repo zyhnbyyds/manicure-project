@@ -1,5 +1,5 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body shop-body">
+  <view class="page-body shop-body anim-rise">
     <!-- 门店照片 -->
     <image class="hero" src="{{shopImage}}" mode="aspectFill" />
 
@@ -15,7 +15,7 @@
       <view
         wx:for="{{rows}}"
         wx:key="key"
-        class="row {{index === rows.length - 1 ? 'row--last' : ''}}"
+        class="row press {{index === rows.length - 1 ? 'row--last' : ''}}"
         data-key="{{item.key}}"
         bindtap="onRowTap"
       >
@@ -29,6 +29,6 @@
   </view>
 
   <view class="action-bar">
-    <view class="btn btn--primary btn--block" bindtap="goBooking">预约到店</view>
+    <view class="btn btn--primary btn--block press" bindtap="goBooking">预约到店</view>
   </view>
 </view>

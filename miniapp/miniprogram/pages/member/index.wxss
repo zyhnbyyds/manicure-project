@@ -221,6 +221,3 @@
   border: none;
 }
 
-.empty__action {
-  margin-top: 28rpx;
-}

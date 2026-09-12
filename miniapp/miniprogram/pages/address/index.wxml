@@ -1,7 +1,7 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body addr-body">
+  <view class="page-body addr-body anim-rise">
     <!-- 空态：到店服务不需要收货地址，如实说明 -->
-    <view class="empty">
+    <view class="empty anim-pop">
       <view class="empty__badge">
         <image class="empty__icon" src="{{icons.location}}" mode="aspectFit" />
       </view>
@@ -17,8 +17,8 @@
       </view>
       <view class="addr__detail">{{item.detail}}</view>
       <view class="addr__actions">
-        <view class="mini-btn" data-id="{{item.id}}" bindtap="onEdit">编辑</view>
-        <view class="mini-btn mini-btn--ghost" data-id="{{item.id}}" bindtap="onDelete">删除</view>
+        <view class="mini-btn press-sm" data-id="{{item.id}}" bindtap="onEdit">编辑</view>
+        <view class="mini-btn mini-btn--ghost press-sm" data-id="{{item.id}}" bindtap="onDelete">删除</view>
       </view>
     </view>
 
@@ -28,6 +28,6 @@
   </view>
 
   <view class="action-bar">
-    <view class="btn btn--primary btn--block" bindtap="onAdd">新增收货地址</view>
+    <view class="btn btn--primary btn--block press" bindtap="onAdd">新增收货地址</view>
   </view>
 </view>

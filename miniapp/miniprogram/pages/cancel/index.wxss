@@ -65,13 +65,6 @@
   color: var(--c-text-sub);
 }
 
-.tips {
-  margin-top: 20rpx;
-  font-size: 21rpx;
-  line-height: 1.7;
-  color: var(--c-text-weak);
-}
-
 /* ── 底部 ─────────────────────────────────────────────────── */
 
 .cancel-again {
@@ -84,6 +77,3 @@
   margin-left: 20rpx;
 }
 
-.empty__action {
-  margin-top: 28rpx;
-}
