@@ -2564,3 +2564,98 @@ export const relations = defineRelations(
     },
   }),
 );
+
+/* ------------------------------------------------------------------ *
+ * 优惠券（本目标新增）
+ *
+ * 设计口径（写下来免得以后被"顺手"改坏）：
+ * 1. 首期只做「满 X 减 Y」固定面额券，不做折扣券/品类券 —— 先把生命周期做对；
+ * 2. 算价位置：**等级折扣之后、积分抵扣之前**；**与积分同一单二选一**
+ *    （避免抵到 0 元与核销口径混乱）；
+ * 3. 核销闸门：`used_booking_id` **唯一索引** + 条件更新
+ *    （`WHERE id=? AND status='usable' AND used_booking_id IS NULL`），
+ *    `affectedRows=0` 即拒绝 —— 这是防「一券多用」唯一可靠的做法；
+ * 4. 面额与门槛在下发时**快照**到持有行，模板改价不影响已发出的券。
+ * ------------------------------------------------------------------ */
+
+/** 优惠券模板（后台维护） */
+export const bizCouponTemplates = mysqlTable(
+  'biz_coupon_template',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    /** 使用门槛（分）；0 = 无门槛 */
+    thresholdAmount: int('threshold_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    /** 面额（分） */
+    discountAmount: int('discount_amount', { unsigned: true }).notNull(),
+    /** 领取后有效天数；0 = 用 valid_from / valid_to 的绝对区间 */
+    validDays: int('valid_days', { unsigned: true }).default(0).notNull(),
+    validFrom: timestamp('valid_from'),
+    validTo: timestamp('valid_to'),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_coupon_template_name').on(table.name),
+    index('idx_coupon_template_status').on(table.status, table.sort),
+  ],
+);
+
+/** 顾客持有的券（发放 → 使用 → 过期） */
+export const bizCustomerCoupons = mysqlTable(
+  'biz_customer_coupon',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    couponNo: varchar('coupon_no', { length: 32 }).notNull(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    templateId: int('template_id', { unsigned: true }).notNull(),
+    /** 下发时的面额快照（分） */
+    discountAmount: int('discount_amount', { unsigned: true }).notNull(),
+    /** 下发时的门槛快照（分） */
+    thresholdAmount: int('threshold_amount', { unsigned: true })
+      .default(0)
+      .notNull(),
+    status: mysqlEnum('status', ['usable', 'used', 'expired', 'void'])
+      .default('usable')
+      .notNull(),
+    expireAt: timestamp('expire_at'),
+    /** 核销到哪一单；唯一索引保证「一张券只核销一单、一单只用一张券」 */
+    usedBookingId: int('used_booking_id', { unsigned: true }),
+    usedAt: timestamp('used_at'),
+    source: varchar('source', { length: 30 }).default('manual').notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_customer_coupon_no').on(table.couponNo),
+    // 一单只允许核销一张券：唯一索引兜底（未使用的券 used_booking_id 为 NULL，
+    // MySQL 唯一索引允许多个 NULL，所以不影响它们）
+    uniqueIndex('uq_customer_coupon_booking').on(table.usedBookingId),
+    index('idx_customer_coupon_owner').on(
+      table.customerId,
+      table.status,
+      table.expireAt,
+    ),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_customer_coupon_customer',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.templateId],
+      foreignColumns: [bizCouponTemplates.id],
+      name: 'fk_customer_coupon_template',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.usedBookingId],
+      foreignColumns: [bizBookings.id],
+      name: 'fk_customer_coupon_booking',
+    }).onDelete('set null'),
+  ],
+);
