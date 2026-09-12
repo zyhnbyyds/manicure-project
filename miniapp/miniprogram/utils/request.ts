@@ -6,9 +6,25 @@
  * - 登录态由 `utils/token.ts` 持有，这里只负责塞 `Authorization`；
  * - **401 + `needBind` 不清 token**：后端用这个组合表示「已登录但未绑定手机号」
  *   （spec §9.7 验收项），清掉 token 会把用户变成未登录，体验更差；
- * - 其它 401 才清登录态（token 过期/被拒）；
+ * - **其它 401 会清登录态并自动重登一次**（见下）；
  * - `501` 统一转成「功能尚未开放」：剩余骨架（JSAPI 支付等）被点到时必须能优雅落地，
  *   不能让用户看到 `NotImplementedException`。
+ *
+ * ## 为什么要有「自动重登」
+ *
+ * app token 的 TTL 是 **15 分钟**（后端 `expiresIn: 15m`）。原本的实现在 401 时
+ * 只做 `clearAuth()`，而**没有任何地方会重新登录**（`ensureLogin()` 只在
+ * `app.ts` 的 `onLaunch` 跑一次）。于是：token 一过期，每个请求都 401，
+ * **用户必须杀掉小程序重开才能恢复** —— 这是真机上很容易撞到的坑。
+ *
+ * 现在的行为：非 `needBind` 的 401 → 清 token → **重新登录 → 原请求重试一次**；
+ * 再失败才把错误交给页面。重试只做一次，避免 401 循环。
+ *
+ * ## 为什么用「注册回调」而不是直接 import `store/auth`
+ *
+ * `store/auth` → `api/index` → `utils/request`，若这里再 import `store/auth` 就成环。
+ * `utils/token.ts` 开头已说明这个依赖方向问题，所以这里反转依赖：
+ * 由 `store/auth` 在模块初始化时把「重新登录」注册进来。
  */
 import { API_BASE, REQUEST_TIMEOUT } from '../config';
 import { clearAuth, getToken } from './token';
@@ -54,6 +70,18 @@ export function isApiFailure(error: unknown): error is ApiFailure {
   return error instanceof ApiFailure;
 }
 
+/**
+ * 「重新登录」的注册点。
+ *
+ * `store/auth.ts` 在模块初始化时注册 `ensureLogin`；这样 `request.ts` 不必
+ * 反向依赖 `store/auth`（会成环）。未注册时退化为旧行为（只报错，不重试）。
+ */
+let reauthHandler: (() => Promise<void>) | null = null;
+
+export function setReauthHandler(handler: (() => Promise<void>) | null): void {
+  reauthHandler = handler;
+}
+
 /** 把后端可能返回的 `string | string[]` 消息收敛成一句人话 */
 function normalizeMessage(
   body: ApiErrorBody | undefined,
@@ -86,6 +114,14 @@ function buildQuery(data?: Record<string, unknown>): string {
 }
 
 export function request<T>(options: RequestOptions): Promise<T> {
+  return send<T>(options, false);
+}
+
+/**
+ * `alreadyRetried` = 本次调用是否已经因 401 重试过一次。
+ * **只重试一次**：若重登后仍然 401（例如后端撤了授权），继续重试会变成死循环。
+ */
+function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
   const method = options.method ?? 'GET';
   const useAuth = options.auth !== false;
   const token = getToken();
@@ -124,17 +160,22 @@ export function request<T>(options: RequestOptions): Promise<T> {
 
         if (status === 401) {
           const needBind = Boolean(body?.needBind);
+          // `needBind` 是「已登录但未绑定手机号」，不是登录态失效 —— 不能清 token
           if (!needBind) clearAuth();
-          reject(
-            new ApiFailure(
-              normalizeMessage(
-                body,
-                needBind ? '请先绑定手机号' : '登录已过期，请重新进入',
-              ),
-              status,
-              needBind,
-            ),
+          const message = normalizeMessage(
+            body,
+            needBind ? '请先绑定手机号' : '登录已过期，请重新进入',
           );
+
+          // token 过期/被拒：自动重新登录后原请求重试一次（见文件头说明）
+          if (!needBind && !alreadyRetried && reauthHandler) {
+            reauthHandler()
+              .then(() => resolve(send<T>(options, true)))
+              .catch(() => reject(new ApiFailure(message, status)));
+            return;
+          }
+
+          reject(new ApiFailure(message, status, needBind));
           return;
         }
 

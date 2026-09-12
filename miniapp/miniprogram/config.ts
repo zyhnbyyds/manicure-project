@@ -10,7 +10,27 @@
  */
 
 /** 后端 API 基址（`API_PREFIX=api/v1`，端口取自根 .env 的 PORT=3000） */
-export const API_BASE = 'http://127.0.0.1:3000/api/v1';
+/**
+ * 后端 API 基址（`API_PREFIX=api/v1`，端口取自根 .env 的 PORT=3000）。
+ *
+ * **为什么写局域网 IP 而不是 `127.0.0.1`**：
+ * 模拟器里两者都能用，但**真机上 `127.0.0.1` 指向手机自己**，必然连不上。
+ * 统一用局域网地址 → 一套配置同时服务模拟器与真机。
+ *
+ * 取本机局域网 IP（Windows）：
+ *   Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' }
+ * **挑「有默认网关」的那张网卡** —— VMware / Hyper-V / 蓝牙的虚拟网卡也能通，
+ * 但手机连不上（本机当前是 WLAN 192.168.0.101，网关 192.168.0.1）。
+ * 换网络后 DHCP 可能改号，需要改这里。
+ *
+ * 真机调试的三个前提：
+ * 1. 手机与电脑连**同一个 Wi-Fi**；
+ * 2. 手机打开**调试模式**（跳过合法域名校验）—— 本项目走 http + IP；
+ * 3. **Windows 防火墙放行入站 3000**，否则手机侧一律连不上。
+ *    快速自检：用**手机浏览器**打开 http://192.168.0.101:3000/api/v1/health，
+ *    能看到 JSON 就说明网络通了（在本机浏览器自测是**测不出防火墙**的）。
+ */
+export const API_BASE = 'http://192.168.0.101:3000/api/v1';
 
 /** 请求超时（毫秒） */
 export const REQUEST_TIMEOUT = 10000;

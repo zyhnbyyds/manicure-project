@@ -173,3 +173,34 @@
   控制台里 `deprecated` 与 `getSystemInfoSync` 均 **0 条**，且页面正常渲染。
 - **注意**：**弃用告警会淹掉真问题**。这次就是它先出现、语法错误后出现，
   两件事混在一起时容易只盯一个。控制台应当保持「零告警」。
+
+---
+
+## 12. token 只活 15 分钟，而 401 只清 token 不重登 → 应用「卡死」必须重启
+
+- **现象**：小程序开着一段时间后，**每个页面都报 `Unauthorized`**，杀掉重开就恢复正常。
+- **根因（两个叠加）**：
+  1. app token 的 TTL 是 **15 分钟**（后端 `expiresIn: "15m"`）；
+  2. `utils/request.ts` 遇到非 `needBind` 的 401 只做 `clearAuth()`，
+     而**没有任何地方会重新登录** —— `ensureLogin()` 只在 `app.ts` 的 `onLaunch` 调用一次；
+     更糟的是 `ensureLogin()` 的判断是 `isLoggedIn()`，**只看 token 在不在、不看有没有过期**，
+     所以「带着过期 token 启动」时它也会直接跳过。
+
+  于是 token 一过期就进入死状态：清掉 → 不再登录 → 每次请求都 401。
+- **正确做法**：非 `needBind` 的 401 → 清 token → **重新登录 → 原请求重试一次**
+  （**只重试一次**，否则后端撤权会变成 401 死循环）。
+  - **不能在 `request.ts` 里 import `store/auth`**：`auth → api → request` 会成环
+    （`utils/token.ts` 开头就解释过这个依赖方向问题）。用 `setReauthHandler()` 注册回调
+    **反转依赖**，由 `store/auth` 在模块初始化时把 `ensureLogin` 注册进来；
+  - 并发 401 的去重靠 `ensureLogin()` 里已有的 `loginPromise`。
+- **怎么发现的**：用户报真机 401 → 查本地 storage 发现**没有 token**、
+  而控制台**没有**「静默登录失败」日志 → 反推出「清了但没人重登」。
+- **为什么之前一直没发现（这条最值得记）**：
+  历次验证我都是**手动 `wx.setStorageSync` 塞一个新的有效 token**，
+  从来没走过「token 过期」这条路。**用手工种数据代替真实流程，会掩盖真实缺陷。**
+- **验证方法（细节决定成败）**：必须让**新的 JS 上下文读到那个坏 token**，否则测不出来：
+  1. `wx.setStorageSync('manicure:token', 'garbage')`；
+  2. **`simulator_refresh`** —— 重置模块级缓存，但**保留 storage**
+     （先用一个探针 key 证明 storage 不被清，否则无法区分「自愈」与「被清后重新登录」）；
+  3. 进页面 → 期望 **自愈**：`items>0`、`err=none`，且 storage 里的 token
+     变成**真实 JWT 长度**（几百字符）。

@@ -16,8 +16,19 @@ import { authApi } from '../api/index';
 import type { BindPhoneVo } from '../api/types';
 import { clearMode, rememberStaffStatus } from './mode';
 import { setBoundCustomerId, clearAuth, getBoundCustomerId, getToken, setToken } from '../utils/token';
+import { setReauthHandler } from '../utils/request';
 
 let loginPromise: Promise<void> | null = null;
+
+/**
+ * 把「重新登录」注册给请求层。
+ *
+ * 反转依赖：`store/auth` → `api/index` → `utils/request`，
+ * 若 request 反过来 import 这里就成环（`utils/token.ts` 开头解释过这个方向问题）。
+ * 注册之后，**请求层遇到「token 过期」的 401 会自动重登并重试一次** ——
+ * 否则 token（TTL 15 分钟）一过期，用户得杀进程重开才能恢复。
+ */
+setReauthHandler(() => ensureLogin());
 
 function wxLogin(): Promise<string> {
   return new Promise((resolve, reject) => {
