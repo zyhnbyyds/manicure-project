@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
@@ -405,6 +409,25 @@ export class AppMemberService {
     };
   }
 
+  /**
+   * 单笔预约详情（本人）。
+   *
+   * 支付页用它：① 按 id 直取，不再从列表前 50 条里 find（老单会查不到）；
+   * ② **支付后轮询它确认**（`payStatus` / `dueAmount` 是服务端事实）——
+   *    `wx.requestPayment` 成功只代表微信收银台走完了，不代表账已落。
+   */
+  async bookingDetail(
+    appUserId: number,
+    bookingId: number,
+  ): Promise<AppBookingVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const booking = await this.bookingPort.findForCustomer(
+      customerId,
+      bookingId,
+    );
+    if (!booking) throw new NotFoundException('预约不存在');
+    return mapBooking(booking);
+  }
   /**
    * 自助下单（A10）。
    *

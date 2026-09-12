@@ -39,6 +39,7 @@ import {
   appSubscribeRequestSchema,
   appWxpayJsapiRequestSchema,
   type AppBookingListVo,
+  type AppBookingVo,
   type AppCancelBookingVo,
   type AppCreateBookingVo,
   type AppReviewVo,
@@ -294,6 +295,32 @@ export class AppMemberController {
     });
   }
 
+  @Get('bookings/:id')
+  @ApiOperation({
+    summary: '预约详情（本人）',
+    description:
+      '按 id 直取，客户端不必再从列表里翻找（老单翻不到会误报「找不到订单」）。\n' +
+      '**归属只认 token**：他人的单与不存在的单统一返回 404 —— ' +
+      '刻意不区分 403，否则会泄露「这个 id 存在、只是不属于你」。\n' +
+      '支付页用它做**支付后确认**：`payStatus` / `dueAmount` 是服务端事实，' +
+      '`wx.requestPayment` 成功只代表微信收银台走完，不代表账已落库。',
+  })
+  @ApiParam({ name: 'id', description: '预约 ID', example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppBookingVo' },
+  })
+  @ApiResponse({ status: 401, description: '未登录，或未绑定手机号' })
+  @ApiResponse({ status: 404, description: '预约不存在或不属于本人' })
+  bookingDetail(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<AppBookingVo> {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.bookingDetail(appUser.id, id);
+  }
   @Post('bookings')
   @ApiOperation({
     summary: '自助下单',

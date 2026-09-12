@@ -676,6 +676,16 @@ export abstract class BookingPort {
     filter?: { status?: BookingStatus | undefined },
   ): Promise<PageResult<BookingWithItems>>;
   /**
+   * 按 id 取**本人**的预约详情（app 域自助支付 / 详情页用）。
+   *
+   * 不是本人的单与不存在的单**一律返回 `null`**（调用方统一映射 404）——
+   * 刻意不区分 403/404：那会泄露「这个 id 存在、只是不属于你」。
+   */
+  abstract findForCustomer(
+    customerId: number,
+    bookingId: number,
+  ): Promise<BookingWithItems | null>;
+  /**
    * 自助下单（A10）。
    *
    * **复用后台创建九步**（§9.5）：前置校验 → 算价 → 锁美甲师行 → 冲突复检 →

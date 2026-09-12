@@ -362,6 +362,32 @@ export class BookingsService implements BookingPort {
     return { items: await this.attachItems(rows), page, pageSize };
   }
 
+  /**
+   * 按 id 取**本人**的预约（app 域）。
+   *
+   * 复用 `selectByScope`，与列表同一套软删 / 归属口径；
+   * 查不到返回 null（调用方映射 404，刻意不区分 403 —— 否则泄露
+   * 「这个 id 存在、只是不属于你」）。
+   */
+  async findForCustomer(
+    customerId: number,
+    bookingId: number,
+  ): Promise<BookingWithItems | null> {
+    const rows = await this.selectByScope(
+      // 两个条件的 and 不会是 undefined，这里断言是安全的
+      and(
+        eq(bizBookings.id, bookingId),
+        eq(bizBookings.customerId, customerId),
+      )!,
+      {},
+      1,
+      1,
+    );
+    const [row] = rows;
+    if (!row) return null;
+    const [withItems] = await this.attachItems([row]);
+    return withItems ?? null;
+  }
   async arriveForStaff(
     id: number,
     staffId: number,
