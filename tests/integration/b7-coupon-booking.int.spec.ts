@@ -108,9 +108,11 @@ beforeAll(async () => {
   date = addLocalDays(shopToday(), 3);
 }, 120_000);
 
+// 显式给足超时：`resetBusinessData()` 在整套回归满载时可能超过 vitest 默认的 10 秒，
+// 会给整个套件带来随机红（本文件曾因此挂过一次）；与既有 spec 的 beforeAll(..., 120_000) 同一约定。
 beforeEach(async () => {
   await ctx.resetBusinessData();
-});
+}, 60_000);
 
 afterAll(async () => {
   await ctx.close();
