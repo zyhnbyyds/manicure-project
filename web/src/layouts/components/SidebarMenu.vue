@@ -55,7 +55,16 @@ function go(path: string) {
     />
   </nav>
 
-  <!-- 折叠态：仅图标 -->
+  <!--
+    折叠态：仅图标。
+
+    ⚠️ `shrink-0` **不能删**。nav 是 `flex flex-col`，而 flex 子项默认 `flex-shrink: 1`：
+    菜单有 40 多个，每个 36px 高 + 4px gap 需要 1600px 上下，一屏装不下时浏览器会把
+    每个按钮**压扁**（实测 36px 被压到 ~23px，间距只剩 ~28px），于是整条侧栏变成一条
+    挤在一起、看不清的「图标条」—— 表现为「折叠菜单展示有问题」。
+    加上 `shrink-0` 后按钮保持 36px，超出的部分交给 `overflow-y-auto` 滚动。
+    注意 `overflow-y-auto` **不能**阻止 flex 收缩，两者解决的是不同问题。
+  -->
   <nav
     v-else
     class="flex-1 overflow-y-auto p-2 flex flex-col items-center gap-1"
@@ -63,7 +72,7 @@ function go(path: string) {
     <button
       v-for="item in collapsedItems"
       :key="item.key"
-      class="icon-btn !w-36px !h-36px"
+      class="icon-btn shrink-0 !w-36px !h-36px"
       :class="{
         '!bg-[var(--lew-color-primary-light)] !text-[var(--lew-color-primary)]':
           activeValue === item.path,

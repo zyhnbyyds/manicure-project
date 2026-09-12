@@ -1,6 +1,7 @@
 import type { Component } from 'vue';
 import {
   Activity,
+  Bot,
   Clock,
   Code2,
   FileText,
@@ -15,6 +16,7 @@ import {
   Shield,
   SlidersHorizontal,
   Tags,
+  Ticket,
   UserCog,
   Users,
   Building2,
@@ -60,6 +62,11 @@ const ICON_MAP: Record<string, Component> = {
   server: Server,
   activity: Activity,
   folder: FolderCog,
+  // 下面两个是 seed/menus.ts 里实际用到、但一度漏配的图标：
+  // 漏配不会报错，只会静默回落到 DEFAULT_ICON（Activity）——
+  // 「优惠券模板」和 AI 入口因此跟别的菜单长得一模一样，属于很难发现的一类 bug。
+  coupon: Ticket,
+  bot: Bot,
 };
 
 const DEFAULT_ICON: Component = Activity;
