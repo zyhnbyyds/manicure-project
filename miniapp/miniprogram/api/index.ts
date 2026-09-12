@@ -272,4 +272,28 @@ export const pointsApi = {
       data: { page, pageSize },
     });
   },
+
+  /**
+   * 兑换（**需要绑定手机号**）。
+   *
+   * 后端在**同一条事务**里完成「扣积分 → 发次卡 → 写兑换记录与流水」，
+   * 所以这里只负责发一次请求；**不做任何本地扣分**（否则与服务端账实不符）。
+   * 积分不足 / 已兑完 / 超限兑 → 409。
+   */
+  redeem(goodsId: number): Promise<PointsRedeemResult> {
+    return request<PointsRedeemResult>({
+      path: '/app/points/redeem',
+      method: 'POST',
+      data: { goodsId },
+    });
+  },
 };
+
+/** 兑换结果（与后端 `AppPointsRedeemVo` 一致） */
+export interface PointsRedeemResult {
+  redeemNo: string;
+  /** 本次扣减的积分 */
+  points: number;
+  cardNo: string;
+  cardId: number;
+}

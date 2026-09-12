@@ -4,7 +4,7 @@ import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
 import { basePageData } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
-import { toast } from '../../utils/ui';
+import { hideLoading, showLoading, toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['gift'];
 
@@ -47,6 +47,9 @@ Page({
     activeCategory: '全部',
     goods: [] as GoodsRow[],
   },
+
+  /** 防连点：兑换是权益写入，重复提交会多发一张卡 */
+  redeeming: false,
 
   onLoad() {
     void this.load();
@@ -102,7 +105,34 @@ Page({
       toast('还差 ' + (good.points - this.data.points) + ' 积分，再攒攒～');
       return;
     }
-    toast('兑换通道正在接入，可先到店兑换');
+    if (this.redeeming) return;
+    this.redeeming = true;
+    showLoading('兑换中');
+    try {
+      // 扣分与发卡都在服务端同一条事务里完成；这里只在成功后刷新余额与卡
+      const result = await pointsApi.redeem(good.id);
+      hideLoading();
+      wx.showModal({
+        title: '兑换成功',
+        content:
+          '已扣除 ' +
+          result.points +
+          ' 积分，次卡 ' +
+          result.cardNo +
+          ' 已到账，可在「会员卡 - 有效次卡」里查看。',
+        showCancel: false,
+        confirmText: '好',
+        confirmColor: '#B45F6B',
+        complete: () => {
+          void this.load();
+        },
+      });
+    } catch (error) {
+      hideLoading();
+      toast(isApiFailure(error) ? error.message : '兑换失败，请稍后再试');
+    } finally {
+      this.redeeming = false;
+    }
   },
 
   onRetry() {
