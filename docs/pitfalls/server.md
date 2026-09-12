@@ -128,5 +128,18 @@
      可在开事务**前**调渠道，把 `codeUrl` 当入参传进 `createInTx`；
   2. `createInTx` 只落本地行（`code_url = null`），事务提交后由调用方调
      新增的 `requestChannelOrder(outTradeNo)` 补下单并回写 `code_url`。
+- **2026-09-12 补充的勘察结论（下次直接照这个做）**：
+  - `buildOutTradeNo = 'P' + 6 位主键 + base36 时间戳`（**主键内嵌**，这是必须解耦的点）；
+  - **全仓没有任何地方解析它的格式**，只有两条单测断言了它
+    （`payments.service.spec.ts:476` 断言 `^P000001[0-9A-Z]+$`、`:487` 断言临时号），
+    所以改成与主键无关的串**代价很小**；
+  - 现成可用的写法参照 `tempDocNo()`（它已经用 `globalThis.crypto` 生成
+    与主键无关的唯一串，且注释解释了为什么不能用 `node:crypto`）；
+  - 结算流程（`bookings.service.ts` 的 settle）是在**一个事务里循环**调
+    `createInTx`，后面还要 `recalc` + `recordConsumption` —— 也就是说渠道调用
+    发生在事务**中段**，且此时 `biz_booking` 行已被更新（持有行锁）；
+  - **安全网已就位**：`tests/integration/b3-online-settle.int.spec.ts`
+    覆盖了「在线结算 → pending 单 + 渠道下单 + code_url 回传」与
+    「渠道未配置 → 409 且不留 pending 单」，重构前先跑它。
 - **改完必须保留的现有行为**：**渠道未配置 → 抛错回滚、不留 pending 单**
-  （有测试盯着，别改成「先落单再补」）。
+  （已有测试盯着，别改成「先落单再补」）。
