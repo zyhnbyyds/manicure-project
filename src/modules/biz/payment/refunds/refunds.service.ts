@@ -313,7 +313,7 @@ export class RefundsService extends RefundPort {
     const payment = await this.payments.requirePayment(refund.paymentId);
 
     // 闸门 1：抢占执行权（failed 允许重试，§7.4）
-    await this.database.db
+    const grabbed = await this.database.db
       .update(bizRefunds)
       .set({ status: 'approved', approveBy: actorId, approveAt: new Date() })
       .where(
@@ -326,13 +326,20 @@ export class RefundsService extends RefundPort {
     if (refund.status === 'success') return this.handled(refund);
     if (refund.status === 'rejected')
       throw new ConflictException('退款单已被驳回，不能执行');
+    if (!grabbed[0].affectedRows)
+      throw new ConflictException('该退款单正在处理中，请稍后刷新列表');
+
+    // 闸门 2：**先占额度，再打渠道**（理由见 reserveRefundAmount 注释）
+    await this.reserveRefundAmount(refund, actorId);
 
     // 渠道退款：事务外网络 IO；商户退款单号 = refund_no，渠道侧天然幂等
     let channelRefundId: string | null = null;
     let channelRaw: unknown = null;
     if (refund.mode === 'original') {
-      const provider = this.providerFor(payment.channel);
       try {
+        // `providerFor` 也放进 try：它抛错（渠道不支持/未配置）时同样要走
+        // 「释放预留 + 标记失败」，否则额度会被白占
+        const provider = this.providerFor(payment.channel);
         const result = await provider.refund({
           outTradeNo: payment.outTradeNo,
           outRefundNo: refund.refundNo,
@@ -341,6 +348,7 @@ export class RefundsService extends RefundPort {
           reason: refund.reason,
         });
         if (result.status === 'failed') {
+          await this.releaseRefundAmount(refund, actorId);
           await this.markFailed(refund.id, result.raw);
           throw new ConflictException('渠道退款失败，可重试或改为现金退');
         }
@@ -348,6 +356,7 @@ export class RefundsService extends RefundPort {
         channelRaw = result.raw;
       } catch (error) {
         if (error instanceof ConflictException) throw error;
+        await this.releaseRefundAmount(refund, actorId);
         await this.markFailed(refund.id, { message: messageOf(error) });
         throw new ConflictException(`渠道退款失败：${messageOf(error)}`);
       }
@@ -374,6 +383,16 @@ export class RefundsService extends RefundPort {
       if (error instanceof AlreadyHandledError) {
         const latest = await this.requireRefund(id);
         return this.handled(latest);
+      }
+      if (refund.mode !== 'original') {
+        // 非原路退款没有渠道调用，落地失败就把刚占的额度退回去
+        await this.releaseRefundAmount(refund, actorId);
+      } else {
+        // 原路退款：渠道的钱**已经出去了**，额度必须占着（释放会导致重试再退一次）。
+        // 这种单子会停在 approved 等人工/对账跟进，日志里留下明确线索。
+        this.logger.error(
+          `退款单 ${refund.refundNo} 渠道已退款成功但本地落地失败，需人工核对（支付单 ${payment.paymentNo}）`,
+        );
       }
       throw error;
     }
@@ -403,21 +422,8 @@ export class RefundsService extends RefundPort {
       );
     if (!affected[0].affectedRows) throw new AlreadyHandledError();
 
-    // 已退金额不得越过支付单总额（条件更新当闸门）
-    const paid = await tx
-      .update(bizPayments)
-      .set({
-        refundedAmount: sql`${bizPayments.refundedAmount} + ${refund.actualAmount}`,
-        updatedBy: context.actorId,
-      })
-      .where(
-        and(
-          eq(bizPayments.id, payment.id),
-          sql`${bizPayments.refundedAmount} + ${refund.actualAmount} <= ${bizPayments.amount}`,
-        ),
-      );
-    if (!paid[0].affectedRows)
-      throw new ConflictException('退款金额超出该支付单可退余额');
+    // 已退金额**已在闸门 2 预留**（`reserveRefundAmount`），这里不再累加：
+    // 累加必须在打渠道之前完成，否则会出现「钱已退出、本地闸门失败」的窗口。
 
     const [after] = await tx
       .select({
@@ -762,6 +768,61 @@ export class RefundsService extends RefundPort {
       return this.alipayQr;
     }
     throw new BadRequestException(`该支付单不支持原路退回：${channel}`);
+  }
+
+  /**
+   * 闸门 2：**预留可退额度**（必须在调渠道**之前**）。
+   *
+   * 为什么不能只在落地时做条件更新：渠道退款是**已经发生的资金事实**。
+   * 如果「已退金额不得超过支付单总额」的条件更新在渠道退款**成功之后**才失败，
+   * 就会变成「钱已经退出去了、本地账上没记」—— 顾客收到了钱，我们却只在对账里
+   * 才能发现，且 `biz_refund` 还停在中间态。
+   *
+   * 所以顺序改成：**先本地占额度 → 再调渠道 → 成功后落地；渠道失败则释放**。
+   * 这样任何时刻「渠道已退的钱」都不会超过「本地已占的额度」。
+   */
+  private async reserveRefundAmount(
+    refund: RefundRow,
+    actorId: number,
+  ): Promise<void> {
+    const reserved = await this.database.db
+      .update(bizPayments)
+      .set({
+        refundedAmount: sql`${bizPayments.refundedAmount} + ${refund.actualAmount}`,
+        updatedBy: actorId,
+      })
+      .where(
+        and(
+          eq(bizPayments.id, refund.paymentId),
+          sql`${bizPayments.refundedAmount} + ${refund.actualAmount} <= ${bizPayments.amount}`,
+        ),
+      );
+    if (!reserved[0].affectedRows)
+      throw new ConflictException('退款金额超出该支付单可退余额');
+  }
+
+  /**
+   * 释放预留（渠道退款失败、或非原路退款落地失败时调用）。
+   *
+   * **原路退款在渠道成功之后不能释放** —— 钱已经出去了，把额度放回去会导致
+   * 下一次重试再退一次。只有「确认没有资金流出」才释放。
+   */
+  private async releaseRefundAmount(
+    refund: RefundRow,
+    actorId: number,
+  ): Promise<void> {
+    await this.database.db
+      .update(bizPayments)
+      .set({
+        refundedAmount: sql`${bizPayments.refundedAmount} - ${refund.actualAmount}`,
+        updatedBy: actorId,
+      })
+      .where(
+        and(
+          eq(bizPayments.id, refund.paymentId),
+          sql`${bizPayments.refundedAmount} >= ${refund.actualAmount}`,
+        ),
+      );
   }
 
   private async markFailed(id: number, raw: unknown): Promise<void> {
