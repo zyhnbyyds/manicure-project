@@ -31,7 +31,12 @@ import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
 import { useUploadImagePreview } from '~/composables/useUploadImagePreview';
-import { stripDisplayImageUrl, toDisplayImageUrl } from '~/utils/image-url';
+import { stripDisplayImageUrl } from '~/utils/image-url';
+import {
+  toImageUrls,
+  toUploadItems,
+  toUploadedItem,
+} from '~/utils/upload-images';
 
 /** 金额口径：接口是「分」，展示 / 表单是「元」（保留两位） */
 function centsToYuan(cents: number | null | undefined): number {
@@ -58,30 +63,12 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 /**
  * 表单里存的是上传组件的 `LewUploadFileItem[]`，接口收发的是 url 数组，
- * 这两个函数负责两侧互转；**不要**把 `LewUploadFileItem` 透传给接口。
+ * 互转的三个函数在 `~/utils/upload-images`（有单测）。
+ *
+ * **别在页面里手写回填对象**：`LewUpload` 只认「以图片扩展名结尾」的 url，
+ * 上传成功后回填的那条路也必须过显示态归一化 —— 漏了就是
+ * 「反显的旧图正常、新传的图显示成文件图标」（这个坑真踩过，用户报过）。
  */
-function toUploadItems(urls: string[] | null | undefined): LewUploadFileItem[] {
-  return (urls ?? []).map((url, index) => ({
-    key: `saved-${index}-${url}`,
-    name: `图片 ${index + 1}`,
-    // **反显的关键**：lew-ui 只把「以图片扩展名结尾」的 url 当图片渲染，
-    // 而 `/files/:id/download?inline=1` 不以扩展名结尾 → 之前显示成文件图标
-    url: toDisplayImageUrl(url),
-    status: 'complete' as const,
-    percent: 100,
-  }));
-}
-
-/** 只取上传成功的那些：`pending` / `fail` / `wrong_*` 不该进库 */
-function toImageUrls(items: LewUploadFileItem[] | null | undefined): string[] {
-  return (
-    (items ?? [])
-      .filter((item) => item.status === 'complete' || item.status === 'success')
-      // 剥掉显示用的扩展名标记，保证入库的是干净地址（否则每存一次就长一截）
-      .map((item) => stripDisplayImageUrl(item.url ?? ''))
-      .filter((url): url is string => Boolean(url))
-  );
-}
 
 /** 交给 LewUpload 的上传实现：走统一文件接口，成功后回填可直接预览的地址 */
 async function uploadImage(params: {
@@ -93,12 +80,9 @@ async function uploadImage(params: {
   if (!file) return;
   try {
     const uploaded = await uploadFile(file);
-    setFileItem({
-      key: fileItem.key,
-      status: 'complete',
-      percent: 100,
-      url: filePreviewUrl(uploaded.id),
-    });
+    setFileItem(
+      toUploadedItem(fileItem.key, filePreviewUrl(uploaded.id), fileItem.name),
+    );
   } catch {
     // 失败原因（类型 / 体积 / 网络）已由 request 拦截器统一提示，这里只标记状态
     setFileItem({ key: fileItem.key, status: 'fail', percent: 0 });

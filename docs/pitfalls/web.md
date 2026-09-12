@@ -133,3 +133,35 @@
 - **正确做法**：夹取结果 `+ 0` 归一（`clampPan` 里已处理），别指望调用方擦屁股。
 - **来源**：实测（`image-viewer.spec.ts` 第一次跑就红）。
 
+---
+
+## 12. `LewUpload` 的**两条**产出路径都要过显示态归一化
+
+- **现象**（用户报的原话）：「新增服务项目的时候传了图片但是展示不出来，编辑时新增的也不行」。
+  更迷惑的是：**打开编辑弹窗，原有图片正常显示；在同一弹窗里新传一张，新那张是文件图标**。
+- **根因**：`url` 有两条产出路径 ——
+  ① 打开弹窗的**反显**（库里 url → `toUploadItems`）；② 上传成功后**回填**（`uploadHelper` → `setFileItem`）。
+  修「反显看不到」时只给了 ① `toDisplayImageUrl`，② 仍然塞 `filePreviewUrl(id)` 的原始地址
+  （`.../download?inline=1`，不以图片扩展名结尾）→ lew-ui 判定失败 → 渲染默认文件图标。
+  新建时没有反显，于是整个图集都看不见。
+- **正确做法**：两条路都走 `~/utils/upload-images`：`toUploadItems` / `toUploadedItem` / `toImageUrls`，
+  页面里**不要手写**回填对象。单测（`upload-images.spec.ts`）对两条路都断言
+  「交给 LewUpload 的 url 必须能通过 lew-ui 那条扩展名正则」；把 `toUploadedItem` 里的归一化删掉，
+  该测试立刻 2 条变红（做过变异验证）。
+- **来源**：实测（用户报障 → 定位到上传回填路径漏了归一化）。
+
+---
+
+## 13. 文件 mime 不是图片类型时，`<img>` 会被 `nosniff` 挡掉
+
+- **现象**：图片地址能 200，但 `<img>` 不渲染（或只在某些浏览器里渲染）。
+- **根因**：后端按多部分请求里的 `part.mimetype` 入库（为空则落 `application/octet-stream`，
+  见 `src/modules/files/files.service.ts`），而 fastify 的 helmet 带了
+  `X-Content-Type-Options: nosniff`（实测响应头里就有）—— 声明不是图片类型时浏览器**拒绝**当图片显示。
+- **正确做法**：上传必须带正确的类型。前端 `form.append('file', file)` 传浏览器 `File` 对象即可
+  （浏览器会自动带 `Content-Type: image/png`）；**用脚本 / 命令行工具传文件时要显式指定**，
+  否则查半天「为什么上传成功却看不见图」。
+- **来源**：实测（用 PowerShell `-Form @{file = Get-Item x.png}` 复现了一版
+  `application/octet-stream`，改用真实前端链路的文件则正常）。
+
+

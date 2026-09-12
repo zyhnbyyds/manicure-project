@@ -81,11 +81,17 @@ metadata:
 契约（`props` 原样透传给组件，表单值经 `v-model` 绑定）：
 
 - `v-model` 的值是 `LewUploadFileItem[]`（`{ key, name?, url?, status?, percent?, file? }`）。
-- `uploadHelper({ fileItem, setFileItem })` 被调用时自己上传，然后
-  `setFileItem({ key: fileItem.key, status: 'complete', percent: 100, url })` 回填。
-  失败置 `status: 'fail'`（`'complete' | 'success'` 才会被当成已上传渲染缩略图）。
-- **表单内部存 `LewUploadFileItem[]`，接口收发的是 url 数组**，两端各写一个转换函数
-  （`toUploadItems` / `toImageUrls`），提交前只挑 `status === 'complete' | 'success'` 的项。
+- `uploadHelper({ fileItem, setFileItem })` 被调用时自己上传，成功后**用 `toUploadedItem` 回填**：
+  ```ts
+  const uploaded = await uploadFile(file);
+  setFileItem(toUploadedItem(fileItem.key, filePreviewUrl(uploaded.id), fileItem.name));
+  // 失败：setFileItem({ key: fileItem.key, status: 'fail', percent: 0 })
+  ```
+  **不要手写 `{ key, status: 'complete', percent: 100, url }`** —— `url` 必须过显示态归一化，
+  漏了就是「反显的旧图正常、刚上传的图显示成文件图标」（真踩过，用户报过）。见「常见坑」。
+- **表单内部存 `LewUploadFileItem[]`，接口收发的是 url 数组**，互转统一用
+  `~/utils/upload-images` 的 `toUploadItems` / `toUploadedItem` / `toImageUrls`（有单测），
+  提交前只挑 `status === 'complete' | 'success'` 的项，并剥掉显示标记再入库。
 - **`formOptions` 必须用 `withPassThroughRule(...)` 包一层**（`~/utils/form`），
   否则控制台会刷 `The schema does not contain the path: images`。原因见「常见坑」。
 

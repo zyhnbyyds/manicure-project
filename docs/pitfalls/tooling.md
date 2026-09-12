@@ -163,3 +163,16 @@
   ```
   再用 `SELECT id, openid, customer_id FROM app_wx_user` 对齐；必要时
   `wx.removeStorageSync('manicure:token')` + `simulator_refresh` 让它重新静默登录。
+
+## 12. PowerShell `-replace` 是**全量替换**，拿它做「变异验证」会连带改坏别处
+
+- **现象**：为验证单测能不能抓住 bug，用 `-replace` 把修复语句改回错误写法，跑测试确实红了；
+  改回来之后**测试还是红**，而且失败的是另一条断言 —— 文件里另一处同形状的语句也被改了。
+- **根因**：`-replace`（以及 `-creplace`）默认替换**所有**匹配项，不是第一处。
+  我当时的目标串 `url: toDisplayImageUrl(url),\n    status` 在同一个文件里正好出现两次。
+- **正确做法**：
+  1. 变异验证优先用 `edit` 工具改单点，别用正则批量替换；
+  2. 非要脚本替换时，先 `(Select-String -Pattern ... | Measure-Object).Count` 数一下命中几处，
+     或把上下文写长到唯一；
+  3. 变异后**必须** `git diff` 看清改了哪几行再还原，别凭记忆。
+- **来源**：实测（本次修「上传的图显示不出来」时自己踩的，白跑了一轮全量测试）。
