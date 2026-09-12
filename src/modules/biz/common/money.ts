@@ -23,6 +23,11 @@ export type QuoteInput = {
   pointsDiscountPerYuan: number;
   /** 单笔积分抵扣上限（‰ 折后金额） */
   maxPointsPermille: number;
+  /**
+   * 券抵扣额（分）。面额与门槛在**发券时已快照**，这里只把它夹到折后金额以内
+   * （券不能把单抵成负数）。与积分**同一单二选一**，见实现里的说明。
+   */
+  couponDiscountAmount?: number | undefined;
   /** 手动改价差额（分，可正可负） */
   adjustAmount?: number | undefined;
 };
@@ -31,6 +36,8 @@ export type QuoteResult = {
   originalPrice: number;
   levelDiscountPermille: number;
   levelDiscountAmount: number;
+  /** 券实际抵扣额（分） */
+  couponDiscountAmount: number;
   pointsDiscountAmount: number;
   /** 实际扣减的积分数（按汇率取整后回算） */
   pointsUsed: number;
@@ -90,7 +97,17 @@ export function quoteBooking(input: QuoteInput): QuoteResult {
     (originalPrice * (1000 - permille)) / 1000,
   );
 
-  const base4Points = Math.max(originalPrice - levelDiscountAmount, 0);
+  const baseAfterLevel = Math.max(originalPrice - levelDiscountAmount, 0);
+  // 券在**等级折扣之后、积分抵扣之前**；且与积分**同一单二选一**：
+  // 建单处须显式拒绝「同时传券与积分」，这里再兜一层（有券就不再抵积分），
+  // 免得出现第三种没人定义过的行为（比如被抵成 0 元）。
+  const couponDiscountAmount = input.couponDiscountAmount
+    ? Math.min(
+        Math.max(Math.trunc(input.couponDiscountAmount), 0),
+        baseAfterLevel,
+      )
+    : 0;
+  const base4Points = Math.max(baseAfterLevel - couponDiscountAmount, 0);
   const rate = normalizeRate(input.pointsDiscountPerYuan);
   const maxPointsDiscountAmount = permilleOf(
     base4Points,
@@ -98,13 +115,20 @@ export function quoteBooking(input: QuoteInput): QuoteResult {
   );
   const maxPoints = centsToPoints(maxPointsDiscountAmount, rate);
 
-  const requested = Math.max(Math.trunc(input.pointsUsed ?? 0), 0);
+  const requested =
+    couponDiscountAmount > 0
+      ? 0 // 券与积分二选一：本单用了券，就不再抵积分
+      : Math.max(Math.trunc(input.pointsUsed ?? 0), 0);
   const pointsUsed = Math.min(requested - (requested % rate), maxPoints);
   const pointsDiscountAmount = pointsToCents(pointsUsed, rate);
 
   const adjustAmount = Math.trunc(input.adjustAmount ?? 0);
   const payableAmount = Math.max(
-    originalPrice - levelDiscountAmount - pointsDiscountAmount + adjustAmount,
+    originalPrice -
+      levelDiscountAmount -
+      couponDiscountAmount -
+      pointsDiscountAmount +
+      adjustAmount,
     0,
   );
 
@@ -112,6 +136,7 @@ export function quoteBooking(input: QuoteInput): QuoteResult {
     originalPrice,
     levelDiscountPermille: permille,
     levelDiscountAmount,
+    couponDiscountAmount,
     pointsDiscountAmount,
     pointsUsed,
     maxPoints,

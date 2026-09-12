@@ -156,3 +156,66 @@ describe('money 算价（§5.7）', () => {
     expect(commissionOf(9999, 100, 0)).toBe(999);
   });
 });
+
+/**
+ * 优惠券抵扣（本目标新增）。
+ *
+ * 口径：券在**等级折扣之后、积分抵扣之前**，且**与积分同一单二选一**。
+ *
+ * 数字都按「100 分抵 1 元」（`pointsDiscountPerYuan = 100`，即 1 分 = 1 分钱）算好：
+ * 原价 10000、9.5 折 → 等级优惠 500、折后 9500。
+ */
+describe('quoteBooking 的券抵扣', () => {
+  const items = [{ price: 10000, durationMinutes: 60, bufferMinutes: 0 }];
+  const base = {
+    items,
+    levelDiscountPermille: 950,
+    pointsDiscountPerYuan: 100,
+    maxPointsPermille: 300,
+  };
+
+  it('不传券时行为与既有公式完全一致（回归）', () => {
+    const quote = quoteBooking({ ...base, pointsUsed: 3000 });
+    expect(quote.levelDiscountAmount).toBe(500);
+    expect(quote.couponDiscountAmount).toBe(0);
+    // 折后 9500 的 30% = 2850 分 → centsToPoints **向上取整到整元** = 2900 分
+    expect(quote.pointsUsed).toBe(2900);
+    expect(quote.payableAmount).toBe(6600);
+  });
+
+  it('券在等级折扣之后扣：9500 再减 2000 → 应付 7500', () => {
+    const quote = quoteBooking({ ...base, couponDiscountAmount: 2000 });
+    expect(quote.levelDiscountAmount).toBe(500);
+    expect(quote.couponDiscountAmount).toBe(2000);
+    expect(quote.payableAmount).toBe(7500);
+  });
+
+  it('券不能把单抵成负数：券大于折后金额时夹到折后金额', () => {
+    const quote = quoteBooking({ ...base, couponDiscountAmount: 99999 });
+    expect(quote.couponDiscountAmount).toBe(9500);
+    expect(quote.payableAmount).toBe(0);
+  });
+
+  it('券与积分二选一：同时传时积分不参与抵扣（有券就不再抵积分）', () => {
+    const quote = quoteBooking({
+      ...base,
+      couponDiscountAmount: 2000,
+      pointsUsed: 3000,
+    });
+    expect(quote.pointsUsed).toBe(0);
+    expect(quote.pointsDiscountAmount).toBe(0);
+    expect(quote.payableAmount).toBe(7500);
+  });
+
+  it('积分上限按「券后金额」计算（券先于积分）', () => {
+    const quote = quoteBooking({ ...base, couponDiscountAmount: 2000 });
+    // 券后 7500 的 30% = 2250 分 → 向上取整到整元 = 2300 分
+    expect(quote.maxPoints).toBe(2300);
+  });
+
+  it('负券额按 0 处理（不放大应付）', () => {
+    const quote = quoteBooking({ ...base, couponDiscountAmount: -500 });
+    expect(quote.couponDiscountAmount).toBe(0);
+    expect(quote.payableAmount).toBe(9500);
+  });
+});
