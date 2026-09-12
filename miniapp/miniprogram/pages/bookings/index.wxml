@@ -35,7 +35,17 @@
   </view>
 
   <view class="page-body">
-    <view wx:if="{{loading}}" class="loading">正在翻你的预约…</view>
+    <!-- 未绑定：引导登录（未登录可浏览款式，但看不了「我的预约」） -->
+    <view wx:if="{{guest}}" class="empty">
+      <view class="empty__badge">
+        <image class="empty__badge-icon" src="{{icons.calendar}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">{{loggedIn ? '绑定手机号后查看预约' : '登录后查看你的预约'}}</view>
+      <view class="empty__hint">预约记录跟着手机号走，绑定后就能看到全部订单</view>
+      <view class="btn btn--primary empty__action" bindtap="onGuestLogin">去登录 / 绑定</view>
+    </view>
+
+    <view wx:elif="{{loading}}" class="loading">正在翻你的预约…</view>
 
     <!-- 网络失败态（batch3 第 3 屏） -->
     <view wx:elif="{{errorText}}" class="empty">

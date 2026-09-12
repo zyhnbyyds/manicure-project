@@ -1,5 +1,12 @@
 <view class="page pay" style="{{themeStyle}}">
-  <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
+  <!-- 收银台必须先有身份：未绑定时引导，而不是显示加载失败 -->
+  <view wx:if="{{guest}}" class="empty">
+    <view class="empty__text">{{loggedIn ? '绑定手机号后才能支付' : '登录后才能支付'}}</view>
+    <view class="empty__hint">支付需要确认订单归属，绑定手机号即可继续</view>
+    <view class="btn btn--primary empty__action" bindtap="onGuestLogin">去登录 / 绑定</view>
+  </view>
+
+  <view wx:elif="{{loading}}" class="loading">正在读取订单…</view>
 
   <view wx:elif="{{errorText}}" class="empty">
     <view class="empty__text">{{errorText}}</view>

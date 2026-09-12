@@ -1,7 +1,7 @@
 import { bookingApi, memberApi } from '../../api/index';
 import type { Booking } from '../../api/types';
 import { fenToYuan } from '../../utils/format';
-import { goBookings, goPayResult } from '../../utils/nav';
+import { goBookings, goLogin, goPayResult } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
@@ -32,6 +32,8 @@ Page({
     ...basePageData(),
     loading: true,
     errorText: '',
+    /** 未绑定手机号：仅浏览态，不是错误 */
+    guest: false,
     booking: null as BookingVM | null,
     /** 待付金额（分，来自服务端） */
     dueAmount: 0,
@@ -57,7 +59,12 @@ Page({
       this.setData({ loading: false, errorText: '没找到这笔订单' });
       return;
     }
-    this.setData({ loading: true, errorText: '' });
+    // 收银台是纯身份页面：未绑定时不发请求，直接引导（避免 401 被当成加载失败）
+    if (!this.data.bound) {
+      this.setData({ loading: false, guest: true, errorText: '' });
+      return;
+    }
+    this.setData({ loading: true, guest: false, errorText: '' });
     try {
       // app 域没有「单个订单详情」接口，从列表里按 id 取
       const [list, me] = await Promise.all([
@@ -153,6 +160,12 @@ Page({
     } finally {
       this.setData({ submitting: false });
     }
+  },
+
+  onGuestLogin() {
+    goLogin({
+      reason: this.data.loggedIn ? '绑定手机号后才能支付' : '登录后即可继续支付',
+    });
   },
 
   onOrderTap() {

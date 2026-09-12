@@ -2,7 +2,7 @@ import { bookingApi } from '../../api/index';
 import type { BookingStatus } from '../../api/types';
 import { getThemeTokens } from '../../theme/theme';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goCancel, goPay, goReview, goServices } from '../../utils/nav';
+import { goCancel, goLogin, goPay, goReview, goServices } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
@@ -34,6 +34,8 @@ Page({
     keyword: '',
     loading: true,
     errorText: '',
+    /** 未绑定手机号：**不是错误**，而是「仅浏览」态，单独一个标志 */
+    guest: false,
     /** 后端返回的原始列表 */
     all: [] as BookingVM[],
     /** 过滤后的展示列表 */
@@ -56,7 +58,13 @@ Page({
   },
 
   async load() {
-    this.setData({ loading: true, errorText: '' });
+    // 未绑定手机号时 /app/bookings 必然 401（后端 §8.3 只有本人数据）——
+    // 明知会失败还打一次，只会让「没登录」看起来像「加载失败」
+    if (!this.data.bound) {
+      this.setData({ loading: false, guest: true, errorText: '', all: [], bookings: [] });
+      return;
+    }
+    this.setData({ loading: true, guest: false, errorText: '' });
     try {
       const page = await bookingApi.list({ page: 1, pageSize: 50 });
       this.setData({ loading: false, all: page.items.map(toBookingVM) }, () => {
@@ -104,6 +112,13 @@ Page({
 
   onSearchClear() {
     this.setData({ keyword: '' }, () => this.applyFilter());
+  },
+
+  /** 未登录 / 未绑定时的引导（两种说法不同） */
+  onGuestLogin() {
+    goLogin({
+      reason: this.data.loggedIn ? '绑定手机号后查看预约' : '登录后即可查看预约记录',
+    });
   },
 
   onFilterSort() {

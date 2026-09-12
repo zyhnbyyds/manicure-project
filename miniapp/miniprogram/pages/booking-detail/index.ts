@@ -3,7 +3,7 @@ import type { Booking } from '../../api/types';
 import { getThemeTokens } from '../../theme/theme';
 import { fenToYuan, formatDuration, formatTimeRange, formatDateTimeLabel } from '../../utils/format';
 import { buildIcons, type IconName } from '../../utils/icons';
-import { goCancel, goPay, goReview } from '../../utils/nav';
+import { goCancel, goLogin, goPay, goReview } from '../../utils/nav';
 import { basePageData } from '../../utils/page';
 import { resolveStaffAvatar } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
@@ -32,6 +32,8 @@ Page({
     icons: buildIcons(PAGE_ICONS, '#2D221E'),
     loading: true,
     errorText: '',
+    /** 未绑定手机号：仅浏览态，不是错误 */
+    guest: false,
     booking: null as Booking | null,
     statusText: '',
     statusTone: '',
@@ -69,7 +71,12 @@ Page({
       this.setData({ loading: false, errorText: '没找到这笔订单' });
       return;
     }
-    this.setData({ loading: true, errorText: '' });
+    // 未绑定手机号时列表接口必然 401：显示「仅浏览」引导，而不是加载失败
+    if (!this.data.bound) {
+      this.setData({ loading: false, guest: true, errorText: '' });
+      return;
+    }
+    this.setData({ loading: true, guest: false, errorText: '' });
     try {
       const page = await bookingApi.list({ page: 1, pageSize: 50 });
       const found = page.items.find((item) => item.id === this.bookingId);
@@ -115,6 +122,12 @@ Page({
         errorText: isApiFailure(error) ? error.message : '网络连接失败',
       });
     }
+  },
+
+  onGuestLogin() {
+    goLogin({
+      reason: this.data.loggedIn ? '绑定手机号后查看订单详情' : '登录后即可查看订单详情',
+    });
   },
 
   onPay() {
