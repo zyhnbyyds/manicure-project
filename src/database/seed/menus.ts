@@ -273,6 +273,17 @@ const BIZ_PAGES: BizPageSeed[] = [
     ],
   },
   {
+    name: 'biz_coupons',
+    title: '优惠券模板',
+    path: '/biz/coupons',
+    component: 'biz/coupons/index',
+    icon: 'coupon',
+    permission: 'biz:coupon:list',
+    permissions: [
+      { resource: 'biz:coupon', actions: ['create', 'update', 'delete'] },
+    ],
+  },
+  {
     name: 'biz_reviews',
     title: '评价管理',
     path: '/biz/reviews',

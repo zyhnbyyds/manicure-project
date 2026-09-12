@@ -9,6 +9,7 @@ import { MemberCardsService } from './member-cards/member-cards.service.js';
 import { MembersController } from './members/members.controller.js';
 import { PointsController } from './points/points.controller.js';
 import { PointsGoodsController } from './points-goods/points-goods.controller.js';
+import { CouponsController } from './coupons/coupons.controller.js';
 import { PointsGoodsService } from './points-goods/points-goods.service.js';
 import { CouponsService } from './coupons/coupons.service.js';
 import { RechargePlansController } from './recharge-plans/recharge-plans.controller.js';
@@ -28,6 +29,7 @@ import { RechargePlansService } from './recharge-plans/recharge-plans.service.js
     MembersController,
     MemberCardsController,
     PointsGoodsController,
+    CouponsController,
     PointsController,
   ],
   providers: [

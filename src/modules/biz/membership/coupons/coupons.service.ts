@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, getTableColumns, isNull, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, isNull, or, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
 import {
   bizCouponTemplates,
@@ -11,7 +12,7 @@ import {
 } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { buildDocNo } from '../../common/doc-no.js';
-import { parsePagination } from '../../common/query.js';
+import { keywordLike, parsePagination } from '../../common/query.js';
 import type { BizDatabase, BizTx } from '../../common/tx.js';
 
 export type CouponTemplateRow = typeof bizCouponTemplates.$inferSelect;
@@ -488,5 +489,233 @@ export class CouponsService {
       if (!row) throw new NotFoundException('领券失败，请重试');
       return row;
     });
+  }
+
+
+  /* ------------------------------------------------------------------ *
+   * 券模板维护（后台）
+   * ------------------------------------------------------------------ */
+
+  async listTemplates(
+    page: number,
+    pageSize: number,
+    filter: {
+      status?: 'active' | 'disabled' | undefined;
+      keyword?: string | undefined;
+    } = {},
+  ): Promise<{
+    items: (CouponTemplateRow & { claimedCount: number })[];
+    page: number;
+    pageSize: number;
+  }> {
+    const {
+      page: safePage,
+      pageSize: safePageSize,
+      offset,
+    } = parsePagination(page, pageSize);
+    const conditions = [isNull(bizCouponTemplates.deletedAt)];
+    if (filter.status) conditions.push(eq(bizCouponTemplates.status, filter.status));
+    const keyword = keywordLike(bizCouponTemplates.name, filter.keyword);
+    if (keyword) conditions.push(keyword);
+
+    const rows = await this.database.db
+      .select()
+      .from(bizCouponTemplates)
+      .where(and(...conditions))
+      .orderBy(bizCouponTemplates.sort, desc(bizCouponTemplates.id))
+      .limit(safePageSize)
+      .offset(offset);
+
+    // 已发出多少张：列表上要看得见，否则运营不知道停用会不会影响在用的券
+    const counts = await Promise.all(
+      rows.map(async (row) => {
+        const [agg] = await this.database.db
+          .select({ total: count() })
+          .from(bizCustomerCoupons)
+          .where(
+            and(
+              eq(bizCustomerCoupons.templateId, row.id),
+              isNull(bizCustomerCoupons.deletedAt),
+            ),
+          );
+        return Number(agg?.total ?? 0);
+      }),
+    );
+
+    return {
+      items: rows.map((row, index) => ({
+        ...row,
+        claimedCount: counts[index] ?? 0,
+      })),
+      page: safePage,
+      pageSize: safePageSize,
+    };
+  }
+
+  async findTemplate(id: number): Promise<CouponTemplateRow> {
+    const [row] = await this.database.db
+      .select()
+      .from(bizCouponTemplates)
+      .where(
+        and(eq(bizCouponTemplates.id, id), isNull(bizCouponTemplates.deletedAt)),
+      )
+      .limit(1);
+    if (!row) throw new NotFoundException('优惠券模板不存在');
+    return row;
+  }
+
+  async createTemplate(
+    input: {
+      name: string;
+      thresholdAmount?: number | undefined;
+      discountAmount: number;
+      validDays?: number | undefined;
+      validFrom?: string | null | undefined;
+      validTo?: string | null | undefined;
+      status?: 'active' | 'disabled' | undefined;
+      sort?: number | undefined;
+      remark?: string | null | undefined;
+    },
+    actorId: number,
+  ): Promise<CouponTemplateRow> {
+    const values = {
+      name: input.name.trim(),
+      thresholdAmount: input.thresholdAmount ?? 0,
+      discountAmount: input.discountAmount,
+      validDays: input.validDays ?? 0,
+      validFrom: input.validFrom ? new Date(input.validFrom) : null,
+      validTo: input.validTo ? new Date(input.validTo) : null,
+      status: input.status ?? ('active' as const),
+      sort: input.sort ?? 0,
+      remark: input.remark ?? null,
+      createdBy: actorId,
+      updatedBy: actorId,
+    };
+    this.assertTemplateInput(values);
+    try {
+      const inserted = await this.database.db
+        .insert(bizCouponTemplates)
+        .values(values);
+      return this.findTemplate(Number(inserted[0].insertId));
+    } catch (error) {
+      throw this.mapTemplateWriteError(error);
+    }
+  }
+
+  async updateTemplate(
+    id: number,
+    input: {
+      name?: string | undefined;
+      thresholdAmount?: number | undefined;
+      discountAmount?: number | undefined;
+      validDays?: number | undefined;
+      validFrom?: string | null | undefined;
+      validTo?: string | null | undefined;
+      status?: 'active' | 'disabled' | undefined;
+      sort?: number | undefined;
+      remark?: string | null | undefined;
+    },
+    actorId: number,
+  ): Promise<CouponTemplateRow> {
+    const current = await this.findTemplate(id);
+    const merged = {
+      name: input.name?.trim() ?? current.name,
+      thresholdAmount: input.thresholdAmount ?? current.thresholdAmount,
+      discountAmount: input.discountAmount ?? current.discountAmount,
+      validDays: input.validDays ?? current.validDays,
+      validFrom:
+        input.validFrom === undefined
+          ? current.validFrom
+          : input.validFrom
+            ? new Date(input.validFrom)
+            : null,
+      validTo:
+        input.validTo === undefined
+          ? current.validTo
+          : input.validTo
+            ? new Date(input.validTo)
+            : null,
+    };
+    this.assertTemplateInput(merged);
+    try {
+      await this.database.db
+        .update(bizCouponTemplates)
+        .set({ ...merged, updatedBy: actorId })
+        .where(eq(bizCouponTemplates.id, id));
+    } catch (error) {
+      throw this.mapTemplateWriteError(error);
+    }
+    return this.findTemplate(id);
+  }
+
+  /**
+   * 停用（软删）模板。
+   *
+   * **已经发出去的券不受影响** —— 面额与门槛在发券时就快照到持有行了，
+   * 模板只是一个「以后还发不发」的开关。所以停用是安全的，
+   * 不需要连带处理在用的券（这一点在列表里用 `claimedCount` 让运营看得见）。
+   */
+  async removeTemplate(id: number, actorId: number): Promise<void> {
+    await this.findTemplate(id);
+    await this.database.db
+      .update(bizCouponTemplates)
+      .set({ deletedAt: new Date(), updatedBy: actorId })
+      .where(eq(bizCouponTemplates.id, id));
+  }
+
+  /** 模板的字段级校验（新增与修改共用，避免两处规则分叉） */
+  private assertTemplateInput(input: {
+    name: string;
+    thresholdAmount: number;
+    discountAmount: number;
+    validDays: number;
+    validFrom: Date | null;
+    validTo: Date | null;
+  }): void {
+    if (!input.name) throw new BadRequestException('名称不能为空');
+    if (input.discountAmount <= 0) throw new BadRequestException('面额必须大于 0');
+    if (input.thresholdAmount < 0)
+      throw new BadRequestException('门槛不能为负');
+    if (input.discountAmount > input.thresholdAmount && input.thresholdAmount > 0) {
+      throw new BadRequestException('面额不应大于使用门槛');
+    }
+    if (
+      input.validFrom &&
+      input.validTo &&
+      input.validFrom.getTime() > input.validTo.getTime()
+    ) {
+      throw new BadRequestException('生效时间不能晚于失效时间');
+    }
+  }
+
+  /**
+   * 名称撞唯一索引（`uq_coupon_template_name`）→ 409，而不是把 1062 抛给前端。
+   *
+   * **必须沿 `cause` 链找**：drizzle 把底层 mysql2 错误包成了 `DrizzleQueryError`，
+   * 顶层 message 只有 "Failed query: insert into ..."，约束名与 errno 在 cause 里。
+   * （第一版只看顶层 message，结果重复名称返回了 500 —— 测试当场抓出来。）
+   */
+  private mapTemplateWriteError(error: unknown): unknown {
+    const parts: string[] = [];
+    let cursor: unknown = error;
+    for (let depth = 0; depth < 5 && cursor; depth += 1) {
+      const current = cursor as {
+        message?: string;
+        code?: string;
+        cause?: unknown;
+      };
+      if (current.message) parts.push(current.message);
+      if (current.code) parts.push(String(current.code));
+      cursor = current.cause;
+    }
+    const text = parts.join(' | ');
+    if (
+      text.includes('uq_coupon_template_name') ||
+      text.includes('ER_DUP_ENTRY') ||
+      text.includes('1062')
+    ) {
+      return new ConflictException('同名优惠券已存在');
+    }
+    return error;
   }
 }
