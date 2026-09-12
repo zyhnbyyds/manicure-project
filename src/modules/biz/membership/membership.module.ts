@@ -10,6 +10,7 @@ import { MembersController } from './members/members.controller.js';
 import { PointsController } from './points/points.controller.js';
 import { PointsGoodsController } from './points-goods/points-goods.controller.js';
 import { PointsGoodsService } from './points-goods/points-goods.service.js';
+import { CouponsService } from './coupons/coupons.service.js';
 import { RechargePlansController } from './recharge-plans/recharge-plans.controller.js';
 import { RechargePlansService } from './recharge-plans/recharge-plans.service.js';
 
@@ -36,6 +37,7 @@ import { RechargePlansService } from './recharge-plans/recharge-plans.service.js
     MemberAccountsService,
     MemberCardsService,
     PointsGoodsService,
+    CouponsService,
   ],
   exports: [
     MemberLevelsService,
@@ -44,6 +46,7 @@ import { RechargePlansService } from './recharge-plans/recharge-plans.service.js
     MemberAccountsService,
     MemberCardsService,
     PointsGoodsService,
+    CouponsService,
   ],
 })
 export class MembershipModule {}
