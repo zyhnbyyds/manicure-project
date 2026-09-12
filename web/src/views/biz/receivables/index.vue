@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, reactive, ref } from 'vue';
+import { computed, h, onBeforeUnmount, reactive, ref } from 'vue';
 import { Ban, CheckCircle2, FileText, Plus, Trash2 } from 'lucide-vue-next';
 import {
   LewButton,
@@ -29,6 +29,8 @@ import type {
   ReceivableSummaryRow,
   SettlePaymentInput,
 } from '~/api/biz/receivables';
+import { closePayment, getPaymentStatus } from '~/api/biz/payments';
+import type { PaymentStatus } from '~/api/biz/payments';
 import { listCreditAccountOptions } from '~/api/biz/credit-accounts';
 import type { CreditAccount } from '~/api/biz/credit-accounts';
 import { useTable } from '~/composables/useTable';
@@ -357,6 +359,168 @@ async function loadSettleDetail(id: number) {
 const qrVisible = ref(false);
 const qrCodeUrl = ref('');
 const qrExpireAt = ref<string | null>(null);
+/**
+ * 在线收款码的**支付状态轮询**。
+ *
+ * 原来这里只弹二维码、**不查支付状态**，却写着「支付成功后自动回到本单」——
+ * 顾客扫完码页面不会有任何变化，员工只能手动刷新或干等后端定时任务（最长 2 分钟），
+ * 期间很可能**再收一次现金**。现在与收银台用同一套：
+ * 3 秒轮询 + 连续失败 5 次停（避免刷屏）+ 卸载时清理定时器 + 过期两条出口。
+ */
+const qrPaymentId = ref<number | null>(null);
+// 直接用接口导出的类型：手抄枚举必然漏项（refunded / partial_refunded 都真实存在）
+const qrStatus = ref<PaymentStatus>('pending');
+const qrFailures = ref(0);
+/** 二维码剩余秒数（0 = 已过期，给出「重新获取 / 改现金」出口） */
+const qrRemaining = ref(0);
+/** 状态文案：让员工一眼看出「还在等 / 成了 / 需要处理」 */
+const qrStatusText = computed(() => {
+  switch (qrStatus.value) {
+    case 'pending':
+      return '等待顾客支付，支付成功后本页会自动刷新';
+    case 'success':
+      return '顾客已支付';
+    case 'closed':
+      return '该支付单已关闭，请重新获取二维码或改现金收款';
+    case 'failed':
+      return '该支付单支付失败，请重新获取二维码或改现金收款';
+    default:
+      return '该支付单已退款，请核对台账';
+  }
+});
+let pollTimer: number | null = null;
+let tickTimer: number | null = null;
+/** 最近一次提交的销账参数：过期后「重新获取」要按同样参数重下 */
+let lastSettle: { target: Receivable; payments: SettlePaymentInput[] } | null =
+  null;
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function stopTick() {
+  if (tickTimer !== null) {
+    window.clearInterval(tickTimer);
+    tickTimer = null;
+  }
+}
+
+function startCountdown(expireAt: string | null | undefined) {
+  stopTick();
+  const expireMs = expireAt
+    ? new Date(expireAt).getTime()
+    : Date.now() + 5 * 60_000;
+  const update = () => {
+    qrRemaining.value = Math.max(0, Math.round((expireMs - Date.now()) / 1000));
+    if (qrRemaining.value <= 0) stopTick();
+  };
+  update();
+  tickTimer = window.setInterval(update, 1000);
+}
+
+function startPolling(paymentId: number) {
+  stopPolling();
+  qrFailures.value = 0;
+  pollTimer = window.setInterval(() => {
+    void pollStatus(paymentId);
+  }, 3000);
+}
+
+async function pollStatus(paymentId: number) {
+  if (qrStatus.value !== 'pending') return;
+  try {
+    const data = await getPaymentStatus(paymentId);
+    qrFailures.value = 0;
+    qrStatus.value = data.status;
+    if (data.status === 'success') {
+      stopPolling();
+      stopTick();
+      qrVisible.value = false;
+      LewMessage.success('顾客已支付，正在刷新应收台账');
+      await refreshAll();
+      await loadAccounts();
+    } else if (data.status === 'closed' || data.status === 'failed') {
+      // 通道侧已定局：停轮询并**明确告知**，同时刷新台账（别让员工猜）
+      stopPolling();
+      LewMessage.warning(
+        data.status === 'closed'
+          ? '该在线支付单已关闭，请重新获取二维码或改现金收款'
+          : '该在线支付单支付失败，请重新获取二维码或改现金收款',
+      );
+      await refreshAll();
+    }
+  } catch {
+    // 轮询失败静默重试；连续失败 5 次后停止，避免提示刷屏
+    qrFailures.value += 1;
+    if (qrFailures.value >= 5) stopPolling();
+  }
+}
+
+async function closeQrModal() {
+  stopPolling();
+  stopTick();
+  qrVisible.value = false;
+  // 关闭前**主动查一次**通道：员工关掉弹窗时这笔到底成没成，不能只靠后端定时任务
+  const paymentId = qrPaymentId.value;
+  if (paymentId && qrStatus.value === 'pending') {
+    try {
+      await pollStatus(paymentId);
+    } catch {
+      /* 查不到就算了，台账刷新仍会反映本地状态 */
+    }
+  }
+}
+
+/** 过期出口 1：关掉超时的支付单，按同样的参数重新获取二维码 */
+function handleReacquire() {
+  const paymentId = qrPaymentId.value;
+  const last = lastSettle;
+  if (!paymentId || !last) return;
+  confirmDanger({
+    type: 'normal',
+    title: '重新获取二维码',
+    content: '将关闭已超时的支付单并重新下单生成新二维码。确定继续吗？',
+    confirmText: '重新获取',
+    confirmColor: 'primary',
+    onConfirm: async () => {
+      await closePayment(paymentId, { reason: '二维码超时，重新获取' });
+      await closeQrModal();
+      await submitSettle(last.target, last.payments);
+    },
+  });
+}
+
+/**
+ * 过期出口 2：关掉超时的支付单，改为现金收款。
+ *
+ * 这里**刻意不自动重提**销账：金额构成可能已经被员工改过，自动按旧参数重下
+ * 有「替他做决定」的风险。只负责把在线单关干净，并明确告诉员工下一步做什么。
+ */
+function handleSwitchToCash() {
+  const paymentId = qrPaymentId.value;
+  if (!paymentId) return;
+  confirmDanger({
+    type: 'normal',
+    title: '改现金收款',
+    content: '将关闭这张超时的在线支付单，然后请按现金方式重新销账。确定继续吗？',
+    confirmText: '改为现金',
+    confirmColor: 'primary',
+    onConfirm: async () => {
+      await closePayment(paymentId, { reason: '二维码超时，改现金收款' });
+      await closeQrModal();
+      LewMessage.success('已关闭在线支付单，请按现金方式重新销账');
+      await refreshAll();
+    },
+  });
+}
+
+onBeforeUnmount(() => {
+  stopPolling();
+  stopTick();
+});
 const qrIsImage = computed(() =>
   /^(data:image\/|https?:\/\/.+\/(wxpay|alipay)|https?:\/\/.+\.(png|jpe?g|gif|svg))/i.test(
     qrCodeUrl.value,
@@ -444,8 +608,14 @@ async function submitSettle(
   if (result.codeUrl) {
     qrCodeUrl.value = result.codeUrl;
     qrExpireAt.value = result.expireAt ?? null;
+    qrPaymentId.value = result.paymentId ?? null;
+    qrStatus.value = 'pending';
+    // 记住本次参数：过期后「重新获取」按同样参数重下
+    lastSettle = { target, payments };
     settleVisible.value = false;
     qrVisible.value = true;
+    startCountdown(result.expireAt);
+    if (qrPaymentId.value !== null) startPolling(qrPaymentId.value);
     LewMessage.success('已生成在线收款码，请顾客扫码支付');
     return;
   }
@@ -942,14 +1112,17 @@ async function refreshAll() {
           >{{ qrCodeUrl }}</code
         >
         <div class="text-12px text-[var(--app-text-muted)]">
-          <span v-if="qrExpireAt"
-            >有效期至 {{ formatDateTime(qrExpireAt) }} ·
-          </span>
-          支付成功后自动回到本单
+          <span v-if="qrRemaining > 0">剩余 {{ qrRemaining }} 秒 · </span>
+          <span v-else>已超时 · </span>
+          <span>{{ qrStatusText }}</span>
+        </div>
+        <div v-if="qrRemaining <= 0 && qrStatus !== 'success'" class="flex gap-2">
+          <LewButton type="fill" @click="handleReacquire">重新获取二维码</LewButton>
+          <LewButton type="light" @click="handleSwitchToCash">改现金收款</LewButton>
         </div>
         <div class="flex gap-2">
           <LewButton type="light" @click="copyQrUrl">复制支付链接</LewButton>
-          <LewButton type="fill" @click="qrVisible = false">关闭</LewButton>
+          <LewButton type="fill" @click="closeQrModal">关闭</LewButton>
         </div>
       </div>
     </LewModal>

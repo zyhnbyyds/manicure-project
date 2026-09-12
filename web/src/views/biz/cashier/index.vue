@@ -509,7 +509,15 @@ async function pollStatus(paymentId: number) {
       LewMessage.success('支付成功，单据金额已刷新');
       await Promise.all([reloadSelected(), loadQueue()]);
     } else if (data.status === 'closed' || data.status === 'failed') {
+      // 通道侧已定局：停轮询 + **明确告知** + 刷新单据
+      // （原来只 stopPolling，界面停在「剩余 00:00」，店员不知道这笔到底成没成）
       stopPolling();
+      LewMessage.warning(
+        data.status === 'closed'
+          ? '该支付单已关闭，请重新获取二维码或改现金收款'
+          : '该支付单支付失败，请重新获取二维码或改现金收款',
+      );
+      await Promise.all([reloadSelected(), loadQueue()]);
     }
   } catch {
     // 轮询失败静默重试；连续失败 5 次后停止，避免错误提示刷屏
@@ -526,10 +534,20 @@ function openQrModal(payment: PaymentOutcome) {
   startPolling(payment.paymentId);
 }
 
-function closeQrModal() {
+async function closeQrModal() {
   stopPolling();
   stopTick();
   qrVisible.value = false;
+  // 关掉弹窗**不等于**这笔没付：顾客可能刚扫完码。关闭前主动查一次通道，
+  // 否则这笔只能等后端定时查单（最长 2 分钟），期间店员很可能再收一次钱。
+  const paymentId = qrPayment.value?.paymentId;
+  if (paymentId && qrStatus.value === 'pending') {
+    try {
+      await pollStatus(paymentId);
+    } catch {
+      /* 查不到就算了，队列刷新仍会反映本地状态 */
+    }
+  }
 }
 
 async function handleCopyCode() {
