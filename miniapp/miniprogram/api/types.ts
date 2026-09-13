@@ -234,6 +234,13 @@ export interface MemberMe {
   balancePrincipal: number;
   /** 储值赠送（分） */
   balanceBonus: number;
+  /**
+   * 累计充值（分，**毛额**）：充过多少就是多少，退款不减这一项。
+   *
+   * 充值页设计稿的「累计充值 ¥1200」用它 —— 顾客想看的是「我在你家充过多少」，
+   * 不是一道需要解释的净额算式。
+   */
+  totalRecharged: number;
   cards: MemberCard[];
   /**
    * 小程序内自助支付（余额 / 次卡 / 积分）是否可用 —— **合规闸门**。

@@ -8,6 +8,8 @@
         <text class="balance__number">{{balanceText}}</text>
         <text class="balance__unit">元</text>
       </view>
+      <!-- 累计充值：毛额，来自充值流水汇总（退款不减这一项） -->
+      <view class="balance__total">累计充值 ¥{{rechargedText}}</view>
       <view class="balance__split">本金 {{principalText}} 元 · 赠送 {{bonusText}} 元（赠送不可退）</view>
     </view>
 

@@ -40,6 +40,8 @@ definePage({
     balanceText: '0.00',
     principalText: '0.00',
     bonusText: '0.00',
+    /** 累计充值（元，毛额）—— 设计稿右上角那一行 */
+    rechargedText: '0.00',
     /** 服务端下发的档位（加载前为空，不展示任何伪造档位） */
     plans: [] as PlanVM[],
     activeIndex: -1,
@@ -66,6 +68,8 @@ definePage({
         balanceText: fenToYuan(me.balancePrincipal + me.balanceBonus),
         principalText: fenToYuan(me.balancePrincipal),
         bonusText: fenToYuan(me.balanceBonus),
+        // 设计稿的「累计充值」：毛额口径，由服务端从充值流水汇总（退款不减这一项）
+        rechargedText: fenToYuan(me.totalRecharged),
         plans: planPage.items.map((plan) => ({
           id: plan.id,
           amount: plan.payAmount,

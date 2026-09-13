@@ -331,6 +331,8 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
         // 合规闸门（A14）：小程序据此把余额/次卡/积分入口**如实地**置灰。
         // 它必须对 C 端可见，否则前端只能靠猜或"显示可用、点了才报错"
         'selfPayEnabled',
+        // 累计充值（分，毛额）：充值页设计稿的「累计充值 ¥1200」
+        'totalRecharged',
       ].sort(),
     );
 
@@ -357,6 +359,31 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
     );
   });
 
+  it('累计充值 = recharge 流水毛额合计（充值页设计稿的「累计充值」）', async () => {
+    const customerId = await seedCustomer('充值顾客', '13800008911');
+    const { token } = await seedBoundAppUser('openid-recharged', customerId);
+
+    // 一次都没充过 → 0（不是 null，前端不用兜）
+    const empty = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(empty.body.totalRecharged).toBe(0);
+
+    await ctx.sql(
+      `INSERT INTO biz_member_transaction (customer_id, type, amount, balance_delta_principal, created_by)
+       VALUES (?, 'recharge', 50000, 50000, 0), (?, 'recharge', 70000, 70000, 0)`,
+      [customerId, customerId],
+    );
+    // 非充值流水不该被算进来（消费 / 退款 / 积分都另有类型）
+    await ctx.sql(
+      `INSERT INTO biz_member_transaction (customer_id, type, amount, balance_delta_principal, created_by)
+       VALUES (?, 'consume', -8800, -8800, 0), (?, 'refund', -50000, -50000, 0)`,
+      [customerId, customerId],
+    );
+
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    // 毛额口径：1200 元 = 120000 分（退款不减累计充值）
+    expect(me.body.totalRecharged).toBe(120000);
+  });
+
   it('levelRank 跟着等级单调上升（小程序据此换卡面皮肤，与等级名无关）', async () => {
     // 三个等级：名字故意起得「不像有高低」，验证名次是**按 sort 算的**，
     // 不是按名字或折扣猜的（等级名是门店自己起的，前端不能靠它判断高低）
@@ -372,12 +399,18 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
     const ranks: Record<string, number> = {};
     for (const [index, name] of ['甲级', '乙级', '丙级'].entries()) {
       // 不用 seedRichCustomer：它会按名字新建等级，这里要挂到**已存在**的等级上
-      const customerId = await seedCustomer(`皮肤-${name}`, `1380000004${index}`);
+      const customerId = await seedCustomer(
+        `皮肤-${name}`,
+        `1380000004${index}`,
+      );
       await ctx.sql(`UPDATE biz_customer SET level_id = ? WHERE id = ?`, [
         levelIdOf.get(name),
         customerId,
       ]);
-      const { token } = await seedBoundAppUser(`openid-tier-${index}`, customerId);
+      const { token } = await seedBoundAppUser(
+        `openid-tier-${index}`,
+        customerId,
+      );
       const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
       expect(me.status).toBe(200);
       ranks[name] = me.body.levelRank;
@@ -433,7 +466,8 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
     expect(withQuery.body.customerId).toBe(mineId);
   });
 
-  it('顾客档案被软删 → 401 + needBind（而不是 500 或空壳对象）', async () => {    const customerId = await seedRichCustomer('赵女士', '13800000024');
+  it('顾客档案被软删 → 401 + needBind（而不是 500 或空壳对象）', async () => {
+    const customerId = await seedRichCustomer('赵女士', '13800000024');
     const { token } = await seedBoundAppUser('openid-deleted', customerId);
     await ctx.sql(`UPDATE biz_customer SET deleted_at = NOW() WHERE id = ?`, [
       customerId,

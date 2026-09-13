@@ -50,6 +50,15 @@
   color: var(--c-text-sub);
 }
 
+/* 累计充值：设计稿在余额卡右上角（字号比余额小、比底部说明大） */
+.balance__total {
+  position: absolute;
+  top: 34rpx;
+  right: 32rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
 .balance__split {
   position: relative;
   margin-top: 18rpx;

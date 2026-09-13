@@ -4,7 +4,7 @@ import {
   NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
   appWxUsers,
@@ -13,6 +13,7 @@ import {
   bizMemberCardLogs,
   bizMemberCards,
   bizMemberLevels,
+  bizMemberTransactions,
   bizServiceItems,
   bizStaffs,
 } from '../../../database/schema/index.js';
@@ -334,6 +335,24 @@ export class AppMemberService {
     const context = await this.members.getPricingContext(customerId);
 
     /**
+     * 累计充值（分，毛额）：`biz_member_transaction` 里 `type='recharge'` 的金额合计。
+     *
+     * 只读汇总，**不碰任何派生字段**（余额/积分仍然只由会员账务链路写）。
+     * 用 `COALESCE` 兜住「一次都没充过」的 `NULL`，否则前端会拿到 null 而不是 0。
+     */
+    const [recharged] = await this.database.db
+      .select({
+        total: sql<number>`COALESCE(SUM(${bizMemberTransactions.amount}), 0)`,
+      })
+      .from(bizMemberTransactions)
+      .where(
+        and(
+          eq(bizMemberTransactions.customerId, customerId),
+          eq(bizMemberTransactions.type, 'recharge'),
+        ),
+      );
+
+    /**
      * 等级名 + **等级序号**一起算。
      *
      * 序号 = 按 `sort` / `upgradeAmount` / `id` 升序排出来的名次（0 = 最低等级），
@@ -385,6 +404,7 @@ export class AppMemberService {
       memberNo: customer.memberNo,
       gender: customer.gender,
       birthday: customer.birthday,
+      totalRecharged: Number(recharged?.total ?? 0),
       levelName,
       levelRank,
       discountPermille: context.levelDiscountPermille,

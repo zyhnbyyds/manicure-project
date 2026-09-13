@@ -270,13 +270,10 @@ export const appMemberCardDetailVo = appMemberCardVo.extend({
     .int()
     .openapi({ description: '剩余次数（服务端算）' }),
   usable: z.boolean().openapi({ description: '现在到店是否可用' }),
-  unusableReason: z
-    .string()
-    .nullable()
-    .openapi({
-      example: '次卡已过期',
-      description: '不可用原因；可用时为 null',
-    }),
+  unusableReason: z.string().nullable().openapi({
+    example: '次卡已过期',
+    description: '不可用原因；可用时为 null',
+  }),
 });
 registerComponent('AppMemberCardDetailVo', appMemberCardDetailVo);
 export type AppMemberCardDetailVo = z.infer<typeof appMemberCardDetailVo>;
@@ -482,6 +479,17 @@ export const appMemberMeVo = z.object({
     .string()
     .nullable()
     .openapi({ example: '1996-08-12', description: '生日 YYYY-MM-DD' }),
+  /**
+   * 累计充值（分）：`biz_member_transaction` 里 `type='recharge'` 的金额合计。
+   *
+   * 口径是**毛额**（充过多少就是多少，退款走 `type='refund'` 单独记），
+   * 与充值页设计稿「累计充值 ¥1200」一致 —— 顾客想看到的是「我在你家充过多少」，
+   * 而不是一道需要解释的净额算式。
+   */
+  totalRecharged: z
+    .number()
+    .int()
+    .openapi({ example: 120000, description: '累计充值（分，毛额）' }),
   levelName: z.string().nullable(),
   /**
    * 等级序号：**0 = 最低等级**（按 `sort` / `upgradeAmount` 升序排出来的名次）。
