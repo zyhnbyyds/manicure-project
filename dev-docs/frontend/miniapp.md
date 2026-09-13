@@ -410,6 +410,8 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | **收货地址** | 新表 `biz_customer_address` + `/app/member/addresses` 五个端点（列表/新增/编辑/删除/设默认）+ `pages/address` 真实 CRUD（列表 + 新增编辑弹层 + 默认徽标）。设计稿 batch4 第 6 屏 |
 | **款式收藏** | `biz_customer_favorite` + `/app/member/favorites` 三端点（列表/收藏/取消，**幂等**且返回目标状态）+ 款式详情的两态心形 + `pages/favorites` 两列宫格（**分类胶囊这次真能筛**，选项来自收藏里真实出现过的分类）。设计稿 batch4 第 4 屏 |
 | **积分兑换分类与配图** | `biz_points_goods` 加 `image`/`category` 并接到接口；`GET /app/points-goods?category=` 精确筛选 + 响应带 `categories` 清单；兑换页胶囊选项**来自数据**、切分类下推服务端；配图优先用门店上传的图。设计稿 batch4 第 3 屏 |
+| **次卡详情** | `GET /app/member/cards/:id`（**服务端算**剩余次数与可用性 + 不可用原因）+ `.../logs`（核销/撤销记录，带项目与美甲师）+ `pages/card-detail` 接真数据、分页「加载更多」。**核销码用卡号**：不伪造动态二维码（要服务端签名 + 工作台扫码端才有意义）。设计稿 batch4 第 2 屏 |
+| **充值中心** | `me` 新增 `totalRecharged`（充值流水**毛额**合计）；余额卡补上设计稿的「累计充值」，档位/自定义金额/合计实付均已就位。**「立即充值」仍如实提示**：余额充值属虚拟支付，受合规闸门与 JSAPI 501 契约位限制。设计稿 batch4 第 1 屏 |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 
@@ -417,8 +419,6 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | --- | --- | --- | --- |
 | **消息中心**（`pages/notices`） | 五个页签、卡片、空态按设计稿还原好了，但列表**恒为空** | `sys_notice_log` **已有** `recipient_type/recipient_id/read_at`；缺 `GET /app/notices`（分类 + 分页 + 未读数）与「标已读 / 全部已读」两个动作端点 | 中 |
 | **门店档案**（`pages/shop`、`config.ts` 的 `SHOP`） | 门店名/电话/地址/营业时间/经纬度都是**前端常量**，改一次要重新发版 | 缺 `GET /app/shop`；值可读 `sys_config`（门店名、电话、地址、营业时间），缺省回落现在的常量 | 小 |
-| **次卡详情**（`pages/card-detail`） | 有卡面与「核销记录」空态 | 设计稿要**到店核销码**（二维码 + 卡号）与使用记录列表 → 补后端核销记录接口 + 前端 | 中 |
-| **充值中心**（`pages/recharge`） | 档位来自服务端，点充值如实提示 | 设计稿要余额卡 + 累计充值 + 档位选中 + 自定义金额 → 补 `me` 里的累计充值/余额展示 + 前端 | 中 |
 | **取消页扣费说明**（`pages/cancel`） | 只写原则，不显示具体扣多少 | app 域拿不到判责规则（在 `RefundPort.preview`）→ 加只读的 `GET /app/bookings/:id/refund-preview` | 小 |
 | **会员卡页促销区** | 接口失败被 `.catch` 降级成「暂无可领的券」 | 把「加载失败」与「确实没有」分开（前端改一处） | 小 |
 
