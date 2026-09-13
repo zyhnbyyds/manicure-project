@@ -624,7 +624,49 @@ export abstract class NoticePort {
   abstract recordSubscribeGrant(
     input: SubscribeGrantInput,
   ): Promise<{ accepted: string[] }>;
+
+  /* ---------------------------------------------------------------- *
+   * 顾客站内消息（C 端收件箱，batch5 第 2 屏）
+   * ---------------------------------------------------------------- */
+
+  /**
+   * 顾客收件箱：**只出 `channel='site'`**（短信日志不是站内消息）、
+   * 且 `recipient_type='customer' AND recipient_id=customerId`。
+   *
+   * 分类来自模板的 `category`（经 `template_code` 关联）；`categories` 是
+   * **该顾客收件箱里真实出现过的分类**，前端页签直接用它 —— 不能硬编码。
+   */
+  abstract customerInbox(
+    customerId: number,
+    page: number,
+    pageSize: number,
+    filter?: { category?: string },
+  ): Promise<{
+    items: NoticeInboxRow[];
+    unread: number;
+    categories: string[];
+    page: number;
+    pageSize: number;
+  }>;
+
+  /** 标记顾客站内消息已读；不传 `ids` = 该顾客全部已读 */
+  abstract markCustomerInboxRead(
+    customerId: number,
+    ids?: number[],
+  ): Promise<{ updated: number }>;
 }
+
+/** 收件箱一行（日志字段 + 模板分类） */
+export type NoticeInboxRow = {
+  id: number;
+  templateCode: string;
+  title: string | null;
+  content: string;
+  category: string | null;
+  readAt: Date | null;
+  bookingId: number | null;
+  createdAt: Date;
+};
 
 export type SubscribeGrantInput = {
   appWxUserId: number;

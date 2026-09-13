@@ -1,0 +1,1 @@
+ALTER TABLE `sys_notice_template` ADD `category` varchar(30);

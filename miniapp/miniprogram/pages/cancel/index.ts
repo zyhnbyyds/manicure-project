@@ -10,15 +10,12 @@ import { hideLoading, showLoading, toast } from '../../utils/ui';
 const PAGE_ICONS: IconName[] = ['clock', 'check', 'headset'];
 
 /**
- * 取消规则（**原则性表述，不写具体金额**）。
+ * 取消规则（原则性表述）。
  *
- * ⚠️ 为什么不写「扣 30%」这类数字：**app 域读不到门店的判责规则**。
- * 后端的判责能力在 `RefundPort.preview`（管理端 `/biz/refunds/preview`），
- * 顾客侧没有对应接口。写死数字会给出**错误的金额预期** —— 比不写更糟。
- *
- * 正解：加 `GET /app/bookings/:id/cancel-preview`，复用后台同一套判责规则
- * （提前量 → 建议退款额），页面就能显示**真实可退金额**再让顾客确认。
- * 这也符合「金额只在服务端算」的红线。
+ * 命中门店政策时，上面还会显示 `GET /app/bookings/:id/refund-preview` 给的**真实金额**
+ * （服务端按 `RefundPort.preview` 的同一套判责规则算）——
+ * 页面自己写「扣 30%」这类数字只会给出错误的金额预期，比不写更糟。
+ * 只有拿不到预览（没有支付、接口失败）时才退回这几条原则性说明。
  */
 const RULES = [
   { icon: 'clock' as IconName, title: '提前取消', text: '越早取消，越不影响门店安排，通常可全额退还定金' },
@@ -39,6 +36,15 @@ definePage({
     paidText: '0.00',
     dueText: '0.00',
     submitting: false,
+    /** 费用预览（服务端按门店判责规则算）；拿不到时 previewOk = false，退回原则性说明 */
+    previewOk: false,
+    preview: {
+      policyName: '',
+      paidText: '0.00',
+      suggestText: '0.00',
+      deductText: '0.00',
+      deductAmount: 0,
+    },
   },
 
   bookingId: 0,
@@ -46,6 +52,32 @@ definePage({
   onLoad(query: Record<string, string | undefined>) {
     this.bookingId = Number(query.bookingId ?? 0);
     this.load();
+    void this.loadPreview();
+  },
+
+  /**
+   * 拉费用预览。
+   *
+   * 失败**不报错、不挡流程**：没有支付（纯到店付）时预览就是 0，接口也可能不可用；
+   * 这时退回「取消说明」里的原则性表述，顾客照样能取消。
+   */
+  async loadPreview() {
+    if (!this.bookingId) return;
+    try {
+      const preview = await bookingApi.refundPreview(this.bookingId);
+      this.setData({
+        previewOk: true,
+        preview: {
+          policyName: preview.policyName ?? '',
+          paidText: fenToYuan(preview.paidAmount),
+          suggestText: fenToYuan(preview.suggestAmount),
+          deductText: fenToYuan(preview.deductAmount),
+          deductAmount: preview.deductAmount,
+        },
+      });
+    } catch {
+      this.setData({ previewOk: false });
+    }
   },
 
   async load() {

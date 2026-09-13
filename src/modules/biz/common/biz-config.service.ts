@@ -32,6 +32,19 @@ export type PaymentConfig = {
   reconcileHour: number;
 };
 
+/** 门店档案（小程序「门店」页与客服/导航都用这一份） */
+export type ShopProfileConfig = {
+  name: string;
+  nameEn: string;
+  phone: string;
+  address: string;
+  hours: string;
+  latitude: number;
+  longitude: number;
+  /** 公告 / 到店须知；没配是空串 */
+  notice: string;
+};
+
 /** 通知参数（§19） */
 export type NoticeConfig = {
   smsEnabled: boolean;
@@ -63,7 +76,15 @@ type ConfigKey = keyof BizConfig;
 
 /** 默认值：缺失 / 非法 / 越界一律回落到这里，绝不因为配置问题让核心链路不可用 */
 export const BIZ_CONFIG_DEFAULTS: Record<string, string> = {
-  'biz.shop.name': '美甲店',
+  'biz.shop.name': '美甲小铺',
+  'biz.shop.nameEn': 'BEAUTY NAILS',
+  'biz.shop.phone': '13800000000',
+  'biz.shop.address': '上海市静安区南京西路 1788 号 3 楼 355 室',
+  'biz.shop.hours': '10:00 - 20:00',
+  'biz.shop.latitude': '31.229',
+  'biz.shop.longitude': '121.455',
+  /** 公告 / 到店须知；空串 = 小程序端不显示这一块 */
+  'biz.shop.notice': '',
   'biz.booking.timezone': DEFAULT_SHOP_TIMEZONE,
   'biz.booking.stepMinutes': '15',
   'biz.booking.minLeadMinutes': '60',
@@ -100,6 +121,13 @@ export const BIZ_CONFIG_DEFAULTS: Record<string, string> = {
 /** 配置中文名，供 seed 写入 `sys_config.name` */
 export const BIZ_CONFIG_LABELS: Record<string, string> = {
   'biz.shop.name': '门店名称（通知模板 {shopName} 变量）',
+  'biz.shop.nameEn': '门店英文副标题',
+  'biz.shop.phone': '门店电话（客服 / 导航拨号）',
+  'biz.shop.address': '门店地址',
+  'biz.shop.hours': '营业时间',
+  'biz.shop.latitude': '纬度（地图导航）',
+  'biz.shop.longitude': '经度（地图导航）',
+  'biz.shop.notice': '门店公告 / 到店须知',
   'biz.booking.timezone': '店内时区',
   'biz.booking.stepMinutes': '可约时段粒度（分钟）',
   'biz.booking.minLeadMinutes': '小程序端最少提前预约（分钟）',
@@ -311,6 +339,37 @@ export class BizConfigService {
         min: 0,
         max: 23,
       }),
+    };
+  }
+
+  /**
+   * 门店档案（小程序「门店」页）。
+   *
+   * 这些值以前硬编码在小程序的 `config.ts` 里，改一次要重新发版 —— 而门店电话、
+   * 营业时间恰恰是最常改的信息。现在统一走 `sys_config`，管理端「参数配置」可直接改。
+   *
+   * 缺省值与小程序原来的常量**逐字一致**：没配过的新库渲染出来的样子不变。
+   * 经纬度用 `Number` 解析，非法值回落到默认（不能因为门店手滑填了空串就导航到 0,0）。
+   */
+  async shopProfile(): Promise<ShopProfileConfig> {
+    const latitude = Number(
+      await this.getString('biz.shop.latitude', '31.229'),
+    );
+    const longitude = Number(
+      await this.getString('biz.shop.longitude', '121.455'),
+    );
+    return {
+      name: await this.getString('biz.shop.name', '美甲小铺'),
+      nameEn: await this.getString('biz.shop.nameEn', 'BEAUTY NAILS'),
+      phone: await this.getString('biz.shop.phone', '13800000000'),
+      address: await this.getString(
+        'biz.shop.address',
+        '上海市静安区南京西路 1788 号 3 楼 355 室',
+      ),
+      hours: await this.getString('biz.shop.hours', '10:00 - 20:00'),
+      latitude: Number.isFinite(latitude) ? latitude : 31.229,
+      longitude: Number.isFinite(longitude) ? longitude : 121.455,
+      notice: await this.getString('biz.shop.notice', ''),
     };
   }
 

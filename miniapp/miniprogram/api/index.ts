@@ -35,6 +35,7 @@ import type {
   MemberCardDetail,
   MemberCardLog,
   MemberMe,
+  Notice,
   Paged,
   ServiceItem,
   SettleBookingRequest,
@@ -49,6 +50,7 @@ import type {
   StaffReview,
   StaffSchedule,
   RechargePlan,
+  ShopProfile,
   UpdateProfileRequest,
 } from './types';
 
@@ -245,9 +247,85 @@ export const favoriteApi = {
   },
 };
 
+/* ── 站内消息 / 门店档案 ────────────────────────────────────── */
+
+/**
+ * 站内消息（收件箱）。
+ *
+ * `list` 的响应里带 **`categories`（分类清单）与 `unread`**：页签选项与红点都来自数据 ——
+ * 分类是门店在通知模板上填的，前端硬编码就会点出一片空列表。
+ */
+export const noticeApi = {
+  list(
+    input: { category?: string; page?: number; pageSize?: number } = {},
+  ): Promise<Paged<Notice> & { unread: number; categories: string[] }> {
+    const data: Record<string, unknown> = {
+      page: input.page ?? 1,
+      pageSize: input.pageSize ?? 20,
+    };
+    if (input.category) data.category = input.category;
+    return request<Paged<Notice> & { unread: number; categories: string[] }>({
+      path: '/app/notices',
+      data,
+    });
+  },
+
+  /** 标记一条已读（幂等）；返回剩余未读数，前端据此更新红点 */
+  markRead(id: number): Promise<NoticeReadResult> {
+    return request<NoticeReadResult>({
+      path: `/app/notices/${id}/read`,
+      method: 'POST',
+      data: {},
+    });
+  },
+
+  /** 全部已读；传 `category` 时**只清该分类**（带着筛选点「全部已读」不该清别的分类） */
+  markAllRead(category?: string): Promise<NoticeReadResult> {
+    return request<NoticeReadResult>({
+      path: '/app/notices/read-all',
+      method: 'POST',
+      data: category ? { category } : {},
+    });
+  },
+};
+
+/** 门店档案（公开信息；门店在后台「参数配置」改完最多 10 秒生效，小程序不用发版） */
+export const shopApi = {
+  get(): Promise<ShopProfile> {
+    return request<ShopProfile>({ path: '/app/shop' });
+  },
+};
+
+/** 已读动作的返回：剩余未读数 */
+interface NoticeReadResult {
+  updated: number;
+  unread: number;
+}
+
+/** 取消预约的费用预览（服务端按门店判责规则算） */
+interface RefundPreview {
+  paidAmount: number;
+  suggestAmount: number;
+  deductAmount: number;
+  policyName: string | null;
+  refundPermille: number;
+  hoursToStart: number;
+}
+
 /* ── 预约 ──────────────────────────────────────────────────── */
 
 export const bookingApi = {
+  /**
+   * 取消预约的费用预览（可退 / 扣除多少）。
+   *
+   * 金额由服务端按门店退款政策算（复用后台判责规则）—— 页面**不要**自己算比例，
+   * 否则会在顾客面前给出一个门店不认的数字。
+   */
+  refundPreview(bookingId: number): Promise<RefundPreview> {
+    return request<RefundPreview>({
+      path: `/app/bookings/${bookingId}/refund-preview`,
+    });
+  },
   list(
     input: { status?: BookingStatus; page?: number; pageSize?: number } = {},
   ): Promise<Paged<Booking>> {

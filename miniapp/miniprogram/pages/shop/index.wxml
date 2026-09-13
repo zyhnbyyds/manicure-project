@@ -13,6 +13,12 @@
       <view class="head__tag">营业中 · {{shop.hours}}</view>
     </view>
 
+    <!-- 门店公告（后台「参数配置」里填；没填就不显示这一块） -->
+    <view wx:if="{{notice}}" class="card notice-bar">
+      <view class="notice-bar__label">门店公告</view>
+      <view class="notice-bar__text">{{notice}}</view>
+    </view>
+
     <!-- 信息行：导航 / 拨号 / 复制微信号都是真实动作 -->
     <view class="card rows">
       <view

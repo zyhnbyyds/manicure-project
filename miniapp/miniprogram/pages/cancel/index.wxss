@@ -77,3 +77,44 @@
   margin-left: 20rpx;
 }
 
+
+/* ── 费用预览（服务端按门店政策算的真实金额） ─────────────── */
+
+.refund {
+  margin-bottom: 20rpx;
+}
+
+.refund__title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--c-primary-deep);
+}
+
+.refund__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 16rpx;
+}
+
+.refund__value {
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+/* 可退 = 好消息（主色）；扣除 = 需要留意（弱化但不刺眼） */
+.refund__value--good {
+  color: var(--c-primary-deep);
+}
+
+.refund__value--warn {
+  color: var(--c-text-sub);
+}
+
+.refund__hint {
+  margin-top: 16rpx;
+  font-size: 21rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}

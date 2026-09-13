@@ -1954,6 +1954,14 @@ export const sysNoticeTemplates = mysqlTable(
       .notNull(),
     title: varchar('title', { length: 100 }),
     content: varchar('content', { length: 1000 }).notNull(),
+    /**
+     * 站内消息的分类（C 端收件箱的筛选页签）。
+     *
+     * 自由文本而非枚举：分类是门店的运营语言（「预约提醒」「账户通知」…），
+     * 加一个分类不该改表结构。**可空**：老模板没分类时 C 端仍然能收到，
+     * 只是不参与分类页签（宁可少一个页签，不可少一条消息）。
+     */
+    category: varchar('category', { length: 30 }),
     variables: json('variables'),
     status: mysqlEnum('status', ['active', 'disabled'])
       .default('active')

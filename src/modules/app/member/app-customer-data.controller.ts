@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -15,6 +16,7 @@ import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -25,10 +27,12 @@ import {
 } from '../auth/app-access-token.guard.js';
 import {
   appAddressUpsertRequestSchema,
+  appListQuerySchema,
   type AppAddressListVo,
   type AppAddressVo,
   type AppFavoriteListVo,
   type AppFavoriteToggleVo,
+  type AppNoticeReadVo,
 } from '../dto/app-vo.js';
 import { AppCustomerDataService } from './app-customer-data.service.js';
 
@@ -215,5 +219,114 @@ export class AppCustomerDataController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<AppFavoriteToggleVo> {
     return this.customerData.removeFavorite(this.appUserId(request), id);
+  }
+
+  /* ------------------------------ 站内消息 ------------------------------ */
+
+  @Get('notices')
+  @ApiOperation({
+    summary: '我的消息（站内收件箱）',
+    description:
+      '只出**站内消息**（短信投递日志不进收件箱）；按分类筛选（选项取响应里的 `categories`）。' +
+      '响应带 `unread`（红点用）。未绑定手机号 → 400 + `needBind`。',
+  })
+  @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    description: '每页条数',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    description: '按分类筛选（预约提醒 / 账户通知 …）',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppNoticeListVo' },
+  })
+  listNotices(
+    @Req() request: AppRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const parsed = appListQuerySchema.parse(query);
+    const category =
+      typeof query.category === 'string' ? query.category.trim() : '';
+    return this.customerData.listNotices(this.appUserId(request), {
+      category: category === '' ? undefined : category,
+      // 与其它分页端点同口径：给默认值，避免把 undefined 传进 service
+      page: parsed.page ?? 1,
+      pageSize: parsed.pageSize ?? 20,
+    });
+  }
+
+  @Post('notices/:id/read')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '标记一条消息已读（幂等）',
+    description: '已读的不会重复更新；返回剩余未读数，前端据此更新红点。',
+  })
+  @ApiParam({ name: 'id', description: '消息 ID', example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppNoticeReadVo' },
+  })
+  markNoticeRead(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<AppNoticeReadVo> {
+    return this.customerData.markNoticeRead(this.appUserId(request), id);
+  }
+
+  @Post('notices/read-all')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '全部已读（可只清某个分类）',
+    description:
+      '不传 `category` = 全部已读；传了就只清该分类的未读 —— 有分类筛选时' +
+      '「全部已读」不该顺手清掉别的分类。',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    description: '只清这个分类（不传 = 全部）',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppNoticeReadVo' },
+  })
+  markAllNoticesRead(
+    @Req() request: AppRequest,
+    @Query() query: Record<string, unknown>,
+  ): Promise<AppNoticeReadVo> {
+    const category =
+      typeof query.category === 'string' ? query.category.trim() : '';
+    return this.customerData.markAllNoticesRead(
+      this.appUserId(request),
+      category === '' ? undefined : category,
+    );
+  }
+
+  /* ------------------------------ 门店档案 ------------------------------ */
+
+  @Get('shop')
+  @ApiOperation({
+    summary: '门店档案（公开信息）',
+    description:
+      '门店名 / 电话 / 地址 / 营业时间 / 经纬度 / 公告：来自 `sys_config`（门店可在后台改），' +
+      '缺省回落内置默认值。**只要求 app token，不要求绑定手机号** —— 这是公开信息，' +
+      '与 `/app/service-items` 同为可匿名浏览的目录。',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppShopVo' },
+  })
+  shop() {
+    return this.customerData.shopProfile();
   }
 }

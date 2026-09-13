@@ -28,6 +28,7 @@ import {
   CouponPort,
   type BookingWithItems,
   RechargePlanPort,
+  RefundPort,
   ReviewPort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
@@ -50,6 +51,7 @@ import type {
   AppCustomerCouponVo,
   AppCouponOfferListVo,
   AppRechargePlanListVo,
+  AppRefundPreviewVo,
   AppReviewVo,
   AppSettleBookingRequest,
   AppSettleBookingVo,
@@ -102,6 +104,8 @@ export class AppMemberService {
     private readonly pointsGoods: PointsGoodsPort,
     private readonly coupons: CouponPort,
     private readonly rechargePlanPort: RechargePlanPort,
+    /** 取消预约的费用预览复用后台判责规则（app 域不重算比例） */
+    private readonly refunds: RefundPort,
     private readonly bizConfig: BizConfigService,
     /** 门店档案的**唯一写入口**（顾客自助改资料走它，不直接 update 表） */
     private readonly customers: CustomerPort,
@@ -679,6 +683,34 @@ export class AppMemberService {
     );
     if (!booking) throw new NotFoundException('预约不存在');
     return mapBooking(booking);
+  }
+
+  /**
+   * 取消预约的**费用预览**（batch4「取消预约」页）。
+   *
+   * 归属先过 `findForCustomer`（别人的单 → 404），再调后台同一套判责规则
+   * `RefundPort.preview` —— **app 域不重算比例**，否则两边必然分叉。
+   * 这样取消页能显示真实可退金额，而不是「可能扣除部分定金」这种谁都不敢信的话。
+   */
+  async refundPreview(
+    appUserId: number,
+    bookingId: number,
+  ): Promise<AppRefundPreviewVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const booking = await this.bookingPort.findForCustomer(
+      customerId,
+      bookingId,
+    );
+    if (!booking) throw new NotFoundException('预约不存在');
+    const preview = await this.refunds.preview({ bookingId });
+    return {
+      paidAmount: preview.paidAmount,
+      suggestAmount: preview.suggestAmount,
+      deductAmount: preview.deductAmount,
+      policyName: preview.policyName,
+      refundPermille: preview.refundPermille,
+      hoursToStart: preview.hoursToStart,
+    };
   }
   /**
    * 自助下单（A10）。

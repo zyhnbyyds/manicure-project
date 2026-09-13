@@ -136,6 +136,13 @@ type NoticeTemplateSeed = {
   code: string;
   name: string;
   channel: 'sms' | 'site' | 'both';
+  /**
+   * 站内消息分类（C 端收件箱页签）。
+   *
+   * 用「门店看得懂的业务语言」而不是技术分组：预约提醒 / 账户通知 / 系统通知。
+   * C 端的页签就是从这些值里去重出来的 —— 加一个分类不用改前端。
+   */
+  category: string;
   title: string;
   content: string;
   variables: NoticeVariable[];
@@ -147,6 +154,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'booking_created',
     name: '预约成功通知',
     channel: 'both',
+    category: '预约提醒',
     title: '预约成功',
     content:
       '{customerName}您好，您在{shopName}的预约已确认：{bookingDate} {bookingTime}，美甲师{staffName}。请准时到店，如需改期请提前联系门店。',
@@ -163,6 +171,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'booking_remind',
     name: '到店提醒',
     channel: 'both',
+    category: '预约提醒',
     title: '预约提醒',
     content:
       '{customerName}您好，提醒您明天 {bookingTime} 在{shopName}有预约（美甲师{staffName}），请准时到店。',
@@ -173,6 +182,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'booking_cancelled',
     name: '取消通知',
     channel: 'both',
+    category: '预约提醒',
     title: '预约已取消',
     content:
       '{customerName}您好，您 {bookingDate} {bookingTime} 在{shopName}的预约已取消。原因：{cancelReason}。如需重新预约请随时联系门店。',
@@ -189,6 +199,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'booking_completed',
     name: '完成致谢与评价邀请',
     channel: 'both',
+    category: '预约提醒',
     title: '服务完成，欢迎评价',
     content:
       '{customerName}您好，感谢光临{shopName}，本次消费 {amount} 元，累计获得 {points} 积分。期待您对美甲师{staffName}的服务做出评价。',
@@ -205,6 +216,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'member_recharged',
     name: '充值成功通知',
     channel: 'both',
+    category: '账户通知',
     title: '充值成功',
     content:
       '{customerName}您好，您的会员账户充值成功，本次实付 {amount} 元已到账{shopName}。感谢您的信任，赠送金额不可退、余额不可提现。',
@@ -215,6 +227,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'tail_payment_remind',
     name: '尾款提醒',
     channel: 'sms',
+    category: '账户通知',
     title: '尾款待支付提醒',
     content:
       '{customerName}您好，您在{shopName}的预约（{bookingDate} {bookingTime}）尚有尾款 {dueAmount} 元待支付，请到店后完成支付。',
@@ -231,6 +244,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'recurrence_conflict',
     name: '周期预约冲突告警（店员）',
     channel: 'site',
+    category: '系统通知',
     title: '周期预约生成遇到冲突',
     content:
       '周期规则 #{recurrenceId}（顾客 {customerName} / 美甲师 {staffName}）在 {bookingDate} {bookingTime} 生成时撞上已有预约，冲突策略：{policy}。冲突明细：{conflicts}。请到「周期预约」页面人工处理。',
@@ -249,6 +263,7 @@ const NOTICE_TEMPLATE_SEEDS: NoticeTemplateSeed[] = [
     code: 'recurrence_failed',
     name: '周期预约生成失败（店员）',
     channel: 'site',
+    category: '系统通知',
     title: '周期预约生成失败',
     content:
       '周期规则 #{recurrenceId}（美甲师 {staffName}）在 {bookingDate} 生成失败：{reason}。请检查规则配置或联系管理员。',
@@ -454,6 +469,7 @@ async function seedNoticeTemplates(db: DbLike): Promise<SeedStat> {
         code: row.code,
         name: row.name,
         channel: row.channel,
+        category: row.category,
         title: row.title,
         content: row.content,
         variables: row.variables,

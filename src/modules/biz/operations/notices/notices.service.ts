@@ -40,6 +40,7 @@ import {
 } from '../../common/biz-config.service.js';
 import {
   NoticePort,
+  type NoticeInboxRow,
   type NoticeSendInput,
   type SubscribeGrantInput,
 } from '../../common/ports.js';
@@ -457,6 +458,118 @@ export class NoticesService extends NoticePort {
     const conditions = [
       eq(sysNoticeLogs.recipientType, 'user'),
       eq(sysNoticeLogs.recipientId, userId),
+      isNull(sysNoticeLogs.readAt),
+    ];
+    if (ids?.length) conditions.push(inArray(sysNoticeLogs.id, ids));
+    const result = await this.database.db
+      .update(sysNoticeLogs)
+      .set({ readAt: new Date() })
+      .where(and(...conditions));
+    return { updated: result[0].affectedRows };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 顾客站内消息（C 端收件箱）
+   * ------------------------------------------------------------------ */
+
+  /**
+   * 顾客收件箱。
+   *
+   * 三条口径与后台 inbox（`recipientType='user'`）刻意不同：
+   * 1. **只出 `channel='site'`** —— 短信日志不是站内消息，混进来顾客会看到
+   *    「我给你发过短信」这种他并不需要知道的投递记录；
+   * 2. 分类来自**模板的 `category`**（经 `template_code` 左连）：模板被删/改名时
+   *    分类为 null，但仍出现在「全部」里 —— 宁可少一个页签，不可少一条消息；
+   * 3. `categories` 只列**该顾客收件箱里真实出现过的分类**，前端页签直接用它。
+   */
+  async customerInbox(
+    customerId: number,
+    page: number,
+    pageSize: number,
+    filter: { category?: string } = {},
+  ): Promise<{
+    items: NoticeInboxRow[];
+    unread: number;
+    categories: string[];
+    page: number;
+    pageSize: number;
+  }> {
+    const paging = parsePagination(page, pageSize);
+    const scope = and(
+      eq(sysNoticeLogs.recipientType, 'customer'),
+      eq(sysNoticeLogs.recipientId, customerId),
+      eq(sysNoticeLogs.channel, 'site'),
+    );
+
+    const rows = await this.database.db
+      .select({
+        id: sysNoticeLogs.id,
+        templateCode: sysNoticeLogs.templateCode,
+        title: sysNoticeLogs.title,
+        content: sysNoticeLogs.content,
+        readAt: sysNoticeLogs.readAt,
+        bookingId: sysNoticeLogs.bookingId,
+        createdAt: sysNoticeLogs.createdAt,
+        category: sysNoticeTemplates.category,
+      })
+      .from(sysNoticeLogs)
+      .leftJoin(
+        sysNoticeTemplates,
+        eq(sysNoticeTemplates.code, sysNoticeLogs.templateCode),
+      )
+      .where(
+        andConditions([
+          scope,
+          filter.category
+            ? eq(sysNoticeTemplates.category, filter.category)
+            : undefined,
+        ]),
+      )
+      .orderBy(desc(sysNoticeLogs.id))
+      .limit(paging.pageSize)
+      .offset(paging.offset);
+
+    const [unreadRow] = await this.database.db
+      .select({ value: count() })
+      .from(sysNoticeLogs)
+      .where(and(scope, isNull(sysNoticeLogs.readAt)));
+
+    const categoryRows = await this.database.db
+      .selectDistinct({ category: sysNoticeTemplates.category })
+      .from(sysNoticeLogs)
+      .innerJoin(
+        sysNoticeTemplates,
+        eq(sysNoticeTemplates.code, sysNoticeLogs.templateCode),
+      )
+      .where(
+        and(
+          scope,
+          sql`${sysNoticeTemplates.category} IS NOT NULL`,
+          ne(sysNoticeTemplates.category, ''),
+        ),
+      )
+      .orderBy(asc(sysNoticeTemplates.category));
+
+    return {
+      items: rows,
+      unread: Number(unreadRow?.value ?? 0),
+      categories: categoryRows
+        .map((row) => row.category)
+        .filter((category): category is string => Boolean(category)),
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
+  }
+
+  /** 标记顾客站内消息已读；不传 `ids` = 该顾客全部已读（未读的才更新） */
+  async markCustomerInboxRead(
+    customerId: number,
+    ids?: number[],
+  ): Promise<{ updated: number }> {
+    const conditions = [
+      eq(sysNoticeLogs.recipientType, 'customer'),
+      eq(sysNoticeLogs.recipientId, customerId),
+      eq(sysNoticeLogs.channel, 'site'),
       isNull(sysNoticeLogs.readAt),
     ];
     if (ids?.length) conditions.push(inArray(sysNoticeLogs.id, ids));

@@ -1,50 +1,91 @@
 <view class="page" style="{{themeStyle}}">
   <!--
-    页签 + 「全部已读」吸顶：消息是会越攒越多的列表，滚到下面就再也切不了类型、
+    页签 + 「全部已读」吸顶：消息是会越攒越多的列表，滚到下面就再也切不了分类、
     也点不到「全部已读」。挪到 `.page-body` 之外才吸得住（见 app.wxss `.sticky-head`）。
   -->
   <view class="bar-head sticky-head">
-    <!-- 页签 + 全部已读 -->
+    <!-- 页签（选项来自数据）+ 全部已读 -->
     <view class="bar">
       <scroll-view class="bar__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
         <view class="bar__row">
           <view
             wx:for="{{tabs}}"
-            wx:key="key"
-            class="chip {{activeTab === item.key ? 'is-active' : ''}}"
-            data-key="{{item.key}}"
+            wx:key="*this"
+            class="chip {{activeTab === item ? 'is-active' : ''}}"
+            data-name="{{item}}"
             bindtap="onTab"
           >
-            {{item.label}}
+            {{item}}
           </view>
         </view>
       </scroll-view>
-      <view class="bar__read press-sm" bindtap="onReadAll">全部已读</view>
+      <view class="bar__read press-sm" bindtap="onReadAll">
+        全部已读<text wx:if="{{unread > 0}}" class="bar__unread">{{unread}}</text>
+      </view>
     </view>
   </view>
 
   <!-- 注意：`.anim-rise` 带 `transform`，只挂在内容容器上，别往吸顶条的祖先上加 -->
   <view class="page-body notice-body anim-rise">
-    <!-- 空态：缺的是读取接口，不是没有这个能力 -->
-    <view class="empty anim-pop">
+    <!-- 未绑定：消息是发给具体顾客的，先引导 -->
+    <view wx:if="{{needBind}}" class="empty anim-pop">
       <view class="empty__badge">
         <image class="empty__icon" src="{{icons.chat}}" mode="aspectFit" />
       </view>
-      <view class="empty__text">暂时没有消息</view>
-      <view class="empty__hint">预约提醒与门店通知会出现在这里</view>
+      <view class="empty__text">绑定手机号后查看消息</view>
+      <view class="empty__hint">预约提醒与门店通知会发到你的账号上</view>
+      <view class="btn btn--primary empty__action press" bindtap="onGuestLogin"
+        >去绑定手机号</view
+      >
     </view>
 
-    <view wx:for="{{notices}}" wx:key="id" class="card notice">
-      <view class="notice__icon-wrap">
-        <image class="notice__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+    <view wx:elif="{{loading}}" class="loading">正在读取消息…</view>
+
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
+      <view class="empty__badge">
+        <image class="empty__icon" src="{{icons.chat}}" mode="aspectFit" />
       </view>
-      <view class="grow">
-        <view class="notice__title">{{item.title}}</view>
-        <view class="notice__time">{{item.timeText}}</view>
-        <view class="notice__text ellipsis-2">{{item.text}}</view>
-      </view>
+      <view class="empty__text">{{errorText}}</view>
+      <view class="empty__hint">请检查网络后重试</view>
+      <view class="btn btn--primary btn--sm empty__action press" bindtap="onRetry"
+        >重新加载</view
+      >
     </view>
 
-    <view wx:if="{{notices.length > 0}}" class="end">没有更多了</view>
+    <block wx:else>
+      <view wx:if="{{notices.length === 0}}" class="empty anim-pop">
+        <view class="empty__badge">
+          <image class="empty__icon" src="{{icons.chat}}" mode="aspectFit" />
+        </view>
+        <view class="empty__text">
+          {{activeTab === '全部' ? '暂时没有消息' : '这个分类下没有消息'}}
+        </view>
+        <view class="empty__hint">预约提醒与门店通知会出现在这里</view>
+      </view>
+
+      <!-- 未读：左侧一条主色竖线 + 圆点，一眼扫得出哪些没看 -->
+      <view
+        wx:for="{{notices}}"
+        wx:key="id"
+        class="card notice {{item.unread ? 'is-unread' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onOpen"
+      >
+        <view class="notice__icon-wrap">
+          <image class="notice__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+          <view wx:if="{{item.unread}}" class="notice__dot"></view>
+        </view>
+        <view class="grow">
+          <view class="notice__top">
+            <view class="notice__title ellipsis">{{item.title}}</view>
+            <view class="notice__time">{{item.timeText}}</view>
+          </view>
+          <view class="notice__text ellipsis-2">{{item.content}}</view>
+          <view wx:if="{{item.category}}" class="notice__cat">{{item.category}}</view>
+        </view>
+      </view>
+
+      <view wx:if="{{notices.length > 0}}" class="end">没有更多了</view>
+    </block>
   </view>
 </view>

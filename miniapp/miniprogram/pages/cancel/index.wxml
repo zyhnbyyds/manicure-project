@@ -25,10 +25,30 @@
         </view>
       </view>
 
-      <!-- 取消规则 -->
+      <!-- 取消规则：命中门店政策时显示**真实金额**，没有政策时退回原则性表述 -->
       <view class="section">
         <view class="section__title">取消说明</view>
       </view>
+
+      <view wx:if="{{previewOk}}" class="card refund">
+        <view class="refund__title">{{preview.policyName || '按门店规则结算'}}</view>
+        <view class="refund__row">
+          <view class="text-sub">已付金额</view>
+          <view class="refund__value">{{preview.paidText}} 元</view>
+        </view>
+        <view class="refund__row">
+          <view class="text-sub">预计可退</view>
+          <view class="refund__value refund__value--good">{{preview.suggestText}} 元</view>
+        </view>
+        <view wx:if="{{preview.deductAmount > 0}}" class="refund__row">
+          <view class="text-sub">按规则扣除</view>
+          <view class="refund__value refund__value--warn">{{preview.deductText}} 元</view>
+        </view>
+        <view class="refund__hint">
+          金额由门店退款规则算出；提交后仍需门店审批，实际到账以审批结果为准。
+        </view>
+      </view>
+
       <view class="card">
         <view wx:for="{{rules}}" wx:key="title" class="rule">
           <image class="rule__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
@@ -40,8 +60,7 @@
       </view>
 
       <view class="tips">
-        具体扣费以门店判责规则为准。提交取消后，实际可退金额会在「我的预约」中体现；
-        若有异议可直接联系门店协商。
+        提交取消后，实际可退金额会在「我的预约」中体现；若有异议可直接联系门店协商。
       </view>
     </view>
 

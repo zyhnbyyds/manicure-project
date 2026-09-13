@@ -652,6 +652,106 @@ export type AppAddressUpsertRequest = z.infer<
 >;
 
 /* ------------------------------------------------------------------ *
+ * 取消/退款预览（batch4「取消预约」页要显示真实可退金额）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 取消预约的**费用预览**：由服务端按门店判责规则算，页面只负责展示。
+ *
+ * 为什么必须有这个接口：以前取消页只能写「可能扣除部分定金」这种原则性表述 ——
+ * 因为 app 域读不到判责规则（在 `RefundPort.preview`）。写死比例会给出**错误的金额预期**，
+ * 比不写更糟；而金额一律只在服务端算（money-invariants 红线）。
+ */
+export const appRefundPreviewVo = z.object({
+  /** 已付金额（分） */
+  paidAmount: z.number().int(),
+  /** 按规则建议退款（分） */
+  suggestAmount: z.number().int(),
+  /** 按规则扣除（分） */
+  deductAmount: z.number().int(),
+  /** 命中的规则名（如「2-24 小时退一半」）；没有规则命中时为 null */
+  policyName: z.string().nullable(),
+  /** 退款比例（千分比；1000 = 全退） */
+  refundPermille: z.number().int(),
+  /** 距开始还有多少小时（负数 = 已过时间） */
+  hoursToStart: z.number(),
+});
+registerComponent('AppRefundPreviewVo', appRefundPreviewVo);
+export type AppRefundPreviewVo = z.infer<typeof appRefundPreviewVo>;
+
+/* ------------------------------------------------------------------ *
+ * 站内消息（batch5 第 2 屏「消息中心」）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 收件箱一条。
+ *
+ * `category` 来自**模板的分类**（模板被删/改名时为 null，消息仍然在「全部」里）——
+ * 前端不要自己拿 `templateCode` 猜分类。
+ */
+export const appNoticeVo = z.object({
+  id: z.number().int(),
+  title: z.string().openapi({ example: '预约成功' }),
+  content: z.string(),
+  category: z.string().nullable().openapi({ example: '预约提醒' }),
+  /** 已读时间；null = 未读 */
+  readAt: z.string().nullable(),
+  createdAt: z.string().openapi({ example: '2026-09-13T10:00:00.000Z' }),
+  /** 关联预约（有的话前端可跳到订单详情） */
+  bookingId: z.number().int().nullable(),
+});
+registerComponent('AppNoticeVo', appNoticeVo);
+export type AppNoticeVo = z.infer<typeof appNoticeVo>;
+
+export const appNoticeListVo = z.object({
+  items: z.array(appNoticeVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  /** 未读数（tabBar 红点与「全部已读」都用它） */
+  unread: z.number().int(),
+  /**
+   * 分类页签选项：**该顾客收件箱里真实出现过的分类**。
+   * 跟着列表一起回 —— 前端硬编码一份清单的话，门店改分类名后那个页签就永远是空的。
+   */
+  categories: z.array(z.string()),
+});
+registerComponent('AppNoticeListVo', appNoticeListVo);
+export type AppNoticeListVo = z.infer<typeof appNoticeListVo>;
+
+/** 已读动作的返回：**剩余未读数**，前端据此更新红点，不用再拉一次列表 */
+export const appNoticeReadVo = z.object({
+  updated: z.number().int().openapi({ description: '本次标记为已读的条数' }),
+  unread: z.number().int().openapi({ description: '剩余未读数' }),
+});
+registerComponent('AppNoticeReadVo', appNoticeReadVo);
+export type AppNoticeReadVo = z.infer<typeof appNoticeReadVo>;
+
+/* ------------------------------------------------------------------ *
+ * 门店档案（小程序「门店」页）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 门店档案：**来自 `sys_config`（门店可在后台改），缺省回落内置默认值**。
+ *
+ * 这些值早先硬编码在小程序 `config.ts` 里，改一次要重新发版 —— 而门店电话、
+ * 营业时间恰恰是最常改的信息。字段一律给非空字符串，C 端直接渲染不用到处判 null。
+ */
+export const appShopVo = z.object({
+  name: z.string().openapi({ example: '美甲小铺' }),
+  nameEn: z.string().openapi({ example: 'BEAUTY NAILS' }),
+  phone: z.string().openapi({ example: '13800000000' }),
+  address: z.string(),
+  hours: z.string().openapi({ example: '10:00 - 20:00' }),
+  /** 经纬度（地图导航用；门店没配则为 null） */
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  /** 公告 / 到店须知（门店可在后台改） */
+  notice: z.string().nullable(),
+});
+registerComponent('AppShopVo', appShopVo);
+export type AppShopVo = z.infer<typeof appShopVo>;
+
+/* ------------------------------------------------------------------ *
  * 款式收藏（batch4 设计稿「我的收藏」页）
  * ------------------------------------------------------------------ */
 

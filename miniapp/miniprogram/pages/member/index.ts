@@ -68,6 +68,8 @@ definePage({
     offerId: 0,
     offerName: '',
     offerSubText: '',
+    /** 优惠券加载失败（与「确实没有券」区分开） */
+    offersFailed: false,
   },
 
   onLoad() {
@@ -84,8 +86,22 @@ definePage({
     this.setData({ loading: true, errorText: '' });
     try {
       const me = await memberApi.getMe();
-      // 可领取的券与会员信息一起取；取不到不影响本页其它内容
-      const offers = await couponApi.listOffers().catch(() => ({ items: [] }));
+      /**
+       * 可领取的券与会员信息一起取；**失败时区分「拿不到」与「确实没有」**。
+       *
+       * 以前是一次 `.catch(() => ({ items: [] }))` 静默吞掉：接口挂了也显示
+       * 「暂无可领的券」，顾客以为自己没券可领 —— 而真相是这一块没加载出来。
+       * 现在失败置 `offersFailed`，促销区如实显示「优惠券加载失败」并给重试入口。
+       */
+      let offers: Awaited<ReturnType<typeof couponApi.listOffers>> = {
+        items: [],
+      };
+      let offersFailed = false;
+      try {
+        offers = await couponApi.listOffers();
+      } catch {
+        offersFailed = true;
+      }
       const firstOffer = offers.items[0];
       const activeCards = me.cards.filter((card) => card.status === 'active');
       this.setData({
@@ -108,16 +124,23 @@ definePage({
         bonusText: fenToYuan(me.balanceBonus),
         points: me.points,
         cardCount: activeCards.length,
+        offersFailed,
         offerId: firstOffer ? firstOffer.id : 0,
-        offerName: firstOffer ? firstOffer.name : '暂无可领的券',
-        offerSubText: firstOffer
-          ? '可领 ' +
-            fenToYuan(firstOffer.discountAmount) +
-            ' 元券' +
-            (firstOffer.thresholdAmount > 0
-              ? '（满 ' + fenToYuan(firstOffer.thresholdAmount) + ' 元可用）'
-              : '（无门槛）')
-          : '门店有活动时会出现在这里',
+        offerName: offersFailed
+          ? '优惠券加载失败'
+          : firstOffer
+            ? firstOffer.name
+            : '暂无可领的券',
+        offerSubText: offersFailed
+          ? '点这里重新加载'
+          : firstOffer
+            ? '可领 ' +
+              fenToYuan(firstOffer.discountAmount) +
+              ' 元券' +
+              (firstOffer.thresholdAmount > 0
+                ? '（满 ' + fenToYuan(firstOffer.thresholdAmount) + ' 元可用）'
+                : '（无门槛）')
+            : '门店有活动时会出现在这里',
       });
     } catch (error) {
       if (isApiFailure(error) && error.needBind) {
@@ -158,6 +181,11 @@ definePage({
   },
 
   async onClaim() {
+    // 券列表没加载出来时，这个入口的语义变成「重新加载」——不能点了没反应
+    if (this.data.offersFailed) {
+      await this.load();
+      return;
+    }
     if (!this.data.offerId) return;
     showLoading('领取中');
     try {

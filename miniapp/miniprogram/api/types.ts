@@ -188,6 +188,32 @@ export interface MemberCardLog {
   createdAt: string;
 }
 
+/** 站内消息一条（`/app/notices`） */
+export interface Notice {
+  id: number;
+  title: string;
+  content: string;
+  /** 分类来自**模板**；模板没分类时为 null（消息仍在「全部」里） */
+  category: string | null;
+  /** 已读时间；null = 未读 */
+  readAt: string | null;
+  createdAt: string;
+  /** 关联预约（有的话点开跳订单详情） */
+  bookingId: number | null;
+}
+
+/** 门店档案（`/app/shop`，来自 `sys_config`，门店可改） */
+export interface ShopProfile {
+  name: string;
+  nameEn: string;
+  phone: string;
+  address: string;
+  hours: string;
+  latitude: number | null;
+  longitude: number | null;
+  notice: string | null;
+}
+
 /**
  * 上架中的充值档位（服务端配置）。
  *

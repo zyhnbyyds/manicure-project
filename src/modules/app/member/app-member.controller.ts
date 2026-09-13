@@ -528,6 +528,30 @@ export class AppMemberController {
     );
   }
 
+  @Get('bookings/:id/refund-preview')
+  @ApiOperation({
+    summary: '取消预约的费用预览（可退 / 扣除多少）',
+    description:
+      '按门店的退款政策算「建议退款额 / 扣除额」，**复用后台同一套判责规则**' +
+      '（app 域不重算比例，金额只在服务端算）。仅本人可查，他人单 → 404。' +
+      '取消页据此显示真实金额，而不是「可能扣除部分定金」这种谁都不敢信的话。',
+  })
+  @ApiParam({ name: 'id', description: '预约 ID', example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppRefundPreviewVo' },
+  })
+  @ApiResponse({ status: 404, description: '预约不存在或不属于当前顾客' })
+  refundPreview(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.refundPreview(appUser.id, id);
+  }
+
   @Post('bookings/:id/cancel')
   @ApiOperation({
     summary: '自助取消预约',

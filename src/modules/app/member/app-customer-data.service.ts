@@ -12,12 +12,17 @@ import {
   bizServiceItems,
 } from '../../../database/schema/index.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
+import { BizConfigService } from '../../biz/common/biz-config.service.js';
+import { NoticePort } from '../../biz/common/ports.js';
 import type {
   AppAddressListVo,
   AppAddressUpsertRequest,
   AppAddressVo,
   AppFavoriteListVo,
   AppFavoriteToggleVo,
+  AppNoticeListVo,
+  AppNoticeReadVo,
+  AppShopVo,
 } from '../dto/app-vo.js';
 
 /** 每个顾客最多保存多少个收货地址（防刷，也防「默认地址」被淹没） */
@@ -41,7 +46,13 @@ const MAX_ADDRESSES = 10;
  */
 @Injectable()
 export class AppCustomerDataService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    /** 站内消息走 biz 侧同一套收件箱实现（不强求 app 域自己写一份查询） */
+    private readonly notices: NoticePort,
+    /** 门店档案来自 `sys_config`（门店可改，小程序不用发版） */
+    private readonly bizConfig: BizConfigService,
+  ) {}
 
   /** 取当前身份绑定的顾客 ID（唯一归属来源，与 `AppMemberService` 同一口径） */
   private async requireCustomerId(appUserId: number): Promise<number> {
@@ -327,6 +338,116 @@ export class AppCustomerDataService {
       )
       .limit(1);
     if (!item) throw new NotFoundException('款式不存在或已下架');
+  }
+
+  /* ------------------------------ 站内消息 ------------------------------ */
+
+  /**
+   * 我的消息（收件箱）。
+   *
+   * 一律**要求绑定手机号**：站内消息是发给「这个顾客」的（预约提醒、充值成功…），
+   * 未绑定时没有收件人，也就没有消息可言 —— 与「款式目录可匿名浏览」不同。
+   *
+   * 分类页签与未读数由 biz 侧的 `customerInbox` 一起给（它只出 `channel='site'`，
+   * 短信投递日志不进收件箱）。
+   */
+  async listNotices(
+    appUserId: number,
+    query: { category?: string | undefined; page?: number; pageSize?: number },
+  ): Promise<AppNoticeListVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const result = await this.notices.customerInbox(
+      customerId,
+      page,
+      pageSize,
+      query.category ? { category: query.category } : {},
+    );
+    return {
+      items: result.items.map((row) => ({
+        id: row.id,
+        // 标题缺失时用模板 code 兜底不合适（顾客看不懂），给一句人能读的默认值
+        title: row.title ?? '门店通知',
+        content: row.content,
+        category: row.category,
+        readAt: row.readAt ? row.readAt.toISOString() : null,
+        createdAt: row.createdAt.toISOString(),
+        bookingId: row.bookingId,
+      })),
+      page: result.page,
+      pageSize: result.pageSize,
+      unread: result.unread,
+      categories: result.categories,
+    };
+  }
+
+  /** 标记单条已读（幂等：已读的不会重复更新），返回剩余未读数 */
+  async markNoticeRead(
+    appUserId: number,
+    noticeId: number,
+  ): Promise<AppNoticeReadVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const updated = await this.notices.markCustomerInboxRead(customerId, [
+      noticeId,
+    ]);
+    return {
+      updated: updated.updated,
+      unread: await this.unreadNotices(customerId),
+    };
+  }
+
+  /** 全部已读（可只清某个分类），返回剩余未读数 */
+  async markAllNoticesRead(
+    appUserId: number,
+    category?: string,
+  ): Promise<AppNoticeReadVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    // 按分类清已读要拿到「该分类下的未读 id」——「全部已读」按钮在有分类时也得只作用当前分类
+    let ids: number[] | undefined;
+    if (category) {
+      const result = await this.notices.customerInbox(customerId, 1, 200, {
+        category,
+      });
+      ids = result.items
+        .filter((row) => row.readAt === null)
+        .map((row) => row.id);
+      if (ids.length === 0)
+        return { updated: 0, unread: await this.unreadNotices(customerId) };
+    }
+    const updated = await this.notices.markCustomerInboxRead(customerId, ids);
+    return {
+      updated: updated.updated,
+      unread: await this.unreadNotices(customerId),
+    };
+  }
+
+  private async unreadNotices(customerId: number): Promise<number> {
+    const result = await this.notices.customerInbox(customerId, 1, 1);
+    return result.unread;
+  }
+
+  /* ------------------------------ 门店档案 ------------------------------ */
+
+  /**
+   * 门店档案（公开信息）。
+   *
+   * 读 `sys_config`（`BizConfigService.shopProfile()`）：门店在后台「参数配置」里改完
+   * 最多 10 秒生效，小程序不用发版。
+   */
+  async shopProfile(): Promise<AppShopVo> {
+    const profile = await this.bizConfig.shopProfile();
+    return {
+      name: profile.name,
+      nameEn: profile.nameEn,
+      phone: profile.phone,
+      address: profile.address,
+      hours: profile.hours,
+      latitude: profile.latitude,
+      longitude: profile.longitude,
+      // 空串统一成 null：前端判「有没有公告」只需判一种值
+      notice: profile.notice === '' ? null : profile.notice,
+    };
   }
 
   /* ------------------------------ 内部工具 ------------------------------ */

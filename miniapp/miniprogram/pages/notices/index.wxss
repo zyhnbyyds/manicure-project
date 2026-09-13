@@ -47,6 +47,8 @@
 }
 
 .notice__icon-wrap {
+  /* 未读小圆点相对它定位 */
+  position: relative;
   width: 72rpx;
   height: 72rpx;
   margin-right: 20rpx;
@@ -68,8 +70,16 @@
   font-weight: 600;
 }
 
+/* 标题与时间同一行：时间靠右，长标题省略号截断 */
+.notice__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
 .notice__time {
-  margin-top: 4rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
   font-size: 20rpx;
   color: var(--c-text-weak);
 }
@@ -79,6 +89,56 @@
   font-size: 23rpx;
   line-height: 1.5;
   color: var(--c-text-sub);
+}
+
+/* 分类标签：让顾客知道这条为什么在这里（也方便对上页签） */
+.notice__cat {
+  display: inline-block;
+  margin-top: 10rpx;
+  padding: 0 12rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  color: var(--c-text-sub);
+  font-size: 18rpx;
+}
+
+/* 未读：卡片左侧一条主色竖线（扫一眼就知道哪些没看） */
+.notice.is-unread {
+  position: relative;
+}
+
+.notice.is-unread::before {
+  content: '';
+  position: absolute;
+  top: 24rpx;
+  bottom: 24rpx;
+  left: 0;
+  width: 6rpx;
+  border-radius: 0 6rpx 6rpx 0;
+  background: var(--c-primary);
+}
+
+/* 图标右上角的未读小圆点 */
+.notice__dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+
+/* 「全部已读」上的未读计数 */
+.bar__unread {
+  margin-left: 6rpx;
+  padding: 0 8rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 18rpx;
 }
 
 .end {
