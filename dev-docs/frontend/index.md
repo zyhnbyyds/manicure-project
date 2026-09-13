@@ -231,6 +231,39 @@ function openEdit(row: CreditAccount) {
 1. **不能用 `onOk`**：注释写明「当前安装的 lew-ui 版本的 `LewDialog.warning()/normal()` 等方法不支持 `onOk` 回调……传 `onOk` 会被忽略，导致点确认后不执行任何动作」。改用 `footerButtons` 的确认按钮 `request` 触发回调；
 2. **内置防重入**（`let running = false`）：「收银结算 / 退款审批 / 应收销账都走这个弹窗，全是**资金写操作**，重复请求会造成重复建单、超额销账。这里挡在公共出口，各页不必各写一遍。」
 
+## 加载态与过渡（`AppLoading`）
+
+**`web/src/components/AppLoading.vue`** 是唯一的加载占位组件（lew-ui 2.8.2 没有 `LewLoading` / `LewSkeleton`）。三种形态按「内容会不会被销毁」区分：
+
+| `variant`  | 场景 | 内容 |
+| --- | --- | --- |
+| `skeleton` | 首屏（列表 / 详情 / 统计卡） | 加载中**隐藏**内容，由骨架撑开高度 |
+| `spinner`  | 首屏，高度不固定的小区域 | 同上，居中转圈 + 文案 |
+| `overlay`  | **刷新 / 局部重载** | 半透明遮罩盖住旧内容，内容**始终挂载** |
+
+```vue
+<!-- 首屏骨架：卡片形、4 行、最矮 220px -->
+<AppLoading variant="skeleton" shape="card" :rows="4" min-height="220px" :loading="queueLoading">
+  <MyList />
+</AppLoading>
+
+<!-- 刷新遮罩：图表 / 表单这类「重建就会坏」的内容必须用它 -->
+<AppLoading class="app-card p-5" variant="overlay" text="加载图表数据…" :loading="loading">
+  <div ref="chartRef" class="h-260px" />
+</AppLoading>
+```
+
+实现要点（踩过的坑）：
+
+1. **内容用 `v-show` 而不是 `v-if`**，否则每次「加载一下」都会把插槽重建 —— echarts 实例、表单焦点、滚动位置全丢；图表还会因为 `display:none` 容器拿到 0×0 画布。
+2. **内容包裹层是 `display: contents`**，所以外面给的 flex / grid 布局类直接作用到插槽内容上，中间不多一层盒子。反过来说：插槽里若是「靠外层 `gap` 排版的一组行内元素」，布局类要给到 `<AppLoading>` 自己（`class="flex flex-col gap-2"`），否则它们会退化成同一段行内文本。
+3. `overlay` 的遮罩用 `color-mix(...)` 铺一层半透明底 + 中心胶囊，**不靠给内容降 opacity**（`display: contents` 的盒子没有透明度可言）。
+4. 占位与内容**交叉淡入**：`.app-swap-leave-active` 在离场时把元素 `position:absolute`，避免两段高度打架。
+
+配套的全局动画在 `web/src/styles/index.css`：`.app-skeleton`（骨架微光）、`.app-swap-*`（占位↔内容）、`.app-fade-*`（弹层遮罩）、`.app-rise-in`（列表逐条入场，延迟由内联 `--app-stagger` 控制），末尾统一带 `prefers-reduced-motion: reduce` 兜底。
+
+**收银台的展开动画**是这套的组合用法：外层容器 `flex` + `transition-[width,margin,opacity] duration-350 ease-[cubic-bezier(0.22,1,0.36,1)]`（宽度用 `calc(100%_-_316px)` 精确对齐，两边插值相加恒等于 100%），两块面板再用**内联样式**做「迟到滑入」—— 面板上挂着 `app-card`（自带 `transition-shadow`），和 class 版 `transition-[...]` 同权重，谁生效取决于产物 CSS 顺序，内联最稳。
+
 ## 文件与图片上传
 
 `web/src/api/files.ts` 是唯一入口：`uploadFile(file)` → `POST /files/upload`；`filePreviewUrl(id)` = `.../files/:id/download?inline=1`（可直接塞 `<img src>`，下载接口是 `@Public()`）；`fileDownloadUrl(id)`。**上传只要登录态，不需要额外权限点**。
@@ -302,6 +335,8 @@ export function formatSize(bytes: number): string { ... }
 ## 复杂交互
 
 ### 收银台（`web/src/views/biz/cashier/index.vue`）
+
+**未选中单据时队列独占整页**（卡片按屏宽铺成 1/2/3 列），点一张单据后队列收成 300px 窄栏、右侧「单据金额明细 + 支付区」整体推展开；标题栏的收起按钮回到整页队列。实现要点：外层用 `flex` 而不是 grid（`grid-template-columns` 的 `1fr ↔ 300px` 浏览器不可插值），队列 `w-full ↔ w-300px`、右侧容器 `w-0 ↔ w-[calc(100%_-_316px)]`（316 = 300 队列 + 16 间距），两边线性插值相加恒等于 100%，动画期间不跳宽；收起态靠 `w-0 + overflow-hidden + opacity-0 + pointer-events-none` 收干净（只写 0 宽不够：`p-4 + border` 会把盒子撑到 34px）。
 
 三栏：待收款队列 → 单据金额明细 → 支付区（混合支付可加多行）。核心是**扫码收款：3 秒轮询 + 5 分钟倒计时**：
 

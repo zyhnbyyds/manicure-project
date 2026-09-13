@@ -5,6 +5,7 @@ import { LewButton, LewForm, LewMessage } from 'lew-ui';
 import type { LewFormOption } from 'lew-ui';
 import { changePassword, getProfile, updateProfile } from '~/api/auth';
 import { uploadFile } from '~/api/files';
+import AppLoading from '~/components/AppLoading.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
 import { useUserStore } from '~/store/user';
 
@@ -12,6 +13,10 @@ const userStore = useUserStore();
 
 // ---------- 资料 ----------
 const profileRef = ref();
+/** 资料是否还在加载：加载中出骨架屏，避免先闪一下「用户名当显示名」再被覆盖 */
+const profileLoading = ref(true);
+/** 保存中：挡住连点（原来的保存按钮点下去没有任何反馈） */
+const savingProfile = ref(false);
 const profile = ref({
   displayName: userStore.username,
   email: '',
@@ -44,41 +49,52 @@ const profileOptions: LewFormOption[] = [
 ];
 
 async function loadProfile() {
-  const data = await getProfile();
-  const next = {
-    displayName: data.displayName || userStore.username,
-    email: data.email ?? '',
-    phone: data.phone ?? '',
-    avatar: data.avatar ?? '',
-  };
-  profile.value = next;
-  // LewForm 为受控组件，外部赋值不生效，需 setForm 回填展示
-  profileRef.value?.setForm?.(next);
-  // 同步到 store，顶栏头像随之更新
-  userStore.setProfile({
-    displayName: data.displayName,
-    email: data.email,
-    phone: data.phone,
-    avatar: data.avatar,
-  });
+  profileLoading.value = true;
+  try {
+    const data = await getProfile();
+    const next = {
+      displayName: data.displayName || userStore.username,
+      email: data.email ?? '',
+      phone: data.phone ?? '',
+      avatar: data.avatar ?? '',
+    };
+    profile.value = next;
+    // LewForm 为受控组件，外部赋值不生效，需 setForm 回填展示
+    profileRef.value?.setForm?.(next);
+    // 同步到 store，顶栏头像随之更新
+    userStore.setProfile({
+      displayName: data.displayName,
+      email: data.email,
+      phone: data.phone,
+      avatar: data.avatar,
+    });
+  } finally {
+    profileLoading.value = false;
+  }
 }
 void onMounted(loadProfile);
 
 async function handleSaveProfile() {
+  if (savingProfile.value) return;
   const valid = await profileRef.value?.validate();
   if (!valid) return;
   // 用 getForm 读取表单当前值，确保拿到用户真实输入
   const values = (profileRef.value?.getForm?.() ??
     profile.value) as typeof profile.value;
   const avatar = profile.value.avatar || null;
-  await updateProfile({
-    displayName: values.displayName || userStore.username,
-    email: values.email || null,
-    phone: values.phone || null,
-    avatar,
-  });
-  userStore.setProfile({ ...values, avatar });
-  LewMessage.success('资料已更新');
+  savingProfile.value = true;
+  try {
+    await updateProfile({
+      displayName: values.displayName || userStore.username,
+      email: values.email || null,
+      phone: values.phone || null,
+      avatar,
+    });
+    userStore.setProfile({ ...values, avatar });
+    LewMessage.success('资料已更新');
+  } finally {
+    savingProfile.value = false;
+  }
 }
 
 // ---------- 头像上传 ----------
@@ -175,59 +191,73 @@ async function handleChangePassword() {
       <!-- 资料 -->
       <div class="app-card p-6">
         <h3 class="mt-0 mb-4 text-15px font-600">个人资料</h3>
-        <div class="flex items-center gap-4 mb-5">
-          <img
-            v-if="profile.avatar"
-            :src="profile.avatar"
-            alt="avatar"
-            title="点击查看大图"
-            class="w-64px h-64px cursor-zoom-in rounded-full border border-[var(--app-border)] object-cover transition-transform hover:scale-105"
-            @click="openImagePreview([profile.avatar], 0, userStore.username)"
-          />
-          <span
-            v-else
-            class="flex items-center justify-center w-64px h-64px rounded-full bg-[var(--lew-color-button-primary-fill)] text-white text-24px font-700"
-          >
-            {{ userStore.username.slice(0, 1).toUpperCase() }}
-          </span>
-          <div class="flex-1">
-            <div class="text-15px font-600">{{ userStore.username }}</div>
-            <div class="mb-2 text-12.5px text-[var(--app-text-muted)]">
-              角色：{{ userStore.roles.join(', ') || '-' }}
-            </div>
-            <div class="flex items-center gap-2">
-              <LewButton type="light" size="small" @click="triggerAvatarSelect"
-                >更换头像</LewButton
-              >
-              <LewButton
-                v-if="profile.avatar"
-                type="text"
-                size="small"
-                color="error"
-                @click="removeAvatar"
-              >
-                移除
-              </LewButton>
-            </div>
-            <!-- 隐藏的文件选择框，仅用于触发上传 -->
-            <input
-              ref="avatarInput"
-              type="file"
-              accept="image/*"
-              class="hidden"
-              @change="handleAvatarChange"
-            />
-          </div>
-        </div>
-        <LewForm
-          ref="profileRef"
-          v-model="profile"
-          :options="profileOptions"
-          label-width="72px"
-        />
-        <LewButton class="mt-4" type="fill" @click="handleSaveProfile"
-          >保存资料</LewButton
+        <AppLoading
+          variant="skeleton"
+          :rows="4"
+          min-height="248px"
+          :loading="profileLoading"
         >
+          <div class="flex items-center gap-4 mb-5">
+            <img
+              v-if="profile.avatar"
+              :src="profile.avatar"
+              alt="avatar"
+              title="点击查看大图"
+              class="w-64px h-64px cursor-zoom-in rounded-full border border-[var(--app-border)] object-cover transition-transform hover:scale-105"
+              @click="openImagePreview([profile.avatar], 0, userStore.username)"
+            />
+            <span
+              v-else
+              class="flex items-center justify-center w-64px h-64px rounded-full bg-[var(--lew-color-button-primary-fill)] text-white text-24px font-700"
+            >
+              {{ userStore.username.slice(0, 1).toUpperCase() }}
+            </span>
+            <div class="flex-1">
+              <div class="text-15px font-600">{{ userStore.username }}</div>
+              <div class="mb-2 text-12.5px text-[var(--app-text-muted)]">
+                角色：{{ userStore.roles.join(', ') || '-' }}
+              </div>
+              <div class="flex items-center gap-2">
+                <LewButton
+                  type="light"
+                  size="small"
+                  @click="triggerAvatarSelect"
+                  >更换头像</LewButton
+                >
+                <LewButton
+                  v-if="profile.avatar"
+                  type="text"
+                  size="small"
+                  color="error"
+                  @click="removeAvatar"
+                >
+                  移除
+                </LewButton>
+              </div>
+              <!-- 隐藏的文件选择框，仅用于触发上传 -->
+              <input
+                ref="avatarInput"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="handleAvatarChange"
+              />
+            </div>
+          </div>
+          <LewForm
+            ref="profileRef"
+            v-model="profile"
+            :options="profileOptions"
+            label-width="72px"
+          />
+          <LewButton
+            class="mt-4"
+            type="fill"
+            :loading="savingProfile"
+            @click="handleSaveProfile"
+            >保存资料</LewButton
+          >
+        </AppLoading>
       </div>
 
       <!-- 改密码 -->

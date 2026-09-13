@@ -227,6 +227,14 @@ export interface CashierBookingQuery {
   date?: string;
   keyword?: string;
   customerId?: string | number;
+  /**
+   * 只看还能收款的单据（服务端排除 cancelled / no_show）。
+   *
+   * 已取消 / 爽约的预约只改服务状态、**不改 `pay_status`**：收了定金再取消的单，
+   * 资金侧仍是 `partial` + 有 `due_amount`。收银台不带这个参数就会把它们列进队列，
+   * 店员点「去收款」只会拿到 409（`applySettlement` 的闸门），所以队列必须带上。
+   */
+  collectable?: boolean;
 }
 
 /** 结算/补收入参（POST /biz/bookings/:id/settle，§17.2） */

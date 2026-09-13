@@ -96,6 +96,92 @@ body {
 }
 
 /* ============================================
+   加载与过渡（供 ~/components/AppLoading.vue 与页面动效复用）
+   ============================================ */
+
+/* 骨架屏微光 */
+.app-skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--lew-bgcolor-3) 30%,
+    var(--lew-bgcolor-4) 45%,
+    var(--lew-bgcolor-3) 60%
+  );
+  background-size: 300% 100%;
+  animation: app-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes app-skeleton-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -20% 0;
+  }
+}
+
+/* 占位 ↔ 内容 交叉淡入：离场的那一侧脱离文档流，避免两段高度打架 */
+.app-swap-enter-active {
+  transition: opacity 0.22s ease;
+}
+
+.app-swap-leave-active {
+  transition: opacity 0.18s ease;
+  position: absolute;
+  inset: 0;
+}
+
+.app-swap-enter-from,
+.app-swap-leave-to {
+  opacity: 0;
+}
+
+/* 普通淡入淡出（弹层、遮罩） */
+.app-fade-enter-active,
+.app-fade-leave-active {
+  transition: opacity var(--app-transition);
+}
+
+.app-fade-enter-from,
+.app-fade-leave-to {
+  opacity: 0;
+}
+
+/* 列表逐条入场：由内联 `--app-stagger` 控制延迟，卡片按序号错开 */
+.app-rise-in {
+  animation: app-rise-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--app-stagger, 0ms);
+}
+
+@keyframes app-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 尊重系统「减少动态效果」：只关动画，不留「闪一下就没了」的中间态 */
+@media (prefers-reduced-motion: reduce) {
+  .app-skeleton,
+  .app-rise-in {
+    animation: none;
+  }
+
+  .app-swap-enter-active,
+  .app-swap-leave-active,
+  .app-fade-enter-active,
+  .app-fade-leave-active {
+    transition: none;
+  }
+}
+
+/* ============================================
    lew-ui 表格美化（覆盖默认变量，提升视觉层次）
    ============================================ */
 

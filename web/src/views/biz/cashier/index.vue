@@ -3,14 +3,26 @@ import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import dayjs from 'dayjs';
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CircleDollarSign,
   ClipboardCopy,
+  PanelRightClose,
   Plus,
   QrCode,
   RefreshCw,
+  Search,
   Trash2,
   Wallet,
 } from 'lucide-vue-next';
-import { LewButton, LewInput, LewMessage, LewModal, LewSelect } from 'lew-ui';
+import {
+  LewButton,
+  LewInput,
+  LewMessage,
+  LewModal,
+  LewSelect,
+  LewTextarea,
+} from 'lew-ui';
 import {
   ONLINE_CHANNELS,
   closePayment,
@@ -33,6 +45,7 @@ import { previewPoints, type PointsPreview } from '~/api/biz/points-goods';
 import { formatDateTime } from '~/composables/useFormat';
 import { ApiError } from '~/request';
 import { confirmDanger } from '~/utils/confirm';
+import AppLoading from '~/components/AppLoading.vue';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
 
@@ -45,6 +58,12 @@ function fen2yuan(fen: number | null | undefined): string {
 function yuan2fen(yuan: number | string | null | undefined): number {
   const value = Number(yuan ?? 0);
   return Number.isFinite(value) ? Math.round(value * 100) : 0;
+}
+
+/** 千分比折扣率 → 「8.5 折」（1000‰ = 不打折） */
+function formatDiscount(permille: number | null | undefined): string {
+  const value = permille ?? 1000;
+  return value >= 1000 ? '不打折' : `${(value / 100).toFixed(1)} 折`;
 }
 
 // ---------- 左栏：待收款队列（未收 / 待收尾款 / 挂账） ----------
@@ -75,6 +94,66 @@ const groups = computed(() => [
   },
 ]);
 
+// ---------- 左栏：分组页签（全部 / 未收 / 待收尾款 / 挂账） ----------
+const QUEUE_TABS = [
+  { key: 'all', title: '全部' },
+  { key: 'unpaid', title: '未收' },
+  { key: 'partial', title: '待收尾款' },
+  { key: 'credit', title: '挂账' },
+] as const;
+
+type QueueTabKey = (typeof QUEUE_TABS)[number]['key'];
+
+const activeQueueTab = ref<QueueTabKey>('all');
+
+/** 全部队列的尾款合计（分）—— 收起左栏时的摘要 */
+const allQueueDueFen = computed(() =>
+  groups.value.reduce(
+    (total, group) =>
+      total + group.items.reduce((sum, item) => sum + item.dueAmount, 0),
+    0,
+  ),
+);
+
+const queueTabs = computed(() =>
+  QUEUE_TABS.map((tab) => ({
+    key: tab.key,
+    title: tab.title,
+    count:
+      tab.key === 'all'
+        ? groups.value.reduce((sum, group) => sum + group.items.length, 0)
+        : (groups.value.find((group) => group.key === tab.key)?.items.length ??
+          0),
+  })),
+);
+
+/** 当前页签下要展示的分组（「全部」= 三个分组依次展示） */
+const visibleGroups = computed(() =>
+  activeQueueTab.value === 'all'
+    ? groups.value
+    : groups.value.filter((group) => group.key === activeQueueTab.value),
+);
+
+const visibleDueFen = computed(() =>
+  visibleGroups.value.reduce(
+    (total, group) =>
+      total + group.items.reduce((sum, item) => sum + item.dueAmount, 0),
+    0,
+  ),
+);
+
+/** 左栏折叠态：收起后只留一行摘要 */
+const queueCollapsed = ref(false);
+/** 右栏（支付区）折叠态：收起后只留本次收款合计 */
+const payCollapsed = ref(false);
+/**
+ * 队列是否已完成**首次**加载。
+ *
+ * 首次要出骨架屏（此时列表真的是空的）；之后的刷新/搜索只在按钮上转圈 ——
+ * 每点一次「刷新队列」都把列表抽成骨架会闪得很难受。
+ */
+const queueFirstLoaded = ref(false);
+
 async function loadQueue() {
   queueLoading.value = true;
   try {
@@ -87,16 +166,92 @@ async function loadQueue() {
     unpaidItems.value = unpaid.items;
     partialItems.value = partial.items;
     creditItems.value = credit.items;
+    queueFirstLoaded.value = true;
   } finally {
     queueLoading.value = false;
   }
 }
 void loadQueue();
 
+/** 队列卡片右上角的折扣角标（未打折 / 列表未返回折扣率时不显示） */
+function discountTag(item: CashierBooking): string | null {
+  const permille = item.levelDiscountPermille;
+  if (!permille || permille >= 1000) return null;
+  return formatDiscount(permille);
+}
+
+/** 支付状态文案 + 配色（枚举以后端为准，前端只做中文映射） */
+const PAY_STATUS_META: Record<string, { text: string; style: string }> = {
+  unpaid: {
+    text: '未收',
+    style:
+      'color: var(--lew-color-error); background: var(--lew-color-error-light);',
+  },
+  partial: {
+    text: '待收尾款',
+    style:
+      'color: var(--lew-color-warning); background: var(--lew-color-warning-light);',
+  },
+  paid: {
+    text: '已结清',
+    style:
+      'color: var(--lew-color-success); background: var(--lew-color-success-light);',
+  },
+  refunded: {
+    text: '已退款',
+    style: 'color: var(--app-text-secondary); background: var(--app-bg-hover);',
+  },
+  credit: {
+    text: '挂账',
+    style:
+      'color: var(--lew-color-primary); background: var(--lew-color-primary-light);',
+  },
+};
+
+function payStatusText(status: string): string {
+  return PAY_STATUS_META[status]?.text ?? status;
+}
+
+function payStatusStyle(status: string): string {
+  return (
+    PAY_STATUS_META[status]?.style ??
+    'color: var(--app-text-secondary); background: var(--app-bg-hover);'
+  );
+}
+
 // ---------- 中栏：选中单据 ----------
 const selectedId = ref<number | null>(null);
 const selected = ref<CashierBooking | null>(null);
 const detailLoading = ref(false);
+
+/**
+ * 是否展开右侧两块（单据金额明细 + 支付区）。
+ *
+ * 未选中单据时**不展开**：待收款队列独占整页宽度（卡片按屏宽铺成多列），
+ * 选中一张后队列收成 300px 窄栏、右侧两块从右侧推展开来。
+ */
+const showDetail = computed(() => !!selected.value);
+
+/** 队列卡片排布：整页宽时多列铺开，收成窄栏时回到单列 */
+const queueGridClass = computed(() =>
+  showDetail.value ? 'grid-cols-1' : 'sm:grid-cols-2 2xl:grid-cols-3',
+);
+
+/**
+ * 详情面板的「迟到滑入」内联样式。
+ *
+ * 外层容器已经把宽度和整体淡入做完了，这里只让面板自己晚一点滑到位，做出层次感。
+ * 用内联样式而不是 class：面板同时挂着 `app-card`（自带 `transition-shadow`），
+ * 与 class 版 `transition-[...]` 同权重，最终谁生效取决于产物 CSS 的顺序 —— 内联最稳。
+ */
+function panelSlideStyle(delayMs: number) {
+  return {
+    transition: `translate 320ms cubic-bezier(0.22, 1, 0.36, 1) ${
+      showDetail.value ? delayMs : 0
+    }ms`,
+    translate: showDetail.value ? '0px' : '14px',
+  };
+}
 
 const memberInfo = shallowRef<MemberDetail | null>(null);
 const memberLoading = ref(false);
@@ -117,6 +272,31 @@ const balanceAvailable = computed(
   () =>
     (memberInfo.value?.balancePrincipal ?? 0) +
     (memberInfo.value?.balanceBonus ?? 0),
+);
+
+/** 中栏顾客卡片左侧的圆形头像占位（无头像字段，用姓名首字） */
+const customerInitial = computed(
+  () => selected.value?.customerName?.trim().slice(0, 1) || '客',
+);
+
+/** 会员信息区页签：会员等级 / 可用余额积分 */
+const memberTab = ref<'level' | 'account'>('level');
+
+const memberLevelText = computed(
+  () =>
+    memberInfo.value?.level?.name ?? memberInfo.value?.levelName ?? '未入会',
+);
+
+const memberDiscountText = computed(() =>
+  formatDiscount(
+    memberInfo.value?.level?.discountPermille ??
+      memberInfo.value?.levelDiscountPermille,
+  ),
+);
+
+/** 选中单据的等级折扣文案（快照值，前端只展示不计算） */
+const bookingDiscountText = computed(() =>
+  formatDiscount(selected.value?.levelDiscountPermille),
 );
 
 const cardOptions = computed(() =>
@@ -215,16 +395,22 @@ const pointsUsed = ref('');
 const pointsPreview = ref<PointsPreview | null>(null);
 const pointsPreviewLoading = ref(false);
 
-const channelOptions = [
-  { label: '现金', value: 'cash' },
-  { label: '微信线下收款码', value: 'wechat_offline' },
-  { label: '支付宝线下收款码', value: 'alipay_offline' },
-  { label: '微信 Native 扫码', value: 'wxpay_native' },
-  { label: '支付宝扫码', value: 'alipay_qr' },
-  { label: '储值余额', value: 'balance' },
-  { label: '次卡核销', value: 'card' },
-  { label: '挂账', value: 'credit' },
-];
+/** 渠道文案（唯一来源；下拉与「本次分配」两处共用，避免两套映射漂移） */
+const CHANNEL_LABELS: Record<string, string> = {
+  cash: '现金',
+  wechat_offline: '微信线下收款码',
+  alipay_offline: '支付宝线下收款码',
+  wxpay_native: '微信 Native 扫码',
+  alipay_qr: '支付宝扫码',
+  balance: '储值余额',
+  card: '次卡核销',
+  credit: '挂账',
+};
+
+const channelOptions = Object.entries(CHANNEL_LABELS).map(([value, label]) => ({
+  label,
+  value,
+}));
 
 function addRow(channel: PaymentChannel = 'cash', amount = 0) {
   rowSeq += 1;
@@ -256,11 +442,45 @@ function resetPayments() {
   }
 }
 
+/**
+ * 收起右侧详情：队列重新铺满整页。
+ *
+ * 与「点队列卡片」不同，这个入口是**显式**的（标题栏的收起按钮），
+ * 避免店员连点同一张卡片时把详情误收起。
+ */
+function clearSelection() {
+  selectedId.value = null;
+  selected.value = null;
+  memberInfo.value = null;
+  memberForbidden.value = false;
+  customerCards.value = [];
+  paymentRows.value = [];
+  remark.value = '';
+  pointsUsed.value = '';
+  pointsPreview.value = null;
+  creditAccountId.value = undefined;
+}
+
 /** 本次收款合计（分，次卡核销不产生金额） */
 const paymentsTotalFen = computed(() =>
   paymentRows.value
     .filter((row) => row.channel !== 'card')
     .reduce((sum, row) => sum + yuan2fen(row.amount), 0),
+);
+
+/** 差额（分）= 待收尾款 − 本次收款合计；0 才算收齐 */
+const diffFen = computed(() => dueFen.value - paymentsTotalFen.value);
+
+/** 本次各渠道分配（右栏摘要区逐笔展示，让店员核对混合支付构成） */
+const paymentAllocations = computed(() =>
+  paymentRows.value
+    .filter((row) => row.channel === 'card' || yuan2fen(row.amount) > 0)
+    .map((row) => ({
+      key: row.key,
+      label: CHANNEL_LABELS[row.channel] ?? row.channel,
+      amount: row.channel === 'card' ? 0 : yuan2fen(row.amount),
+      isCard: row.channel === 'card',
+    })),
 );
 
 const hasCardRow = computed(() =>
@@ -645,15 +865,6 @@ onBeforeUnmount(() => {
   stopPolling();
   stopTick();
 });
-
-// ---------- 左栏渲染辅助 ----------
-function renderPayStatus(status: string) {
-  if (status === 'unpaid') return '未收';
-  if (status === 'partial') return '待收尾款';
-  if (status === 'paid') return '已结清';
-  if (status === 'refunded') return '已退款';
-  return '挂账';
-}
 </script>
 
 <template>
@@ -666,406 +877,844 @@ function renderPayStatus(status: string) {
           待收款队列 → 单据金额明细 → 混合支付；金额一律以服务端重算为准
         </p>
       </div>
-      <LewButton type="light" :loading="queueLoading" @click="loadQueue">
-        <RefreshCw :size="14" style="margin-right: 4px" /> 刷新队列
-      </LewButton>
+      <div class="flex items-center gap-3">
+        <span class="text-12.5px text-[var(--app-text-muted)]">
+          队列待收尾款
+          <span class="text-15px font-700 text-[var(--lew-color-warning)]"
+            >¥{{ fen2yuan(allQueueDueFen) }}</span
+          >
+        </span>
+        <LewButton type="light" :loading="queueLoading" @click="loadQueue">
+          <RefreshCw :size="14" style="margin-right: 4px" /> 刷新队列
+        </LewButton>
+      </div>
     </div>
 
-    <div class="grid grid-cols-[320px_minmax(0,1fr)_380px] gap-4">
+    <!-- 未选中单据：队列独占整页宽；选中后队列收成 300px，右侧两块推展开 -->
+    <div class="flex items-start">
       <!-- ============ 左栏：待收款队列 ============ -->
-      <div class="app-card flex max-h-[calc(100vh-210px)] flex-col gap-2 p-3">
-        <div class="flex items-center gap-2">
-          <LewInput
-            v-model="queueKeyword"
-            placeholder="单号 / 姓名 / 手机号"
-            clearable
-            @ok="loadQueue"
-          />
-          <LewButton
-            type="light"
-            size="small"
-            :loading="queueLoading"
-            @click="loadQueue"
-            >查询</LewButton
+      <aside
+        class="app-card flex max-h-[calc(100vh-210px)] shrink-0 flex-col overflow-hidden p-3 transition-[width] duration-300 ease-out"
+        :class="showDetail ? 'w-300px' : 'w-full'"
+      >
+        <div class="mb-2 flex shrink-0 items-center justify-between">
+          <span class="text-14px font-600">待收款队列</span>
+          <IconButton
+            :title="queueCollapsed ? '展开队列' : '收起队列'"
+            @click="queueCollapsed = !queueCollapsed"
+          >
+            <component
+              :is="queueCollapsed ? ChevronDown : ChevronUp"
+              :size="14"
+            />
+          </IconButton>
+        </div>
+
+        <!-- 收起态：只留一行摘要 -->
+        <div
+          v-if="queueCollapsed"
+          class="rounded-8px bg-[var(--app-bg-hover)] px-2.5 py-2 text-12px text-[var(--app-text-secondary)]"
+        >
+          共 {{ queueTabs[0]?.count ?? 0 }} 单 · 尾款
+          <span class="font-600 text-[var(--lew-color-warning)]"
+            >¥{{ fen2yuan(allQueueDueFen) }}</span
           >
         </div>
-        <div class="flex-1 overflow-auto">
-          <div v-for="group in groups" :key="group.key" class="mb-3">
-            <div class="mb-1 flex items-center justify-between">
-              <span class="font-600" :class="group.class">{{
-                group.title
-              }}</span>
-              <span class="text-12px text-[var(--app-text-muted)]"
-                >{{ group.items.length }} 单</span
-              >
-            </div>
-            <p
-              v-if="!group.items.length"
-              class="table-empty m-0 py-2 text-12px"
-            >
-              暂无单据
-            </p>
-            <div
-              v-for="item in group.items"
-              :key="item.id"
-              class="mb-2 cursor-pointer rounded-8px border border-[var(--app-border)] p-2 transition-colors hover:bg-[var(--app-bg-hover)]"
-              :class="
-                selectedId === item.id
-                  ? 'bg-[var(--lew-color-primary-light)]'
-                  : ''
-              "
-              @click="selectBooking(item)"
-            >
-              <div class="flex items-center justify-between">
-                <span class="font-600">{{ item.bookingNo }}</span>
-                <span class="text-12px text-[var(--app-text-muted)]">{{
-                  renderPayStatus(item.payStatus)
-                }}</span>
-              </div>
-              <div class="text-13px">{{ item.customerName }}</div>
-              <div class="text-12px text-[var(--app-text-secondary)]">
-                {{ formatDateTime(item.startAt, 'MM-DD HH:mm') }}
-              </div>
-              <div class="mt-1 flex items-center justify-between text-12px">
-                <span>应付 ¥{{ fen2yuan(item.payableAmount) }}</span>
-                <span
-                  :class="
-                    item.dueAmount > 0
-                      ? 'text-[var(--lew-color-warning)]'
-                      : 'text-[var(--lew-color-success)]'
-                  "
-                >
-                  尾款 ¥{{ fen2yuan(item.dueAmount) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- ============ 中栏：单据金额明细 ============ -->
-      <div
-        class="app-card flex max-h-[calc(100vh-210px)] flex-col gap-3 overflow-auto p-4"
-      >
-        <p v-if="!selected" class="table-empty m-0">
-          请在左侧选择一张待收款单据
-        </p>
         <template v-else>
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-16px font-600">{{ selected.bookingNo }}</div>
-              <div class="page-subtitle">
-                {{ selected.customerName }}
-                <span v-if="selected.customerPhone">
-                  / {{ selected.customerPhone }}</span
-                >
-                / 美甲师 {{ selected.staffName ?? '#' + selected.staffId }}
-              </div>
-              <div class="page-subtitle">
-                {{ formatDateTime(selected.startAt) }} ~
-                {{ formatDateTime(selected.endAt) }}
-              </div>
-            </div>
-            <span
-              class="text-13px text-[var(--lew-color-primary)]"
-              v-if="memberInfo"
-            >
-              会员 {{ memberInfo.level?.name ?? '未入会' }} / 可用余额 ¥{{
-                fen2yuan(balanceAvailable)
-              }}
-              / 积分 {{ memberInfo.points }}
-            </span>
-            <span
-              v-else
-              class="text-12px"
-              :class="
-                memberForbidden
-                  ? 'text-[var(--lew-color-error)]'
-                  : 'text-[var(--app-text-muted)]'
-              "
-              :title="
-                memberForbidden
-                  ? '当前账号缺少 biz:member:list，读不到会员余额'
-                  : ''
-              "
-              >{{
-                memberLoading
-                  ? '加载会员信息…'
-                  : memberForbidden
-                    ? '无查看会员余额的权限（biz:member:list）'
-                    : '非会员'
-              }}</span
-            >
-          </div>
-
-          <!-- 金额明细（全部来自服务端快照，前端只展示） -->
-          <div
-            class="rounded-10px border border-[var(--app-border)] p-3 text-13.5px"
-          >
-            <div class="flex justify-between py-1">
-              <span>项目原价</span>
-              <span>¥{{ fen2yuan(selected.originalPrice) }}</span>
-            </div>
-            <div class="flex justify-between py-1">
-              <span>
-                等级优惠（{{
-                  selected.levelDiscountPermille >= 1000
-                    ? '不打折'
-                    : `${(selected.levelDiscountPermille / 100).toFixed(1)} 折`
-                }}）
-              </span>
-              <span class="text-[var(--lew-color-success)]"
-                >- ¥{{ fen2yuan(selected.levelDiscountAmount) }}</span
-              >
-            </div>
-            <div class="flex justify-between py-1">
-              <span>积分抵扣</span>
-              <span class="text-[var(--lew-color-success)]"
-                >- ¥{{ fen2yuan(selected.pointsDiscountAmount) }}</span
-              >
-            </div>
-            <div class="flex justify-between py-1">
-              <span>
-                手动改价<template v-if="selected.adjustReason">
-                  （{{ selected.adjustReason }}）</template
-                >
-              </span>
-              <span>¥{{ fen2yuan(selected.adjustAmount) }}</span>
-            </div>
-            <div
-              class="mt-1 flex justify-between border-t border-[var(--app-border)] pt-2 font-600"
-            >
-              <span>应付金额</span>
-              <span>¥{{ fen2yuan(payableFen) }}</span>
-            </div>
-            <div class="flex justify-between py-1">
-              <span>已收金额</span>
-              <span>¥{{ fen2yuan(paidFen) }}</span>
-            </div>
-            <div class="flex justify-between py-1">
-              <span>已收渠道</span>
-              <span>{{ selected.payChannelSummary ?? '-' }}</span>
-            </div>
-            <div class="flex justify-between py-1">
-              <span>已退款</span>
-              <span>¥{{ fen2yuan(selected.refundAmount) }}</span>
-            </div>
-            <div
-              class="mt-1 flex justify-between border-t border-[var(--app-border)] pt-2 font-600 text-[var(--lew-color-warning)]"
-            >
-              <span>待收尾款</span>
-              <span>¥{{ fen2yuan(dueFen) }}</span>
-            </div>
-          </div>
-
-          <!-- 项目明细 -->
-          <div>
-            <div class="mb-1 font-600">项目明细</div>
-            <table class="table-base">
-              <thead>
-                <tr>
-                  <th class="table-th">项目</th>
-                  <th class="table-th">时长(分钟)</th>
-                  <th class="table-th">价格(元)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in selected.items ?? []" :key="item.id">
-                  <td class="table-td">{{ item.name }}</td>
-                  <td class="table-td">{{ item.durationMinutes }}</td>
-                  <td class="table-td">¥{{ fen2yuan(item.price) }}</td>
-                </tr>
-                <tr v-if="!(selected.items ?? []).length">
-                  <td class="table-td" colspan="3">无项目明细</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p
-            v-if="selected.payStatus === 'credit'"
-            class="page-subtitle m-0 rounded-8px border border-[var(--app-border)] p-2"
-          >
-            该单据为挂账（pay_status=credit）：正式销账在「应收台账」用 POST
-            /biz/receivables/:id/settle 处理；此处仍可用混合支付补收（挂账可与
-            balance 等渠道叠加）。
-          </p>
-        </template>
-      </div>
-
-      <!-- ============ 右栏：支付区 ============ -->
-      <div
-        class="app-card flex max-h-[calc(100vh-210px)] flex-col gap-3 overflow-auto p-4"
-      >
-        <div class="font-600">支付方式（可加多行混合支付）</div>
-        <p v-if="!selected" class="page-subtitle m-0">请先选择单据</p>
-        <template v-else>
-          <div
-            v-for="row in paymentRows"
-            :key="row.key"
-            class="rounded-8px border border-[var(--app-border)] p-2"
-          >
-            <div class="flex items-center gap-2">
-              <LewSelect
-                v-model="row.channel"
-                width="150px"
-                size="small"
-                :options="channelOptions"
-              />
+          <!-- 搜索（整页宽时不跟着拉满，最多 360px） -->
+          <div class="flex shrink-0 items-center gap-2">
+            <div class="w-full max-w-360px">
               <LewInput
-                v-model="row.amount"
-                width="110px"
-                size="small"
-                placeholder="金额(元)"
-                :disabled="row.channel === 'card'"
-              />
-              <IconButton
-                color="error"
-                title="删除该行"
-                @click="removeRow(row.key)"
-              >
-                <Trash2 :size="14" />
-              </IconButton>
-            </div>
-
-            <!-- 现金：实收（找零） -->
-            <div
-              v-if="row.channel === 'cash'"
-              class="mt-2 flex items-center gap-2"
-            >
-              <span class="text-12px text-[var(--app-text-muted)]"
-                >实收(元)</span
-              >
-              <LewInput
-                v-model="row.receivedAmount"
-                width="110px"
-                size="small"
-                placeholder="实收"
-              />
-            </div>
-
-            <!-- 次卡核销：必须选卡 -->
-            <div v-if="row.channel === 'card'" class="mt-2">
-              <LewSelect
-                v-model="row.memberCardId"
+                v-model="queueKeyword"
                 width="100%"
                 size="small"
-                :options="cardOptions"
-                placeholder="选择要核销的次卡"
+                placeholder="单号 / 姓名 / 手机号"
+                clearable
+                @ok="loadQueue"
               />
-              <p class="page-subtitle m-0 mt-1">
-                次卡核销不产生金额、不叠加等级折扣；仅可核销卡种适用项目内的项目。
+            </div>
+            <LewButton
+              type="fill"
+              size="small"
+              :loading="queueLoading"
+              @click="loadQueue"
+            >
+              <Search :size="13" style="margin-right: 3px" /> 查询
+            </LewButton>
+          </div>
+
+          <!-- 分组页签 -->
+          <div
+            class="mt-2 flex w-full max-w-420px shrink-0 items-center gap-1 rounded-8px bg-[var(--app-bg-hover)] p-1"
+          >
+            <button
+              v-for="tab in queueTabs"
+              :key="tab.key"
+              type="button"
+              class="flex-1 cursor-pointer whitespace-nowrap rounded-6px border-none bg-transparent px-0.5 py-1.5 text-12px transition-colors"
+              :class="
+                activeQueueTab === tab.key
+                  ? 'bg-[var(--app-bg-card)] font-600 text-[var(--lew-color-primary)] shadow-[var(--app-shadow)]'
+                  : 'text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]'
+              "
+              @click="activeQueueTab = tab.key"
+            >
+              {{ tab.title
+              }}<span class="ml-0.5 text-10px opacity-60">{{ tab.count }}</span>
+            </button>
+          </div>
+
+          <!-- 队列列表 -->
+          <div class="mt-2 min-h-0 flex-1 overflow-auto pr-1">
+            <AppLoading
+              variant="skeleton"
+              shape="card"
+              :rows="4"
+              min-height="220px"
+              :loading="queueLoading && !queueFirstLoaded"
+            >
+              <p
+                v-if="!visibleGroups.some((group) => group.items.length)"
+                class="table-empty m-0 py-6 text-12px"
+              >
+                暂无单据
+              </p>
+              <div
+                v-for="group in visibleGroups"
+                v-show="group.items.length"
+                :key="`${activeQueueTab}-${group.key}`"
+                class="mb-2.5 grid gap-2"
+                :class="queueGridClass"
+              >
+                <div
+                  class="col-span-full flex items-center justify-between px-1"
+                >
+                  <span class="text-12px font-600" :class="group.class">{{
+                    group.title
+                  }}</span>
+                  <span class="text-11px text-[var(--app-text-muted)]"
+                    >{{ group.items.length }} 单</span
+                  >
+                </div>
+                <div
+                  v-for="(item, index) in group.items"
+                  :key="item.id"
+                  class="app-rise-in cursor-pointer rounded-10px border p-2.5 transition-all"
+                  :style="{ '--app-stagger': `${Math.min(index, 12) * 26}ms` }"
+                  :class="
+                    selectedId === item.id
+                      ? 'border-[var(--lew-color-primary)] bg-[var(--lew-color-primary-light)]'
+                      : 'border-[var(--app-border)] hover:bg-[var(--app-bg-hover)]'
+                  "
+                  @click="selectBooking(item)"
+                >
+                  <div class="flex items-start gap-2">
+                    <span
+                      class="mt-1px flex h-18px w-18px shrink-0 items-center justify-center rounded-full text-11px font-700"
+                      :class="
+                        selectedId === item.id
+                          ? 'bg-[var(--lew-color-primary)] text-white'
+                          : 'bg-[var(--app-bg-hover)] text-[var(--app-text-secondary)]'
+                      "
+                      >{{ index + 1 }}</span
+                    >
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="truncate text-13px font-600">{{
+                          item.customerName
+                        }}</span>
+                        <span
+                          class="shrink-0 text-15px font-700"
+                          :class="
+                            item.dueAmount > 0
+                              ? group.class
+                              : 'text-[var(--lew-color-success)]'
+                          "
+                          >¥{{ fen2yuan(item.payableAmount) }}</span
+                        >
+                      </div>
+                      <div class="mt-0.5 flex items-center gap-1.5">
+                        <span
+                          class="truncate text-12px text-[var(--app-text-secondary)]"
+                          >编号 {{ item.bookingNo }}</span
+                        >
+                        <span
+                          v-if="discountTag(item)"
+                          class="shrink-0 rounded-4px bg-[var(--lew-color-warning-light)] px-1 text-11px text-[var(--lew-color-warning)]"
+                          >{{ discountTag(item) }}</span
+                        >
+                        <span
+                          v-if="item.payStatus === 'credit'"
+                          class="shrink-0 rounded-4px bg-[var(--lew-color-primary-light)] px-1 text-11px text-[var(--lew-color-primary)]"
+                          >挂账</span
+                        >
+                      </div>
+                      <div
+                        class="mt-0.5 flex items-center justify-between text-11.5px text-[var(--app-text-muted)]"
+                      >
+                        <span
+                          >{{ formatDateTime(item.startAt, 'MM-DD HH:mm') }} ~
+                          {{ formatDateTime(item.endAt, 'HH:mm') }}</span
+                        >
+                        <span
+                          >尾款 ¥{{ fen2yuan(item.dueAmount) }} ·
+                          {{ payStatusText(item.payStatus) }}</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AppLoading>
+          </div>
+
+          <!-- 未选中单据时的引导（队列为空时没必要说「点一张单据」） -->
+          <p
+            v-if="!showDetail && (queueTabs[0]?.count ?? 0) > 0"
+            class="page-subtitle m-0 shrink-0 text-center"
+          >
+            点一张单据，右侧会展开「金额明细 + 混合支付」
+          </p>
+
+          <!-- 页脚：当前页签的尾款合计 -->
+          <div
+            class="mt-2 flex shrink-0 items-center justify-between border-t border-[var(--app-border)] pt-2.5"
+          >
+            <span
+              class="flex items-center gap-1.5 text-13px text-[var(--app-text-secondary)]"
+            >
+              <CircleDollarSign
+                :size="14"
+                class="text-[var(--lew-color-warning)]"
+              />
+              尾款金额
+            </span>
+            <span class="text-17px font-700 text-[var(--lew-color-warning)]"
+              >¥{{ fen2yuan(visibleDueFen) }}</span
+            >
+          </div>
+        </template>
+      </aside>
+
+      <!--
+        右侧两块整体推展开：宽度用 calc 精确对齐（300 队列 + 16 间距），可被浏览器插值动画。
+        两层动画分工：外层容器负责「宽度 + 淡入」（它是普通 div，transition 不被别的类抢）；
+        两块面板自己只负责「迟一点滑到位」，用内联样式写 —— app-card 自带 transition-shadow，
+        和 class 版的 transition-[...] 同权重、谁生效看产物 CSS 顺序，不能赌（踩过：淡入直接跳变）。
+      -->
+      <div
+        class="flex min-w-0 items-start overflow-hidden transition-[width,margin,opacity] duration-350 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        :class="
+          showDetail
+            ? 'ml-4 w-[calc(100%_-_316px)] opacity-100'
+            : 'pointer-events-none ml-0 w-0 opacity-0'
+        "
+      >
+        <!-- ============ 中栏：订单信息 ============ -->
+        <AppLoading
+          class="app-card flex max-h-[calc(100vh-210px)] min-w-0 flex-1 flex-col overflow-hidden"
+          :style="panelSlideStyle(60)"
+          variant="overlay"
+          size="small"
+          text="加载单据明细…"
+          :loading="detailLoading"
+        >
+          <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
+            <p v-if="!selected" class="table-empty m-0">
+              请在左侧选择一张待收款单据
+            </p>
+            <template v-else>
+              <!-- 标题 + 会员信息页签 -->
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <h3 class="m-0 text-18px font-700">订单信息</h3>
+                  <span
+                    class="rounded-4px px-1.5 py-0.5 text-11.5px font-600"
+                    :style="payStatusStyle(selected.payStatus)"
+                    >{{ payStatusText(selected.payStatus) }}</span
+                  >
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <div
+                    v-if="memberInfo"
+                    class="flex items-center gap-1 rounded-8px bg-[var(--app-bg-hover)] p-1"
+                  >
+                    <button
+                      type="button"
+                      class="cursor-pointer rounded-6px border-none px-2.5 py-1 text-12.5px transition-colors"
+                      :class="
+                        memberTab === 'level'
+                          ? 'bg-[var(--app-bg-card)] font-600 text-[var(--lew-color-primary)] shadow-[var(--app-shadow)]'
+                          : 'bg-transparent text-[var(--app-text-secondary)]'
+                      "
+                      @click="memberTab = 'level'"
+                    >
+                      会员等级
+                    </button>
+                    <button
+                      type="button"
+                      class="cursor-pointer rounded-6px border-none px-2.5 py-1 text-12.5px transition-colors"
+                      :class="
+                        memberTab === 'account'
+                          ? 'bg-[var(--app-bg-card)] font-600 text-[var(--lew-color-primary)] shadow-[var(--app-shadow)]'
+                          : 'bg-transparent text-[var(--app-text-secondary)]'
+                      "
+                      @click="memberTab = 'account'"
+                    >
+                      可用余额积分
+                    </button>
+                  </div>
+                  <IconButton
+                    title="收起详情（队列重新铺满整页）"
+                    @click="clearSelection"
+                  >
+                    <PanelRightClose :size="15" />
+                  </IconButton>
+                </div>
+              </div>
+
+              <!-- 顾客 + 会员信息 -->
+              <div class="rounded-10px border border-[var(--app-border)] p-3">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex h-38px w-38px shrink-0 items-center justify-center rounded-full bg-[var(--lew-color-primary-light)] text-15px font-700 text-[var(--lew-color-primary)]"
+                  >
+                    {{ customerInitial }}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                      <span class="text-14px font-600">{{
+                        selected.customerName
+                      }}</span>
+                      <span
+                        class="text-12.5px text-[var(--app-text-secondary)]"
+                        >{{ selected.customerPhone ?? '无手机号' }}</span
+                      >
+                      <span class="text-12.5px text-[var(--app-text-secondary)]"
+                        >美甲师
+                        {{ selected.staffName ?? '#' + selected.staffId }}</span
+                      >
+                      <span class="text-12px text-[var(--app-text-muted)]">
+                        {{ formatDateTime(selected.startAt, 'MM-DD HH:mm') }} ~
+                        {{ formatDateTime(selected.endAt, 'HH:mm') }}（{{
+                          selected.durationMinutes
+                        }}
+                        分钟）
+                      </span>
+                      <span class="text-12px text-[var(--app-text-muted)]"
+                        >单号 {{ selected.bookingNo }}</span
+                      >
+                    </div>
+
+                    <!-- 会员资料：与右上页签联动 -->
+                    <AppLoading
+                      class="mt-1.5 text-12.5px"
+                      variant="spinner"
+                      size="small"
+                      align="start"
+                      min-height="20px"
+                      text="加载会员信息…"
+                      :loading="memberLoading"
+                    >
+                      <span
+                        v-if="memberForbidden"
+                        class="text-[var(--lew-color-error)]"
+                        title="当前账号缺少 biz:member:list，读不到会员余额"
+                      >
+                        无查看会员余额的权限（biz:member:list）——
+                        请让店长在「角色管理」里为你的角色勾上
+                      </span>
+                      <span
+                        v-else-if="!memberInfo"
+                        class="text-[var(--app-text-muted)]"
+                        >非会员（散客）</span
+                      >
+                      <div
+                        v-else
+                        class="flex flex-wrap items-center gap-x-4 gap-y-1"
+                      >
+                        <template v-if="memberTab === 'level'">
+                          <span class="text-[var(--app-text-muted)]"
+                            >会员卡号
+                            <span
+                              class="font-600 text-[var(--app-text-primary)]"
+                              >{{ memberInfo.memberNo ?? '未生成' }}</span
+                            ></span
+                          >
+                          <span class="text-[var(--app-text-muted)]"
+                            >等级
+                            <span
+                              class="font-600 text-[var(--app-text-primary)]"
+                              >{{ memberLevelText }}</span
+                            ></span
+                          >
+                          <span class="text-[var(--app-text-muted)]"
+                            >折扣
+                            <span
+                              class="font-600 text-[var(--app-text-primary)]"
+                              >{{ memberDiscountText }}</span
+                            ></span
+                          >
+                          <span class="text-[var(--app-text-muted)]"
+                            >累计消费
+                            <span
+                              class="font-600 text-[var(--app-text-primary)]"
+                              >¥{{ fen2yuan(memberInfo.totalSpent) }}</span
+                            ></span
+                          >
+                        </template>
+                        <template v-else>
+                          <span class="text-[var(--app-text-muted)]"
+                            >可用余额
+                            <span
+                              class="font-700 text-[var(--lew-color-primary)]"
+                              >¥{{ fen2yuan(balanceAvailable) }}</span
+                            >
+                            （本金 ¥{{
+                              fen2yuan(memberInfo.balancePrincipal)
+                            }}
+                            / 赠送 ¥{{
+                              fen2yuan(memberInfo.balanceBonus)
+                            }}）</span
+                          >
+                          <span class="text-[var(--app-text-muted)]"
+                            >积分
+                            <span
+                              class="font-600 text-[var(--app-text-primary)]"
+                              >{{ memberInfo.points }}</span
+                            ></span
+                          >
+                        </template>
+                      </div>
+                    </AppLoading>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 金额明细（全部来自服务端快照，前端只展示） -->
+              <div>
+                <div class="mb-2 flex items-center justify-between">
+                  <span class="text-13.5px font-600">金额明细</span>
+                  <span class="text-11.5px text-[var(--app-text-muted)]"
+                    >服务端算价快照，前端不做折扣计算</span
+                  >
+                </div>
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div class="rounded-8px bg-[var(--app-bg-hover)] p-2.5">
+                    <div class="text-12px text-[var(--app-text-muted)]">
+                      项目原价
+                    </div>
+                    <div class="mt-1 text-15px font-600">
+                      ¥{{ fen2yuan(selected.originalPrice) }}
+                    </div>
+                  </div>
+                  <div class="rounded-8px bg-[var(--app-bg-hover)] p-2.5">
+                    <div class="text-12px text-[var(--app-text-muted)]">
+                      等级优惠（{{ bookingDiscountText }}）
+                    </div>
+                    <div
+                      class="mt-1 text-15px font-600 text-[var(--lew-color-success)]"
+                    >
+                      - ¥{{ fen2yuan(selected.levelDiscountAmount) }}
+                    </div>
+                  </div>
+                  <div class="rounded-8px bg-[var(--app-bg-hover)] p-2.5">
+                    <div class="text-12px text-[var(--app-text-muted)]">
+                      积分抵扣
+                    </div>
+                    <div
+                      class="mt-1 text-15px font-600 text-[var(--lew-color-success)]"
+                    >
+                      - ¥{{ fen2yuan(selected.pointsDiscountAmount) }}
+                    </div>
+                  </div>
+                  <div class="rounded-8px bg-[var(--app-bg-hover)] p-2.5">
+                    <div
+                      class="truncate text-12px text-[var(--app-text-muted)]"
+                      :title="selected.adjustReason ?? '手动改价（可正可负）'"
+                    >
+                      手动改价{{
+                        selected.adjustReason
+                          ? `（${selected.adjustReason}）`
+                          : ''
+                      }}
+                    </div>
+                    <div class="mt-1 text-15px font-600">
+                      ¥{{ fen2yuan(selected.adjustAmount) }}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="mt-2 grid grid-cols-2 gap-2 rounded-10px border border-[var(--app-border)] p-3 sm:grid-cols-4"
+                >
+                  <div>
+                    <div class="text-12px text-[var(--app-text-muted)]">
+                      应付金额
+                    </div>
+                    <div class="mt-1 text-16px font-700">
+                      ¥{{ fen2yuan(payableFen) }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-12px text-[var(--app-text-muted)]">
+                      已收金额
+                    </div>
+                    <div class="mt-1 text-16px font-700">
+                      ¥{{ fen2yuan(paidFen) }}
+                    </div>
+                    <div
+                      class="mt-0.5 truncate text-11.5px text-[var(--app-text-muted)]"
+                    >
+                      {{ selected.payChannelSummary ?? '暂无收款渠道' }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-12px text-[var(--app-text-muted)]">
+                      已退款
+                    </div>
+                    <div class="mt-1 text-16px font-700">
+                      ¥{{ fen2yuan(selected.refundAmount) }}
+                    </div>
+                  </div>
+                  <div
+                    class="rounded-8px bg-[var(--lew-color-warning-light)] px-2 py-1"
+                  >
+                    <div class="text-12px text-[var(--lew-color-warning)]">
+                      待收尾款
+                    </div>
+                    <div
+                      class="mt-1 text-16px font-700 text-[var(--lew-color-warning)]"
+                    >
+                      ¥{{ fen2yuan(dueFen) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 待收尾款：项目明细 -->
+              <div>
+                <div class="mb-2 flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span
+                      class="h-14px w-3px rounded-full bg-[var(--lew-color-warning)]"
+                    ></span>
+                    <span
+                      class="text-14px font-600 text-[var(--lew-color-warning)]"
+                      >待收尾款</span
+                    >
+                  </span>
+                  <span
+                    class="text-15px font-700 text-[var(--lew-color-warning)]"
+                    >¥{{ fen2yuan(dueFen) }}</span
+                  >
+                </div>
+                <table class="table-base">
+                  <thead>
+                    <tr>
+                      <th class="table-th">项目</th>
+                      <th class="table-th">时长(分钟)</th>
+                      <th class="table-th">价格(元)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in selected.items ?? []" :key="item.id">
+                      <td class="table-td">{{ item.name }}</td>
+                      <td class="table-td">{{ item.durationMinutes }}</td>
+                      <td class="table-td">¥{{ fen2yuan(item.price) }}</td>
+                    </tr>
+                    <tr v-if="!(selected.items ?? []).length">
+                      <td class="table-td" colspan="3">无项目明细</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p
+                v-if="selected.payStatus === 'credit'"
+                class="page-subtitle m-0 rounded-8px border border-[var(--app-border)] p-2"
+              >
+                该单据为挂账（pay_status=credit）：正式销账在「应收台账」用 POST
+                /biz/receivables/:id/settle
+                处理；此处仍可用混合支付补收（挂账可与 balance 等渠道叠加）。
+              </p>
+            </template>
+          </div>
+        </AppLoading>
+
+        <!-- ============ 右栏：支付方式（混合支付） ============ -->
+        <aside
+          class="app-card ml-4 flex max-h-[calc(100vh-210px)] w-360px shrink-0 flex-col gap-3 p-4"
+          :style="panelSlideStyle(110)"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-14px font-600">
+              支付方式
+              <span class="text-11.5px font-400 text-[var(--app-text-muted)]"
+                >（可加多行混合支付）</span
+              >
+            </span>
+            <IconButton
+              :title="payCollapsed ? '展开支付区' : '收起支付区'"
+              @click="payCollapsed = !payCollapsed"
+            >
+              <component
+                :is="payCollapsed ? ChevronDown : ChevronUp"
+                :size="14"
+              />
+            </IconButton>
+          </div>
+
+          <p v-if="!selected" class="table-empty m-0 py-4 text-12px">
+            请先选择单据
+          </p>
+
+          <template v-else-if="payCollapsed">
+            <div
+              class="rounded-8px bg-[var(--app-bg-hover)] px-2.5 py-2 text-12px text-[var(--app-text-secondary)]"
+            >
+              本次收款合计
+              <span class="font-600 text-[var(--lew-color-primary)]"
+                >¥{{ fen2yuan(paymentsTotalFen) }}</span
+              >
+              · {{ paymentAllocations.length }} 笔
+            </div>
+            <LewButton
+              v-permission="'biz:payment:create'"
+              class="shrink-0"
+              type="fill"
+              width="100%"
+              size="large"
+              :loading="detailLoading || settling"
+              @click="handleSettle"
+            >
+              <Wallet :size="15" style="margin-right: 4px" /> 去收款
+            </LewButton>
+          </template>
+
+          <template v-else>
+            <!-- 可滚动的配置区：支付行多时只滚这一段，合计与「去收款」常驻底部 -->
+            <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pr-1">
+              <div
+                v-for="row in paymentRows"
+                :key="row.key"
+                class="rounded-8px border border-[var(--app-border)] p-2.5"
+              >
+                <div class="flex items-center gap-2">
+                  <LewSelect
+                    v-model="row.channel"
+                    width="100%"
+                    size="small"
+                    :options="channelOptions"
+                  />
+                  <IconButton
+                    color="error"
+                    title="删除该行"
+                    @click="removeRow(row.key)"
+                  >
+                    <Trash2 :size="14" />
+                  </IconButton>
+                </div>
+
+                <div class="mt-2">
+                  <LewInput
+                    v-model="row.amount"
+                    width="100%"
+                    size="small"
+                    placeholder="金额（元）"
+                    :disabled="row.channel === 'card'"
+                  />
+                </div>
+
+                <!-- 现金：实收（找零） -->
+                <div
+                  v-if="row.channel === 'cash'"
+                  class="mt-2 flex items-center gap-2"
+                >
+                  <span class="shrink-0 text-12px text-[var(--app-text-muted)]"
+                    >实收(元)</span
+                  >
+                  <LewInput
+                    v-model="row.receivedAmount"
+                    width="100%"
+                    size="small"
+                    placeholder="顾客实际递交的现金"
+                  />
+                </div>
+
+                <!-- 次卡核销：必须选卡 -->
+                <div v-if="row.channel === 'card'" class="mt-2">
+                  <LewSelect
+                    v-model="row.memberCardId"
+                    width="100%"
+                    size="small"
+                    :options="cardOptions"
+                    placeholder="选择要核销的次卡"
+                  />
+                  <p class="page-subtitle m-0 mt-1">
+                    次卡核销不产生金额、不叠加等级折扣；仅可核销卡种适用项目内的项目。
+                  </p>
+                </div>
+
+                <!-- 储值余额 -->
+                <p
+                  v-if="row.channel === 'balance'"
+                  class="page-subtitle m-0 mt-1"
+                >
+                  <template v-if="memberForbidden">
+                    当前账号没有查看会员余额的权限（biz:member:list），储值余额收款不可用。
+                    这不是顾客余额不足 —— 请让店长在「角色管理」里为你的角色勾上
+                    「会员管理」的查询权限。
+                  </template>
+                  <template v-else>
+                    可用余额 ¥{{ fen2yuan(balanceAvailable) }}（本金 ¥{{
+                      fen2yuan(memberInfo?.balancePrincipal)
+                    }}
+                    / 赠送 ¥{{
+                      fen2yuan(memberInfo?.balanceBonus)
+                    }}）；余额不足会直接失败，不做部分扣减。
+                  </template>
+                </p>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <span class="text-11.5px text-[var(--app-text-muted)]"
+                  >共 {{ paymentAllocations.length }} 笔</span
+                >
+                <LewButton type="text" size="small" @click="addRow('cash', 0)">
+                  <Plus :size="13" style="margin-right: 3px" /> 添加一行
+                </LewButton>
+              </div>
+
+              <!-- 挂账主体（存在 credit 行时） -->
+              <div
+                v-if="hasCreditRow"
+                class="border-t border-[var(--app-border)] pt-3"
+              >
+                <div class="mb-1.5 text-13px font-600">挂账主体</div>
+                <LewSelect
+                  v-model="creditAccountId"
+                  width="100%"
+                  size="small"
+                  :options="creditAccountOptions"
+                  placeholder="选择挂账主体（多笔挂账共用）"
+                />
+              </div>
+
+              <!-- 积分抵扣 -->
+              <div class="border-t border-[var(--app-border)] pt-3">
+                <div class="mb-1.5 flex items-center justify-between">
+                  <span class="text-13px font-600">积分抵扣</span>
+                  <LewButton
+                    type="light"
+                    size="small"
+                    :loading="pointsPreviewLoading"
+                    @click="handlePointsPreview"
+                    >试算上限</LewButton
+                  >
+                </div>
+                <LewInput
+                  v-model="pointsUsed"
+                  width="100%"
+                  size="small"
+                  placeholder="使用积分数"
+                />
+                <p v-if="pointsPreview" class="page-subtitle m-0 mt-1">
+                  最多可用 {{ pointsPreview.maxPoints }} 分（抵 ¥{{
+                    fen2yuan(pointsPreview.maxDiscountAmount)
+                  }}），100 分抵 1 元、单笔上限 30%，服务端复算为准。
+                </p>
+              </div>
+
+              <!-- 备注 -->
+              <div class="border-t border-[var(--app-border)] pt-3">
+                <div class="mb-1.5 text-13px font-600">备注</div>
+                <LewTextarea
+                  v-model="remark"
+                  :rows="2"
+                  :max-length="200"
+                  placeholder="选填；挂账 / 部分收款建议写明原因"
+                />
+              </div>
+            </div>
+
+            <!-- 合计与差额 -->
+            <div
+              class="shrink-0 rounded-10px border border-[var(--app-border)] p-3"
+            >
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div class="text-12px text-[var(--app-text-muted)]">
+                    本单应收
+                  </div>
+                  <div class="mt-1 text-15px font-700">
+                    ¥{{ fen2yuan(dueFen) }}
+                  </div>
+                </div>
+                <div class="border-x border-[var(--app-border)]">
+                  <div class="text-12px text-[var(--app-text-muted)]">
+                    本次收款合计
+                  </div>
+                  <div
+                    class="mt-1 text-15px font-700 text-[var(--lew-color-primary)]"
+                  >
+                    ¥{{ fen2yuan(paymentsTotalFen) }}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-12px text-[var(--app-text-muted)]">差额</div>
+                  <div
+                    class="mt-1 text-15px font-700"
+                    :class="
+                      diffFen === 0
+                        ? 'text-[var(--lew-color-success)]'
+                        : 'text-[var(--lew-color-warning)]'
+                    "
+                  >
+                    ¥{{ fen2yuan(diffFen) }}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="paymentAllocations.length"
+                class="mt-2.5 flex flex-col gap-1 border-t border-dashed border-[var(--app-border)] pt-2"
+              >
+                <div
+                  v-for="allocation in paymentAllocations"
+                  :key="allocation.key"
+                  class="flex items-center justify-between text-12.5px"
+                >
+                  <span class="text-[var(--app-text-secondary)]">{{
+                    allocation.label
+                  }}</span>
+                  <span class="font-600">{{
+                    allocation.isCard
+                      ? '核销一次（不计金额）'
+                      : `¥${fen2yuan(allocation.amount)}`
+                  }}</span>
+                </div>
+              </div>
+
+              <p v-if="hasOnlineRow" class="page-subtitle m-0 mt-2">
+                含在线扫码渠道：提交后会返回二维码，需顾客在 5 分钟内扫码支付。
               </p>
             </div>
 
-            <!-- 储值余额 -->
-            <p v-if="row.channel === 'balance'" class="page-subtitle m-0 mt-1">
-              <template v-if="memberForbidden">
-                当前账号没有查看会员余额的权限（biz:member:list），储值余额收款不可用。
-                这不是顾客余额不足 —— 请让店长在「角色管理」里为你的角色勾上
-                「会员管理」的查询权限。
-              </template>
-              <template v-else>
-                可用余额 ¥{{ fen2yuan(balanceAvailable) }}（本金 ¥{{
-                  fen2yuan(memberInfo?.balancePrincipal)
-                }}
-                / 赠送 ¥{{
-                  fen2yuan(memberInfo?.balanceBonus)
-                }}）；余额不足会直接失败，不做部分扣减。
-              </template>
-            </p>
-          </div>
-
-          <LewButton type="light" size="small" @click="addRow('cash', 0)">
-            <Plus :size="13" style="margin-right: 4px" /> 添加一行
-          </LewButton>
-
-          <!-- 挂账主体（存在 credit 行时） -->
-          <div v-if="hasCreditRow">
-            <div class="mb-1 text-13px">挂账主体</div>
-            <LewSelect
-              v-model="creditAccountId"
+            <LewButton
+              v-permission="'biz:payment:create'"
+              class="shrink-0"
+              type="fill"
               width="100%"
-              size="small"
-              :options="creditAccountOptions"
-              placeholder="选择挂账主体（多笔挂账共用）"
-            />
-          </div>
-
-          <!-- 积分抵扣 -->
-          <div>
-            <div class="mb-1 flex items-center gap-2">
-              <span class="text-13px">积分抵扣</span>
-              <LewButton
-                type="light"
-                size="small"
-                :loading="pointsPreviewLoading"
-                @click="handlePointsPreview"
-                >试算上限</LewButton
-              >
-            </div>
-            <LewInput
-              v-model="pointsUsed"
-              width="140px"
-              size="small"
-              placeholder="使用积分数"
-            />
-            <p v-if="pointsPreview" class="page-subtitle m-0 mt-1">
-              最多可用 {{ pointsPreview.maxPoints }} 分（抵 ¥{{
-                fen2yuan(pointsPreview.maxDiscountAmount)
-              }}），100 分抵 1 元、单笔上限 30%，服务端复算为准。
-            </p>
-          </div>
-
-          <!-- 备注 -->
-          <div>
-            <div class="mb-1 text-13px">备注</div>
-            <LewInput
-              v-model="remark"
-              width="100%"
-              size="small"
-              placeholder="选填"
-            />
-          </div>
-
-          <!-- 合计与差额 -->
-          <div
-            class="rounded-8px border border-[var(--app-border)] p-3 text-13px"
-          >
-            <div class="flex justify-between">
-              <span>本单应收（尾款）</span>
-              <span>¥{{ fen2yuan(dueFen) }}</span>
-            </div>
-            <div class="mt-1 flex justify-between">
-              <span>本次收款合计</span>
-              <span class="font-600">¥{{ fen2yuan(paymentsTotalFen) }}</span>
-            </div>
-            <div class="mt-1 flex justify-between">
-              <span>差额</span>
-              <span
-                :class="
-                  dueFen - paymentsTotalFen === 0
-                    ? 'text-[var(--lew-color-success)]'
-                    : 'text-[var(--lew-color-warning)]'
-                "
-              >
-                ¥{{ fen2yuan(dueFen - paymentsTotalFen) }}
-              </span>
-            </div>
-            <p v-if="hasOnlineRow" class="page-subtitle m-0 mt-2">
-              含在线扫码渠道：提交后会返回二维码，需顾客在 5 分钟内扫码支付。
-            </p>
-          </div>
-
-          <LewButton
-            v-permission="'biz:payment:create'"
-            type="fill"
-            :loading="detailLoading || settling"
-            @click="handleSettle"
-          >
-            <Wallet :size="14" style="margin-right: 4px" /> 去收款
-          </LewButton>
-        </template>
+              size="large"
+              :loading="detailLoading || settling"
+              @click="handleSettle"
+            >
+              <Wallet :size="15" style="margin-right: 4px" /> 去收款
+            </LewButton>
+          </template>
+        </aside>
       </div>
     </div>
 

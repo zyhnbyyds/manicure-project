@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, h, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { LewTable } from 'lew-ui';
@@ -23,6 +23,7 @@ import {
 import { useSettingsStore } from '~/store/settings';
 import { useUserStore } from '~/store/user';
 import { formatDateTime } from '~/composables/useFormat';
+import AppLoading from '~/components/AppLoading.vue';
 import type {
   CacheInfo,
   LoginLog,
@@ -128,6 +129,14 @@ const statCards = computed<StatCard[]>(() => {
 // ---------- 登录趋势 / 分布 ----------
 const recentLogins = ref<LoginLog[]>([]);
 const canSeeLogins = computed(() => hasPerm('monitor:loginlog:list'));
+
+/**
+ * 首页整体加载态：统计卡出骨架屏、图表盖遮罩、登录记录走表格 loading。
+ *
+ * 首页是唯一「一进来就并发打 7 个接口」的页面，没有这个态时：
+ * 卡片会先显示一排 0、图表是一片空白，看起来像故障。
+ */
+const dashboardLoading = ref(true);
 
 const trendRef = ref<HTMLElement>();
 const pieRef = ref<HTMLElement>();
@@ -349,7 +358,13 @@ onMounted(async () => {
     if (result.status === 'fulfilled') tasks[index]!.apply(result.value);
   });
 
-  if (canSeeLogins.value) initCharts();
+  // 先关 loading（骨架屏退场、滚动区域撑开高度），再画图表：
+  // echarts 在 display:none 的容器里 init 会得到 0×0 画布
+  dashboardLoading.value = false;
+  if (canSeeLogins.value) {
+    await nextTick();
+    initCharts();
+  }
 });
 </script>
 
@@ -368,13 +383,23 @@ onMounted(async () => {
         :key="stat.label"
         class="app-card relative flex flex-col gap-2 p-5"
       >
-        <span class="text-13px text-[var(--app-text-muted)]">{{
-          stat.label
-        }}</span>
-        <span class="text-24px font-700 tracking--2%">{{ stat.value }}</span>
-        <span v-if="stat.sub" class="text-12px text-[var(--app-text-muted)]">{{
-          stat.sub
-        }}</span>
+        <AppLoading
+          class="flex flex-col gap-2"
+          variant="skeleton"
+          :rows="2"
+          min-height="56px"
+          :loading="dashboardLoading"
+        >
+          <span class="text-13px text-[var(--app-text-muted)]">{{
+            stat.label
+          }}</span>
+          <span class="text-24px font-700 tracking--2%">{{ stat.value }}</span>
+          <span
+            v-if="stat.sub"
+            class="text-12px text-[var(--app-text-muted)]"
+            >{{ stat.sub }}</span
+          >
+        </AppLoading>
         <span
           v-if="stat.badge"
           class="tag-success absolute top-4 right-4 rounded-full px-2 py-0.5 text-12px"
@@ -387,14 +412,24 @@ onMounted(async () => {
     <!-- 图表区（需登录日志权限） -->
     <template v-if="canSeeLogins">
       <div class="grid grid-cols-3 gap-4">
-        <div class="app-card col-span-2 p-5">
+        <AppLoading
+          class="app-card col-span-2 p-5"
+          variant="overlay"
+          text="加载登录趋势…"
+          :loading="dashboardLoading"
+        >
           <h3 class="mt-0 mb-3 text-15px font-600">近 7 日登录趋势</h3>
           <div ref="trendRef" class="h-260px" />
-        </div>
-        <div class="app-card p-5">
+        </AppLoading>
+        <AppLoading
+          class="app-card p-5"
+          variant="overlay"
+          text="加载登录分布…"
+          :loading="dashboardLoading"
+        >
           <h3 class="mt-0 mb-3 text-15px font-600">近期登录状态分布</h3>
           <div ref="pieRef" class="h-260px" />
-        </div>
+        </AppLoading>
       </div>
 
       <!-- 最近登录 -->
@@ -402,6 +437,7 @@ onMounted(async () => {
         <h3 class="mt-0 mb-3 text-15px font-600">最近登录记录</h3>
         <LewTable
           :data-source="recentLogins"
+          :loading="dashboardLoading"
           size="small"
           :focusable="false"
           :columns="[
