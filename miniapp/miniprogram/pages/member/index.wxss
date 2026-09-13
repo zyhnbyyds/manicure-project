@@ -83,75 +83,14 @@
   color: var(--mc-ink-soft);
 }
 
-/* ── 分等级皮肤（tier-0 银 / tier-1 金 / tier-2 钻 / tier-3 曜石黑金） ──
+/* ── 分等级皮肤 ──
  *
- * 一档一组变量，全部只在 `.mcard` 上用：底色渐变、主文字色、弱文字色、
- * 金属描边、装饰圆颜色、徽章面色与徽章文字色。
- *
- * 档次由服务端 `levelRank`（0 = 最低）决定，**不靠等级名判断** ——
- * 等级名是门店自己起的。门店加第 5、第 6 个等级时会停在最高档（tier-3），
- * 不会掉回银卡。
- *
- * 高贵感来自四处细节，四档都一样，只是材质不同：
- * 1. 135° 三段渐变（暗—亮—暗，模拟金属受光）；
- * 2. 2rpx 金属细线描边 + 内侧 1rpx 高光（压印感）；
- * 3. `.mcard__sheen` 缓慢扫过的箔光；
- * 4. 等级徽章 + 菱形宝石点（衬线字 + 宽字距）。
+ * 四档的颜色变量（`.tier-0` ~ `.tier-3`）已经**提到 `app.wxss`**：
+ * 「个人资料」页的等级徽章要用同一套材质，放在这里页面级 CSS 是拿不到的。
+ * 本页只保留「卡面怎么用这些变量」的部分。
  */
 
-/* 银：冷银灰，浅底深字 */
-.mcard.tier-0 {
-  --mc-bg: linear-gradient(135deg, #f2f4f7 0%, #dfe4ec 42%, #c3cad6 100%);
-  --mc-ink: #3f4653;
-  --mc-ink-soft: rgba(63, 70, 83, 0.62);
-  --mc-line: rgba(255, 255, 255, 0.9);
-  --mc-orb: rgba(255, 255, 255, 0.5);
-  --mc-emboss: rgba(255, 255, 255, 0.55);
-  --mc-badge-bg: rgba(255, 255, 255, 0.72);
-  --mc-badge-ink: #4b5361;
-  --mc-gem: linear-gradient(135deg, #eef1f6, #aab3c2);
-}
-
-/* 金：香槟金，暖底深棕字 */
-.mcard.tier-1 {
-  --mc-bg: linear-gradient(135deg, #fdf5e2 0%, #f0d9a8 42%, #d9b473 100%);
-  --mc-ink: #5b4526;
-  --mc-ink-soft: rgba(91, 69, 38, 0.62);
-  --mc-line: rgba(255, 250, 235, 0.92);
-  --mc-orb: rgba(255, 255, 255, 0.55);
-  --mc-emboss: rgba(255, 255, 255, 0.6);
-  --mc-badge-bg: rgba(255, 252, 244, 0.78);
-  --mc-badge-ink: #8a6a2f;
-  --mc-gem: linear-gradient(135deg, #fff6dd, #c79a4a);
-}
-
-/* 钻：冷调深蓝，深底浅字 + 冷钻光 */
-.mcard.tier-2 {
-  --mc-bg: linear-gradient(135deg, #414c66 0%, #262f43 45%, #141a27 100%);
-  --mc-ink: #f3f1ec;
-  --mc-ink-soft: rgba(243, 241, 236, 0.72);
-  --mc-line: rgba(190, 214, 240, 0.5);
-  --mc-orb: rgba(255, 255, 255, 0.16);
-  --mc-emboss: rgba(255, 255, 255, 0.18);
-  --mc-badge-bg: rgba(255, 255, 255, 0.14);
-  --mc-badge-ink: #dbe8f7;
-  --mc-gem: linear-gradient(135deg, #ffffff, #9fc4e6);
-}
-
-/* 曜石黑金：最深一档，黑底金线（门店再往上加等级就用这档） */
-.mcard.tier-3 {
-  --mc-bg: linear-gradient(135deg, #2a2a2e 0%, #16161a 45%, #0a0a0c 100%);
-  --mc-ink: #f6ecd6;
-  --mc-ink-soft: rgba(246, 236, 214, 0.7);
-  --mc-line: rgba(212, 175, 106, 0.55);
-  --mc-orb: rgba(212, 175, 106, 0.14);
-  --mc-emboss: rgba(255, 255, 255, 0.12);
-  --mc-badge-bg: rgba(212, 175, 106, 0.16);
-  --mc-badge-ink: #e8cf9b;
-  --mc-gem: linear-gradient(135deg, #ffeec2, #b8912f);
-}
-
-/* 卡面本体：颜色全部走上面那组变量，所以四档只需换 class */
+/* 卡面本体：颜色全部走 `--mc-*` 变量，所以四档只需换 class */
 .mcard {
   position: relative;
   overflow: hidden;

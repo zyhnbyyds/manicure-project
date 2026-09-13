@@ -100,6 +100,7 @@ title: 业务表详解
 | `phone` | `varchar(20)` | 可空 | 手机号 | **唯一索引，但可空**（散客）；查重**不过滤软删** |
 | `gender` | `enum('unknown','male','female')` | 默认 `unknown` | 性别 | — |
 | `birthday` | `date` | 可空 | 生日（本地日，不是时刻） | 用 `mode: 'string'` |
+| `preference` | `varchar(30)` | 可空 | 美甲偏好 | 存的是**款式分类名**（= `biz_service_item.category` 的取值），门店推款与美甲师备料能直接用同一套口径；C 端「个人资料」页可选 |
 | `remark` | `varchar(500)` | 可空 | 备注 | — |
 | `visit_count` | `int unsigned` | 默认 `0` | 到店次数 | 预约 `completed` 时 +1，或跑 `recount` 修复 |
 | `last_visit_at` | `datetime` | 可空 | 最后到店时刻 | 同上 |

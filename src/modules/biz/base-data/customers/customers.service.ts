@@ -40,6 +40,8 @@ export type CreateCustomerInput = {
   phone?: string | null | undefined;
   gender?: 'unknown' | 'male' | 'female' | undefined;
   birthday?: string | null | undefined;
+  /** 美甲偏好（`biz_service_item.category` 的取值；C 端「个人资料」页可选） */
+  preference?: string | null | undefined;
   remark?: string | null | undefined;
 };
 

@@ -326,6 +326,8 @@ export class AppMemberService {
         memberNo: bizCustomers.memberNo,
         gender: bizCustomers.gender,
         birthday: bizCustomers.birthday,
+        preference: bizCustomers.preference,
+        totalSpent: bizCustomers.totalSpent,
       })
       .from(bizCustomers)
       .where(
@@ -334,6 +336,16 @@ export class AppMemberService {
       .limit(1);
     // 顾客档案被软删 / 已不存在：按「需要重新绑定手机号」处理
     if (!customer) throw needBind();
+
+    // 昵称 / 头像在 `app_wx_user` 上（微信身份侧的快照，顾客可改），与门店档案的姓名分开
+    const [identity] = await this.database.db
+      .select({
+        nickname: appWxUsers.nickname,
+        avatar: appWxUsers.avatar,
+      })
+      .from(appWxUsers)
+      .where(and(eq(appWxUsers.id, appUserId), isNull(appWxUsers.deletedAt)))
+      .limit(1);
 
     // 算价上下文 = 等级 + 折扣率千分比 + 积分 + 储值余额（无等级时折扣率 = 1000）
     const context = await this.members.getPricingContext(customerId);
@@ -367,7 +379,11 @@ export class AppMemberService {
      * 两次查询不如一次拿全（等级是十位数量级的小表）。
      */
     const levels = await this.database.db
-      .select({ id: bizMemberLevels.id, name: bizMemberLevels.name })
+      .select({
+        id: bizMemberLevels.id,
+        name: bizMemberLevels.name,
+        upgradeAmount: bizMemberLevels.upgradeAmount,
+      })
       .from(bizMemberLevels)
       .orderBy(
         asc(bizMemberLevels.sort),
@@ -381,6 +397,22 @@ export class AppMemberService {
         : levels.findIndex((item) => item.id === context.levelId);
     const levelName = rankIndex >= 0 ? (levels[rankIndex]?.name ?? null) : null;
     const levelRank = rankIndex >= 0 ? rankIndex : 0;
+
+    /**
+     * 下一个等级（「距铂金会员还差 ¥720」）：名次 +1 那一档，已是最高档则为 null。
+     *
+     * `remaining` **在这里算**而不是让前端减：升级规则（按累计消费）是门店侧口径，
+     * 前端自己减就等于把规则复制了一份，哪天改成按次数升级就会分叉。
+     * 差额最小为 0 —— 顾客刚好达标但还没跑升级任务时，不该显示「还差 -20 元」。
+     */
+    const next = levels[rankIndex + 1];
+    const nextLevel = next
+      ? {
+          name: next.name,
+          upgradeAmount: next.upgradeAmount,
+          remaining: Math.max(0, next.upgradeAmount - customer.totalSpent),
+        }
+      : null;
 
     const cards = await this.database.db
       .select({
@@ -406,6 +438,11 @@ export class AppMemberService {
       name: customer.name,
       phone: customer.phone,
       memberNo: customer.memberNo,
+      nickname: identity?.nickname ?? null,
+      avatar: identity?.avatar ?? null,
+      preference: customer.preference,
+      totalSpent: customer.totalSpent,
+      nextLevel,
       gender: customer.gender,
       birthday: customer.birthday,
       totalRecharged: Number(recharged?.total ?? 0),
@@ -437,12 +474,33 @@ export class AppMemberService {
    *
    * 返回**更新后的整份会员信息**：前端一次往返就能刷新，不用再打一次 `me()`。
    */
+  /**
+   * 顾客自助改资料（`POST /app/member/profile`，POST 而非 PATCH 的原因见 controller）。
+   *
+   * 两类字段、两条写路径，**别混**：
+   * - 门店档案（`name` / `gender` / `birthday` / `preference`）走 `CustomerPort.update`
+   *   —— 门店档案的写入口只有它一个，app 域不直接 update 表（否则手机号唯一性校验、
+   *   审计字段这些规则会在两边分叉）；
+   * - 微信身份（`nickname` / `avatar`）写 `app_wx_user` —— 那是「APP 里怎么称呼我」，
+   *   与门店档案里的真实姓名是两件事，不能互相覆盖。
+   *
+   * 三处刻意收窄：
+   * 1. **顾客身份只从 token 来**，入参里没有 customerId，改不了别人；
+   * 2. **手机号不在这里**：换号等于换绑，要走 `/app/auth/phone`（同事务写绑定留痕）；
+   *    等级 / 积分 / 余额 / 消费额只能由门店账务链路改；
+   * 3. 传白名单外的字段由 schema `.strict()` 直接 400，不静默忽略。
+   *
+   * 返回**更新后的整份会员信息**：前端一次往返就能刷新，不用再打一次 `me()`。
+   */
   async updateProfile(
     appUserId: number,
     input: {
       name?: string | undefined;
       gender?: 'unknown' | 'male' | 'female' | undefined;
       birthday?: string | null | undefined;
+      preference?: string | null | undefined;
+      nickname?: string | null | undefined;
+      avatar?: string | null | undefined;
     },
   ): Promise<AppMemberMeVo> {
     const customerId = await this.requireCustomerId(appUserId);
@@ -452,10 +510,25 @@ export class AppMemberService {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.gender !== undefined ? { gender: input.gender } : {}),
         ...(input.birthday !== undefined ? { birthday: input.birthday } : {}),
+        ...(input.preference !== undefined
+          ? { preference: input.preference }
+          : {}),
       },
       // app 端没有 sys_user，与建单/结算一致记 0（`updated_by` 的既有口径）
       APP_ACTOR_ID,
     );
+
+    if (input.nickname !== undefined || input.avatar !== undefined) {
+      await this.database.db
+        .update(appWxUsers)
+        .set({
+          ...(input.nickname !== undefined ? { nickname: input.nickname } : {}),
+          ...(input.avatar !== undefined ? { avatar: input.avatar } : {}),
+          updatedBy: APP_ACTOR_ID,
+        })
+        .where(eq(appWxUsers.id, appUserId));
+    }
+
     return this.me(appUserId);
   }
 

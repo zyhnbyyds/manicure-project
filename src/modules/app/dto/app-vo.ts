@@ -473,6 +473,37 @@ export const appMemberMeVo = z.object({
    * 顾客看到的号跟门店系统里的对不上。这里直接给真值，前端不做任何拼装。
    */
   memberNo: z.string().nullable().openapi({ example: 'M2026000001' }),
+  /**
+   * 昵称 / 头像：来自 `app_wx_user`（微信侧快照，顾客可在「个人资料」页改）。
+   *
+   * 与 `name`（门店档案里的**真实姓名**）是两件事：昵称是「APP 里怎么称呼我」，
+   * 姓名是门店对账与排班要用的。设计稿把两者分两行展示，后端也必须分开存。
+   */
+  nickname: z.string().nullable().openapi({ example: '小美' }),
+  avatar: z
+    .string()
+    .nullable()
+    .openapi({ example: '/api/v1/files/12/download', description: '头像地址' }),
+  /** 美甲偏好（款式分类名；未设置为 null） */
+  preference: z.string().nullable().openapi({ example: '基础款' }),
+  /** 累计消费（分）：`biz_customer.total_spent`，会员卡条与升级进度都要用 */
+  totalSpent: z
+    .number()
+    .int()
+    .openapi({ example: 328000, description: '累计消费（分）' }),
+  /**
+   * 下一个等级（已是最高级时为 null）。
+   *
+   * `remaining` 是**服务端算的**差额 —— 前端拿 `upgradeAmount - totalSpent` 自己减也能算，
+   * 但那样「差多少升级」的规则就有了两份实现（门店哪天改成按次数升级就会分叉）。
+   */
+  nextLevel: z
+    .object({
+      name: z.string(),
+      upgradeAmount: z.number().int(),
+      remaining: z.number().int().openapi({ description: '还差多少分升级' }),
+    })
+    .nullable(),
   /** 性别（顾客可在小程序自助修改） */
   gender: appGenderSchema,
   birthday: z
@@ -570,6 +601,31 @@ export const appUpdateProfileRequestSchema = z
         example: '1996-08-12',
         description: '生日 YYYY-MM-DD；传 null 表示清空',
       }),
+    /** 昵称（写 `app_wx_user.nickname`，只影响 APP 里的显示） */
+    nickname: z
+      .string()
+      .trim()
+      .min(1)
+      .max(50)
+      .nullable()
+      .optional()
+      .openapi({ example: '小美', description: '昵称；传 null 清空' }),
+    /** 头像（`POST /app/upload` 返回的地址） */
+    avatar: z
+      .string()
+      .trim()
+      .max(500)
+      .nullable()
+      .optional()
+      .openapi({ example: '/api/v1/files/12/download' }),
+    /** 美甲偏好（款式分类名） */
+    preference: z
+      .string()
+      .trim()
+      .max(30)
+      .nullable()
+      .optional()
+      .openapi({ example: '基础款' }),
   })
   .strict()
   .refine((value) => Object.values(value).some((item) => item !== undefined), {

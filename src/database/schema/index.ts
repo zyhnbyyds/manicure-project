@@ -785,6 +785,14 @@ export const bizCustomers = mysqlTable(
       .default('unknown')
       .notNull(),
     birthday: date('birthday', { mode: 'string' }),
+    /**
+     * 美甲偏好（「个人资料」页可选，自由文本）。
+     *
+     * 存的是**款式分类名**（基础款 / 款式设计 / 延长甲 …），也就是 `biz_service_item.category`
+     * 的取值 —— 这样顾客选完偏好，门店推款与美甲师备料都能直接用同一套分类口径，
+     * 而不是又造一套只有前端认识的标签。
+     */
+    preference: varchar('preference', { length: 30 }),
     remark: varchar('remark', { length: 500 }),
     visitCount: int('visit_count', { unsigned: true }).default(0).notNull(),
     lastVisitAt: datetime('last_visit_at'),

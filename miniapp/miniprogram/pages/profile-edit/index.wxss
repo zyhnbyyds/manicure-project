@@ -1,29 +1,157 @@
-/* 个人资料（姓名 / 性别 / 生日）—— 后端白名单只有这三项 */
+/* 个人资料（新设计稿）：头像 + 昵称 + 会员卡条 + 基本信息 + 账号与安全 */
 
 .profile-body {
   padding-bottom: 60rpx;
 }
 
-/* ── 会员号（只读） ───────────────────────────────────────── */
+/* ── 头像与昵称 ───────────────────────────────────────────── */
 
-.member-row {
+.hero {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8rpx;
-  padding: 24rpx 28rpx;
+  padding-top: 20rpx;
 }
 
-.member-row__label {
-  font-size: 26rpx;
+.hero__avatar-wrap {
+  position: relative;
+  width: 180rpx;
+  height: 180rpx;
+}
+
+.hero__avatar {
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+}
+
+/* 没头像时用昵称首字兜底（不伪造一张别人的照片） */
+.hero__avatar--text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 68rpx;
+  color: var(--c-primary-deep);
+  background: var(--c-primary-soft);
+}
+
+/* 右下角相机角标：纯 CSS 画（项目不引图标包） */
+.hero__camera {
+  position: absolute;
+  right: 2rpx;
+  bottom: 2rpx;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--c-bg);
+  background: var(--c-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero__camera-lens {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  border: 4rpx solid #fff;
+}
+
+.hero__nickname {
+  display: flex;
+  align-items: center;
+  margin-top: 22rpx;
+}
+
+.hero__nickname-text {
+  max-width: 420rpx;
+  font-family: var(--font-serif);
+  font-size: 40rpx;
+  font-weight: 600;
+}
+
+.hero__pencil {
+  margin-left: 12rpx;
+  font-size: 28rpx;
   color: var(--c-text-sub);
 }
 
-.member-row__value {
+/* ── 会员卡条（等级材质与 pages/member 卡面同源） ─────────── */
+
+.mstrip {
+  display: flex;
+  align-items: center;
+  margin-top: 26rpx;
+  padding: 26rpx 28rpx;
+  border-radius: var(--r-lg);
+  background: var(--mc-bg);
+  border: 2rpx solid var(--mc-line);
+  box-shadow:
+    0 10rpx 26rpx rgba(45, 34, 30, 0.12),
+    inset 0 0 0 2rpx var(--mc-emboss);
+  color: var(--mc-ink);
+}
+
+/* 等级徽章：圆形金属底 + 菱形宝石点 */
+.mstrip__badge {
+  flex-shrink: 0;
+  width: 96rpx;
+  height: 96rpx;
+  margin-right: 24rpx;
+  border-radius: 50%;
+  background: var(--mc-badge-bg);
+  border: 2rpx solid var(--mc-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mstrip__gem {
+  width: 40rpx;
+  height: 40rpx;
+  background: var(--mc-gem);
+  transform: rotate(45deg);
+}
+
+.mstrip__level {
   font-family: var(--font-serif);
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
-  letter-spacing: 1rpx;
+  letter-spacing: 2rpx;
+}
+
+.mstrip__no {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--mc-ink-soft);
+}
+
+.mstrip__spent {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--mc-ink-soft);
+}
+
+.mstrip__bar {
+  margin-top: 14rpx;
+  height: 10rpx;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--mc-badge-bg);
+}
+
+.mstrip__bar-inner {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--mc-gem);
+}
+
+.mstrip__next {
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: var(--mc-ink-soft);
 }
 
 /* ── 字段行 ───────────────────────────────────────────────── */
@@ -50,7 +178,7 @@
 
 .field__label {
   flex-shrink: 0;
-  width: 120rpx;
+  width: 140rpx;
   font-size: 27rpx;
   color: var(--c-text-sub);
 }
@@ -74,7 +202,6 @@
   color: var(--c-text);
 }
 
-/* 未选生日：灰一点，和「已选」区分开 */
 .field__picker.is-empty {
   color: var(--c-text-weak);
 }
@@ -91,6 +218,18 @@
   min-width: 0;
   font-size: 29rpx;
   color: var(--c-text-sub);
+}
+
+/* 「已验证」/已绑定勾：绿色，与抖音/微信的账号安全页同一套语义 */
+.field__tag {
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: #3aa675;
+}
+
+.field__tag--ok {
+  font-size: 28rpx;
 }
 
 .field__arrow {
@@ -117,4 +256,23 @@
 
 .submit {
   margin-top: 40rpx;
+}
+
+/* ── 空态徽章 ─────────────────────────────────────────────── */
+
+.empty__badge {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty__badge-icon {
+  width: 68rpx;
+  height: 68rpx;
+  opacity: 0.5;
 }

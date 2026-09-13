@@ -151,6 +151,12 @@ export interface UpdateProfileRequest {
   gender?: Gender;
   /** 传 `null` 表示清空 */
   birthday?: string | null;
+  /** 昵称（写微信身份，不影响门店档案里的姓名） */
+  nickname?: string | null;
+  /** 头像（`POST /app/upload` 返回的地址） */
+  avatar?: string | null;
+  /** 美甲偏好（款式分类名） */
+  preference?: string | null;
 }
 
 export interface MemberCard {
@@ -255,6 +261,30 @@ export interface MemberMe {
   gender: Gender;
   /** 生日 `YYYY-MM-DD`（可在「个人资料」页自助修改） */
   birthday: string | null;
+  /**
+   * 昵称 / 头像：**微信身份侧**的快照（APP 里怎么称呼我），可在「个人资料」页修改。
+   *
+   * 与 `name`（门店档案里的**真实姓名**）是两件事：昵称改了不该动姓名，
+   * 姓名是门店对账与排班要用的。
+   */
+  nickname: string | null;
+  avatar: string | null;
+  /** 美甲偏好（款式分类名，如「基础款」；未设置为 null） */
+  preference: string | null;
+  /** 累计消费（分）：会员卡条的升级进度要用 */
+  totalSpent: number;
+  /**
+   * 下一个等级（已是最高级时为 `null`）。
+   *
+   * `remaining`（还差多少升级）**由服务端算** —— 升级规则是门店侧口径，
+   * 前端自己减就等于把规则复制了一份。
+   */
+  nextLevel: {
+    name: string;
+    upgradeAmount: number;
+    /** 还差多少分升级（已达标时夹到 0） */
+    remaining: number;
+  } | null;
   levelName: string | null;
   /**
    * 等级序号：**0 = 最低等级**（服务端按 `sort`/`upgradeAmount` 排出来的名次）。

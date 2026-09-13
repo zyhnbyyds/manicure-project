@@ -405,6 +405,7 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | 项 | 做了什么 |
 | --- | --- |
 | **顾客自助改资料** | 新增 `POST /app/member/profile`（白名单 name/gender/birthday，`.strict()` 拒白名单外字段）+ 新页 `pages/profile-edit` + 「我的」入口。**用 POST 而不是 PATCH**：`wx.request` 没有 PATCH |
+| **个人资料页（新设计稿）** | 头像（`/app/upload` 先传后存）+ 昵称 + 会员卡条（等级材质徽章 + 会员号 + 累计消费 + **服务端算的**升级进度「距 X 还差 ¥N」）+ 基本信息（昵称/姓名/性别/生日/**美甲偏好**）+ 账号与安全（手机号掩码 + 已验证 + 微信绑定）。`me` 新增 `nickname`/`avatar`/`preference`/`totalSpent`/`nextLevel`；迁移给 `biz_customer` 加 `preference`。**三类字段三条写路径**：昵称/头像写 `app_wx_user`，姓名/性别/生日/偏好走 `CustomerPort`，手机号只能走换绑链路。⚠️ **没做设计稿的「微信号」那一行**：我们只有 openid，微信也不提供读微信号的接口，编一个 `wxid_xxx` 就是伪造身份信息 |
 | **会员卡号** | `GET /app/member/me` 暴露真 `memberNo`；会员卡页不再拿 customerId 补零编一个假号 |
 | **会员卡分等级皮肤** | `me` 新增 `levelRank`（0 = 最低等级，与等级命名无关）；卡面按名次换四档皮肤（银/金/钻/曜石黑金）+ 金属描边 + 箔光 + 等级徽章 |
 | **收货地址** | 新表 `biz_customer_address` + `/app/member/addresses` 五个端点（列表/新增/编辑/删除/设默认）+ `pages/address` 真实 CRUD（列表 + 新增编辑弹层 + 默认徽标）。设计稿 batch4 第 6 屏 |

@@ -47,6 +47,10 @@ const createSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullish()
     .openapi({ example: '1995-08-08', description: '生日 YYYY-MM-DD' }),
+  preference: z.string().max(30).nullish().openapi({
+    example: '基础款',
+    description: '美甲偏好（款式分类名）',
+  }),
   remark: z
     .string()
     .max(500)

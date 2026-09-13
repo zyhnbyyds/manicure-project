@@ -333,6 +333,15 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
         'selfPayEnabled',
         // 累计充值（分，毛额）：充值页设计稿的「累计充值 ¥1200」
         'totalRecharged',
+        // 个人资料页（新设计稿）要用的四项：
+        // 昵称与头像是**微信身份**侧的快照（APP 里怎么称呼我），与门店档案的 name 是两件事
+        'nickname',
+        'avatar',
+        // 美甲偏好（款式分类名）
+        'preference',
+        // 累计消费 + 下一个等级：会员卡条要显示「距 X 还差 ¥N」（差额由服务端算）
+        'totalSpent',
+        'nextLevel',
       ].sort(),
     );
 
@@ -537,6 +546,98 @@ describe('B6 顾客自助改资料 POST /app/member/profile', () => {
     });
     expect(cleared.status).toBe(200);
     expect(cleared.body.birthday).toBeNull();
+  });
+
+  it('改昵称 / 头像 / 美甲偏好：写对表（身份表 vs 门店档案），互不覆盖', async () => {
+    const customerId = await seedRichCustomer('李女士', '13800000035');
+    const { token, appUserId } = await seedBoundAppUser(
+      'openid-profile-5',
+      customerId,
+    );
+
+    const updated = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token,
+      body: {
+        nickname: '小美',
+        avatar: '/api/v1/files/9/download',
+        preference: '款式设计',
+      },
+    });
+    expect(updated.status).toBe(200);
+    expect(updated.body.nickname).toBe('小美');
+    expect(updated.body.avatar).toBe('/api/v1/files/9/download');
+    expect(updated.body.preference).toBe('款式设计');
+    // **昵称改了不该动姓名**：那是门店档案里的真实姓名，两者是不同的东西
+    expect(updated.body.name).toBe('李女士');
+
+    // 昵称/头像落在 app_wx_user（微信身份侧）
+    const [identity] = await ctx.sql<
+      { nickname: string | null; avatar: string | null }[]
+    >(`SELECT nickname, avatar FROM app_wx_user WHERE id = ?`, [appUserId]);
+    expect(identity!.nickname).toBe('小美');
+    expect(identity!.avatar).toBe('/api/v1/files/9/download');
+
+    // 偏好落在 biz_customer（门店档案侧）
+    const [customer] = await ctx.sql<
+      { preference: string | null; name: string }[]
+    >(`SELECT preference, name FROM biz_customer WHERE id = ?`, [customerId]);
+    expect(customer!.preference).toBe('款式设计');
+    expect(customer!.name).toBe('李女士');
+
+    // 清空：昵称传 null 就真的清掉（不是保留旧值）
+    const cleared = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token,
+      body: { nickname: null, preference: null },
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.nickname).toBeNull();
+    expect(cleared.body.preference).toBeNull();
+    // 头像没传 → 保持原样（部分更新不该顺手清掉别的字段）
+    expect(cleared.body.avatar).toBe('/api/v1/files/9/download');
+  });
+
+  it('会员升级进度：totalSpent 与 nextLevel.remaining 由服务端算，最高级时为 null', async () => {
+    // 三个等级：银卡(0) → 金卡(50000) → 钻卡(200000)
+    await ctx.sql(
+      `INSERT INTO biz_member_level (name, discount_permille, upgrade_amount, sort)
+       VALUES ('甲级', 1000, 0, 1), ('乙级', 950, 50000, 2), ('丙级', 880, 200000, 3)`,
+    );
+    const levelRows = await ctx.sql<{ id: number; name: string }[]>(
+      `SELECT id, name FROM biz_member_level WHERE name IN ('甲级', '乙级', '丙级')`,
+    );
+    const levelIdOf = new Map(levelRows.map((row) => [row.name, row.id]));
+
+    // 甲级 + 累计消费 328 元 → 距离乙级（500 元）还差 17200 分
+    const customerId = await seedCustomer('升级顾客', '13800000036');
+    await ctx.sql(
+      `UPDATE biz_customer SET level_id = ?, total_spent = 32800 WHERE id = ?`,
+      [levelIdOf.get('甲级'), customerId],
+    );
+    const { token } = await seedBoundAppUser('openid-profile-6', customerId);
+
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.body.totalSpent).toBe(32800);
+    expect(me.body.nextLevel).toEqual({
+      name: '乙级',
+      upgradeAmount: 50000,
+      remaining: 17200,
+    });
+
+    // 已是最高级 → nextLevel 为 null（前端据此不显示进度条）
+    await ctx.sql(`UPDATE biz_customer SET level_id = ? WHERE id = ?`, [
+      levelIdOf.get('丙级'),
+      customerId,
+    ]);
+    const top = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(top.body.nextLevel).toBeNull();
+
+    // 已达标但还没跑升级任务 → remaining 夹到 0，不显示「还差负数」
+    await ctx.sql(
+      `UPDATE biz_customer SET level_id = ?, total_spent = 60000 WHERE id = ?`,
+      [levelIdOf.get('甲级'), customerId],
+    );
+    const over = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(over.body.nextLevel.remaining).toBe(0);
   });
 
   it('白名单之外一律 400：手机号 / 等级 / 积分 / 余额都改不了（不静默忽略）', async () => {

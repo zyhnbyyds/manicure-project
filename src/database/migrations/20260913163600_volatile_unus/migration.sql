@@ -1,0 +1,1 @@
+ALTER TABLE `biz_customer` ADD `preference` varchar(30);
