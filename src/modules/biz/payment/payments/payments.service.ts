@@ -15,7 +15,11 @@ import {
   bizPayments,
 } from '../../../../database/schema/index.js';
 import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
-import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
+import {
+  requireCurrentStoreId,
+  resolveStoreScope,
+  storeConditions,
+} from '../../../../common/data-scope/store-scope.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import {
   buildDocNo,
@@ -76,6 +80,8 @@ export type PaymentChannel =
   | 'credit';
 
 export type PaymentListFilter = {
+  /** 门店筛选（连锁直营）：超管/\`system:store:all\` 可筛任意门店，普通账号只能筛可见门店 */
+  storeId?: number | undefined;
   channel?: PaymentChannel | undefined;
   status?: PaymentStatus | undefined;
   purpose?: PaymentDraft['purpose'] | undefined;
@@ -780,9 +786,21 @@ export class PaymentsService extends PaymentPort {
     page: number,
     pageSize: number,
     filter: PaymentListFilter,
+    /** 传操作人时按可见门店过滤（店长只看本店收款；超管可按 storeId 筛） */
+    actor?: RequestActor,
   ): Promise<{ items: PaymentRow[]; page: number; pageSize: number }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizPayments.deletedAt)];
+    if (actor) {
+      const store = await resolveStoreScope(
+        this.database.db,
+        actor,
+        filter.storeId ?? null,
+      );
+      conditions.push(
+        ...storeConditions(bizPayments.storeId, store.scope, filter.storeId),
+      );
+    }
     if (filter.channel)
       conditions.push(eq(bizPayments.channel, filter.channel));
     if (filter.status) conditions.push(eq(bizPayments.status, filter.status));

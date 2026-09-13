@@ -14,6 +14,11 @@ import {
   bizRefundPolicies,
   bizRefunds,
 } from '../../../../database/schema/index.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import {
+  resolveStoreScope,
+  storeConditions,
+} from '../../../../common/data-scope/store-scope.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { buildDocNo } from '../../common/doc-no.js';
 import { permilleOf } from '../../common/money.js';
@@ -111,6 +116,8 @@ export type RefundApproveResult = {
 };
 
 export type RefundListFilter = {
+  /** 门店筛选（连锁直营）：口径同支付单列表 */
+  storeId?: number | undefined;
   status?: RefundRow['status'] | undefined;
   mode?: RefundMode | undefined;
   liable?: Liable | undefined;
@@ -518,9 +525,21 @@ export class RefundsService extends RefundPort {
     page: number,
     pageSize: number,
     filter: RefundListFilter,
+    /** 传操作人时按可见门店过滤（店长只看本店退款） */
+    actor?: RequestActor,
   ): Promise<{ items: RefundRow[]; page: number; pageSize: number }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizRefunds.deletedAt)];
+    if (actor) {
+      const store = await resolveStoreScope(
+        this.database.db,
+        actor,
+        filter.storeId ?? null,
+      );
+      conditions.push(
+        ...storeConditions(bizRefunds.storeId, store.scope, filter.storeId),
+      );
+    }
     if (filter.status) conditions.push(eq(bizRefunds.status, filter.status));
     if (filter.mode) conditions.push(eq(bizRefunds.mode, filter.mode));
     if (filter.liable) conditions.push(eq(bizRefunds.liable, filter.liable));

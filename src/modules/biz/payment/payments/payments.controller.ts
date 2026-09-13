@@ -110,6 +110,10 @@ const createPaymentSchema = z.object({
 });
 
 const listPaymentQuerySchema = z.object({
+  storeId: z.coerce.number().int().positive().optional().openapi({
+    description:
+      '门店筛选：超管/`system:store:all` 可查任意门店；普通账号只能筛可见门店（否则 403）',
+  }),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   channel: z.enum(CHANNELS).optional(),
@@ -179,10 +183,11 @@ export class PaymentsController {
     example: 20,
   })
   @ApiResponse({ status: 200, description: '成功' })
-  list(@Query() rawQuery: unknown) {
+  list(@Query() rawQuery: unknown, @Req() request: AuthRequest) {
     const query = listPaymentQuerySchema.parse(rawQuery ?? {});
     const { page, pageSize } = parsePagination(query.page, query.pageSize);
     const filter: PaymentListFilter = {
+      storeId: query.storeId,
       channel: query.channel,
       status: query.status,
       purpose: query.purpose,
@@ -192,7 +197,7 @@ export class PaymentsController {
       customerId: query.customerId,
       bookingId: query.bookingId,
     };
-    return this.payments.list(page, pageSize, filter);
+    return this.payments.list(page, pageSize, filter, request.user);
   }
 
   @Post()

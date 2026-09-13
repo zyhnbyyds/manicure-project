@@ -25,6 +25,11 @@ import {
   bizReceivablePayments,
   bizReceivables,
 } from '../../../../database/schema/index.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import {
+  resolveStoreScope,
+  storeConditions,
+} from '../../../../common/data-scope/store-scope.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { buildDocNo } from '../../common/doc-no.js';
 import { andConditions } from '../../common/query.js';
@@ -104,6 +109,8 @@ export type SettleResult = {
 };
 
 export type ReceivableListFilter = {
+  /** 门店筛选（连锁直营）：口径同支付单列表 */
+  storeId?: number | undefined;
   creditAccountId?: number | undefined;
   status?: ReceivableStatus | undefined;
   dueDateFrom?: string | undefined;
@@ -575,10 +582,25 @@ export class ReceivablesService extends CreditPort {
     page: number,
     pageSize: number,
     filter: ReceivableListFilter,
+    /** 传操作人时按可见门店过滤（店长只看本店挂账） */
+    actor?: RequestActor,
   ): Promise<PageResult<ReceivableListItem>> {
     const today = shopToday(await this.timeZone());
     const where = andConditions([
       isNull(bizReceivables.deletedAt),
+      ...(actor
+        ? storeConditions(
+            bizReceivables.storeId,
+            (
+              await resolveStoreScope(
+                this.database.db,
+                actor,
+                filter.storeId ?? null,
+              )
+            ).scope,
+            filter.storeId,
+          )
+        : []),
       filter.creditAccountId !== undefined
         ? eq(bizReceivables.creditAccountId, filter.creditAccountId)
         : undefined,

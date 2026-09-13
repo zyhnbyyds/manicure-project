@@ -106,12 +106,10 @@ registerComponent('UpdateUserRequest', updateSchema);
 
 /** 门店授权：整体替换，空数组 = 取消全部 */
 const storeIdsSchema = z.object({
-  storeIds: z
-    .array(z.number().int().positive())
-    .openapi({
-      example: [1, 2],
-      description: '可见门店 id 列表（空数组 = 全部取消）',
-    }),
+  storeIds: z.array(z.number().int().positive()).openapi({
+    example: [1, 2],
+    description: '可见门店 id 列表（空数组 = 全部取消）',
+  }),
 });
 registerComponent('SetUserStoresRequest', storeIdsSchema);
 

@@ -29,6 +29,10 @@ const localDate = z
   .openapi({ example: '2026-09-30', description: '店内本地日 YYYY-MM-DD' });
 
 const listQuerySchema = z.object({
+  storeId: z.coerce.number().int().positive().optional().openapi({
+    description:
+      '门店筛选：超管/`system:store:all` 可查任意门店；普通账号只能筛可见门店（否则 403）',
+  }),
   creditAccountId: z.coerce.number().int().positive().optional(),
   status: z
     .enum(['open', 'partial', 'settled', 'overdue', 'cancelled'])
@@ -75,7 +79,9 @@ const cancelSchema = z.object({
 registerComponent('SettleReceivableRequest', settleSchema);
 registerComponent('CancelReceivableRequest', cancelSchema);
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = {
+  user: { id: number; roles: string[]; permissions: string[] };
+};
 
 @ApiTags('应收台账')
 @ApiBearerAuth('access-token')
@@ -138,22 +144,31 @@ export class ReceivablesController {
     @Query('dueDateFrom') dueDateFrom?: string,
     @Query('dueDateTo') dueDateTo?: string,
     @Query('overdue') rawOverdue?: string,
+    @Query('storeId') rawStoreId?: string,
+    @Req() request?: AuthRequest,
   ) {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
     const query = listQuerySchema.parse({
+      storeId: rawStoreId,
       creditAccountId: rawCreditAccountId,
       status,
       dueDateFrom,
       dueDateTo,
       overdue: rawOverdue,
     });
-    return this.receivables.list(page, pageSize, {
-      creditAccountId: query.creditAccountId,
-      status: query.status,
-      dueDateFrom: query.dueDateFrom,
-      dueDateTo: query.dueDateTo,
-      overdue: query.overdue === 'true' || query.overdue === '1',
-    });
+    return this.receivables.list(
+      page,
+      pageSize,
+      {
+        storeId: query.storeId,
+        creditAccountId: query.creditAccountId,
+        status: query.status,
+        dueDateFrom: query.dueDateFrom,
+        dueDateTo: query.dueDateTo,
+        overdue: query.overdue === 'true' || query.overdue === '1',
+      },
+      request?.user,
+    );
   }
 
   @Get(':id')

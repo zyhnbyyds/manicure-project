@@ -27,7 +27,9 @@ import {
   type RefundListFilter,
 } from './refunds.service.js';
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = {
+  user: { id: number; roles: string[]; permissions: string[] };
+};
 
 const LIABLES = ['store', 'customer', 'force_majeure'] as const;
 const MODES = ['original', 'cash', 'balance'] as const;
@@ -98,6 +100,10 @@ const applySchema = z.object({
 });
 
 const listQuerySchema = z.object({
+  storeId: z.coerce.number().int().positive().optional().openapi({
+    description:
+      '门店筛选：超管/`system:store:all` 可查任意门店；普通账号只能筛可见门店（否则 403）',
+  }),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   status: z.enum(REFUND_STATUSES).optional(),
@@ -167,10 +173,11 @@ export class RefundsController {
     example: 20,
   })
   @ApiResponse({ status: 200, description: '成功' })
-  list(@Query() rawQuery: unknown) {
+  list(@Query() rawQuery: unknown, @Req() request: AuthRequest) {
     const query = listQuerySchema.parse(rawQuery ?? {});
     const { page, pageSize } = parsePagination(query.page, query.pageSize);
     const filter: RefundListFilter = {
+      storeId: query.storeId,
       status: query.status,
       mode: query.mode,
       liable: query.liable,
@@ -180,7 +187,7 @@ export class RefundsController {
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
     };
-    return this.refunds.list(page, pageSize, filter);
+    return this.refunds.list(page, pageSize, filter, request.user);
   }
 
   @Post(':id/approve')

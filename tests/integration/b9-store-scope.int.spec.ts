@@ -114,6 +114,10 @@ function storeManagerToken(): Promise<string> {
       'biz:booking:list',
       'biz:booking:create',
       'biz:booking:manageall',
+      // 列表读权限：门店筛选要在这些接口上一起验，缺了会先被 RBAC 挡成 401
+      'biz:payment:list',
+      'biz:refund:list',
+      'biz:receivable:list',
     ],
     roles: [],
   });
@@ -326,5 +330,90 @@ describe('门店写入：建单与收款落在正确的门店', () => {
       `SELECT COUNT(*) AS total FROM biz_booking`,
     );
     expect(Number(count!.total)).toBe(0);
+  });
+});
+
+describe('门店筛选：收款 / 退款 / 应收列表同一口径', () => {
+  /**
+   * 收款与退款走真实链路（建单带现金全款 → 同一事务落支付单），
+   * 这样才能同时验「写入带门店」与「列表按门店过滤」。
+   */
+  async function createPaidBooking(
+    storeId: number | undefined,
+    startAt: string,
+    row: { staffId: number; customerId: number; serviceItemId: number },
+    token?: string,
+  ): Promise<number> {
+    const res = await ctx.request('POST', '/api/v1/biz/bookings', {
+      ...(token ? { token } : {}),
+      body: {
+        ...(storeId === undefined ? {} : { storeId }),
+        customerId: row.customerId,
+        staffId: row.staffId,
+        startAt,
+        serviceItemIds: [row.serviceItemId],
+        payMode: 'full',
+        payments: [{ channel: 'cash', amount: 10000 }],
+      },
+    });
+    expect(res.status).toBe(201);
+    return res.body.id as number;
+  }
+
+  it('店长只看到本店收款单；超管可按门店筛', async () => {
+    const storeA = (
+      await ctx.sql<{ id: number }[]>(
+        `SELECT id FROM sys_store WHERE code = 'MAIN'`,
+      )
+    )[0]!.id;
+    const storeB = await seedStore('XJH', '徐家汇店');
+    const row = await seedBase();
+
+    // A 店（超管默认门店）与 B 店各一笔现金全款
+    await createPaidBooking(undefined, `${date}T10:00:00+08:00`, row);
+    await createPaidBooking(storeB, `${date}T14:00:00+08:00`, row);
+
+    // 店长绑 B → 只看得到 B 的收款单
+    await bindUser1([storeB]);
+    const manager = await ctx.request(
+      'GET',
+      '/api/v1/biz/payments?page=1&pageSize=50',
+      { token: await storeManagerToken() },
+    );
+    expect(manager.status).toBe(200);
+    expect(manager.body.items).toHaveLength(1);
+    expect(manager.body.items[0].storeId).toBe(storeB);
+
+    // 超管 → 两笔都在；按门店筛 → 只剩 A
+    const admin = await ctx.request(
+      'GET',
+      '/api/v1/biz/payments?page=1&pageSize=50',
+      {},
+    );
+    expect(admin.body.items).toHaveLength(2);
+    const filtered = await ctx.request(
+      'GET',
+      `/api/v1/biz/payments?page=1&pageSize=50&storeId=${storeA}`,
+      {},
+    );
+    expect(filtered.body.items).toHaveLength(1);
+    expect(filtered.body.items[0].storeId).toBe(storeA);
+
+    // 店长筛别人的门店 → 403（与预约列表同一口径）
+    const denied = await ctx.request(
+      'GET',
+      `/api/v1/biz/payments?page=1&pageSize=50&storeId=${storeA}`,
+      { token: await storeManagerToken() },
+    );
+    expect(denied.status).toBe(403);
+
+    // 应收台账也接了同一套口径（本例没有挂账数据，验的是「不报错 + 空列表」）
+    const receivables = await ctx.request(
+      'GET',
+      '/api/v1/biz/receivables?page=1&pageSize=50',
+      { token: await storeManagerToken() },
+    );
+    expect(receivables.status).toBe(200);
+    expect(receivables.body.items).toHaveLength(0);
   });
 });
