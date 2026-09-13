@@ -4,7 +4,7 @@ import {
   NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
   appWxUsers,
@@ -302,15 +302,31 @@ export class AppMemberService {
     // 算价上下文 = 等级 + 折扣率千分比 + 积分 + 储值余额（无等级时折扣率 = 1000）
     const context = await this.members.getPricingContext(customerId);
 
-    let levelName: string | null = null;
-    if (context.levelId !== null) {
-      const [level] = await this.database.db
-        .select({ name: bizMemberLevels.name })
-        .from(bizMemberLevels)
-        .where(eq(bizMemberLevels.id, context.levelId))
-        .limit(1);
-      levelName = level?.name ?? null;
-    }
+    /**
+     * 等级名 + **等级序号**一起算。
+     *
+     * 序号 = 按 `sort` / `upgradeAmount` / `id` 升序排出来的名次（0 = 最低等级），
+     * 给小程序「按等级换卡面皮肤」用。等级名是门店自己起的（可以叫「黑金卡」「VVIP」），
+     * 前端不可能靠名字判断高低，所以由服务端给一个与命名无关的名次。
+     *
+     * 一次查全部等级而不是只查当前这一个：`me()` 每次都要算名次，
+     * 两次查询不如一次拿全（等级是十位数量级的小表）。
+     */
+    const levels = await this.database.db
+      .select({ id: bizMemberLevels.id, name: bizMemberLevels.name })
+      .from(bizMemberLevels)
+      .orderBy(
+        asc(bizMemberLevels.sort),
+        asc(bizMemberLevels.upgradeAmount),
+        asc(bizMemberLevels.id),
+      );
+    // 顾客的等级被停用/删掉时找不到 → 名次回落到 0（最低档皮肤），等级名保持 null
+    const rankIndex =
+      context.levelId === null
+        ? -1
+        : levels.findIndex((item) => item.id === context.levelId);
+    const levelName = rankIndex >= 0 ? (levels[rankIndex]?.name ?? null) : null;
+    const levelRank = rankIndex >= 0 ? rankIndex : 0;
 
     const cards = await this.database.db
       .select({
@@ -339,6 +355,7 @@ export class AppMemberService {
       gender: customer.gender,
       birthday: customer.birthday,
       levelName,
+      levelRank,
       discountPermille: context.levelDiscountPermille,
       points: context.points,
       maxPointsPermille: context.maxPointsPermille,

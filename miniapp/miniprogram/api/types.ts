@@ -149,6 +149,13 @@ export interface MemberMe {
   /** 生日 `YYYY-MM-DD`（可在「个人资料」页自助修改） */
   birthday: string | null;
   levelName: string | null;
+  /**
+   * 等级序号：**0 = 最低等级**（服务端按 `sort`/`upgradeAmount` 排出来的名次）。
+   *
+   * 卡面皮肤按它切换，**不要靠 `levelName` 判断高低** —— 等级名是门店自己起的
+   * （可以叫「黑金卡」「VVIP」），前端不可能猜。散客（无等级）也是 0。
+   */
+  levelRank: number;
   /** 折扣率千分比；无等级 = 1000 */
   discountPermille: number;
   points: number;

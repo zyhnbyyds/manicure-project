@@ -416,6 +416,18 @@ export const appMemberMeVo = z.object({
     .nullable()
     .openapi({ example: '1996-08-12', description: '生日 YYYY-MM-DD' }),
   levelName: z.string().nullable(),
+  /**
+   * 等级序号：**0 = 最低等级**（按 `sort` / `upgradeAmount` 升序排出来的名次）。
+   *
+   * 为什么由服务端给：小程序要「按等级换卡面皮肤」，而等级名是门店自己起的
+   * （`biz_member_level.name` 可以叫「黑金卡」「VVIP」随便什么），前端不可能靠名字判断。
+   * 给一个**与命名无关的名次**，皮肤就能随等级单调升级；等级数量由门店决定，
+   * 前端只负责「名次 → 调色板」，超出预设档位时循环到最高一档。
+   */
+  levelRank: z.number().int().min(0).openapi({
+    example: 1,
+    description: '等级序号（0 = 最低等级），用于分等级卡面皮肤',
+  }),
   discountPermille: z
     .number()
     .int()

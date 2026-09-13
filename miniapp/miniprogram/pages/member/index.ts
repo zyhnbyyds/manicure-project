@@ -25,18 +25,21 @@ interface PhoneNumberEvent {
 }
 
 /**
- * 会员卡（docs/design.png 第 6 屏）。
+ * 会员卡（docs/design.png 第 6 屏 + 分等级皮肤）。
  *
- * 视觉重心是那张卡：浅玫瑰渐变 + 装饰圆 + 「M」水印 + 卡号。
+ * 视觉重心是那张卡：**卡面按等级换肤**（银 / 金 / 钻 / 曜石黑金四档），
+ * 装饰圆 + 「M」水印 + 卡号 + 等级徽章。
+ *
+ * 皮肤为什么按 `levelRank` 而不是 `levelName`：等级名是门店自己起的
+ * （可以叫「黑金卡」「VVIP」），前端不可能靠名字判断高低；`levelRank`
+ * 是服务端按 `sort/upgradeAmount` 算出来的名次（0 = 最低），随等级单调上升。
+ * 超出预设档位时**停在最高档**（门店加第 5、第 6 个等级也不会掉回银卡）。
+ *
  * 口径注意：**余额本金与赠送分列**（赠送不可退，必须让顾客看得见差别）；
  * 折扣率是千分比整数（950 → 9.5 折）。
- *
- * 数据降级：
- * - 卡号：app 域的 `MemberMe` **没有暴露 `member_no`**（库里 `biz_customer.member_no` 有），
- *   这里用顾客 ID 补零格式化，并在注释里记下应补的字段；
- * - 「生日礼遇 / 优先预约 / 积分兑换」与「新客立减 ¥30」在模型里没有对应配置，
- *   按设计稿保留视觉，点击如实提示。
  */
+const TIER_CLASSES = ['tier-0', 'tier-1', 'tier-2', 'tier-3'];
+
 definePage({
   chromeIcons: PAGE_ICONS,
 
@@ -51,6 +54,8 @@ definePage({
     /** 卡面 */
     name: '',
     levelName: '普通会员',
+    /** 卡面皮肤档位（`tier-0` ~ `tier-3`），由 `levelRank` 决定 */
+    tierClass: 'tier-0',
     cardNo: '',
     discountText: '',
     /** 资产三列 */
@@ -89,6 +94,10 @@ definePage({
         needBind: false,
         name: me.name,
         levelName: me.levelName ?? '普通会员',
+        // 卡面皮肤：名次超出预设档位就停在最高档（不透支到「银卡」）
+        tierClass:
+          TIER_CLASSES[Math.min(me.levelRank, TIER_CLASSES.length - 1)] ??
+          'tier-0',
         // 真会员号来自 `biz_customer.member_no`（未入会为 null）。
         // **不要再用 customerId 补零编一个** —— 那个号跟门店系统里的对不上，
         // 顾客报给店员时谁也查不到。

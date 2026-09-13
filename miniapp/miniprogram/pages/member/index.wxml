@@ -25,17 +25,25 @@
 
   <view wx:else class="anim-rise">
     <view class="page-body card-body">
-      <!-- 会员卡：渐变卡面 + 装饰圆 + M 水印 -->
-      <view class="mcard">
+      <!--
+        会员卡：卡面按等级换肤（tier-0 银 / tier-1 金 / tier-2 钻 / tier-3 曜石黑金）。
+        高贵感来自四处细节：金属渐变底 + 细金线描边 + 缓慢扫过的箔光 + 等级徽章。
+      -->
+      <view class="mcard {{tierClass}}">
+        <view class="mcard__sheen"></view>
         <view class="mcard__circle mcard__circle--a"></view>
         <view class="mcard__circle mcard__circle--b"></view>
         <view class="mcard__mark">M</view>
         <view class="mcard__brand">美甲小铺</view>
         <view class="mcard__title">会员卡</view>
+        <view class="mcard__badge">
+          <view class="mcard__badge-gem"></view>
+          <text class="mcard__badge-text">{{levelName}}</text>
+        </view>
         <view class="mcard__slogan">专属美甲 · 尊享品质</view>
         <view class="mcard__foot">
           <view class="mcard__no">{{cardNo}}</view>
-          <view class="mcard__level">{{levelName}}</view>
+          <view class="mcard__owner">{{name}}</view>
         </view>
       </view>
 

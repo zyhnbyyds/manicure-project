@@ -316,6 +316,9 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
         'discountPermille',
         'gender',
         'levelName',
+        // 等级序号（0 = 最低等级）：小程序**按它换卡面皮肤**，不靠等级名判断高低
+        // （等级名是门店自己起的，可以叫「黑金卡」「VVIP」）
+        'levelRank',
         // 积分抵扣上限（‰）：**刻意对 C 端公开** —— 小程序要用它算预估，
         // 前端不该硬编码服务端配置（曾经硬编码 500 而后端 300，预估必然对不上）
         'maxPointsPermille',
@@ -352,6 +355,43 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
         'usedTimes',
       ].sort(),
     );
+  });
+
+  it('levelRank 跟着等级单调上升（小程序据此换卡面皮肤，与等级名无关）', async () => {
+    // 三个等级：名字故意起得「不像有高低」，验证名次是**按 sort 算的**，
+    // 不是按名字或折扣猜的（等级名是门店自己起的，前端不能靠它判断高低）
+    await ctx.sql(
+      `INSERT INTO biz_member_level (name, discount_permille, upgrade_amount, sort)
+       VALUES ('甲级', 1000, 0, 1), ('乙级', 950, 50000, 2), ('丙级', 880, 200000, 3)`,
+    );
+    const levels = await ctx.sql<{ id: number; name: string }[]>(
+      `SELECT id, name FROM biz_member_level WHERE name IN ('甲级', '乙级', '丙级')`,
+    );
+    const levelIdOf = new Map(levels.map((row) => [row.name, row.id]));
+
+    const ranks: Record<string, number> = {};
+    for (const [index, name] of ['甲级', '乙级', '丙级'].entries()) {
+      // 不用 seedRichCustomer：它会按名字新建等级，这里要挂到**已存在**的等级上
+      const customerId = await seedCustomer(`皮肤-${name}`, `1380000004${index}`);
+      await ctx.sql(`UPDATE biz_customer SET level_id = ? WHERE id = ?`, [
+        levelIdOf.get(name),
+        customerId,
+      ]);
+      const { token } = await seedBoundAppUser(`openid-tier-${index}`, customerId);
+      const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+      expect(me.status).toBe(200);
+      ranks[name] = me.body.levelRank;
+    }
+    expect(ranks).toEqual({ 甲级: 0, 乙级: 1, 丙级: 2 });
+
+    // 没有等级（散客）→ 名次 0、等级名 null：前端能安全地走最低档皮肤
+    const plainId = await seedCustomer('没等级', '13800000049');
+    const plainUser = await seedBoundAppUser('openid-tier-plain', plainId);
+    const plain = await ctx.request('GET', '/api/v1/app/member/me', {
+      token: plainUser.token,
+    });
+    expect(plain.body.levelName).toBeNull();
+    expect(plain.body.levelRank).toBe(0);
   });
 
   it('越权：换 openid 只看到自己的档案；传 customerId 入参也不好使', async () => {
@@ -393,8 +433,7 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
     expect(withQuery.body.customerId).toBe(mineId);
   });
 
-  it('顾客档案被软删 → 401 + needBind（而不是 500 或空壳对象）', async () => {
-    const customerId = await seedRichCustomer('赵女士', '13800000024');
+  it('顾客档案被软删 → 401 + needBind（而不是 500 或空壳对象）', async () => {    const customerId = await seedRichCustomer('赵女士', '13800000024');
     const { token } = await seedBoundAppUser('openid-deleted', customerId);
     await ctx.sql(`UPDATE biz_customer SET deleted_at = NOW() WHERE id = ?`, [
       customerId,
