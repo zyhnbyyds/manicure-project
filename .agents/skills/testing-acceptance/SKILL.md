@@ -27,6 +27,35 @@ metadata:
 - 每个资金/并发用例至少覆盖：正常路径、幂等重放、并发竞争、边界（0 值 / 上限 / 跨时区）。
 - 涉及时间的用例**不要**依赖"现在几点"，注入时间或用相对偏移。
 
+## 全流程 E2E（`tests/integration/e2e-full-flow.int.spec.ts`）
+
+按模块切片的用例证明「每一块都对」，这条证明「**串起来能走通**」：真登录 → 建基础数据 →
+顾客入会充值 → 定金下单 → 到店 → 积分+余额+现金混合结清 → 次卡核销第二单 → 完成计提成 →
+评价 → 报表复核 → 退款冲减。**改任何主链路后先跑它**：
+
+```bash
+bun test tests/integration/e2e-full-flow.int.spec.ts   # 11 步，约 2.5s
+```
+
+- **有状态、必须整文件顺序跑**：①~⑪ 共享 `beforeAll` 里的一次 reset，别 `-t '⑥'` 跳着跑。
+- **从真登录开始**（`hashPassword()` 落 `sys_user` + `sys_role is_system=1` → `POST /auth/login`
+  拿 `*:*:*`）。其它用例的 `ctx.token()` 是直接签票，绕过了登录与 RBAC 装配。
+- **种子要自带幂等**：`resetBusinessData()` 只清 `biz_*` / `app_*`，**不动 `sys_*`** ——
+  往 `sys_user` / `sys_role` 插数据必须先删后插。
+
+几个被它钉住的真实语义（写断言前先看，能省一轮调试）：
+
+| 行为 | 真实语义 |
+| --- | --- |
+| `arrive` 重复调用 | **409**（`transition()` 的 WHERE 带 `status IN (allowed)`）；「幂等」= 条件更新不二次生效，不是重复调用回 200 |
+| 只读的 `POST .../preview` | 走 POST 默认 **201**，不是 200 |
+| `/reports/services` | **裸数组**（不是 `{ items }`）；字段 `times` / `cardTimes`，没有 `count` |
+| 重复审批退款 | 不报错，回 `{ handled: true, message: '该退款单已处理' }`，不二次退款 |
+| 余额支付 | 默认先扣**赠送**（`biz.member.bonusDeductMode`），本金不动 |
+| 结算消费 | **会返积分**（`points_earn`）→ 别硬编码积分余额，断言「积分 = 流水累计」 |
+| 建单响应 | 只回 id 之类的壳，价格等字段要**回读详情** |
+| 全款建单 | 请求体必须收清（`payments` 合计 = 应付），否则先撞 400，测不到后面的冲突闸门 |
+
 ## B1~B6 验收清单（详见 spec §12）
 
 **B1 预约主链路**

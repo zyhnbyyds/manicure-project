@@ -35,12 +35,12 @@ validation / guard / 事务 / 过滤器全是真的（见 `tests/integration/har
 
 | 范围 | 模式 | 文件数 |
 | --- | --- | --- |
-| 后端单测 | `src/**/*.spec.ts` | 82 |
+| 后端单测 | `src/**/*.spec.ts` | 85 |
 | 后台前端单测 | `web/src/**/*.spec.ts` | 4 |
 | 小程序单测 | `miniapp/miniprogram/**/*.spec.ts` | 1 |
-| **单元测试小计** | — | **87** |
-| 集成测试 | `tests/integration/*.int.spec.ts` | 18 |
-| **合计测试文件** | — | **105** |
+| **单元测试小计** | — | **90** |
+| 集成测试 | `tests/integration/*.int.spec.ts` | 20 |
+| **合计测试文件** | — | **110** |
 
 复现命令：
 
@@ -87,6 +87,38 @@ bun run test
 | `b7-coupon-booking.int.spec.ts` | 券接入建单：应付金额、券积分二选一 400、未达门槛不消耗券、**并发用同一张券恰好一单成功**（B7） |
 | `b7-app-coupons.int.spec.ts` | app 我的优惠券：字段白名单、过期现算、数据隔离（B7） |
 | `b7-app-booking-detail.int.spec.ts` | 订单详情：他人单统一 404、积分换算与上限以后端为准（B7） |
+| `e2e-full-flow.int.spec.ts` | **全流程 E2E**（唯一一条不是按模块切片的）：真登录 → 建基础数据 → 顾客入会充值 → 定金下单 → 到店 → 积分+余额+现金混合结清 → 次卡核销第二单 → 完成计提成 → 评价 → 报表复核 → 退款冲减。有状态、必须顺序跑 |
+
+### 1.4 全流程 E2E（`e2e-full-flow.int.spec.ts`）
+
+上面那些按模块切片的用例证明了「每一块都对」，这条证明的是「**串起来能走通**」：
+它按真人操作顺序走完「一家店的一天」，每一步都断言能手工复核的数字（金额、流水、次数、报表口径）。
+
+```bash
+bun test tests/integration/e2e-full-flow.int.spec.ts   # 11 步 / 约 2.5s
+```
+
+三个刻意的设计：
+
+1. **从真登录开始**：管理员是测试里用 `hashPassword()` 落进 `sys_user` 的，token 由
+   `POST /auth/login` 签发并带 `*:*:*`（角色 `is_system = 1`）——其它集成用例用 `ctx.token()`
+   直接签票，那条路绕过了登录与权限装配，这里顺带把 RBAC 走通；
+2. **有状态、顺序依赖**：①~⑪ 共享同一批种子数据（`beforeAll` 只 reset 一次），
+   **不要跳着跑单个用例**（`bun test -t '⑥'` 会因为没有前置数据而失败）；
+3. **自带幂等种子**：`resetBusinessData()` 只清 `biz_*` / `app_*`，**不动 `sys_*`** ——
+   所以 `sys_user` / `sys_role` 必须先删后插，否则第二次跑就撞唯一键。
+
+顺带被这条用例钉住的几个**实际语义**（与直觉不同、容易写错断言的那种）：
+
+| 行为 | 真实语义 |
+| --- | --- |
+| `arrive` 重复调用 | **409**（`transition()` 的 WHERE 带 `status IN (allowed)`）；「幂等」指条件更新不会二次生效，不是重复调用也回 200 |
+| `POST /biz/*/preview` 类只读接口 | 走 POST 默认 **201**，不是 200 |
+| 报表 `/reports/services` | 返回**裸数组**，不是 `{ items }` 分页壳；字段是 `times` / `cardTimes`，不是 `count` |
+| 重复审批退款 | 不报错，回 `{ handled: true, message: '该退款单已处理' }`，且不二次退款 |
+| 余额支付扣减顺序 | 默认先扣**赠送**（`biz.member.bonusDeductMode`），本金不动 |
+| 结算时消费 | **会返积分**（`points_earn`），所以断言积分余额要连带抵扣一起算，或直接断言「积分 = 流水累计」 |
+| 建单响应 | 只回 id 之类的壳，价格等字段要**回读详情** |
 | `b7-app-points-goods.int.spec.ts` | 积分兑换品目录：401、未绑定可读、上下架、字段白名单（B7） |
 | `b7-app-points-redeem.int.spec.ts` | 积分兑换：积分不足、扣积分与发卡同事务、**并发恰好一次**、每人限兑（B7） |
 
@@ -345,6 +377,13 @@ spec §12 只写到 B6，但仓库里 **`tests/integration/b7-*.int.spec.ts` 有
 | **Seed** | 权限点写进 `src/database/seed/menus.ts`；业务默认值进 `seed/biz.ts` / `seed/nail.ts` | 重跑 `bun run db:seed:menus`，前端路由能自动生成 |
 | **测试** | 本次改动对应的验收条目**逐条跑过**；并发/幂等/时区必须有集成用例 | `bun run test` + 记录（集成输出或手测截图） |
 | **文档** | 页面/接口/口径变化同步到 `dev-docs/`；踩到新坑追加进 `project-design/pitfalls/` | 评审时对照 |
+
+改了主链路（下单 / 结算 / 会员账务 / 退款 / 报表口径）时，上面那条「测试」再加一步：
+**跑一遍全流程 E2E**，确认串起来还能走通。
+
+```bash
+bun test tests/integration/e2e-full-flow.int.spec.ts
+```
 
 ### 5.2 提交前三连
 
