@@ -23,14 +23,17 @@ function configWith(miniapp: {
       appId: miniapp.appId,
       secret: miniapp.secret,
       // `configured` 由 AppConfigService 的 complete() 算出，这里允许显式覆盖以模拟各种配错姿势
-      configured: miniapp.configured ?? Boolean(miniapp.appId && miniapp.secret),
+      configured:
+        miniapp.configured ?? Boolean(miniapp.appId && miniapp.secret),
       fake: false,
     },
   } as unknown as AppConfigService;
 }
 
 /** 断言「是 503 且消息是『小程序端未启用』」，而不是笼统地 rejects */
-async function expectServiceUnavailable(promise: Promise<unknown>): Promise<void> {
+async function expectServiceUnavailable(
+  promise: Promise<unknown>,
+): Promise<void> {
   const error = await promise.then(
     () => null,
     (reason: unknown) => reason,
@@ -38,8 +41,11 @@ async function expectServiceUnavailable(promise: Promise<unknown>): Promise<void
   expect(error).toBeInstanceOf(ServiceUnavailableException);
   expect((error as ServiceUnavailableException).getStatus()).toBe(503);
   expect(
-    ((error as ServiceUnavailableException).getResponse() as { message: string })
-      .message,
+    (
+      (error as ServiceUnavailableException).getResponse() as {
+        message: string;
+      }
+    ).message,
   ).toBe('小程序端未启用');
 }
 
@@ -74,7 +80,9 @@ describe('HttpWxMiniappProvider：凭据未配置 → 503（G2）', () => {
   });
 
   it('只配了 secret → 仍然 503', async () => {
-    const provider = new HttpWxMiniappProvider(configWith({ secret: 's3cret' }));
+    const provider = new HttpWxMiniappProvider(
+      configWith({ secret: 's3cret' }),
+    );
     await expectServiceUnavailable(provider.code2Session('code-1'));
   });
 
@@ -123,8 +131,11 @@ describe('HttpWxMiniappProvider：凭据齐全时**不**503（防止「永远 50
     );
     expect(error).toBeInstanceOf(ServiceUnavailableException);
     expect(
-      ((error as ServiceUnavailableException).getResponse() as { message: string })
-        .message,
+      (
+        (error as ServiceUnavailableException).getResponse() as {
+          message: string;
+        }
+      ).message,
     ).toBe('微信服务不可用');
   });
 });

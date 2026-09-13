@@ -32,6 +32,11 @@ import {
 } from '../../../database/schema/index';
 import type { RequestActor } from '../../../common/data-scope/data-scope.js';
 import { resolveDataScope } from '../../../common/data-scope/data-scope.js';
+import {
+  requireCurrentStoreId,
+  resolveStoreScope,
+  storeConditions,
+} from '../../../common/data-scope/store-scope.js';
 import { BizConfigService } from '../common/biz-config.service.js';
 import { buildDocNo, tempDocNo } from '../common/doc-no.js';
 import {
@@ -82,6 +87,14 @@ export type PaymentInput = {
 };
 
 export type CreateBookingInput = {
+  /**
+   * 指定门店（连锁直营）。
+   *
+   * 超管/区域经理代别的门店下单时传；不传 = 用当前账号的门店。
+   * 普通账号传了不属于自己的门店 → 
+esolveStoreScope 403。
+   */
+  storeId?: number | undefined;
   customerId: number;
   staffId: number;
   startAt: string;
@@ -144,6 +157,14 @@ const APP_SETTLE_CHANNELS: readonly PayChannel[] = ['balance', 'card'];
 export const UNSETTLEABLE_BOOKING_STATUSES = ['cancelled', 'no_show'] as const;
 
 export type BookingListFilter = {
+  /**
+   * 门店筛选（连锁直营）。
+   *
+   * 超管/system:store:all 账号用它查指定门店；普通账号只能传自己可见的门店
+   * （传别的门店 
+esolveStoreScope 直接 403）。不传 = 按账号可见范围。
+   */
+  storeId?: number | undefined;
   date?: string | undefined;
   dateFrom?: string | undefined;
   dateTo?: string | undefined;
@@ -250,8 +271,15 @@ export class BookingsService implements BookingPort {
   ) {
     const bookingConfig = await this.config.booking();
     const scope = await this.resolveScope(actor);
+    // 门店维度：店长只看本店、超管可筛（未分配门店的账号在这里直接 403）
+    const store = await resolveStoreScope(
+      this.database.db,
+      actor,
+      filter.storeId,
+    );
     const where = andConditions([
       isNull(bizBookings.deletedAt),
+      ...storeConditions(bizBookings.storeId, store.scope, filter.storeId),
       filter.staffId ? eq(bizBookings.staffId, filter.staffId) : undefined,
       filter.status ? eq(bizBookings.status, filter.status) : undefined,
       filter.payStatus
@@ -491,6 +519,15 @@ export class BookingsService implements BookingPort {
   async create(input: CreateBookingInput, actor: RequestActor) {
     const bookingConfig = await this.config.booking();
     const tz = bookingConfig.timezone;
+    /**
+     * 这笔单属于哪家店：请求显式指定（超管代别的门店下单）优先，
+     * 否则取账号的当前门店；未分配门店的账号在这里直接 403。
+     */
+    const storeId = await requireCurrentStoreId(
+      this.database.db,
+      actor,
+      input.storeId ?? null,
+    );
 
     // ---- 步骤 2：前置校验全部在事务外（FOR UPDATE 之前不能有普通 SELECT 建立 RR 快照）----
     const customer = await this.customers.requireById(input.customerId);
@@ -598,6 +635,8 @@ export class BookingsService implements BookingPort {
       amount: payment.amount,
       receivedAmount: payment.receivedAmount,
       memberCardId: payment.memberCardId ?? null,
+      // 门店在建单入口就定好了（见上面 storeId），收款单跟着它走
+      storeId,
     }));
     const preparedOrders =
       await this.payments.prepareChannelOrders(paymentDrafts);
@@ -616,6 +655,8 @@ export class BookingsService implements BookingPort {
       // 步骤 7：建单 + 明细，拿 insertId 回填正式单号
       const inserted = await tx.insert(bizBookings).values({
         bookingNo: tempDocNo(),
+        // 门店：显式指定优先，否则账号当前门店（超管回落默认门店）
+        storeId,
         customerId: customer.id,
         staffId: input.staffId,
         startAt,
@@ -693,6 +734,7 @@ export class BookingsService implements BookingPort {
         await this.credit.createFromBooking(tx, {
           creditAccountId: input.creditAccountId as number,
           bookingId,
+          storeId,
           customerId: customer.id,
           amount: payment.amount,
           actorId: actor.id,
@@ -780,6 +822,11 @@ export class BookingsService implements BookingPort {
   ) {
     const bookingConfig = await this.config.booking();
     const tz = bookingConfig.timezone;
+    /**
+     * 小程序下单没有后台身份（不接 RBAC），门店取库里的默认门店；
+     * 多店上线后由小程序带上「选定的门店」，这里换成按 id 解析即可。
+     */
+    const storeId = await requireCurrentStoreId(this.database.db, null, null);
 
     // ---- 步骤 2：前置校验全部在事务外（FOR UPDATE 之前不能有普通 SELECT 建立 RR 快照）----
     const customer = await this.customers.requireById(customerId);
@@ -894,6 +941,8 @@ export class BookingsService implements BookingPort {
       // 步骤 7：建单 + 明细，拿 insertId 回填正式单号
       const inserted = await tx.insert(bizBookings).values({
         bookingNo: tempDocNo(),
+        // 门店：显式指定优先，否则账号当前门店（超管回落默认门店）
+        storeId,
         customerId: customer.id,
         staffId: input.staffId,
         startAt,
@@ -981,6 +1030,8 @@ export class BookingsService implements BookingPort {
             {
               customerId: customer.id,
               bookingId,
+              // 门店与预约同源（小程序端就是默认门店）
+              storeId,
               purpose: 'final',
               channel: 'card',
               amount: 0,
@@ -1484,6 +1535,8 @@ export class BookingsService implements BookingPort {
       amount: payment.amount,
       receivedAmount: payment.receivedAmount,
       memberCardId: payment.memberCardId ?? null,
+      // 收款门店继承**预约门店**（钱与消费必然同店）
+      storeId: booking.storeId,
       remark: `预约 ${booking.bookingNo} 结算`,
     }));
     const preparedOrders =
@@ -1528,6 +1581,7 @@ export class BookingsService implements BookingPort {
         await this.credit.createFromBooking(tx, {
           creditAccountId: input.creditAccountId as number,
           bookingId: id,
+          storeId: booking.storeId,
           customerId: booking.customerId,
           amount: payment.amount,
           actorId,

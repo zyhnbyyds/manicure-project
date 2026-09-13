@@ -215,7 +215,10 @@ export class AppConfigService {
       notifyUrl: this.values.WXPAY_NOTIFY_URL,
     });
     // 放在 complete() 之外：配不配它都不该让通道「未启用」
-    return { ...base, platformPublicKey: this.values.WXPAY_PLATFORM_PUBLIC_KEY };
+    return {
+      ...base,
+      platformPublicKey: this.values.WXPAY_PLATFORM_PUBLIC_KEY,
+    };
   }
   /** 支付宝当面付：`configured=false` 时通道返回「未启用」 */
   get alipay(): {

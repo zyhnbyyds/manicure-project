@@ -14,6 +14,8 @@ import {
   bizPaymentLogs,
   bizPayments,
 } from '../../../../database/schema/index.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import {
   buildDocNo,
@@ -315,6 +317,8 @@ export class PaymentsService extends PaymentPort {
       paymentNo: temporaryToken(),
       // 在线渠道的交易号在**事务外**就定好了（渠道下单要用它）；离线渠道仍回填主键
       outTradeNo: prepared ? prepared.outTradeNo : temporaryToken(),
+      // 收款门店由入口解析好传进来（见 `PaymentDraft.storeId` 的注释）
+      storeId: draft.storeId,
       bookingId,
       customerId: draft.customerId,
       purpose: draft.purpose,
@@ -335,7 +339,9 @@ export class PaymentsService extends PaymentPort {
     });
     const id = Number(inserted[0].insertId);
     const paymentNo = buildDocNo('P', id, timezone, now);
-    const outTradeNo = prepared ? prepared.outTradeNo : buildOutTradeNo('P', id, now);
+    const outTradeNo = prepared
+      ? prepared.outTradeNo
+      : buildOutTradeNo('P', id, now);
     await tx
       .update(bizPayments)
       .set(prepared ? { paymentNo } : { paymentNo, outTradeNo })
@@ -382,13 +388,23 @@ export class PaymentsService extends PaymentPort {
     };
   }
 
-  /** 独立收款项（充值 / 购卡 / 销账等）：自己开事务 */
+  /**
+   * 独立收款项（充值 / 购卡 / 销账等）：自己开事务。
+   *
+   * **门店在这一层解析**（入口有操作人）：显式传的 draft.storeId 优先，
+   * 否则取当前账号的门店；未分配门店的账号会在这里 403。
+   */
   async create(
-    draft: PaymentDraft,
-    actorId: number | null = null,
+    draft: Omit<PaymentDraft, 'storeId'> & { storeId?: number | null },
+    actor: RequestActor,
   ): Promise<PaymentOutcome> {
+    const storeId = await requireCurrentStoreId(
+      this.database.db,
+      actor,
+      draft.storeId ?? null,
+    );
     return this.database.db.transaction((tx) =>
-      this.createInTx(tx, draft, actorId),
+      this.createInTx(tx, { ...draft, storeId }, actor.id),
     );
   }
 

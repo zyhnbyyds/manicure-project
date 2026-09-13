@@ -69,9 +69,13 @@ async function seedCoupon(input: {
 }
 
 /** 在真实事务里核销一次；返回结果或抛出的错误 */
-async function redeemOnce(
-  input: { couponId: number; customerId: number; baseAmount: number },
-): Promise<{ ok: true; discountAmount: number } | { ok: false; status: number }> {
+async function redeemOnce(input: {
+  couponId: number;
+  customerId: number;
+  baseAmount: number;
+}): Promise<
+  { ok: true; discountAmount: number } | { ok: false; status: number }
+> {
   try {
     const result = await database.db.transaction(async (tx) =>
       coupons.redeemForBooking(tx, {

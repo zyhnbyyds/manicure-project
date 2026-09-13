@@ -2,9 +2,7 @@
   "version": "6",
   "dialect": "mysql",
   "id": "a5d5873d-dd54-411f-a97a-e5ae6ed05118",
-  "prevIds": [
-    "835dcbb2-585f-43be-aa1b-88301b07a4a8"
-  ],
+  "prevIds": ["835dcbb2-585f-43be-aa1b-88301b07a4a8"],
   "ddl": [
     {
       "name": "ai_action_intent",
@@ -10515,433 +10513,325 @@
       "table": "sys_user"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_action_intent",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_approval",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_audit_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_message",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_session",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_task_step",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "ai_task",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "app_wx_subscribe_grant",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "app_wx_user",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_booking_item",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_booking_recurrence",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_booking",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_commission_record",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_commission_rule",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_credit_account",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_customer",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_member_card_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_member_card_type_item",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_member_card_type",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_member_card",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_member_level",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_member_transaction",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_payment_diff",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_payment_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_payment",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_points_goods",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_points_redeem",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_receivable_payment",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_receivable",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_recharge_plan",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_refund_policy",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_refund",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_review",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_service_item",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_staff_schedule_override",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_staff_service_item",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_staff_weekly_shift",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "biz_staff",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_config",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_dept",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_dict_type",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_dict_data",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_file",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_job_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_job",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_login_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_menu",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_operation_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_post",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_refresh_token",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_role",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_notice_log",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_notice_template",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "name": "PRIMARY",
       "table": "sys_user",
       "entityType": "pks"
@@ -13043,13 +12933,9 @@
       "table": "sys_user"
     },
     {
-      "columns": [
-        "session_id"
-      ],
+      "columns": ["session_id"],
       "tableTo": "ai_session",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13058,13 +12944,9 @@
       "table": "ai_action_intent"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13073,13 +12955,9 @@
       "table": "ai_action_intent"
     },
     {
-      "columns": [
-        "task_id"
-      ],
+      "columns": ["task_id"],
       "tableTo": "ai_task",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13088,13 +12966,9 @@
       "table": "ai_action_intent"
     },
     {
-      "columns": [
-        "task_step_id"
-      ],
+      "columns": ["task_step_id"],
       "tableTo": "ai_task_step",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13103,13 +12977,9 @@
       "table": "ai_action_intent"
     },
     {
-      "columns": [
-        "action_intent_id"
-      ],
+      "columns": ["action_intent_id"],
       "tableTo": "ai_action_intent",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13118,13 +12988,9 @@
       "table": "ai_approval"
     },
     {
-      "columns": [
-        "approver_id"
-      ],
+      "columns": ["approver_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13133,13 +12999,9 @@
       "table": "ai_approval"
     },
     {
-      "columns": [
-        "session_id"
-      ],
+      "columns": ["session_id"],
       "tableTo": "ai_session",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13148,13 +13010,9 @@
       "table": "ai_message"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13163,13 +13021,9 @@
       "table": "ai_session"
     },
     {
-      "columns": [
-        "task_id"
-      ],
+      "columns": ["task_id"],
       "tableTo": "ai_task",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13178,13 +13032,9 @@
       "table": "ai_task_step"
     },
     {
-      "columns": [
-        "session_id"
-      ],
+      "columns": ["session_id"],
       "tableTo": "ai_session",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13193,13 +13043,9 @@
       "table": "ai_task"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13208,13 +13054,9 @@
       "table": "ai_task"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13223,13 +13065,9 @@
       "table": "app_wx_user"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13238,13 +13076,9 @@
       "table": "app_wx_user"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13253,13 +13087,9 @@
       "table": "biz_booking_item"
     },
     {
-      "columns": [
-        "service_item_id"
-      ],
+      "columns": ["service_item_id"],
       "tableTo": "biz_service_item",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13268,13 +13098,9 @@
       "table": "biz_booking_item"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13283,13 +13109,9 @@
       "table": "biz_booking_recurrence"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13298,13 +13120,9 @@
       "table": "biz_booking_recurrence"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13313,13 +13131,9 @@
       "table": "biz_booking"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13328,13 +13142,9 @@
       "table": "biz_booking"
     },
     {
-      "columns": [
-        "credit_account_id"
-      ],
+      "columns": ["credit_account_id"],
       "tableTo": "biz_credit_account",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13343,13 +13153,9 @@
       "table": "biz_booking"
     },
     {
-      "columns": [
-        "member_card_id"
-      ],
+      "columns": ["member_card_id"],
       "tableTo": "biz_member_card",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13358,13 +13164,9 @@
       "table": "biz_booking"
     },
     {
-      "columns": [
-        "recurrence_id"
-      ],
+      "columns": ["recurrence_id"],
       "tableTo": "biz_booking_recurrence",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13373,13 +13175,9 @@
       "table": "biz_booking"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13388,13 +13186,9 @@
       "table": "biz_commission_record"
     },
     {
-      "columns": [
-        "booking_item_id"
-      ],
+      "columns": ["booking_item_id"],
       "tableTo": "biz_booking_item",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13403,13 +13197,9 @@
       "table": "biz_commission_record"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13418,13 +13208,9 @@
       "table": "biz_commission_record"
     },
     {
-      "columns": [
-        "rule_id"
-      ],
+      "columns": ["rule_id"],
       "tableTo": "biz_commission_rule",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13433,13 +13219,9 @@
       "table": "biz_commission_record"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13448,13 +13230,9 @@
       "table": "biz_credit_account"
     },
     {
-      "columns": [
-        "level_id"
-      ],
+      "columns": ["level_id"],
       "tableTo": "biz_member_level",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13463,13 +13241,9 @@
       "table": "biz_customer"
     },
     {
-      "columns": [
-        "card_id"
-      ],
+      "columns": ["card_id"],
       "tableTo": "biz_member_card",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13478,13 +13252,9 @@
       "table": "biz_member_card_log"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13493,13 +13263,9 @@
       "table": "biz_member_card_log"
     },
     {
-      "columns": [
-        "card_type_id"
-      ],
+      "columns": ["card_type_id"],
       "tableTo": "biz_member_card_type",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13508,13 +13274,9 @@
       "table": "biz_member_card_type_item"
     },
     {
-      "columns": [
-        "service_item_id"
-      ],
+      "columns": ["service_item_id"],
       "tableTo": "biz_service_item",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13523,13 +13285,9 @@
       "table": "biz_member_card_type_item"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13538,13 +13296,9 @@
       "table": "biz_member_card"
     },
     {
-      "columns": [
-        "card_type_id"
-      ],
+      "columns": ["card_type_id"],
       "tableTo": "biz_member_card_type",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13553,13 +13307,9 @@
       "table": "biz_member_card"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13568,13 +13318,9 @@
       "table": "biz_member_transaction"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13583,13 +13329,9 @@
       "table": "biz_member_transaction"
     },
     {
-      "columns": [
-        "card_id"
-      ],
+      "columns": ["card_id"],
       "tableTo": "biz_member_card",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13598,13 +13340,9 @@
       "table": "biz_member_transaction"
     },
     {
-      "columns": [
-        "plan_id"
-      ],
+      "columns": ["plan_id"],
       "tableTo": "biz_recharge_plan",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13613,13 +13351,9 @@
       "table": "biz_member_transaction"
     },
     {
-      "columns": [
-        "payment_id"
-      ],
+      "columns": ["payment_id"],
       "tableTo": "biz_payment",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13628,13 +13362,9 @@
       "table": "biz_payment_log"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13643,13 +13373,9 @@
       "table": "biz_payment"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13658,13 +13384,9 @@
       "table": "biz_payment"
     },
     {
-      "columns": [
-        "card_type_id"
-      ],
+      "columns": ["card_type_id"],
       "tableTo": "biz_member_card_type",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13673,13 +13395,9 @@
       "table": "biz_points_goods"
     },
     {
-      "columns": [
-        "customer_id"
-      ],
+      "columns": ["customer_id"],
       "tableTo": "biz_customer",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13688,13 +13406,9 @@
       "table": "biz_points_redeem"
     },
     {
-      "columns": [
-        "goods_id"
-      ],
+      "columns": ["goods_id"],
       "tableTo": "biz_points_goods",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13703,13 +13417,9 @@
       "table": "biz_points_redeem"
     },
     {
-      "columns": [
-        "member_card_id"
-      ],
+      "columns": ["member_card_id"],
       "tableTo": "biz_member_card",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13718,13 +13428,9 @@
       "table": "biz_points_redeem"
     },
     {
-      "columns": [
-        "receivable_id"
-      ],
+      "columns": ["receivable_id"],
       "tableTo": "biz_receivable",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13733,13 +13439,9 @@
       "table": "biz_receivable_payment"
     },
     {
-      "columns": [
-        "credit_account_id"
-      ],
+      "columns": ["credit_account_id"],
       "tableTo": "biz_credit_account",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13748,13 +13450,9 @@
       "table": "biz_receivable"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13763,13 +13461,9 @@
       "table": "biz_receivable"
     },
     {
-      "columns": [
-        "payment_id"
-      ],
+      "columns": ["payment_id"],
       "tableTo": "biz_payment",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13778,13 +13472,9 @@
       "table": "biz_refund"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13793,13 +13483,9 @@
       "table": "biz_refund"
     },
     {
-      "columns": [
-        "booking_id"
-      ],
+      "columns": ["booking_id"],
       "tableTo": "biz_booking",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13808,13 +13494,9 @@
       "table": "biz_review"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13823,13 +13505,9 @@
       "table": "biz_review"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13838,13 +13516,9 @@
       "table": "biz_staff_schedule_override"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13853,13 +13527,9 @@
       "table": "biz_staff_service_item"
     },
     {
-      "columns": [
-        "service_item_id"
-      ],
+      "columns": ["service_item_id"],
       "tableTo": "biz_service_item",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "nameExplicit": true,
@@ -13868,13 +13538,9 @@
       "table": "biz_staff_service_item"
     },
     {
-      "columns": [
-        "staff_id"
-      ],
+      "columns": ["staff_id"],
       "tableTo": "biz_staff",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13883,13 +13549,9 @@
       "table": "biz_staff_weekly_shift"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13898,13 +13560,9 @@
       "table": "biz_staff"
     },
     {
-      "columns": [
-        "created_by"
-      ],
+      "columns": ["created_by"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13913,13 +13571,9 @@
       "table": "sys_file"
     },
     {
-      "columns": [
-        "job_id"
-      ],
+      "columns": ["job_id"],
       "tableTo": "sys_job",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13928,13 +13582,9 @@
       "table": "sys_job_log"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13943,13 +13593,9 @@
       "table": "sys_login_log"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,
@@ -13958,13 +13604,9 @@
       "table": "sys_operation_log"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13973,13 +13615,9 @@
       "table": "sys_refresh_token"
     },
     {
-      "columns": [
-        "role_id"
-      ],
+      "columns": ["role_id"],
       "tableTo": "sys_role",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -13988,13 +13626,9 @@
       "table": "sys_role_dept"
     },
     {
-      "columns": [
-        "dept_id"
-      ],
+      "columns": ["dept_id"],
       "tableTo": "sys_dept",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14003,13 +13637,9 @@
       "table": "sys_role_dept"
     },
     {
-      "columns": [
-        "role_id"
-      ],
+      "columns": ["role_id"],
       "tableTo": "sys_role",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14018,13 +13648,9 @@
       "table": "sys_role_menu"
     },
     {
-      "columns": [
-        "menu_id"
-      ],
+      "columns": ["menu_id"],
       "tableTo": "sys_menu",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14033,13 +13659,9 @@
       "table": "sys_role_menu"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14048,13 +13670,9 @@
       "table": "sys_user_post"
     },
     {
-      "columns": [
-        "post_id"
-      ],
+      "columns": ["post_id"],
       "tableTo": "sys_post",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14063,13 +13681,9 @@
       "table": "sys_user_post"
     },
     {
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "tableTo": "sys_user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14078,13 +13692,9 @@
       "table": "sys_user_role"
     },
     {
-      "columns": [
-        "role_id"
-      ],
+      "columns": ["role_id"],
       "tableTo": "sys_role",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": true,
@@ -14093,13 +13703,9 @@
       "table": "sys_user_role"
     },
     {
-      "columns": [
-        "dept_id"
-      ],
+      "columns": ["dept_id"],
       "tableTo": "sys_dept",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "nameExplicit": true,

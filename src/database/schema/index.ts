@@ -207,6 +207,45 @@ export const menus = mysqlTable(
   ],
 );
 
+/**
+ * 账号 ↔ 可见门店（连锁直营：店长只看自己门店的数据）。
+ *
+ * ## 规则
+ *
+ * - 账号绑定了几家门店，就只看得到这几家的单据（预约/收款/退款/应收）；
+ * - **超管（`*:*:*`）或拥有 `system:store:all` 权限** = 全部门店，且可按门店筛选查询；
+ * - **一个门店都没绑、又不是超管** → 看不到任何业务数据（接口给 403 并说明原因，
+ *   而不是静默返回空列表 —— 那会让人以为是「真的没数据」）。
+ *
+ * ## 为什么不复用 `sys_dept` + `dataScope`
+ *
+ * `dataScope` 的语义是「按部门过滤**后台系统数据**」（用户/部门/日志），而门店是经营主体；
+ * 一个账号管多店时，「自定义数据范围勾多个部门」也能表达，但那要求运营先把门店建成部门、
+ * 两套数据再手工对应 —— 直营连锁里这是纯粹的重复劳动。这里直接用一张多对多表：
+ * 与 `sys_user_role` 同构，授权界面就是「给这个人勾几家店」。
+ */
+export const sysUserStores = mysqlTable(
+  'sys_user_store',
+  {
+    userId: int('user_id', { unsigned: true }).notNull(),
+    storeId: int('store_id', { unsigned: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_user_store').on(table.userId, table.storeId),
+    index('idx_user_store_store').on(table.storeId),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: 'fk_user_store_user',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_user_store_store',
+    }).onDelete('cascade'),
+  ],
+);
+
 export const userRoles = mysqlTable(
   'sys_user_role',
   {
@@ -891,6 +930,13 @@ export const bizBookings = mysqlTable(
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     bookingNo: varchar('booking_no', { length: 32 }).notNull(),
+    /**
+     * 发生门店（连锁直营：单据按门店隔离，会员资产全店通兑）。
+     *
+     * 门店记在**单据**上而不是资产上：同一个顾客可以在 A 店充值、B 店消费 ——
+     * 资产是共享的，但「这笔钱/这次服务发生在哪家店」必须落得下来（报表、提成、对账都按店）。
+     */
+    storeId: int('store_id', { unsigned: true }).notNull(),
     customerId: int('customer_id', { unsigned: true }).notNull(),
     staffId: int('staff_id', { unsigned: true }).notNull(),
     startAt: datetime('start_at').notNull(),
@@ -968,6 +1014,13 @@ export const bizBookings = mysqlTable(
   },
   (table) => [
     uniqueIndex('uq_booking_no').on(table.bookingNo),
+    /** 门店维度：店长看本店、超管按门店筛，都是这条索引 */
+    index('idx_booking_store_time').on(table.storeId, table.startAt),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_booking_store',
+    }).onDelete('restrict'),
     uniqueIndex('uq_booking_recurrence_start').on(
       table.recurrenceId,
       table.startAt,
@@ -1375,7 +1428,10 @@ export const appWxSubscribeGrants = mysqlTable(
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex('uq_wx_subscribe_grant').on(table.appWxUserId, table.templateId),
+    uniqueIndex('uq_wx_subscribe_grant').on(
+      table.appWxUserId,
+      table.templateId,
+    ),
     index('idx_wx_subscribe_customer').on(table.customerId),
   ],
 );
@@ -1421,6 +1477,8 @@ export const bizPayments = mysqlTable(
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     paymentNo: varchar('payment_no', { length: 32 }).notNull(),
     outTradeNo: varchar('out_trade_no', { length: 64 }).notNull(),
+    /** 收款门店：跟单据走（预约收款继承预约门店；充值等取当前门店） */
+    storeId: int('store_id', { unsigned: true }).notNull(),
     bookingId: int('booking_id', { unsigned: true }),
     customerId: int('customer_id', { unsigned: true }).notNull(),
     purpose: mysqlEnum('purpose', [
@@ -1470,6 +1528,12 @@ export const bizPayments = mysqlTable(
   (table) => [
     uniqueIndex('uq_payment_no').on(table.paymentNo),
     uniqueIndex('uq_payment_out_trade_no').on(table.outTradeNo),
+    index('idx_payment_store_time').on(table.storeId, table.createdAt),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_payment_store',
+    }).onDelete('restrict'),
     index('idx_payment_booking').on(table.bookingId),
     index('idx_payment_customer').on(table.customerId, table.id),
     index('idx_payment_status').on(table.status, table.createdAt),
@@ -1559,6 +1623,8 @@ export const bizRefunds = mysqlTable(
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     refundNo: varchar('refund_no', { length: 32 }).notNull(),
+    /** 退款门店：跟随原支付单（钱退在哪家店，报表要能对上） */
+    storeId: int('store_id', { unsigned: true }).notNull(),
     paymentId: int('payment_id', { unsigned: true }).notNull(),
     bookingId: int('booking_id', { unsigned: true }),
     customerId: int('customer_id', { unsigned: true }).notNull(),
@@ -1592,6 +1658,12 @@ export const bizRefunds = mysqlTable(
   },
   (table) => [
     uniqueIndex('uq_refund_no').on(table.refundNo),
+    index('idx_refund_store_time').on(table.storeId, table.createdAt),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_refund_store',
+    }).onDelete('restrict'),
     index('idx_refund_payment').on(table.paymentId),
     index('idx_refund_status').on(table.status, table.createdAt),
     index('idx_refund_booking').on(table.bookingId),
@@ -1667,6 +1739,8 @@ export const bizReceivables = mysqlTable(
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     receivableNo: varchar('receivable_no', { length: 32 }).notNull(),
     creditAccountId: int('credit_account_id', { unsigned: true }).notNull(),
+    /** 挂账门店：挂账发生在哪家店，销账与账龄都按它统计 */
+    storeId: int('store_id', { unsigned: true }).notNull(),
     bookingId: int('booking_id', { unsigned: true }),
     customerId: int('customer_id', { unsigned: true }),
     amount: int('amount', { unsigned: true }).notNull(),
@@ -1689,6 +1763,12 @@ export const bizReceivables = mysqlTable(
   },
   (table) => [
     uniqueIndex('uq_receivable_no').on(table.receivableNo),
+    index('idx_receivable_store').on(table.storeId, table.status),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_receivable_store',
+    }).onDelete('restrict'),
     index('idx_receivable_account').on(table.creditAccountId, table.status),
     index('idx_receivable_due').on(table.status, table.dueDate),
     foreignKey({
@@ -1890,6 +1970,13 @@ export const bizBookingRecurrences = mysqlTable(
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     name: varchar('name', { length: 50 }),
+    /**
+     * 规则所属门店：周期生成出来的预约**继承它**。
+     *
+     * 生成任务是定时跑的（没有操作人），不能让它在写单据时去猜「当前门店」——
+     * 规则上带门店，生成逻辑就与身份上下文彻底解耦。
+     */
+    storeId: int('store_id', { unsigned: true }).notNull(),
     customerId: int('customer_id', { unsigned: true }).notNull(),
     staffId: int('staff_id', { unsigned: true }).notNull(),
     serviceItemIds: json('service_item_ids').notNull(),
@@ -1915,6 +2002,12 @@ export const bizBookingRecurrences = mysqlTable(
   (table) => [
     index('idx_recurrence_status').on(table.status, table.generatedUntil),
     index('idx_recurrence_customer').on(table.customerId),
+    index('idx_recurrence_store').on(table.storeId),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_recurrence_store',
+    }).onDelete('restrict'),
     foreignKey({
       columns: [table.customerId],
       foreignColumns: [bizCustomers.id],
@@ -2014,34 +2107,35 @@ export const bizPointsRedeems = mysqlTable(
   ],
 );
 
-/** 通知模板：{变量} 必须都已声明 */export const sysNoticeTemplates = mysqlTable(
-  'sys_notice_template',
-  {
-    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
-    code: varchar('code', { length: 50 }).notNull(),
-    name: varchar('name', { length: 50 }).notNull(),
-    channel: mysqlEnum('channel', ['sms', 'site', 'both'])
-      .default('both')
-      .notNull(),
-    title: varchar('title', { length: 100 }),
-    content: varchar('content', { length: 1000 }).notNull(),
-    /**
-     * 站内消息的分类（C 端收件箱的筛选页签）。
-     *
-     * 自由文本而非枚举：分类是门店的运营语言（「预约提醒」「账户通知」…），
-     * 加一个分类不该改表结构。**可空**：老模板没分类时 C 端仍然能收到，
-     * 只是不参与分类页签（宁可少一个页签，不可少一条消息）。
-     */
-    category: varchar('category', { length: 30 }),
-    variables: json('variables'),
-    status: mysqlEnum('status', ['active', 'disabled'])
-      .default('active')
-      .notNull(),
-    remark: varchar('remark', { length: 200 }),
-    ...auditColumns,
-  },
-  (table) => [uniqueIndex('uq_notice_template_code').on(table.code)],
-);
+/** 通知模板：{变量} 必须都已声明 */ export const sysNoticeTemplates =
+  mysqlTable(
+    'sys_notice_template',
+    {
+      id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+      code: varchar('code', { length: 50 }).notNull(),
+      name: varchar('name', { length: 50 }).notNull(),
+      channel: mysqlEnum('channel', ['sms', 'site', 'both'])
+        .default('both')
+        .notNull(),
+      title: varchar('title', { length: 100 }),
+      content: varchar('content', { length: 1000 }).notNull(),
+      /**
+       * 站内消息的分类（C 端收件箱的筛选页签）。
+       *
+       * 自由文本而非枚举：分类是门店的运营语言（「预约提醒」「账户通知」…），
+       * 加一个分类不该改表结构。**可空**：老模板没分类时 C 端仍然能收到，
+       * 只是不参与分类页签（宁可少一个页签，不可少一条消息）。
+       */
+      category: varchar('category', { length: 30 }),
+      variables: json('variables'),
+      status: mysqlEnum('status', ['active', 'disabled'])
+        .default('active')
+        .notNull(),
+      remark: varchar('remark', { length: 200 }),
+      ...auditColumns,
+    },
+    (table) => [uniqueIndex('uq_notice_template_code').on(table.code)],
+  );
 
 /** 通知发送日志（只追加，站内消息也存这里） */
 export const sysNoticeLogs = mysqlTable(
@@ -2087,6 +2181,9 @@ export const relations = defineRelations(
     userRoles,
     roleMenus,
     roleDepts,
+    /** 门店（阶段 0）与「账号 ↔ 可见门店」（阶段 1） */
+    sysStores,
+    sysUserStores,
     posts,
     userPosts,
     refreshTokens,

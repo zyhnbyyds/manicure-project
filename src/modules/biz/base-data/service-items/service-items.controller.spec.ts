@@ -60,7 +60,10 @@ describe('ServiceItemsController（§9.1 服务项目）', () => {
 
     it('不传图集时入参里没有 images 键（与「清空」区分开）', async () => {
       const h = createHarness();
-      await h.controller.create({ name: '基础美甲', durationMinutes: 60 }, actor);
+      await h.controller.create(
+        { name: '基础美甲', durationMinutes: 60 },
+        actor,
+      );
       expect('images' in createdPayload(h.service)).toBe(false);
     });
 
@@ -111,9 +114,7 @@ describe('ServiceItemsController（§9.1 服务项目）', () => {
 
     it('缺 name / durationMinutes → 校验失败', async () => {
       const h = createHarness();
-      expect(() =>
-        h.controller.create({ name: '基础美甲' }, actor),
-      ).toThrow();
+      expect(() => h.controller.create({ name: '基础美甲' }, actor)).toThrow();
       expect(() =>
         h.controller.create({ durationMinutes: 60 }, actor),
       ).toThrow();
@@ -126,7 +127,8 @@ describe('ServiceItemsController（§9.1 服务项目）', () => {
         { user: { id: 42 } },
       );
       expect(
-        (h.service.create as { mock: { calls: unknown[][] } }).mock.calls[0]?.[1],
+        (h.service.create as { mock: { calls: unknown[][] } }).mock
+          .calls[0]?.[1],
       ).toBe(42);
     });
   });
@@ -149,9 +151,8 @@ describe('ServiceItemsController（§9.1 服务项目）', () => {
         { images: ['/files/9.png'], image: '/files/evil.png' },
         actor,
       );
-      const patch = (
-        h.service.update as { mock: { calls: unknown[][] } }
-      ).mock.calls[0]?.[1] as Row;
+      const patch = (h.service.update as { mock: { calls: unknown[][] } }).mock
+        .calls[0]?.[1] as Row;
       expect('image' in patch).toBe(false);
     });
 

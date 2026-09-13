@@ -54,12 +54,14 @@ function createHarness(
   const txUpdate = vi.fn(() => ({
     set: vi.fn(() => ({ where: txUpdateWhere })),
   }));
-  const transaction = vi.fn(async (callback: (tx: unknown) => Promise<void>) => {
-    await callback({
-      select: vi.fn(() => chainFor(options.unsettled ?? [])),
-      update: txUpdate,
-    });
-  });
+  const transaction = vi.fn(
+    async (callback: (tx: unknown) => Promise<void>) => {
+      await callback({
+        select: vi.fn(() => chainFor(options.unsettled ?? [])),
+        update: txUpdate,
+      });
+    },
+  );
 
   const credit = vi.fn().mockResolvedValue({
     defaultLimit: 0,
@@ -99,7 +101,10 @@ describe('CreditAccountsService（§18.1 挂账主体）', () => {
     it('合并未结金额，无记录的主体补 0', async () => {
       const { service } = createHarness({
         selectResults: [
-          [{ id: 1, name: '甲公司' }, { id: 2, name: '乙公司' }],
+          [
+            { id: 1, name: '甲公司' },
+            { id: 2, name: '乙公司' },
+          ],
           [{ creditAccountId: 1, outstanding: '12345' }],
         ],
       });
@@ -161,7 +166,10 @@ describe('CreditAccountsService（§18.1 挂账主体）', () => {
 
     it('非法额度回落 0（0 = 不限）', async () => {
       const { service, insertValues } = createHarness({ selectResults: [[]] });
-      await service.create({ name: '甲', type: 'company', creditLimit: -100 }, 1);
+      await service.create(
+        { name: '甲', type: 'company', creditLimit: -100 },
+        1,
+      );
       expect(insertValues).toHaveBeenCalledWith(
         expect.objectContaining({ creditLimit: 0 }),
       );
@@ -173,9 +181,9 @@ describe('CreditAccountsService（§18.1 挂账主体）', () => {
       const { service } = createHarness({
         selectResults: [[existingAccount({ usedAmount: 50000 })]],
       });
-      await expect(service.update(1, { creditLimit: 10000 }, 1)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.update(1, { creditLimit: 10000 }, 1),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('额度 0（不限）不受已挂账金额限制', async () => {

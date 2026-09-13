@@ -426,7 +426,9 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
    */
   private failureText(data: unknown, status: number): string {
     const base = describeFailure(data, status);
-    return this.lastRequestId ? `${base}（Request-Id ${this.lastRequestId}）` : base;
+    return this.lastRequestId
+      ? `${base}（Request-Id ${this.lastRequestId}）`
+      : base;
   }
 
   /** 重试退避（测试里可 stub 掉，避免真的等待） */
@@ -461,7 +463,9 @@ export class WxpayNativeProvider extends PaymentChannelProvider {
         this.platformLoadedAt = Date.now();
         return;
       }
-      this.logger.warn('WXPAY_PLATFORM_PUBLIC_KEY 不是合法的公钥/证书，回退到联网下载');
+      this.logger.warn(
+        'WXPAY_PLATFORM_PUBLIC_KEY 不是合法的公钥/证书，回退到联网下载',
+      );
     }
 
     const { status, data } = await this.request('GET', '/v3/certificates');
@@ -524,8 +528,8 @@ function unescapePem(raw: string): string {
  */
 function toSpkiPublicKey(pem: string): string | null {
   try {
-    return new X509Certificate(pem)
-      .publicKey.export({ type: 'spki', format: 'pem' })
+    return new X509Certificate(pem).publicKey
+      .export({ type: 'spki', format: 'pem' })
       .toString();
   } catch {
     // 不是证书，按公钥再试一次

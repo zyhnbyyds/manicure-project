@@ -27,14 +27,10 @@ import {
 } from './app-staff-grants.service.js';
 
 const rejectSchema = z.object({
-  reason: z
-    .string()
-    .min(1)
-    .max(200)
-    .openapi({
-      example: '手机号与档案不符',
-      description: '驳回原因（申请人可见）',
-    }),
+  reason: z.string().min(1).max(200).openapi({
+    example: '手机号与档案不符',
+    description: '驳回原因（申请人可见）',
+  }),
 });
 
 registerComponent('AppStaffGrantRejectRequest', rejectSchema);

@@ -57,7 +57,10 @@ export class StoresService extends StorePort {
   }
 
   /** 后台列表：含停用门店，按默认门店优先 + sort */
-  async list(page: number, pageSize: number): Promise<{
+  async list(
+    page: number,
+    pageSize: number,
+  ): Promise<{
     items: StoreRow[];
     page: number;
     pageSize: number;
@@ -67,7 +70,11 @@ export class StoresService extends StorePort {
       .select()
       .from(sysStores)
       .where(isNull(sysStores.deletedAt))
-      .orderBy(desc(sysStores.isDefault), asc(sysStores.sort), asc(sysStores.id))
+      .orderBy(
+        desc(sysStores.isDefault),
+        asc(sysStores.sort),
+        asc(sysStores.id),
+      )
       .limit(pageSize)
       .offset(offset);
     return { items, page, pageSize };
@@ -77,10 +84,12 @@ export class StoresService extends StorePort {
     return this.database.db
       .select()
       .from(sysStores)
-      .where(
-        and(eq(sysStores.status, 'active'), isNull(sysStores.deletedAt)),
-      )
-      .orderBy(desc(sysStores.isDefault), asc(sysStores.sort), asc(sysStores.id));
+      .where(and(eq(sysStores.status, 'active'), isNull(sysStores.deletedAt)))
+      .orderBy(
+        desc(sysStores.isDefault),
+        asc(sysStores.sort),
+        asc(sysStores.id),
+      );
   }
 
   async findById(id: number): Promise<StoreRow | null> {
@@ -122,7 +131,10 @@ export class StoresService extends StorePort {
     return fallback ?? null;
   }
 
-  async create(input: CreateStoreInput, actorId: number): Promise<{ id: number }> {
+  async create(
+    input: CreateStoreInput,
+    actorId: number,
+  ): Promise<{ id: number }> {
     await this.assertCodeAvailable(input.code);
     // 第一条门店**自动成为默认**：否则「没有默认门店」要靠调用方兜底，很容易漏
     const isFirst = (await this.countStores()) === 0;
@@ -147,7 +159,8 @@ export class StoresService extends StorePort {
     actorId: number,
   ): Promise<void> {
     await this.requireById(id);
-    if (input.code !== undefined) await this.assertCodeAvailable(input.code, id);
+    if (input.code !== undefined)
+      await this.assertCodeAvailable(input.code, id);
 
     await this.database.db.transaction(async (tx) => {
       if (input.isDefault === true) await this.clearDefault(tx);

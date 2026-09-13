@@ -43,7 +43,10 @@ function encryptResource(plaintext: string, apiV3Key: string, nonce: string) {
     Buffer.from(nonce, 'utf8'),
   );
   cipher.setAAD(Buffer.from('transaction', 'utf8'));
-  const payload = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const payload = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final(),
+  ]);
   const authTag = cipher.getAuthTag();
   return Buffer.concat([payload, authTag]).toString('base64');
 }

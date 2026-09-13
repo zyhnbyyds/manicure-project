@@ -94,7 +94,9 @@ describe('会员等级纯函数（§15.2 门槛随 sort 单调不减）', () => 
     });
 
     it('没有任何等级达标时返回 null', () => {
-      expect(pickUpgradeLevel([level({ upgradeAmount: 100000 })], 0)).toBeNull();
+      expect(
+        pickUpgradeLevel([level({ upgradeAmount: 100000 })], 0),
+      ).toBeNull();
       expect(pickUpgradeLevel([], 0)).toBeNull();
     });
   });
@@ -184,10 +186,7 @@ describe('MemberLevelsService（§15.2）', () => {
 
     it('门槛不随 sort 单调不减时拒绝（排序更小但门槛更高）', async () => {
       const { service } = createHarness({
-        selectResults: [
-          [],
-          [level({ id: 7, sort: 5, upgradeAmount: 100000 })],
-        ],
+        selectResults: [[], [level({ id: 7, sort: 5, upgradeAmount: 100000 })]],
       });
       await expect(
         service.create({ name: 'VIP', sort: 1, upgradeAmount: 200000 }, 1),
@@ -196,10 +195,7 @@ describe('MemberLevelsService（§15.2）', () => {
 
     it('门槛不随 sort 单调不减时拒绝（排序更大但门槛更低）', async () => {
       const { service } = createHarness({
-        selectResults: [
-          [],
-          [level({ id: 7, sort: 1, upgradeAmount: 100000 })],
-        ],
+        selectResults: [[], [level({ id: 7, sort: 1, upgradeAmount: 100000 })]],
       });
       await expect(
         service.create({ name: 'VIP', sort: 5, upgradeAmount: 1000 }, 1),

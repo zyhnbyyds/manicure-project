@@ -12,7 +12,15 @@
  *
  * 渠道用 stub：`createNativeOrder` 直接返回假 `code_url`，不打网络。
  */
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import {
   addLocalDays,
   shopToday,
@@ -96,7 +104,9 @@ function stubChannel(codeUrl = 'weixin://wxpay/bizpayurl?pr=TESTQR') {
 }
 
 async function paymentRowsOf(bookingId: number) {
-  return ctx.sql<{ id: number; channel: string; status: string; code_url: string | null }[]>(
+  return ctx.sql<
+    { id: number; channel: string; status: string; code_url: string | null }[]
+  >(
     `SELECT id, channel, status, code_url FROM biz_payment WHERE booking_id = ? ORDER BY id`,
     [bookingId],
   );
@@ -143,8 +153,9 @@ describe('B3 在线渠道结算（wxpay_native）', () => {
     expect(online?.code_url).toBe('weixin://wxpay/bizpayurl?pr=TESTQR');
 
     // 收银台靠响应里的 codeUrl 弹二维码
-    const outcomes = (settled.body as { payments?: { codeUrl?: string | null }[] })
-      .payments;
+    const outcomes = (
+      settled.body as { payments?: { codeUrl?: string | null }[] }
+    ).payments;
     expect(outcomes?.some((p) => p.codeUrl)).toBe(true);
   });
 

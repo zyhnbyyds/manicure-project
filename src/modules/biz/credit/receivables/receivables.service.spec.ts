@@ -129,7 +129,11 @@ function createHarness(options: HarnessOptions = {}) {
     'tx.update',
     txUpdateWhere,
   );
-  const txInsertChain = insertChain([...(options.txInsert ?? [])], log, 'tx.insert');
+  const txInsertChain = insertChain(
+    [...(options.txInsert ?? [])],
+    log,
+    'tx.insert',
+  );
 
   const tx = {
     select: txSelect,
@@ -274,9 +278,12 @@ describe('ReceivablesService（§18 应收台账）', () => {
       expect(resolveDueDate(20, '2026-12-15')).toBe('2026-12-20');
     });
 
-    it.each([[31], [29], [30]])('结算日 %s 收敛到 28（避免 2 月无此日）', (day) => {
-      expect(resolveDueDate(day, '2026-09-11')).toBe('2026-09-28');
-    });
+    it.each([[31], [29], [30]])(
+      '结算日 %s 收敛到 28（避免 2 月无此日）',
+      (day) => {
+        expect(resolveDueDate(day, '2026-09-11')).toBe('2026-09-28');
+      },
+    );
 
     it('小数结算日向下取整', () => {
       expect(resolveDueDate(1.9, '2026-09-11')).toBe('2026-10-01');
@@ -318,9 +325,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       });
       await expect(
         h.service.assertCreditAvailable(h.tx as never, 3, 6000),
-      ).rejects.toThrow(
-        new ConflictException('超出挂账额度，剩余 ¥50.00'),
-      );
+      ).rejects.toThrow(new ConflictException('超出挂账额度，剩余 ¥50.00'));
     });
 
     it('正好用满额度（相等）→ 放行，不算超', async () => {
@@ -355,6 +360,8 @@ describe('ReceivablesService（§18 应收台账）', () => {
         h.service.createFromBooking(h.tx as never, {
           creditAccountId: 3,
           bookingId: 55,
+          // 挂账门店由调用方继承预约传入（见 CreditPort.createFromBooking）
+          storeId: 1,
           customerId: 9,
           amount: 10000,
         }),
@@ -372,6 +379,8 @@ describe('ReceivablesService（§18 应收台账）', () => {
         h.service.createFromBooking(h.tx as never, {
           creditAccountId: 3,
           bookingId: 55,
+          // 挂账门店由调用方继承预约传入（见 CreditPort.createFromBooking）
+          storeId: 1,
           customerId: 9,
           amount: 10000,
           actorId: 7,
@@ -399,6 +408,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       const result = await h.service.createFromBooking(h.tx as never, {
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
       });
@@ -416,6 +426,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       await h.service.createFromBooking(h.tx as never, {
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
         actorId: 7,
@@ -423,6 +434,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       expect(h.txInsertChain.values.mock.calls[0]?.[0]).toMatchObject({
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
         settledAmount: 0,
@@ -440,6 +452,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       const result = await h.service.createFromBooking(h.tx as never, {
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
       });
@@ -457,6 +470,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       const result = await h.service.createFromBooking(h.tx as never, {
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
       });
@@ -472,12 +486,15 @@ describe('ReceivablesService（§18 应收台账）', () => {
       await h.service.createFromBooking(h.tx as never, {
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
       });
       const claimWhere = h.txUpdateWhere[1];
       expect(sqlText(claimWhere)).toContain('credit_limit = 0 OR');
-      expect(sqlText(claimWhere)).toContain('used_amount + 10000 <= credit_limit');
+      expect(sqlText(claimWhere)).toContain(
+        'used_amount + 10000 <= credit_limit',
+      );
       const claimSet = h.txWrite.set.mock.calls[1]?.[0] as Row;
       expect(sqlText(claimSet.usedAmount)).toBe('used_amount + 10000');
     });
@@ -492,6 +509,8 @@ describe('ReceivablesService（§18 应收台账）', () => {
         h.service.createFromBooking(h.tx as never, {
           creditAccountId: 3,
           bookingId: 55,
+          // 挂账门店由调用方继承预约传入（见 CreditPort.createFromBooking）
+          storeId: 1,
           customerId: 9,
           amount: 10000,
         }),
@@ -509,6 +528,7 @@ describe('ReceivablesService（§18 应收台账）', () => {
       await h.service.createFromBooking(h.tx as never, {
         creditAccountId: 3,
         bookingId: 55,
+        storeId: 1,
         customerId: 9,
         amount: 10000,
       });
@@ -911,13 +931,16 @@ describe('ReceivablesService（§18 应收台账）', () => {
    * cancel：作废
    * ------------------------------------------------------------------ */
   describe('cancel（作废）', () => {
-    it.each([[''], ['   ']])('原因为空/纯空白 → 400，且不开事务', async (reason) => {
-      const h = createHarness();
-      await expect(h.service.cancel(1, reason, 7)).rejects.toThrow(
-        new BadRequestException('作废原因必填'),
-      );
-      expect(h.transaction).not.toHaveBeenCalled();
-    });
+    it.each([[''], ['   ']])(
+      '原因为空/纯空白 → 400，且不开事务',
+      async (reason) => {
+        const h = createHarness();
+        await expect(h.service.cancel(1, reason, 7)).rejects.toThrow(
+          new BadRequestException('作废原因必填'),
+        );
+        expect(h.transaction).not.toHaveBeenCalled();
+      },
+    );
 
     it('应收单不存在 → 404', async () => {
       const h = createHarness({ txSelect: [[]] });
@@ -948,7 +971,11 @@ describe('ReceivablesService（§18 应收台账）', () => {
     it('overdue 也算未销账，可以作废', async () => {
       const h = createHarness({
         txSelect: [[receivable({ status: 'overdue' })]],
-        txUpdate: [[{ affectedRows: 1 }], [{ affectedRows: 1 }], [{ affectedRows: 1 }]],
+        txUpdate: [
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+        ],
       });
       await expect(h.service.cancel(1, '挂错主体', 7)).resolves.toBeUndefined();
     });
@@ -956,7 +983,11 @@ describe('ReceivablesService（§18 应收台账）', () => {
     it('成功链路：置 cancelled → 回减额度 → 摘掉预约信用 → 重算', async () => {
       const h = createHarness({
         txSelect: [[receivable()]],
-        txUpdate: [[{ affectedRows: 1 }], [{ affectedRows: 1 }], [{ affectedRows: 1 }]],
+        txUpdate: [
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+        ],
       });
       await h.service.cancel(1, '挂错主体', 7);
       expect(h.log).toEqual([
@@ -970,14 +1001,20 @@ describe('ReceivablesService（§18 应收台账）', () => {
       expect(h.txWrite.update.mock.calls[0]?.[0]).toBe(bizReceivables);
       expect(h.txWrite.update.mock.calls[1]?.[0]).toBe(bizCreditAccounts);
       expect(h.txWrite.update.mock.calls[2]?.[0]).toBe(bizBookings);
-      expect(h.txWrite.set.mock.calls[2]?.[0]).toEqual({ creditAccountId: null });
+      expect(h.txWrite.set.mock.calls[2]?.[0]).toEqual({
+        creditAccountId: null,
+      });
       expect(h.settlements.recalc).toHaveBeenCalledWith(expect.anything(), 55);
     });
 
     it('作废时回减的额度是整单金额（不是剩余额）', async () => {
       const h = createHarness({
         txSelect: [[receivable({ amount: 12000 })]],
-        txUpdate: [[{ affectedRows: 1 }], [{ affectedRows: 1 }], [{ affectedRows: 1 }]],
+        txUpdate: [
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+        ],
       });
       await h.service.cancel(1, '挂错主体', 7);
       const set = h.txWrite.set.mock.calls[1]?.[0] as Row;
@@ -989,7 +1026,11 @@ describe('ReceivablesService（§18 应收台账）', () => {
     it('备注追加作废原因', async () => {
       const h = createHarness({
         txSelect: [[receivable({ remark: '原始备注' })]],
-        txUpdate: [[{ affectedRows: 1 }], [{ affectedRows: 1 }], [{ affectedRows: 1 }]],
+        txUpdate: [
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+        ],
       });
       await h.service.cancel(1, '挂错主体', 7);
       const set = h.txWrite.set.mock.calls[0]?.[0] as Row;
@@ -1000,7 +1041,11 @@ describe('ReceivablesService（§18 应收台账）', () => {
     it('原备注为空时只写作废原因', async () => {
       const h = createHarness({
         txSelect: [[receivable({ remark: null })]],
-        txUpdate: [[{ affectedRows: 1 }], [{ affectedRows: 1 }], [{ affectedRows: 1 }]],
+        txUpdate: [
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+        ],
       });
       await h.service.cancel(1, '挂错主体', 7);
       const set = h.txWrite.set.mock.calls[0]?.[0] as Row;
@@ -1010,7 +1055,11 @@ describe('ReceivablesService（§18 应收台账）', () => {
     it('备注拼接后截断到 200 字', async () => {
       const h = createHarness({
         txSelect: [[receivable({ remark: 'x'.repeat(190) })]],
-        txUpdate: [[{ affectedRows: 1 }], [{ affectedRows: 1 }], [{ affectedRows: 1 }]],
+        txUpdate: [
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+          [{ affectedRows: 1 }],
+        ],
       });
       await h.service.cancel(1, 'y'.repeat(50), 7);
       const set = h.txWrite.set.mock.calls[0]?.[0] as Row;

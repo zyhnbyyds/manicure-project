@@ -24,6 +24,11 @@ afterAll(async () => {
 
 /** 每个用例从「只有迁移建的默认门店」这个干净状态开始 */
 beforeEach(async () => {
+  /**
+   * 先解绑再删门店：`sys_user_store` 到门店是外键（级联），但**用例之间共享同一个库**，
+   * `b9` 会把 user 1 绑到临时门店上 —— 不清干净就会撞 1451（删除被引用的父行）。
+   */
+  await ctx.sql(`DELETE FROM sys_user_store`);
   await ctx.sql(`DELETE FROM sys_store WHERE code <> 'MAIN'`);
   await ctx.sql(
     `UPDATE sys_store SET name = '美甲小铺', phone = '13800000000',

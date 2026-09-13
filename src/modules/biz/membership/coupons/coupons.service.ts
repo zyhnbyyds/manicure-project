@@ -4,7 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, count, desc, eq, getTableColumns, isNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
 import {
   bizCouponTemplates,
@@ -166,7 +175,10 @@ export class CouponsService {
       .select()
       .from(bizCustomerCoupons)
       .where(
-        and(eq(bizCustomerCoupons.id, id), isNull(bizCustomerCoupons.deletedAt)),
+        and(
+          eq(bizCustomerCoupons.id, id),
+          isNull(bizCustomerCoupons.deletedAt),
+        ),
       )
       .limit(1);
     return row ?? null;
@@ -367,7 +379,6 @@ export class CouponsService {
     return { couponNo: row.couponNo, discountAmount };
   }
 
-
   /**
    * 可领取的券模板（顾客侧）。
    *
@@ -494,7 +505,6 @@ export class CouponsService {
     });
   }
 
-
   /* ------------------------------------------------------------------ *
    * 券模板维护（后台）
    * ------------------------------------------------------------------ */
@@ -517,7 +527,8 @@ export class CouponsService {
       offset,
     } = parsePagination(page, pageSize);
     const conditions = [isNull(bizCouponTemplates.deletedAt)];
-    if (filter.status) conditions.push(eq(bizCouponTemplates.status, filter.status));
+    if (filter.status)
+      conditions.push(eq(bizCouponTemplates.status, filter.status));
     const keyword = keywordLike(bizCouponTemplates.name, filter.keyword);
     if (keyword) conditions.push(keyword);
 
@@ -586,7 +597,10 @@ export class CouponsService {
       .select()
       .from(bizCouponTemplates)
       .where(
-        and(eq(bizCouponTemplates.id, id), isNull(bizCouponTemplates.deletedAt)),
+        and(
+          eq(bizCouponTemplates.id, id),
+          isNull(bizCouponTemplates.deletedAt),
+        ),
       )
       .limit(1);
     if (!row) throw new NotFoundException('优惠券模板不存在');
@@ -702,10 +716,14 @@ export class CouponsService {
     validTo: Date | null;
   }): void {
     if (!input.name) throw new BadRequestException('名称不能为空');
-    if (input.discountAmount <= 0) throw new BadRequestException('面额必须大于 0');
+    if (input.discountAmount <= 0)
+      throw new BadRequestException('面额必须大于 0');
     if (input.thresholdAmount < 0)
       throw new BadRequestException('门槛不能为负');
-    if (input.discountAmount > input.thresholdAmount && input.thresholdAmount > 0) {
+    if (
+      input.discountAmount > input.thresholdAmount &&
+      input.thresholdAmount > 0
+    ) {
       throw new BadRequestException('面额不应大于使用门槛');
     }
     if (

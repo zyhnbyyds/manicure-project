@@ -244,11 +244,7 @@ describe('ServiceItemsService 图集写入（§9.1）', () => {
       const h = createHarness({
         selectResults: [[item({ status: 'disabled' })]],
       });
-      await h.service.update(
-        11,
-        { status: 'disabled', images: ['/x.png'] },
-        1,
-      );
+      await h.service.update(11, { status: 'disabled', images: ['/x.png'] }, 1);
       expect(h.updateSet).toHaveBeenCalledWith(
         expect.objectContaining({ images: ['/x.png'], image: '/x.png' }),
       );

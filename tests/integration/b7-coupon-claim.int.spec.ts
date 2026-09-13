@@ -63,7 +63,9 @@ afterAll(async () => {
 describe('顾客自助领券（本目标新增）', () => {
   it('未绑定手机号 → 401 + needBind', async () => {
     const { token } = await seedAppUser('claim-unbound', null);
-    const res = await ctx.request('GET', '/api/v1/app/coupon-offers', { token });
+    const res = await ctx.request('GET', '/api/v1/app/coupon-offers', {
+      token,
+    });
     expect(res.status).toBe(401);
     expect((res.body as { needBind?: boolean }).needBind).toBe(true);
   });
@@ -133,7 +135,10 @@ describe('顾客自助领券（本目标新增）', () => {
   it('重复领 → 409（同一张券不能反复领）', async () => {
     const customerId = await seedCustomer('重复领顾客');
     const { token } = await seedAppUser('claim-repeat', customerId);
-    const templateId = await seedTemplate({ name: '只能领一张', discountAmount: 500 });
+    const templateId = await seedTemplate({
+      name: '只能领一张',
+      discountAmount: 500,
+    });
 
     const first = await ctx.request('POST', '/api/v1/app/coupons/claim', {
       token,
@@ -158,7 +163,10 @@ describe('顾客自助领券（本目标新增）', () => {
   it('**并发领同一张券：恰好成功一次**', async () => {
     const customerId = await seedCustomer('并发领顾客');
     const { token } = await seedAppUser('claim-race', customerId);
-    const templateId = await seedTemplate({ name: '并发券', discountAmount: 800 });
+    const templateId = await seedTemplate({
+      name: '并发券',
+      discountAmount: 800,
+    });
 
     const results = await Promise.all([
       ctx.request('POST', '/api/v1/app/coupons/claim', {

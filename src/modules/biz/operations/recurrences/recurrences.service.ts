@@ -14,6 +14,7 @@ import {
   bizBookings,
 } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
 import { buildDocNo } from '../../common/doc-no.js';
 import {
   quoteBooking,
@@ -139,6 +140,8 @@ export class RecurrencesService extends RecurrencePort {
   async create(
     input: CreateRecurrenceInput,
     actorId: number,
+    /** 规则所属门店；不传 = 默认门店（小程序/后台单店期的常态） */
+    storeId?: number | null,
   ): Promise<{
     id: number;
     generated: number;
@@ -161,6 +164,11 @@ export class RecurrencesService extends RecurrencePort {
       .insert(bizBookingRecurrences)
       .values({
         name: input.name ?? null,
+        storeId: await requireCurrentStoreId(
+          this.database.db,
+          null,
+          storeId ?? null,
+        ),
         customerId: input.customerId,
         staffId: input.staffId,
         serviceItemIds: itemIds,
@@ -696,6 +704,8 @@ export class RecurrencesService extends RecurrencePort {
     const [inserted] = await tx.insert(bizBookings).values({
       // 先占位再回填（主键回填口径），占位值带随机串避免唯一索引互撞
       bookingNo: `T${randomUUID().replace(/-/g, '').slice(0, 24)}`,
+      // 生成任务没有操作人：门店从规则继承（见 `biz_booking_recurrence.store_id`）
+      storeId: rule.storeId,
       customerId: rule.customerId,
       staffId: rule.staffId,
       startAt,

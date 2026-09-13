@@ -82,14 +82,20 @@ describe('RechargePlansService（§15.4 充值方案）', () => {
     it('恰好等于上限时通过（整数比较，不受取整误差影响）', async () => {
       const { service } = createHarness({ selectResults: [[]] });
       await expect(
-        service.create({ name: '充 100 送 20', payAmount: 10000, bonusAmount: 2000 }, 1),
+        service.create(
+          { name: '充 100 送 20', payAmount: 10000, bonusAmount: 2000 },
+          1,
+        ),
       ).resolves.toEqual({ id: 1 });
     });
 
     it('超出上限 1 分即拒绝', async () => {
       const { service } = createHarness({ selectResults: [[]] });
       await expect(
-        service.create({ name: '超送', payAmount: 10000, bonusAmount: 2001 }, 1),
+        service.create(
+          { name: '超送', payAmount: 10000, bonusAmount: 2001 },
+          1,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -99,7 +105,10 @@ describe('RechargePlansService（§15.4 充值方案）', () => {
         maxBonusPermille: 500,
       });
       await expect(
-        service.create({ name: '半送', payAmount: 10000, bonusAmount: 5000 }, 1),
+        service.create(
+          { name: '半送', payAmount: 10000, bonusAmount: 5000 },
+          1,
+        ),
       ).resolves.toEqual({ id: 1 });
     });
 
@@ -161,9 +170,9 @@ describe('RechargePlansService（§15.4 充值方案）', () => {
       const { service } = createHarness({
         selectResults: [[plan({ payAmount: 10000, bonusAmount: 0 })]],
       });
-      await expect(
-        service.update(1, { bonusAmount: 5000 }, 1),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.update(1, { bonusAmount: 5000 }, 1)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('并发下 affectedRows=0 时抛 NotFoundException', async () => {

@@ -160,5 +160,8 @@ export abstract class PaymentChannelProvider {
    *   回 200 会被当成「接收成功」而不再重投（详见 provider 注释）；
    * - **支付宝**：固定 HTTP 200，用**响应体文本**表达（返回 `success` 才停止重投）。
    */
-  abstract failureReply(message: string, kind: ChannelFailureKind): ChannelReply;
+  abstract failureReply(
+    message: string,
+    kind: ChannelFailureKind,
+  ): ChannelReply;
 }

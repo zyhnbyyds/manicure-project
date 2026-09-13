@@ -45,7 +45,9 @@ describe('券模板维护（后台，本目标新增）', () => {
     );
     expect(detail.status).toBe(200);
     expect((detail.body as { name: string }).name).toBe('满 100 减 20');
-    expect((detail.body as { discountAmount: number }).discountAmount).toBe(2000);
+    expect((detail.body as { discountAmount: number }).discountAmount).toBe(
+      2000,
+    );
 
     // 同名：靠 uq_coupon_template_name 兜底，映射成 409 而不是 500
     const dup = await ctx.request('POST', '/api/v1/biz/coupon-templates', {
@@ -101,7 +103,9 @@ describe('券模板维护（后台，本目标新增）', () => {
       { body: { discountAmount: 3000, thresholdAmount: 10000 } },
     );
     expect(updated.status).toBe(200);
-    expect((updated.body as { discountAmount: number }).discountAmount).toBe(3000);
+    expect((updated.body as { discountAmount: number }).discountAmount).toBe(
+      3000,
+    );
 
     // 只改一个字段不该把别的字段清掉（合并语义）
     expect((updated.body as { name: string }).name).toBe('待改券');
@@ -124,8 +128,9 @@ describe('券模板维护（后台，本目标新增）', () => {
 
     // 用 service 发券（后台发券接口还没做，见待办）
     const coupons = ctx.app.get(
-      (await import('../../src/modules/biz/membership/coupons/coupons.service.js'))
-        .CouponsService,
+      (
+        await import('../../src/modules/biz/membership/coupons/coupons.service.js')
+      ).CouponsService,
     );
     const issued = await coupons.issue({
       customerId: customer.insertId,
@@ -137,7 +142,8 @@ describe('券模板维护（后台，本目标新增）', () => {
     // 列表里 claimedCount 看得到
     const list = await ctx.request('GET', '/api/v1/biz/coupon-templates');
     expect(
-      (list.body as { items: { claimedCount: number }[] }).items[0].claimedCount,
+      (list.body as { items: { claimedCount: number }[] }).items[0]
+        .claimedCount,
     ).toBe(1);
 
     // 停用（软删）

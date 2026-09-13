@@ -186,6 +186,8 @@ export class ReceivablesService extends CreditPort {
     input: {
       creditAccountId: number;
       bookingId: number;
+      /** 挂账门店（继承预约，由调用方传） */
+      storeId: number;
       customerId: number;
       amount: number;
       actorId?: number | null;
@@ -215,6 +217,11 @@ export class ReceivablesService extends CreditPort {
     const [inserted] = await tx.insert(bizReceivables).values({
       // 主键回填模式：先占位，拿到 insertId 后回填 `A{yyyyMMdd}{id}`（§4.3）
       receivableNo: temporaryDocNo(),
+      /**
+       * 挂账门店：由调用方继承预约（`booking.storeId`）传进来 ——
+       * 挂账与消费必然同店，事务里不用再查一次。
+       */
+      storeId: input.storeId,
       creditAccountId: account.id,
       bookingId: input.bookingId,
       customerId: input.customerId,
@@ -313,12 +320,16 @@ export class ReceivablesService extends CreditPort {
     const paymentDrafts: PaymentDraft[] = payments.map((payment) => ({
       customerId: draftCustomerId ?? 0,
       bookingId: preRead?.bookingId ?? null,
+      // 销账门店继承应收单（挂账在哪家店，销账就在哪家店）
+      storeId: preRead?.storeId ?? 0,
       purpose: 'credit_settle' as const,
       channel: payment.channel,
       amount: payment.amount,
       receivedAmount: payment.amount,
       remark:
-        payment.remark ?? input.remark ?? `应收单 ${preRead?.receivableNo ?? ''} 销账`,
+        payment.remark ??
+        input.remark ??
+        `应收单 ${preRead?.receivableNo ?? ''} 销账`,
     }));
     const preparedOrders =
       draftCustomerId === null

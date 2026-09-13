@@ -93,7 +93,10 @@ describe('后台发券（本目标新增）', () => {
 
   it('**允许重复发放**（补偿/补发是正常诉求，与顾客自助领券不同）', async () => {
     const customerId = await seedCustomer('重复发券顾客');
-    const templateId = await seedTemplate({ name: '补偿券', discountAmount: 2000 });
+    const templateId = await seedTemplate({
+      name: '补偿券',
+      discountAmount: 2000,
+    });
 
     const first = await ctx.request(
       'POST',
@@ -143,7 +146,10 @@ describe('后台发券（本目标新增）', () => {
 
   it('**并发发券：单号各不相同**（主键回填在并发下必须唯一）', async () => {
     const customerId = await seedCustomer('并发发券顾客');
-    const templateId = await seedTemplate({ name: '并发券', discountAmount: 500 });
+    const templateId = await seedTemplate({
+      name: '并发券',
+      discountAmount: 500,
+    });
 
     const results = await Promise.all([
       ctx.request('POST', `/api/v1/biz/members/${customerId}/coupons`, {
@@ -158,7 +164,9 @@ describe('后台发券（本目标新增）', () => {
     ]);
 
     expect(results.every((r) => r.status === 201)).toBe(true);
-    const numbers = results.map((r) => (r.body as { couponNo: string }).couponNo);
+    const numbers = results.map(
+      (r) => (r.body as { couponNo: string }).couponNo,
+    );
     // 单号唯一索引兜底；这里断言三张号互不相同
     expect(new Set(numbers).size).toBe(3);
     // 单号不是占位号（`TMP...`）—— 事务内回填成功

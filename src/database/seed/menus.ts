@@ -182,7 +182,14 @@ const BIZ_PAGES: BizPageSeed[] = [
       {
         resource: 'biz:member',
         // coupon = 给顾客发券（运营动作，复用券模板）
-        actions: ['update', 'adjust', 'recount', 'recharge', 'refund', 'coupon'],
+        actions: [
+          'update',
+          'adjust',
+          'recount',
+          'recharge',
+          'refund',
+          'coupon',
+        ],
       },
       // 发卡 / 核销也从会员详情发起
       { resource: 'biz:card', actions: ['issue', 'use'] },
@@ -816,8 +823,7 @@ export const ROLE_SEEDS: RoleSeed[] = [
   {
     key: 'frontdesk',
     name: '前台',
-    basis:
-      '§15.9 前台=member:list/card:list/card:use；§8.1 前台不授予钱的权限',
+    basis: '§15.9 前台=member:list/card:list/card:use；§8.1 前台不授予钱的权限',
     pick: (seed) =>
       seed.name === 'dashboard' ||
       seed.name === 'biz' ||

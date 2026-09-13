@@ -88,9 +88,8 @@ describe('DeepSeekProvider.chat（非流式）', () => {
   });
 
   it('请求体带 stream=false，并把 assistant 的 reasoning_content 原样回传', async () => {
-    const fetchMock = vi.fn(
-      async (_input: FetchArgs[0], _init?: RequestInit) =>
-        jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+    const fetchMock = vi.fn(async (_input: FetchArgs[0], _init?: RequestInit) =>
+      jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
     );
     stubFetch(fetchMock);
 
@@ -163,14 +162,13 @@ describe('DeepSeekProvider.chat（流式）', () => {
   });
 
   it('流式请求体会携带 stream=true', async () => {
-    const fetchMock = vi.fn(
-      async (_input: FetchArgs[0], _init?: RequestInit) =>
-        sseResponse([
-          'data: {"choices":[{"delta":{"content":"hi"}}]}',
-          '',
-          'data: [DONE]',
-          '',
-        ]),
+    const fetchMock = vi.fn(async (_input: FetchArgs[0], _init?: RequestInit) =>
+      sseResponse([
+        'data: {"choices":[{"delta":{"content":"hi"}}]}',
+        '',
+        'data: [DONE]',
+        '',
+      ]),
     );
     stubFetch(fetchMock);
 

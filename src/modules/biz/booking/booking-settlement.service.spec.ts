@@ -16,7 +16,9 @@ function mockTx(options: {
   const select = vi
     .fn()
     .mockReturnValueOnce({
-      from: () => ({ where: () => ({ limit: vi.fn().mockResolvedValue(bookingRows) }) }),
+      from: () => ({
+        where: () => ({ limit: vi.fn().mockResolvedValue(bookingRows) }),
+      }),
     })
     .mockReturnValueOnce({
       from: () => ({

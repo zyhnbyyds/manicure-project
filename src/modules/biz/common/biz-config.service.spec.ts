@@ -52,7 +52,9 @@ describe('biz/common/biz-config（§5.6 配置读取唯一入口）', () => {
   it('越界值回落默认值（低于下限 / 高于上限都回落）', async () => {
     const below = serviceWith([{ key: 'biz.booking.stepMinutes', value: '3' }]);
     expect((await below.service.booking()).stepMinutes).toBe(15);
-    const above = serviceWith([{ key: 'biz.booking.stepMinutes', value: '999' }]);
+    const above = serviceWith([
+      { key: 'biz.booking.stepMinutes', value: '999' },
+    ]);
     expect((await above.service.booking()).stepMinutes).toBe(15);
   });
 

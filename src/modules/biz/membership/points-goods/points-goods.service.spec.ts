@@ -290,7 +290,10 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
     it('名称重复直接 409，不写库', async () => {
       const h = createHarness({ dbSelect: [[{ id: 2 }]] });
       await expect(
-        h.service.create({ name: '纯色美甲体验卡', cardTypeId: 3, points: 500 }, 7),
+        h.service.create(
+          { name: '纯色美甲体验卡', cardTypeId: 3, points: 500 },
+          7,
+        ),
       ).rejects.toThrow(new ConflictException('兑换品名称已存在'));
       expect(h.dbInsertValues).not.toHaveBeenCalled();
     });
@@ -324,7 +327,9 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
           { name: '新兑换品', cardTypeId: 3, points: 500, stock: -2 },
           7,
         ),
-      ).rejects.toThrow(new BadRequestException('库存必须是 -1（不限）或非负整数'));
+      ).rejects.toThrow(
+        new BadRequestException('库存必须是 -1（不限）或非负整数'),
+      );
     });
 
     it('每人限兑为负 → 400', async () => {
@@ -340,8 +345,14 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
     });
 
     it('库存/限兑缺省时落 -1（不限库存）与 0（不限次数）', async () => {
-      const h = createHarness({ dbSelect: [[]], dbInsert: [[{ insertId: 7 }]] });
-      await h.service.create({ name: '新兑换品', cardTypeId: 3, points: 500 }, 7);
+      const h = createHarness({
+        dbSelect: [[]],
+        dbInsert: [[{ insertId: 7 }]],
+      });
+      await h.service.create(
+        { name: '新兑换品', cardTypeId: 3, points: 500 },
+        7,
+      );
       const payload = h.dbInsertValues.mock.calls[0]?.[0] as Row;
       expect(payload.stock).toBe(-1);
       expect(payload.perLimit).toBe(0);
@@ -349,7 +360,10 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
     });
 
     it('积分/库存/限兑/排序一律向下取整，不落小数', async () => {
-      const h = createHarness({ dbSelect: [[]], dbInsert: [[{ insertId: 7 }]] });
+      const h = createHarness({
+        dbSelect: [[]],
+        dbInsert: [[{ insertId: 7 }]],
+      });
       await h.service.create(
         {
           name: '新兑换品',
@@ -371,8 +385,14 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
     });
 
     it('未传 status 时不写入该列，交给库默认值', async () => {
-      const h = createHarness({ dbSelect: [[]], dbInsert: [[{ insertId: 7 }]] });
-      await h.service.create({ name: '新兑换品', cardTypeId: 3, points: 500 }, 7);
+      const h = createHarness({
+        dbSelect: [[]],
+        dbInsert: [[{ insertId: 7 }]],
+      });
+      await h.service.create(
+        { name: '新兑换品', cardTypeId: 3, points: 500 },
+        7,
+      );
       const payload = h.dbInsertValues.mock.calls[0]?.[0] as Row;
       expect(payload).not.toHaveProperty('status');
       expect(payload).not.toHaveProperty('remark');
@@ -381,7 +401,10 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
     });
 
     it('返回自增主键', async () => {
-      const h = createHarness({ dbSelect: [[]], dbInsert: [[{ insertId: 7 }]] });
+      const h = createHarness({
+        dbSelect: [[]],
+        dbInsert: [[{ insertId: 7 }]],
+      });
       await expect(
         h.service.create({ name: '新兑换品', cardTypeId: 3, points: 500 }, 7),
       ).resolves.toEqual({ id: 7 });
@@ -394,9 +417,9 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
   describe('update', () => {
     it('兑换品不存在 → 404', async () => {
       const h = createHarness({ dbSelect: [[]] });
-      await expect(
-        h.service.update(1, { points: 600 }, 7),
-      ).rejects.toThrow(new NotFoundException('积分兑换品不存在'));
+      await expect(h.service.update(1, { points: 600 }, 7)).rejects.toThrow(
+        new NotFoundException('积分兑换品不存在'),
+      );
       expect(h.dbUpdateSet).not.toHaveBeenCalled();
     });
 
@@ -477,9 +500,9 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
         dbSelect: [[goods()]],
         dbUpdate: [[{ affectedRows: 0 }]],
       });
-      await expect(
-        h.service.update(1, { points: 600 }, 7),
-      ).rejects.toThrow(new NotFoundException('积分兑换品不存在'));
+      await expect(h.service.update(1, { points: 600 }, 7)).rejects.toThrow(
+        new NotFoundException('积分兑换品不存在'),
+      );
     });
   });
 
@@ -784,13 +807,16 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
    * revertRedeem：回补积分 + 废卡 + 回补库存
    * ------------------------------------------------------------------ */
   describe('revertRedeem（撤销兑换）', () => {
-    it.each([[''], ['   ']])('原因为空/纯空白 → 400，且不开事务', async (reason) => {
-      const h = createHarness();
-      await expect(h.service.revertRedeem(42, reason, 7)).rejects.toThrow(
-        new BadRequestException('撤销兑换必须填写原因'),
-      );
-      expect(h.transaction).not.toHaveBeenCalled();
-    });
+    it.each([[''], ['   ']])(
+      '原因为空/纯空白 → 400，且不开事务',
+      async (reason) => {
+        const h = createHarness();
+        await expect(h.service.revertRedeem(42, reason, 7)).rejects.toThrow(
+          new BadRequestException('撤销兑换必须填写原因'),
+        );
+        expect(h.transaction).not.toHaveBeenCalled();
+      },
+    );
 
     it('兑换记录不存在 → 404', async () => {
       const h = createHarness({ txSelect: [[]] });
@@ -927,9 +953,7 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
       const stockPayload = h.txUpdateSet.mock.calls[1]?.[0] as Row;
       // SET 里是原生 SQL 片段：IF(stock = -1, -1, stock + 1)
       // 直接写 stock + 1 会把「不限库存」从 -1 变成 0，等于凭空限量。
-      expect(sqlText(stockPayload.stock)).toBe(
-        'IF(stock = -1, -1, stock + 1)',
-      );
+      expect(sqlText(stockPayload.stock)).toBe('IF(stock = -1, -1, stock + 1)');
     });
   });
 

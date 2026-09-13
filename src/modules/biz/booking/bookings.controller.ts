@@ -69,6 +69,16 @@ const paymentSchema = z.object({
 });
 
 const createSchema = z.object({
+  storeId: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .openapi({
+      description:
+        '门店（连锁直营）：超管/区域经理代别的门店下单时传；不传 = 当前账号的门店。' +
+        '普通账号传了不属于自己的门店 → 403',
+    }),
   customerId: z
     .number()
     .int()
@@ -262,6 +272,13 @@ export class BookingsController {
   })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店筛选（连锁直营）：超管/system:store:all 可查任意门店；' +
+      '普通账号只能传自己可见的门店（传别的门店 403）。不传 = 按账号可见范围',
+  })
+  @ApiQuery({
     name: 'collectable',
     required: false,
     description:
@@ -284,6 +301,7 @@ export class BookingsController {
     @Query('status') status?: BookingStatus,
     @Query('payStatus') payStatus?: BookingPayStatus,
     @Query('customerId') rawCustomerId?: string,
+    @Query('storeId') rawStoreId?: string,
     @Query('collectable') rawCollectable?: string,
     @Query('keyword') keyword?: string,
   ) {
@@ -296,6 +314,7 @@ export class BookingsController {
       status,
       payStatus,
       customerId: rawCustomerId ? Number(rawCustomerId) : undefined,
+      storeId: rawStoreId ? Number(rawStoreId) : undefined,
       collectable: rawCollectable === 'true' || rawCollectable === '1',
       keyword,
     };

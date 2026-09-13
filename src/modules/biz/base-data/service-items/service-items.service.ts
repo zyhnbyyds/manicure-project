@@ -242,9 +242,7 @@ export function normalizeImages(
   images: string[] | null | undefined,
 ): string[] | null {
   if (!images?.length) return null;
-  const cleaned = [
-    ...new Set(images.map((url) => url.trim()).filter(Boolean)),
-  ];
+  const cleaned = [...new Set(images.map((url) => url.trim()).filter(Boolean))];
   return cleaned.length ? cleaned.slice(0, MAX_IMAGES) : null;
 }
 

@@ -71,7 +71,11 @@ export class CouponsController {
   @ApiOperation({ summary: '券模板列表（含已发出张数）' })
   @ApiQuery({ name: 'page', required: false, description: '页码' })
   @ApiQuery({ name: 'pageSize', required: false, description: '每页条数' })
-  @ApiQuery({ name: 'status', required: false, description: 'active / disabled' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'active / disabled',
+  })
   @ApiQuery({ name: 'keyword', required: false, description: '名称（模糊）' })
   @ApiResponse({ status: 200, description: '成功' })
   list(
@@ -99,18 +103,25 @@ export class CouponsController {
   @Post()
   @RequirePermissions('biz:coupon:create')
   @ApiOperation({ summary: '新增券模板' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/CreateCouponTemplateRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/CreateCouponTemplateRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   @ApiResponse({ status: 409, description: '同名模板已存在' })
   create(@Body() body: unknown, @Req() request: AuthRequest) {
-    return this.coupons.createTemplate(createSchema.parse(body), request.user.id);
+    return this.coupons.createTemplate(
+      createSchema.parse(body),
+      request.user.id,
+    );
   }
 
   @Patch(':id')
   @RequirePermissions('biz:coupon:update')
   @ApiOperation({ summary: '修改券模板' })
   @ApiParam({ name: 'id', description: '模板 ID' })
-  @ApiBody({ schema: { $ref: '#/components/schemas/UpdateCouponTemplateRequest' } })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/UpdateCouponTemplateRequest' },
+  })
   @ApiResponse({ status: 200, description: '成功' })
   @ApiResponse({ status: 409, description: '同名模板已存在' })
   update(

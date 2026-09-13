@@ -184,9 +184,9 @@ describe('B6 次卡详情 /app/member/cards/:id', () => {
     );
     const booking = await ctx.sql<{ insertId: number }>(
       `INSERT INTO biz_booking
-         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+         (store_id, booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
           customer_name, status, pay_status)
-       VALUES ('B20260913001', ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR), 60,
+       VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), 'B20260913001', ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR), 60,
                '李女士', 'completed', 'paid')`,
       [customerId, staff.insertId],
     );

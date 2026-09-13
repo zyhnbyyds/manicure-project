@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "mysql",
-  "id": "d858b58a-ecab-4523-aa16-a6857fb49271",
-  "prevIds": ["838ea6ed-9d39-4578-992a-1b3130916f89"],
+  "id": "d855c346-c0d9-476e-84ac-6bcc3e53387f",
+  "prevIds": ["a69049ca-39e3-42cd-a247-602fc254fa77"],
   "ddl": [
     {
       "name": "ai_action_intent",
@@ -33,6 +33,14 @@
       "entityType": "tables"
     },
     {
+      "name": "app_wx_subscribe_grant",
+      "entityType": "tables"
+    },
+    {
+      "name": "app_wx_user_bind_log",
+      "entityType": "tables"
+    },
+    {
       "name": "app_wx_user",
       "entityType": "tables"
     },
@@ -57,11 +65,31 @@
       "entityType": "tables"
     },
     {
+      "name": "biz_coupon_template",
+      "entityType": "tables"
+    },
+    {
       "name": "biz_credit_account",
       "entityType": "tables"
     },
     {
+      "name": "biz_customer_address",
+      "entityType": "tables"
+    },
+    {
+      "name": "biz_customer_coupon",
+      "entityType": "tables"
+    },
+    {
+      "name": "biz_customer_favorite",
+      "entityType": "tables"
+    },
+    {
       "name": "biz_customer",
+      "entityType": "tables"
+    },
+    {
+      "name": "biz_feedback",
       "entityType": "tables"
     },
     {
@@ -218,6 +246,14 @@
     },
     {
       "name": "sys_notice_template",
+      "entityType": "tables"
+    },
+    {
+      "name": "sys_store",
+      "entityType": "tables"
+    },
+    {
+      "name": "sys_user_store",
       "entityType": "tables"
     },
     {
@@ -1168,6 +1204,342 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "app_wx_user_id",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "varchar(64)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "template_id",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "granted_count",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "last_booking_id",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "datetime",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "granted_at",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "app_wx_user_id",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "varchar(64)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "openid",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "varchar(20)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "phone",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id_before",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id_after",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "enum('bind_phone')",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "source",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "app_wx_user"
     },
     {
@@ -1279,6 +1651,20 @@
       "collation": null,
       "generated": null,
       "name": "staff_decided_by",
+      "entityType": "columns",
+      "table": "app_wx_user"
+    },
+    {
+      "type": "varchar(200)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "staff_reject_reason",
       "entityType": "columns",
       "table": "app_wx_user"
     },
@@ -1531,6 +1917,20 @@
       "collation": null,
       "generated": null,
       "name": "name",
+      "entityType": "columns",
+      "table": "biz_booking_recurrence"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "store_id",
       "entityType": "columns",
       "table": "biz_booking_recurrence"
     },
@@ -1838,6 +2238,20 @@
       "charSet": null,
       "collation": null,
       "generated": null,
+      "name": "store_id",
+      "entityType": "columns",
+      "table": "biz_booking"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
       "name": "customer_id",
       "entityType": "columns",
       "table": "biz_booking"
@@ -1951,6 +2365,34 @@
       "collation": null,
       "generated": null,
       "name": "level_discount_amount",
+      "entityType": "columns",
+      "table": "biz_booking"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "coupon_id",
+      "entityType": "columns",
+      "table": "biz_booking"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "coupon_discount_amount",
       "entityType": "columns",
       "table": "biz_booking"
     },
@@ -2848,6 +3290,216 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "varchar(50)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "threshold_amount",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "discount_amount",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "valid_days",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "timestamp",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "valid_from",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "timestamp",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "valid_to",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "enum('active','disabled')",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "'active'",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "sort",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "varchar(200)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "remark",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "biz_coupon_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "biz_credit_account"
     },
     {
@@ -3072,6 +3724,552 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "contact_name",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "varchar(20)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "contact_phone",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "province",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "city",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "district",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "varchar(200)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "detail",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "boolean",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "false",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "is_default",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "biz_customer_address"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "varchar(32)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "coupon_no",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "template_id",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "discount_amount",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "threshold_amount",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "enum('usable','used','expired','void')",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "'usable'",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "timestamp",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "expire_at",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "used_booking_id",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "timestamp",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "used_at",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "'manual'",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "source",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "varchar(200)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "remark",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "service_item_id",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "biz_customer"
     },
     {
@@ -3127,6 +4325,20 @@
       "collation": null,
       "generated": null,
       "name": "birthday",
+      "entityType": "columns",
+      "table": "biz_customer"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "preference",
       "entityType": "columns",
       "table": "biz_customer"
     },
@@ -3353,6 +4565,216 @@
       "name": "updated_by",
       "entityType": "columns",
       "table": "biz_customer"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "customer_id",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "type",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "varchar(1000)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "content",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "json",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "images",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "varchar(100)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "contact",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "boolean",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "false",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "is_anonymous",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "enum('pending','processing','resolved','closed')",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "'pending'",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "varchar(500)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "reply",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "replied_at",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "biz_feedback"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "biz_feedback"
     },
     {
       "type": "int unsigned",
@@ -4756,6 +6178,20 @@
     },
     {
       "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "store_id",
+      "entityType": "columns",
+      "table": "biz_payment"
+    },
+    {
+      "type": "int unsigned",
       "notNull": false,
       "autoIncrement": false,
       "default": null,
@@ -4797,7 +6233,7 @@
       "table": "biz_payment"
     },
     {
-      "type": "enum('wxpay_native','alipay_qr','cash','wechat_offline','alipay_offline','balance','card','credit')",
+      "type": "enum('wxpay_native','alipay_qr','wxpay_jsapi','cash','wechat_offline','alipay_offline','balance','card','credit')",
       "notNull": true,
       "autoIncrement": false,
       "default": null,
@@ -5129,6 +6565,34 @@
       "collation": null,
       "generated": null,
       "name": "sort",
+      "entityType": "columns",
+      "table": "biz_points_goods"
+    },
+    {
+      "type": "varchar(500)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "image",
+      "entityType": "columns",
+      "table": "biz_points_goods"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "category",
       "entityType": "columns",
       "table": "biz_points_goods"
     },
@@ -5521,6 +6985,20 @@
       "collation": null,
       "generated": null,
       "name": "credit_account_id",
+      "entityType": "columns",
+      "table": "biz_receivable"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "store_id",
       "entityType": "columns",
       "table": "biz_receivable"
     },
@@ -6081,6 +7559,20 @@
       "collation": null,
       "generated": null,
       "name": "refund_no",
+      "entityType": "columns",
+      "table": "biz_refund"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "store_id",
       "entityType": "columns",
       "table": "biz_refund"
     },
@@ -9921,6 +11413,20 @@
       "table": "sys_notice_template"
     },
     {
+      "type": "varchar(30)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "category",
+      "entityType": "columns",
+      "table": "sys_notice_template"
+    },
+    {
       "type": "json",
       "notNull": false,
       "autoIncrement": false,
@@ -10031,6 +11537,314 @@
       "name": "updated_by",
       "entityType": "columns",
       "table": "sys_notice_template"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(32)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "code",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(50)",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(50)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "name_en",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(20)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "phone",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(200)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "address",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(50)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "hours",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "double",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "latitude",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "double",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "longitude",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(500)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "notice",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(64)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "timezone",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "enum('active','disabled')",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "'active'",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "int",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "0",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "sort",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "boolean",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "false",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "is_default",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "varchar(200)",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "remark",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": true,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "datetime",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "created_by",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": false,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updated_by",
+      "entityType": "columns",
+      "table": "sys_store"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "table": "sys_user_store"
+    },
+    {
+      "type": "int unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "store_id",
+      "entityType": "columns",
+      "table": "sys_user_store"
     },
     {
       "type": "int unsigned",
@@ -10371,6 +12185,18 @@
     {
       "columns": ["id"],
       "name": "PRIMARY",
+      "table": "app_wx_subscribe_grant",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
+      "table": "app_wx_user_bind_log",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
       "table": "app_wx_user",
       "entityType": "pks"
     },
@@ -10407,13 +12233,43 @@
     {
       "columns": ["id"],
       "name": "PRIMARY",
+      "table": "biz_coupon_template",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
       "table": "biz_credit_account",
       "entityType": "pks"
     },
     {
       "columns": ["id"],
       "name": "PRIMARY",
+      "table": "biz_customer_address",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
+      "table": "biz_customer_coupon",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
+      "table": "biz_customer_favorite",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
       "table": "biz_customer",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
+      "table": "biz_feedback",
       "entityType": "pks"
     },
     {
@@ -10641,6 +12497,12 @@
     {
       "columns": ["id"],
       "name": "PRIMARY",
+      "table": "sys_store",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "name": "PRIMARY",
       "table": "sys_user",
       "entityType": "pks"
     },
@@ -10839,6 +12701,78 @@
     {
       "columns": [
         {
+          "value": "app_wx_user_id",
+          "isExpression": false
+        },
+        {
+          "value": "template_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uq_wx_subscribe_grant",
+      "entityType": "indexes",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "columns": [
+        {
+          "value": "customer_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_wx_subscribe_customer",
+      "entityType": "indexes",
+      "table": "app_wx_subscribe_grant"
+    },
+    {
+      "columns": [
+        {
+          "value": "app_wx_user_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_wx_bind_user",
+      "entityType": "indexes",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "columns": [
+        {
+          "value": "customer_id_after",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_wx_bind_customer",
+      "entityType": "indexes",
+      "table": "app_wx_user_bind_log"
+    },
+    {
+      "columns": [
+        {
           "value": "openid",
           "isExpression": false
         }
@@ -10975,6 +12909,22 @@
     {
       "columns": [
         {
+          "value": "store_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_recurrence_store",
+      "entityType": "indexes",
+      "table": "biz_booking_recurrence"
+    },
+    {
+      "columns": [
+        {
           "value": "booking_no",
           "isExpression": false
         }
@@ -10985,6 +12935,26 @@
       "lock": null,
       "nameExplicit": true,
       "name": "uq_booking_no",
+      "entityType": "indexes",
+      "table": "biz_booking"
+    },
+    {
+      "columns": [
+        {
+          "value": "store_id",
+          "isExpression": false
+        },
+        {
+          "value": "start_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_booking_store_time",
       "entityType": "indexes",
       "table": "biz_booking"
     },
@@ -11240,6 +13210,42 @@
       "algorithm": null,
       "lock": null,
       "nameExplicit": true,
+      "name": "uq_coupon_template_name",
+      "entityType": "indexes",
+      "table": "biz_coupon_template"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "sort",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_coupon_template_status",
+      "entityType": "indexes",
+      "table": "biz_coupon_template"
+    },
+    {
+      "columns": [
+        {
+          "value": "name",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
       "name": "uq_credit_account_name",
       "entityType": "indexes",
       "table": "biz_credit_account"
@@ -11263,6 +13269,122 @@
       "name": "idx_credit_account_type",
       "entityType": "indexes",
       "table": "biz_credit_account"
+    },
+    {
+      "columns": [
+        {
+          "value": "customer_id",
+          "isExpression": false
+        },
+        {
+          "value": "is_default",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_customer_address",
+      "entityType": "indexes",
+      "table": "biz_customer_address"
+    },
+    {
+      "columns": [
+        {
+          "value": "coupon_no",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uq_customer_coupon_no",
+      "entityType": "indexes",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "columns": [
+        {
+          "value": "used_booking_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uq_customer_coupon_booking",
+      "entityType": "indexes",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "columns": [
+        {
+          "value": "customer_id",
+          "isExpression": false
+        },
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "expire_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_customer_coupon_owner",
+      "entityType": "indexes",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "columns": [
+        {
+          "value": "customer_id",
+          "isExpression": false
+        },
+        {
+          "value": "service_item_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uq_customer_favorite",
+      "entityType": "indexes",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "columns": [
+        {
+          "value": "service_item_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_customer_favorite_item",
+      "entityType": "indexes",
+      "table": "biz_customer_favorite"
     },
     {
       "columns": [
@@ -11327,6 +13449,42 @@
       "name": "idx_customer_name",
       "entityType": "indexes",
       "table": "biz_customer"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_feedback_status",
+      "entityType": "indexes",
+      "table": "biz_feedback"
+    },
+    {
+      "columns": [
+        {
+          "value": "customer_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_feedback_customer",
+      "entityType": "indexes",
+      "table": "biz_feedback"
     },
     {
       "columns": [
@@ -11671,6 +13829,26 @@
     {
       "columns": [
         {
+          "value": "store_id",
+          "isExpression": false
+        },
+        {
+          "value": "created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_payment_store_time",
+      "entityType": "indexes",
+      "table": "biz_payment"
+    },
+    {
+      "columns": [
+        {
           "value": "booking_id",
           "isExpression": false
         }
@@ -11779,6 +13957,30 @@
     {
       "columns": [
         {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "category",
+          "isExpression": false
+        },
+        {
+          "value": "sort",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_points_goods_category",
+      "entityType": "indexes",
+      "table": "biz_points_goods"
+    },
+    {
+      "columns": [
+        {
           "value": "redeem_no",
           "isExpression": false
         }
@@ -11845,6 +14047,26 @@
       "lock": null,
       "nameExplicit": true,
       "name": "uq_receivable_no",
+      "entityType": "indexes",
+      "table": "biz_receivable"
+    },
+    {
+      "columns": [
+        {
+          "value": "store_id",
+          "isExpression": false
+        },
+        {
+          "value": "status",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_receivable_store",
       "entityType": "indexes",
       "table": "biz_receivable"
     },
@@ -11953,6 +14175,26 @@
       "lock": null,
       "nameExplicit": true,
       "name": "uq_refund_no",
+      "entityType": "indexes",
+      "table": "biz_refund"
+    },
+    {
+      "columns": [
+        {
+          "value": "store_id",
+          "isExpression": false
+        },
+        {
+          "value": "created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_refund_store_time",
       "entityType": "indexes",
       "table": "biz_refund"
     },
@@ -12603,6 +14845,82 @@
     {
       "columns": [
         {
+          "value": "code",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uq_store_code",
+      "entityType": "indexes",
+      "table": "sys_store"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "sort",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_store_status",
+      "entityType": "indexes",
+      "table": "sys_store"
+    },
+    {
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false
+        },
+        {
+          "value": "store_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uq_user_store",
+      "entityType": "indexes",
+      "table": "sys_user_store"
+    },
+    {
+      "columns": [
+        {
+          "value": "store_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idx_user_store_store",
+      "entityType": "indexes",
+      "table": "sys_user_store"
+    },
+    {
+      "columns": [
+        {
           "value": "user_id",
           "isExpression": false
         },
@@ -12870,6 +15188,17 @@
       "table": "biz_booking_item"
     },
     {
+      "columns": ["store_id"],
+      "tableTo": "sys_store",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_recurrence_store",
+      "entityType": "fks",
+      "table": "biz_booking_recurrence"
+    },
+    {
       "columns": ["customer_id"],
       "tableTo": "biz_customer",
       "columnsTo": ["id"],
@@ -12890,6 +15219,17 @@
       "name": "fk_recurrence_staff",
       "entityType": "fks",
       "table": "biz_booking_recurrence"
+    },
+    {
+      "columns": ["store_id"],
+      "tableTo": "sys_store",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_booking_store",
+      "entityType": "fks",
+      "table": "biz_booking"
     },
     {
       "columns": ["customer_id"],
@@ -13000,6 +15340,72 @@
       "name": "fk_credit_account_customer",
       "entityType": "fks",
       "table": "biz_credit_account"
+    },
+    {
+      "columns": ["customer_id"],
+      "tableTo": "biz_customer",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fk_customer_address_customer",
+      "entityType": "fks",
+      "table": "biz_customer_address"
+    },
+    {
+      "columns": ["customer_id"],
+      "tableTo": "biz_customer",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_customer_coupon_customer",
+      "entityType": "fks",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "columns": ["template_id"],
+      "tableTo": "biz_coupon_template",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_customer_coupon_template",
+      "entityType": "fks",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "columns": ["used_booking_id"],
+      "tableTo": "biz_booking",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": true,
+      "name": "fk_customer_coupon_booking",
+      "entityType": "fks",
+      "table": "biz_customer_coupon"
+    },
+    {
+      "columns": ["customer_id"],
+      "tableTo": "biz_customer",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fk_customer_favorite_customer",
+      "entityType": "fks",
+      "table": "biz_customer_favorite"
+    },
+    {
+      "columns": ["service_item_id"],
+      "tableTo": "biz_service_item",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fk_customer_favorite_item",
+      "entityType": "fks",
+      "table": "biz_customer_favorite"
     },
     {
       "columns": ["level_id"],
@@ -13134,6 +15540,17 @@
       "table": "biz_payment_log"
     },
     {
+      "columns": ["store_id"],
+      "tableTo": "sys_store",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_payment_store",
+      "entityType": "fks",
+      "table": "biz_payment"
+    },
+    {
       "columns": ["booking_id"],
       "tableTo": "biz_booking",
       "columnsTo": ["id"],
@@ -13211,6 +15628,17 @@
       "table": "biz_receivable_payment"
     },
     {
+      "columns": ["store_id"],
+      "tableTo": "sys_store",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_receivable_store",
+      "entityType": "fks",
+      "table": "biz_receivable"
+    },
+    {
       "columns": ["credit_account_id"],
       "tableTo": "biz_credit_account",
       "columnsTo": ["id"],
@@ -13231,6 +15659,17 @@
       "name": "fk_receivable_booking",
       "entityType": "fks",
       "table": "biz_receivable"
+    },
+    {
+      "columns": ["store_id"],
+      "tableTo": "sys_store",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": true,
+      "name": "fk_refund_store",
+      "entityType": "fks",
+      "table": "biz_refund"
     },
     {
       "columns": ["payment_id"],
@@ -13429,6 +15868,28 @@
       "name": "fk_role_menu_menu",
       "entityType": "fks",
       "table": "sys_role_menu"
+    },
+    {
+      "columns": ["user_id"],
+      "tableTo": "sys_user",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fk_user_store_user",
+      "entityType": "fks",
+      "table": "sys_user_store"
+    },
+    {
+      "columns": ["store_id"],
+      "tableTo": "sys_store",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fk_user_store_store",
+      "entityType": "fks",
+      "table": "sys_user_store"
     },
     {
       "columns": ["user_id"],

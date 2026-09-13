@@ -20,7 +20,10 @@ import {
   appLoginRequestSchema,
   type AppBindPhoneVo,
 } from '../dto/app-vo.js';
-import { AppAccessTokenGuard, type AppRequest } from './app-access-token.guard.js';
+import {
+  AppAccessTokenGuard,
+  type AppRequest,
+} from './app-access-token.guard.js';
 import { AppAuthService } from './app-auth.service.js';
 
 /**

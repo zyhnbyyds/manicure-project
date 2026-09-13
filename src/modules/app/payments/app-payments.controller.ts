@@ -93,7 +93,8 @@ export class AppPaymentsController {
   @ApiBody({ schema: { $ref: '#/components/schemas/AppWxpayNotifyRequest' } })
   @ApiResponse({
     status: 200,
-    description: '渠道应答 `{code:"SUCCESS",message:"OK"}` 或 `{code:"FAIL",message}`',
+    description:
+      '渠道应答 `{code:"SUCCESS",message:"OK"}` 或 `{code:"FAIL",message}`',
     schema: { $ref: '#/components/schemas/AppWxpayNotifyVo' },
   })
   async notify(

@@ -97,7 +97,9 @@ describe('seed/nail：美甲师与排班', () => {
 
   it('每位美甲师至少会一个项目（否则排不出任何可约时段）', () => {
     for (const staff of STAFF_SEEDS) {
-      const group = STAFF_SKILL_SEEDS.find((row) => row.staff === staff.nickname);
+      const group = STAFF_SKILL_SEEDS.find(
+        (row) => row.staff === staff.nickname,
+      );
       expect(group).toBeDefined();
       expect(group?.items.length).toBeGreaterThan(0);
     }
@@ -220,7 +222,9 @@ describe('seed/nail：积分兑换品', () => {
 
   it('兑换积分与卡种售价等价（按 pointsDiscountPerYuan 折算，避免贱卖）', () => {
     for (const row of POINTS_GOODS_SEEDS) {
-      const cardType = CARD_TYPE_SEEDS.find((item) => item.name === row.cardType);
+      const cardType = CARD_TYPE_SEEDS.find(
+        (item) => item.name === row.cardType,
+      );
       expect(cardType).toBeDefined();
       // 售价是「分」，兑换汇率是「多少分抵 1 元」→ 1 分 = 100/汇率 积分
       const expectedPoints =
@@ -240,7 +244,9 @@ describe('seed/nail：积分兑换品', () => {
 
   it('兑换品指向的卡种必须是单次卡（否则一次兑换换走一张 10 次卡）', () => {
     for (const row of POINTS_GOODS_SEEDS) {
-      const cardType = CARD_TYPE_SEEDS.find((item) => item.name === row.cardType);
+      const cardType = CARD_TYPE_SEEDS.find(
+        (item) => item.name === row.cardType,
+      );
       expect(cardType?.totalTimes).toBe(1);
     }
   });

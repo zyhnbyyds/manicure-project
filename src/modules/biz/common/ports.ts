@@ -8,6 +8,7 @@
  * 方法签名是冻结契约，见 `project-design/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`。
  */
 import type { MultipartFile } from '@fastify/multipart';
+import type { RequestActor } from '../../../common/data-scope/data-scope.js';
 import type {
   bizBookingItems,
   bizBookingRecurrences,
@@ -463,6 +464,16 @@ export type PreparedChannelOrder = {
 export type PaymentDraft = {
   customerId: number;
   bookingId?: number | null | undefined;
+  /**
+   * 收款门店（连锁直营）：**必填**。
+   *
+   * 由**入口**（建单/结算/收银台/销账）解析好再传进来 —— 门店上下文只在入口处完整
+   * （那边有操作人、有预约单、有应收单），塞进资金事务里再查一次既多一次往返，
+   * 也让「这笔钱算哪家店」变得难以静态检查。收银台等无单据场景用
+   * 
+equireCurrentStoreId(db, actor) 取。
+   */
+  storeId: number;
   purpose: 'deposit' | 'final' | 'recharge' | 'card_buy' | 'credit_settle';
   channel: PayChannel;
   amount: number;
@@ -516,10 +527,10 @@ export abstract class PaymentPort {
     draft: PaymentDraft,
     actorId?: number | null,
   ): Promise<PaymentOutcome>;
-  /** 自己开事务（充值 / 购卡 / 销账等独立收款项） */
+  /** 自己开事务（充值 / 购卡 / 销账等独立收款项）：门店由入口解析（见 `PaymentDraft.storeId`） */
   abstract create(
-    draft: PaymentDraft,
-    actorId?: number | null,
+    draft: Omit<PaymentDraft, 'storeId'> & { storeId?: number | null },
+    actor: RequestActor,
   ): Promise<PaymentOutcome>;
   /** 关掉某个预约下所有 pending 支付单（重新收款前调用） */
   abstract closePendingOfBooking(
@@ -565,6 +576,11 @@ export abstract class CreditPort {
     input: {
       creditAccountId: number;
       bookingId: number;
+      /**
+       * 挂账门店：**由调用方传**（下单/结算那边已经拿着预约行，ooking.storeId）。
+       * 挂账与消费必然同店，所以继承预约比在事务里再查一次更准也更快。
+       */
+      storeId: number;
       customerId: number;
       amount: number;
       actorId?: number | null;

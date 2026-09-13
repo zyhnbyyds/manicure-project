@@ -248,6 +248,8 @@ export class RefundsService extends RefundPort {
     const now = new Date();
     const inserted = await this.database.db.insert(bizRefunds).values({
       refundNo: temporaryToken(),
+      // 退款门店跟随原支付单：钱收在哪家店，就退在哪家店
+      storeId: payment.storeId,
       paymentId: payment.id,
       bookingId: booking?.id ?? null,
       customerId: payment.customerId,

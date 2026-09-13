@@ -127,10 +127,10 @@ async function seedBooking(
   );
   const inserted = await ctx.sql<{ insertId: number }>(
     `INSERT INTO biz_booking
-       (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+       (store_id, booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
         original_price, payable_amount, paid_amount, due_amount, status, pay_status,
         customer_name, customer_phone)
-     VALUES (?, ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, ?, 'paid', ?, '13800000000')`,
+     VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), ?, ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, ?, 'paid', ?, '13800000000')`,
     [
       `B-${name}`,
       customerId,
@@ -220,10 +220,10 @@ describe('B6 契约骨架：501 端点清单（G4 / G5）', () => {
     );
     await ctx.sql(
       `INSERT INTO biz_booking
-         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+         (store_id, booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
           original_price, payable_amount, paid_amount, due_amount, status, pay_status,
           customer_name, customer_phone)
-       VALUES ('B-SKEL-1', ?, ?, ?, ?, 60, 10000, 10000, 0, 10000, 'pending', 'unpaid', '张女士', '13800000001')`,
+       VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), 'B-SKEL-1', ?, ?, ?, ?, 60, 10000, 10000, 0, 10000, 'pending', 'unpaid', '张女士', '13800000001')`,
       [
         customers.insertId,
         staffs.insertId,
@@ -1180,10 +1180,10 @@ describe('B6 自助下单 / 我的预约 / 自助取消（A10）', () => {
     expect(minePending.status).toBe(201);
     await ctx.sql(
       `INSERT INTO biz_booking
-         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+         (store_id, booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
           original_price, payable_amount, paid_amount, due_amount, status, pay_status,
           customer_name, customer_phone, channel)
-       VALUES ('B-A10-OTHER', ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, 'pending', 'unpaid',
+       VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), 'B-A10-OTHER', ?, ?, ?, ?, 60, 10000, 10000, 10000, 0, 'pending', 'unpaid',
                'A10王女士', '13800000103', 'miniapp')`,
       [otherId, staffId, `${date}T09:00:00+08:00`, `${date}T10:00:00+08:00`],
     );

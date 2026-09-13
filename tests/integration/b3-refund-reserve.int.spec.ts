@@ -20,7 +20,15 @@
  * 支付单直接 INSERT：这是「已经结算完成的在线支付」的测试预置，
  * 避免为了造数据去调真实渠道。
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { WxpayNativeProvider } from '../../src/modules/biz/payment/channels/wxpay-native.provider.js';
 import { createTestContext, type TestContext } from './harness.js';
 
@@ -41,8 +49,8 @@ async function seedPaidOnlinePayment(
 ): Promise<number> {
   const inserted = await ctx.sql<{ insertId: number }>(
     `INSERT INTO biz_payment
-       (payment_no, out_trade_no, customer_id, purpose, channel, amount, received_amount, status, refunded_amount)
-     VALUES (?, ?, ?, 'final', 'wxpay_native', ?, ?, 'success', 0)`,
+       (store_id, payment_no, out_trade_no, customer_id, purpose, channel, amount, received_amount, status, refunded_amount)
+     VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), ?, ?, ?, 'final', 'wxpay_native', ?, ?, 'success', 0)`,
     [
       `P-TEST-${Date.now()}`,
       `OT-TEST-${Date.now()}`,

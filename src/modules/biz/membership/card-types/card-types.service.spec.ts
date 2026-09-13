@@ -90,7 +90,10 @@ describe('CardTypesService（§15.5 次卡卡种）', () => {
     it('list 合并各卡种的适用项目，无项目的补空数组', async () => {
       const { service } = createHarness({
         selectResults: [
-          [{ id: 1, name: '10 次卡' }, { id: 2, name: '5 次卡' }],
+          [
+            { id: 1, name: '10 次卡' },
+            { id: 2, name: '5 次卡' },
+          ],
           [
             {
               cardTypeId: 1,
@@ -124,7 +127,12 @@ describe('CardTypesService（§15.5 次卡卡种）', () => {
       await expect(
         service.applicableItems({ select } as never, 1),
       ).resolves.toEqual([
-        { serviceItemId: 11, name: '（项目已删除）', price: 0, status: 'disabled' },
+        {
+          serviceItemId: 11,
+          name: '（项目已删除）',
+          price: 0,
+          status: 'disabled',
+        },
       ]);
     });
   });
@@ -163,7 +171,12 @@ describe('CardTypesService（§15.5 次卡卡种）', () => {
       const { service } = createHarness({ selectResults: [[{ id: 9 }]] });
       await expect(
         service.create(
-          { name: '10 次卡', price: 8800, totalTimes: 10, serviceItemIds: [11] },
+          {
+            name: '10 次卡',
+            price: 8800,
+            totalTimes: 10,
+            serviceItemIds: [11],
+          },
           1,
         ),
       ).rejects.toThrow(ConflictException);
@@ -178,14 +191,16 @@ describe('CardTypesService（§15.5 次卡卡种）', () => {
 
     it('适用项目不存在或已停用时拒绝', async () => {
       const { service } = createHarness({
-        selectResults: [
-          [],
-          [{ id: 11, status: 'disabled', deletedAt: null }],
-        ],
+        selectResults: [[], [{ id: 11, status: 'disabled', deletedAt: null }]],
       });
       await expect(
         service.create(
-          { name: '10 次卡', price: 8800, totalTimes: 10, serviceItemIds: [11] },
+          {
+            name: '10 次卡',
+            price: 8800,
+            totalTimes: 10,
+            serviceItemIds: [11],
+          },
           1,
         ),
       ).rejects.toThrow('适用项目不存在或已停用：11');

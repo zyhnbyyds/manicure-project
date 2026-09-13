@@ -28,7 +28,10 @@ async function seedAppUser(openid: string, customerId: number | null) {
     `INSERT INTO app_wx_user (openid, customer_id, staff_status) VALUES (?, ?, 'none')`,
     [openid, customerId],
   );
-  return { appUserId: inserted.insertId, token: await ctx.appToken(openid, inserted.insertId) };
+  return {
+    appUserId: inserted.insertId,
+    token: await ctx.appToken(openid, inserted.insertId),
+  };
 }
 
 async function seedCardType(name: string): Promise<number> {
@@ -142,7 +145,11 @@ describe('app 域积分兑换（§15.3 / money-invariants）', () => {
       body: { goodsId },
     });
     expect(res.status).toBe(200);
-    const body = res.body as { redeemNo: string; points: number; cardNo: string };
+    const body = res.body as {
+      redeemNo: string;
+      points: number;
+      cardNo: string;
+    };
     expect(body.points).toBe(1500);
     expect(body.cardNo).toMatch(/^C\d{8}\d+$/);
 
@@ -172,9 +179,18 @@ describe('app 域积分兑换（§15.3 / money-invariants）', () => {
     });
 
     const results = await Promise.all([
-      ctx.request('POST', '/api/v1/app/points/redeem', { token, body: { goodsId } }),
-      ctx.request('POST', '/api/v1/app/points/redeem', { token, body: { goodsId } }),
-      ctx.request('POST', '/api/v1/app/points/redeem', { token, body: { goodsId } }),
+      ctx.request('POST', '/api/v1/app/points/redeem', {
+        token,
+        body: { goodsId },
+      }),
+      ctx.request('POST', '/api/v1/app/points/redeem', {
+        token,
+        body: { goodsId },
+      }),
+      ctx.request('POST', '/api/v1/app/points/redeem', {
+        token,
+        body: { goodsId },
+      }),
     ]);
 
     const ok = results.filter((r) => r.status === 200);

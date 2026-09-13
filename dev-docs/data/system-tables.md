@@ -4,14 +4,14 @@ title: 系统 · 监控 · AI · 小程序身份表
 
 # 系统 · 监控 · AI · 小程序身份表
 
-本页覆盖 **21 张 `sys_*` + 7 张 `ai_*` + 3 张 `app_*`，共 31 张表**。
+本页覆盖 **22 张 `sys_*` + 7 张 `ai_*` + 3 张 `app_*`，共 32 张表**。
 `biz_*` 的 31 张表见 [/data/business-tables](/data/business-tables)。
 
 阅读约定：除特别标注外，表都展开 `auditColumns`
 （`created_at` / `updated_at` / `deleted_at` / `created_by` / `updated_by`），
 下文字段表不再重复列出这 5 列。
 
-## 一、系统与权限（14 张）
+## 一、系统与权限（15 张）
 
 ### sys_user —— 后台用户
 
@@ -108,6 +108,24 @@ seed 驱动文件 `src/database/seed/menus.ts`（幂等：按 `name` 查 → 逐
 
 **相关代码**：`src/modules/biz/base-data/stores/stores.service.ts`（CRUD + 默认唯一 + 默认门店不可删）；
 seed 补空字段 `src/database/seed/stores.ts`；小程序 `GET /app/shop` 以门店表为准、`biz.shop.*` 兜底。
+
+### sys_user_store —— 账号 ↔ 可见门店（连锁直营）
+
+**阶段 1** 引入：决定「这个后台账号能看到哪几家门店的数据」。
+
+| 字段 | 类型 | 必填/默认 | 说明 | 口径与坑 |
+| --- | --- | --- | --- | --- |
+| `user_id` | `int unsigned` | 必填 | 后台账号 | `fk_user_store_user` **ON DELETE CASCADE** |
+| `store_id` | `int unsigned` | 必填 | 可见门店 | `fk_user_store_store` **ON DELETE CASCADE**；`uq_user_store(user_id, store_id)` 唯一 |
+
+**范围规则**（`src/common/data-scope/store-scope.ts`）：
+
+- 超级管理员（`*:*:*`）或拥有 `system:store:all` → **全部门店**，且列表可按 `storeId` 筛选；
+- 普通账号 → **只看分给它的门店**（`IN` 过滤）；筛选别的门店直接 403；
+- **一个门店都没分到**且不是超管 → 403 + 「未分配门店」提示（**不返回空列表** ——
+  静默空列表会被误读成「真的没数据」）。
+
+迁移会把**现存所有后台账号绑到默认门店**（改造前本来就都在同一家店），升级后行为不变。
 
 ### sys_dept —— 部门
 

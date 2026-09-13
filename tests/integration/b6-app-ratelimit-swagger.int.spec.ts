@@ -101,15 +101,16 @@ describe('B6 Swagger：app 域独立分组（G9）', () => {
     }
 
     // 支付回调是渠道方向，不能挂 app-token 安全要求
-    const notify =
-      (document.paths as Record<string, any>)['/api/v1/app/payments/wxpay/notify']
-        ?.post;
+    const notify = (document.paths as Record<string, any>)[
+      '/api/v1/app/payments/wxpay/notify'
+    ]?.post;
     expect(notify).toBeDefined();
     expect(notify.security ?? []).toEqual([]);
 
     // 需要 app token 的端点必须显式声明 app-token（否则前端文档会误导成后台 token）
-    const login = (document.paths as Record<string, any>)['/api/v1/app/auth/login']
-      ?.post;
+    const login = (document.paths as Record<string, any>)[
+      '/api/v1/app/auth/login'
+    ]?.post;
     expect(login).toBeDefined();
 
     const schemes = document.components?.securitySchemes ?? {};

@@ -89,10 +89,12 @@ async function seedCoupon(input: {
 }
 
 async function couponState(couponId: number) {
-  const rows = await ctx.sql<{ status: string; used_booking_id: number | null }>(
-    `SELECT status, used_booking_id FROM biz_customer_coupon WHERE id = ?`,
-    [couponId],
-  );
+  const rows = await ctx.sql<{
+    status: string;
+    used_booking_id: number | null;
+  }>(`SELECT status, used_booking_id FROM biz_customer_coupon WHERE id = ?`, [
+    couponId,
+  ]);
   return rows[0];
 }
 
@@ -247,8 +249,6 @@ describe('券核销接入建单（本目标新增）', () => {
     expect(await bookingCount()).toBe(1);
     const state = await couponState(couponId);
     expect(state.status).toBe('used');
-    expect(state.used_booking_id).toBe(
-      (ok[0].body as { id: number }).id,
-    );
+    expect(state.used_booking_id).toBe((ok[0].body as { id: number }).id);
   });
 });

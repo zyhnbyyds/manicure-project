@@ -141,7 +141,9 @@ export class HttpWxMiniappProvider extends WxMiniappProvider {
   /** `https://api.weixin.qq.com/wxa/business/getuserphonenumber` */
   async getPhoneNumber(code: string): Promise<WxPhone> {
     const accessToken = await this.getAccessToken();
-    const url = new URL('https://api.weixin.qq.com/wxa/business/getuserphonenumber');
+    const url = new URL(
+      'https://api.weixin.qq.com/wxa/business/getuserphonenumber',
+    );
     url.searchParams.set('access_token', accessToken);
 
     const data = await this.fetchJson<WxPhoneResponse>(url, {
@@ -149,7 +151,8 @@ export class HttpWxMiniappProvider extends WxMiniappProvider {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code }),
     });
-    const phone = data.phone_info?.purePhoneNumber ?? data.phone_info?.phoneNumber;
+    const phone =
+      data.phone_info?.purePhoneNumber ?? data.phone_info?.phoneNumber;
     if (data.errcode || !phone) {
       throw new BadRequestException(
         data.errmsg ? `手机号获取失败：${data.errmsg}` : '手机号获取失败',

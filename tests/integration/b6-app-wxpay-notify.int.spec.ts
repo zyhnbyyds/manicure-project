@@ -37,10 +37,10 @@ async function seedPendingPayment(amount = 10000): Promise<{
   );
   const bookings = await ctx.sql<{ insertId: number }>(
     `INSERT INTO biz_booking
-       (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+       (store_id, booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
         original_price, payable_amount, paid_amount, due_amount, status, pay_status,
         customer_name, customer_phone)
-     VALUES ('B-NOTIFY', ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR), 60,
+     VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), 'B-NOTIFY', ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR), 60,
              ?, ?, 0, ?, 'confirmed', 'unpaid', '回调顾客', '13800000081')`,
     [customerId, staffs.insertId, amount, amount, amount],
   );
@@ -50,17 +50,10 @@ async function seedPendingPayment(amount = 10000): Promise<{
     // `received_amount` 必须一起给：`paid_amount = Σ received_amount`（§15.7 不变量 4），
     // 只写 `amount` 的话 recalc 求出来是 0，会把「发货成功」误判成没发货。
     `INSERT INTO biz_payment
-       (payment_no, out_trade_no, booking_id, customer_id, purpose, channel,
+       (store_id, payment_no, out_trade_no, booking_id, customer_id, purpose, channel,
         amount, received_amount, status, expire_at)
-     VALUES (?, ?, ?, ?, 'final', 'wxpay_native', ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
-    [
-      `PAY-${outTradeNo}`,
-      outTradeNo,
-      bookingId,
-      customerId,
-      amount,
-      amount,
-    ],
+     VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), ?, ?, ?, ?, 'final', 'wxpay_native', ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
+    [`PAY-${outTradeNo}`, outTradeNo, bookingId, customerId, amount, amount],
   );
   return { id: payments.insertId, outTradeNo, bookingId, customerId };
 }
@@ -68,10 +61,9 @@ async function seedPendingPayment(amount = 10000): Promise<{
 async function paymentRow(id: number) {
   const rows = await ctx.sql<
     { status: string; transaction_id: string | null; paid_at: string | null }[]
-  >(
-    `SELECT status, transaction_id, paid_at FROM biz_payment WHERE id = ?`,
-    [id],
-  );
+  >(`SELECT status, transaction_id, paid_at FROM biz_payment WHERE id = ?`, [
+    id,
+  ]);
   return rows[0];
 }
 
@@ -120,10 +112,11 @@ describe('微信支付回调 /app/payments/wxpay/notify（A13）', () => {
     expect(row.paid_at).not.toBeNull();
 
     // 同事务发货：预约的金额事实被 recalc 重算（paid_amount 由 0 变成 10000）
-    const booking = await ctx.sql<{ paid_amount: number; pay_status: string }[]>(
-      `SELECT paid_amount, pay_status FROM biz_booking WHERE id = ?`,
-      [payment.bookingId],
-    );
+    const booking = await ctx.sql<
+      { paid_amount: number; pay_status: string }[]
+    >(`SELECT paid_amount, pay_status FROM biz_booking WHERE id = ?`, [
+      payment.bookingId,
+    ]);
     expect(Number(booking[0].paid_amount)).toBe(10000);
   });
 
@@ -253,10 +246,11 @@ describe('微信支付回调 /app/payments/wxpay/notify（A13）', () => {
     expect(row.transaction_id).toBeTruthy();
 
     // 预约侧也要跟着重算（钱到账了）
-    const booking = await ctx.sql<{ paid_amount: number; pay_status: string }[]>(
-      `SELECT paid_amount, pay_status FROM biz_booking WHERE id = ?`,
-      [payment.bookingId],
-    );
+    const booking = await ctx.sql<
+      { paid_amount: number; pay_status: string }[]
+    >(`SELECT paid_amount, pay_status FROM biz_booking WHERE id = ?`, [
+      payment.bookingId,
+    ]);
     expect(Number(booking[0].paid_amount)).toBe(10000);
     expect(booking[0].pay_status).toBe('paid');
 
@@ -280,11 +274,15 @@ describe('后台回调 /biz/payments/notify/wxpay（B3 补集成覆盖）', () =
       amount: 10000,
     });
 
-    const first = await ctx.request('POST', '/api/v1/biz/payments/notify/wxpay', {
-      token: null,
-      headers: notify.headers,
-      body: notify.body,
-    });
+    const first = await ctx.request(
+      'POST',
+      '/api/v1/biz/payments/notify/wxpay',
+      {
+        token: null,
+        headers: notify.headers,
+        body: notify.body,
+      },
+    );
     expect(first.status).toBe(200);
     expect(first.body.code).toBe('SUCCESS');
     expect((await paymentRow(payment.id)).status).toBe('success');
@@ -293,11 +291,15 @@ describe('后台回调 /biz/payments/notify/wxpay（B3 补集成覆盖）', () =
       outTradeNo: payment.outTradeNo,
       amount: 10000,
     });
-    const second = await ctx.request('POST', '/api/v1/biz/payments/notify/wxpay', {
-      token: null,
-      headers: again.headers,
-      body: again.body,
-    });
+    const second = await ctx.request(
+      'POST',
+      '/api/v1/biz/payments/notify/wxpay',
+      {
+        token: null,
+        headers: again.headers,
+        body: again.body,
+      },
+    );
     expect(second.body.code).toBe('SUCCESS');
     const rows = await ctx.sql<{ total: number }[]>(
       `SELECT COUNT(*) AS total FROM biz_payment_log WHERE payment_id = ? AND event = 'callback'`,

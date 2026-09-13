@@ -284,9 +284,9 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
     );
     const inserted = await ctx.sql<{ insertId: number }>(
       `INSERT INTO biz_booking
-         (booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
+         (store_id, booking_no, customer_id, staff_id, start_at, end_at, duration_minutes,
           customer_name, status, pay_status, paid_amount, due_amount)
-       VALUES (?, ?, ?, ${input.startAtSql}, DATE_ADD(${input.startAtSql}, INTERVAL 1 HOUR), 60,
+       VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), ?, ?, ?, ${input.startAtSql}, DATE_ADD(${input.startAtSql}, INTERVAL 1 HOUR), 60,
                '李女士', 'confirmed', 'partial', ?, 10000)`,
       [input.bookingNo, input.customerId, staff.insertId, input.paidAmount],
     );
@@ -294,9 +294,9 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
     // （派生字段只由结算链路写，这里照真实链路造一条支付单）
     await ctx.sql(
       `INSERT INTO biz_payment
-         (payment_no, out_trade_no, booking_id, customer_id, channel, amount,
+         (store_id, payment_no, out_trade_no, booking_id, customer_id, channel, amount,
           received_amount, status, paid_at)
-       VALUES (?, ?, ?, ?, 'cash', ?, ?, 'success', NOW())`,
+       VALUES ((SELECT id FROM sys_store WHERE is_default = 1 LIMIT 1), ?, ?, ?, ?, 'cash', ?, ?, 'success', NOW())`,
       [
         `P-${input.bookingNo}`,
         `OUT-${input.bookingNo}`,

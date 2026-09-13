@@ -75,7 +75,14 @@ function createHarness(
     wxpay as never,
     alipay as never,
   );
-  return { service, wxpay, alipay, insertValues, updateSet, onDuplicateKeyUpdate };
+  return {
+    service,
+    wxpay,
+    alipay,
+    insertValues,
+    updateSet,
+    onDuplicateKeyUpdate,
+  };
 }
 
 const bill = (overrides: Partial<BillRecord> = {}): BillRecord => ({
@@ -217,7 +224,12 @@ describe('PaymentDiffsService（§17.5 渠道对账）', () => {
         wxpayRecords: [bill()],
         systemPayments: [
           systemPayment(),
-          systemPayment({ id: 2, transactionId: null, outTradeNo: 'P2', amount: 5000 }),
+          systemPayment({
+            id: 2,
+            transactionId: null,
+            outTradeNo: 'P2',
+            amount: 5000,
+          }),
         ],
       });
       await expect(service.reconcile('2026-09-11')).resolves.toEqual({

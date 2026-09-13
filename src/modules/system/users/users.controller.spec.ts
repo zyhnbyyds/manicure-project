@@ -94,7 +94,9 @@ describe('UsersController', () => {
     it('removes a user', async () => {
       const service = mockUsersService();
       const controller = new UsersController(service as UsersService);
-      await controller.remove(1, { user: { id: 1, roles: [], permissions: [] } });
+      await controller.remove(1, {
+        user: { id: 1, roles: [], permissions: [] },
+      });
       expect(service.remove).toHaveBeenCalledWith(1, 1);
     });
   });

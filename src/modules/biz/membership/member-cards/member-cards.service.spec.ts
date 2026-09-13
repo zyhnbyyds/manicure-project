@@ -51,8 +51,8 @@ function createHarness(
   const update = vi.fn(() => ({ set: updateSet }));
 
   const tx = { select: txSelect, insert, update, execute };
-  const transaction = vi.fn(async (callback: (t: unknown) => Promise<unknown>) =>
-    callback(tx),
+  const transaction = vi.fn(
+    async (callback: (t: unknown) => Promise<unknown>) => callback(tx),
   );
 
   const accounts = {
@@ -117,9 +117,9 @@ describe('MemberCardsService（§15.5 次卡）', () => {
   describe('assertUsable：可用性校验', () => {
     it('卡不存在时抛 NotFoundException', async () => {
       const h = createHarness({ selectResults: [[]] });
-      await expect(
-        h.service.assertUsable(h.tx, 1, [11]),
-      ).rejects.toThrow(NotFoundException);
+      await expect(h.service.assertUsable(h.tx, 1, [11])).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('已退卡的卡不能使用', async () => {
@@ -192,9 +192,9 @@ describe('MemberCardsService（§15.5 次卡）', () => {
         selectResults: [[card()]],
         applicableIds: [11],
       });
-      await expect(h.service.assertUsable(h.tx, 1, [11])).resolves.toMatchObject(
-        { id: 1, status: 'active' },
-      );
+      await expect(
+        h.service.assertUsable(h.tx, 1, [11]),
+      ).resolves.toMatchObject({ id: 1, status: 'active' });
     });
 
     it('不传项目时跳过适用性校验（少一次查询）', async () => {
@@ -217,10 +217,7 @@ describe('MemberCardsService（§15.5 次卡）', () => {
 
     it('核销成功：写 use 日志 + card_use 流水，并返回最新次数', async () => {
       const h = createHarness({
-        selectResults: [
-          [card()],
-          [card({ usedTimes: 1, status: 'active' })],
-        ],
+        selectResults: [[card()], [card({ usedTimes: 1, status: 'active' })]],
       });
       const result = await h.service.useCard(h.tx, {
         cardId: 1,
@@ -392,9 +389,9 @@ describe('MemberCardsService（§15.5 次卡）', () => {
       const h = createHarness({
         selectResults: [[card({ status: 'refunded' })]],
       });
-      await expect(
-        h.service.voidCard(h.tx, 1, '撤销兑换', 1),
-      ).resolves.toBe(false);
+      await expect(h.service.voidCard(h.tx, 1, '撤销兑换', 1)).resolves.toBe(
+        false,
+      );
     });
 
     it('条件更新未命中时返回 false', async () => {
@@ -402,9 +399,9 @@ describe('MemberCardsService（§15.5 次卡）', () => {
         selectResults: [[card()]],
         affectedRows: 0,
       });
-      await expect(
-        h.service.voidCard(h.tx, 1, '撤销兑换', 1),
-      ).resolves.toBe(false);
+      await expect(h.service.voidCard(h.tx, 1, '撤销兑换', 1)).resolves.toBe(
+        false,
+      );
     });
 
     it('作废成功时留痕并返回 true', async () => {

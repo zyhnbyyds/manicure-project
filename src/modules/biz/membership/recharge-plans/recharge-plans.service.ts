@@ -49,7 +49,8 @@ export class RechargePlansService extends RechargePlanPort {
     private readonly database: DatabaseService,
     private readonly config: BizConfigService,
   ) {
-    super();}
+    super();
+  }
 
   async list(
     page: number,

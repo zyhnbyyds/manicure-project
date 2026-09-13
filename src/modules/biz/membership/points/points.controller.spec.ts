@@ -5,8 +5,12 @@ import { PointsController } from './points.controller.js';
 function createHarness() {
   const goods = {
     preview: vi.fn().mockResolvedValue({ payableAmount: 8500 }),
-    redeem: vi.fn().mockResolvedValue({ redeemId: 42, cardNo: 'C20260911000005' }),
-    listRedeems: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 20 }),
+    redeem: vi
+      .fn()
+      .mockResolvedValue({ redeemId: 42, cardNo: 'C20260911000005' }),
+    listRedeems: vi
+      .fn()
+      .mockResolvedValue({ items: [], page: 1, pageSize: 20 }),
     revertRedeem: vi.fn().mockResolvedValue({ redeemId: 42, points: 500 }),
   };
   const controller = new PointsController(goods as never);
@@ -170,7 +174,9 @@ describe('PointsController（§9.10 积分入口）', () => {
 
     it('原因为空串 → 校验失败，不调服务', () => {
       const h = createHarness();
-      expect(() => h.controller.revertRedeem(42, { reason: '' }, actor)).toThrow();
+      expect(() =>
+        h.controller.revertRedeem(42, { reason: '' }, actor),
+      ).toThrow();
       expect(h.goods.revertRedeem).not.toHaveBeenCalled();
     });
 

@@ -96,9 +96,7 @@ export const CUSTOMER_SEEDS: CustomerSeed[] = [
 ];
 
 /** 店内时区：读 `biz.booking.timezone`，缺失时回落默认值 */
-async function shopTimeZone(
-  db: ReturnType<typeof drizzle>,
-): Promise<string> {
+async function shopTimeZone(db: ReturnType<typeof drizzle>): Promise<string> {
   const [row] = await db
     .select({ value: configs.value })
     .from(configs)
@@ -134,7 +132,9 @@ export async function seedDemo(pool?: mysql.Pool): Promise<void> {
       .select({ phone: bizCustomers.phone })
       .from(bizCustomers);
     const known = new Set(
-      existing.map((row) => row.phone).filter((phone): phone is string => !!phone),
+      existing
+        .map((row) => row.phone)
+        .filter((phone): phone is string => !!phone),
     );
     const pending = CUSTOMER_SEEDS.filter((row) => !known.has(row.phone));
 

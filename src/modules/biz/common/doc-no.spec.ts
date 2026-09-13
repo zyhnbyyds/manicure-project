@@ -38,9 +38,9 @@ describe('biz/common/doc-no（§4.3 主键回填，不用「查当日最大号 +
 
   it('单号前缀覆盖全部业务单据类型', () => {
     for (const prefix of ['B', 'P', 'R', 'A', 'C', 'X', 'M'] as const) {
-      expect(buildDocNo(prefix, 1, 'Asia/Shanghai', at).startsWith(prefix)).toBe(
-        true,
-      );
+      expect(
+        buildDocNo(prefix, 1, 'Asia/Shanghai', at).startsWith(prefix),
+      ).toBe(true);
     }
   });
 

@@ -27,7 +27,9 @@ import { parsePagination } from '../../common/query.js';
 import type { PaymentDraft } from '../../common/ports.js';
 import { PaymentsService, type PaymentListFilter } from './payments.service.js';
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = {
+  user: { id: number; roles: string[]; permissions: string[] };
+};
 type NotifyRequest = {
   headers: Record<string, string | string[] | undefined>;
   body: unknown;
@@ -61,6 +63,11 @@ const STATUSES = [
 ] as const;
 
 const createPaymentSchema = z.object({
+  storeId: z.coerce.number().int().positive().optional().openapi({
+    example: 1,
+    description:
+      '门店：不传 = 当前账号的门店（超管可指定任意门店）；普通账号指定别人的门店 → 403',
+  }),
   customerId: z.coerce
     .number()
     .int()
@@ -198,6 +205,8 @@ export class PaymentsController {
   create(@Body() body: unknown, @Req() request: AuthRequest) {
     const input = createPaymentSchema.parse(body);
     const draft: PaymentDraft = {
+      // 门店由入口解析：请求显式指定优先，否则当前账号的门店（未分配门店 → 403）
+      storeId: input.storeId ?? 0,
       customerId: input.customerId,
       bookingId: input.bookingId ?? null,
       purpose: input.purpose,
@@ -209,7 +218,7 @@ export class PaymentsController {
       memberCardId: input.memberCardId ?? null,
       remark: input.remark ?? null,
     };
-    return this.payments.create(draft, request.user.id);
+    return this.payments.create(draft, request.user);
   }
 
   @Get(':id')

@@ -173,12 +173,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       reply.status(pluginStatus).send(
         withRequestId({
           statusCode: pluginStatus,
-        message:
-          pluginStatus === HttpStatus.TOO_MANY_REQUESTS
-            ? '请求过于频繁，请稍后再试'
-            : exception instanceof Error
-              ? exception.message
-              : '请求不被受理',
+          message:
+            pluginStatus === HttpStatus.TOO_MANY_REQUESTS
+              ? '请求过于频繁，请稍后再试'
+              : exception instanceof Error
+                ? exception.message
+                : '请求不被受理',
           error:
             pluginStatus === HttpStatus.TOO_MANY_REQUESTS
               ? 'Too Many Requests'
