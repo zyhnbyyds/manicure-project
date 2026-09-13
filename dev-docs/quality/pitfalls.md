@@ -255,7 +255,7 @@ title: 踩坑记录与排查手册
   - **处置**：页面只绑 **`*Resolved`** 字段（`avatarResolved` / `imageResolved`），不要直接绑接口原值；新增这类字段时先想清楚"空值给什么"（`resolveStaffAvatar` 永远返回可用地址，所以模板里连 `wx:else` 兜底分支都不需要）。
   - **预防**：排查口诀 —— **小程序里图片空白 = 先看 src 是不是相对路径**。（来源 `pitfalls/miniapp.md` §14）
 - **M15 · 地址已拼成绝对 URL，图片还是空白：后端 helmet 的 CORP**
-  - **症状**：按 M14 修完（`imageResolved` = `http://192.168.0.101:3000/api/v1/files/10/download?inline=1`），图片**依旧空白**，且控制台/日志里什么都看不到。
+  - **症状**：按 M14 修完（`imageResolved` = `http://192.168.0.101:3000/api/v1/files/10/download?inline=1`，IP 是**当时的快照**，现值以 `miniapp/miniprogram/config.ts` 为准），图片**依旧空白**，且控制台/日志里什么都看不到。
   - **原因**：见服务端 S10 —— 小程序 `<image>` 在开发者工具里由 `127.0.0.1:<port>` 的 pageframe 渲染，与 API 不同源 → Chromium 把这条 no-cors 子资源请求直接拦掉。
   - **处置**：`files.controller.ts` 的 `download()` 里显式覆盖 `Cross-Origin-Resource-Policy: cross-origin`；**不要**改全局 helmet 配置。
   - **预防（可复用的确诊手法）**：用 headless Chromium 做**四格对照**（同源图 → LOAD；跨源无 CORP → LOAD；跨源带 CORP `same-origin` → ERROR；真实接口地址 → ERROR），一次定性而不是猜。**同一个症状要查到"能证明它好了"，不能停在"看起来修对了"。**（来源 `pitfalls/miniapp.md` §15、`pitfalls/server.md` §10）
@@ -299,11 +299,16 @@ title: 踩坑记录与排查手册
   - **原因**：设计的依赖方向是**只依赖端口抽象**。
   - **处置**：只能依赖 `src/modules/biz/common/ports.ts` 的抽象类，由 `BizModule`（`@Global`）`useExisting` 绑定；新增跨模块能力要**加端口**，不是直接 import。
   - **预防**：改 `ports.ts` 时同时检查 `providers` / `exports`（见服务端 S3）。（来源 `HANDOVER-miniapp.md` §4）
-- **M24 · 真机连不上后端**
-  - **症状**：模拟器正常，真机请求全失败。
-  - **原因**：`miniapp/miniprogram/config.ts` 的 `API_BASE` 用了 `127.0.0.1`（真机上那是**手机自己**）；或手机与电脑不在同一 Wi-Fi；或 Windows 防火墙没放行 3000。
-  - **处置**：`API_BASE` 用**局域网 IP**（当前 `http://192.168.0.101:3000/api/v1`）；自查用**手机浏览器**打开 `http://<局域网IP>:3000/api/v1/health`（在本机浏览器自测是**测不出防火墙**的）；每换网络 DHCP 可能改号。
-  - **预防**：挑"有默认网关"的那张网卡 —— VMware/Hyper-V/蓝牙的虚拟网卡也能通，但手机连不上。（来源 `miniapp/miniprogram/config.ts` 注释、README）
+- **M24 · 真机 / 局域网连不上后端**
+  - **症状**：模拟器正常，真机请求全失败；或按文档里的 IP 直接**「目标计算机积极拒绝」**。
+  - **原因**：三种，看报错区分 ——
+    ① `API_BASE` 用了 `127.0.0.1`（真机上那是**手机自己**）；
+    ② **IP 过期**：`config.ts` 里写死的局域网 IP 随 DHCP 变了（2026-09 就从 `.101` 变成 `.100`），**那个地址上现在是别的设备** → 表现为**「积极拒绝」/连接被拒**；
+    ③ Windows 防火墙没放行 3000 → 表现为**超时**（WLAN 的网络类别常是「公用」，而公用配置文件入站默认拦）。
+  - **处置**：先 `Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -eq 'Dhcp' }` 核对**有默认网关**的那张网卡，把 `miniapp/miniprogram/config.ts` 的 `API_BASE` 改成它；防火墙放行（只放同网段）：
+    `New-NetFirewallRule -DisplayName "manicure dev API 3000 (LAN)" -Direction Inbound -Protocol TCP -LocalPort 3000 -RemoteAddress LocalSubnet -Action Allow -Profile Any`；
+    自查用**手机浏览器**打开 `http://<局域网IP>:3000/api/v1/health`。
+  - **预防**：**「拒绝」= IP 上没服务，「超时」= 被防火墙丢了**，两者别混。本机访问局域网 IP 也**不经过**入站规则，所以「本机通、手机不通」是常态。想一劳永逸就在路由器上给这台机做 **DHCP 保留**。（来源 `miniapp/miniprogram/config.ts` 注释、实测）
 - **M25 · 开发者工具 `urlCheck` 与「切真接口」的条件**
   - **症状**：`wx.request` 报域名不合法；或后端返回 503「小程序端未启用」。
   - **原因**：本项目走 `http + IP`，必须跳过合法域名校验；且 app 域登录要求 `WX_MINIAPP_APPID` / `WX_MINIAPP_SECRET` 配置齐全（未配置按设计返回 503）。

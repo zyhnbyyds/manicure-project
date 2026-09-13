@@ -144,16 +144,39 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 
 1. **`miniapp/miniprogram/config.ts` 的 `API_BASE` 用局域网 IP**，不是 `127.0.0.1`
    ```ts
-   export const API_BASE = 'http://192.168.0.101:3000/api/v1';
+   export const API_BASE = 'http://192.168.0.100:3000/api/v1';
    ```
-   模拟器里两者都能用，但**真机上 `127.0.0.1` 指向手机自己**，必然连不上。挑**有默认网关**的那张网卡（VMware / Hyper-V / 蓝牙的虚拟网卡也能通，但手机连不上）。换网络后 DHCP 可能改号。
+   模拟器里两者都能用，但**真机上 `127.0.0.1` 指向手机自己**，必然连不上。挑**有默认网关**的那张网卡（VMware / Hyper-V / 蓝牙的虚拟网卡也能通，但手机连不上）。
+
+   ::: warning 这个 IP 会随 DHCP 变，连不上先查它
+   唯一权威值是 `config.ts` 里的 `API_BASE`（上面只是抄了一份当时的快照）。2026-09 就换过一次号（`.101` → `.100`），
+   症状是 **「目标计算机积极拒绝」** —— 那是**那个 IP 上压根没有我们的服务**（`.101` 成了别的设备），
+   不是防火墙（防火墙的表现是**超时**）。核对本机 IP：
+
+   ```powershell
+   Get-NetIPAddress -AddressFamily IPv4 |
+     Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -eq 'Dhcp' }
+   ```
+   想一劳永逸：在路由器上给这台机做 **DHCP 保留**。
+   :::
 2. **`miniapp/project.private.config.json` 里 `urlCheck: false`**（工作区当前已是 false）—— 项目走 `http + IP`，不是 https 合法域名。
-3. **Windows 防火墙放行入站 3000**。
+3. **Windows 防火墙放行入站 3000**：
+
+   ```powershell
+   # 管理员 PowerShell；只放行同网段，别开成任意来源
+   New-NetFirewallRule -DisplayName "manicure dev API 3000 (LAN)" -Direction Inbound `
+     -Protocol TCP -LocalPort 3000 -RemoteAddress LocalSubnet -Action Allow -Profile Any
+   ```
+
+   注意 WLAN 的网络类别常常是「公用」，而公用配置文件的入站默认是**拦**。
 
 ::: tip 网络自检的正确答案
 用**手机浏览器**打开 `http://<局域网IP>:3000/api/v1/health`，能看到 JSON 就说明网络通了。
 
 在本机浏览器上自测是**测不出防火墙**的 —— 本机访问 `127.0.0.1` 根本不经过防火墙。这个坑写在 `config.ts` 的注释里。
+
+反过来，本机访问**局域网 IP**（如 `http://192.168.0.100:3000/...`）也**不经过**防火墙的入站规则，
+所以「本机通、手机不通」是常态，别据此判断防火墙没问题。
 :::
 
 ### 小程序的 UI 数据来源

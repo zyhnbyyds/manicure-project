@@ -57,9 +57,22 @@ miniapp/
 
 ```ts
 /** 后端 API 基址（`API_PREFIX=api/v1`，端口取自根 .env 的 PORT=3000） */
-export const API_BASE = 'http://192.168.0.101:3000/api/v1';
+export const API_BASE = 'http://192.168.0.100:3000/api/v1';
 export const REQUEST_TIMEOUT = 10000;
 ```
+
+::: warning 这个 IP 是**会变的**（DHCP）
+唯一权威值是 [`miniapp/miniprogram/config.ts`](https://github.com/zyhnbyyds/manicure-project/blob/master/miniapp/miniprogram/config.ts) 里的 `API_BASE`。
+2026-09 就因为 DHCP 换号（`.101` → `.100`）踩过一次：老地址连不上，现象是**「目标计算机积极拒绝」**——
+那不是防火墙（防火墙是超时），而是**那个 IP 上根本没有我们的服务**（`.101` 后来成了别的设备）。
+连不上先核对本机 IP，再怀疑代码：
+
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -eq 'Dhcp' }
+```
+想一劳永逸：在路由器上给这台机做 **DHCP 保留**。
+:::
 
 ::: tip 为什么写局域网 IP 而不是 `127.0.0.1`
 「模拟器里两者都能用，但**真机上 `127.0.0.1` 指向手机自己**，必然连不上……**挑「有默认网关」的那张网卡** —— VMware / Hyper-V / 蓝牙的虚拟网卡也能通，但手机连不上。换网络后 DHCP 可能改号，需要改这里。」
@@ -67,7 +80,15 @@ export const REQUEST_TIMEOUT = 10000;
 
 **真机联调三件事**（`config.ts` 逐条写明）：① 手机与电脑连**同一个 Wi-Fi**；② 手机打开**调试模式**（跳过合法域名校验）；③ **Windows 防火墙放行入站 3000**。
 
-> 快速自检：用**手机浏览器**打开 `http://192.168.0.101:3000/api/v1/health`，能看到 JSON 就说明网络通了（在本机浏览器自测是**测不出防火墙**的）。
+```powershell
+# 管理员 PowerShell；只放行同网段，别开成任意来源
+New-NetFirewallRule -DisplayName "manicure dev API 3000 (LAN)" -Direction Inbound `
+  -Protocol TCP -LocalPort 3000 -RemoteAddress LocalSubnet -Action Allow -Profile Any
+```
+
+> 快速自检：用**手机浏览器**打开 `http://<局域网IP>:3000/api/v1/health`，能看到 JSON 就说明网络通了
+> （在本机浏览器自测是**测不出防火墙**的）。
+
 
 取本机局域网 IP：`Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' }`
 
