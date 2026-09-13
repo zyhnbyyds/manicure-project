@@ -3,6 +3,7 @@ import type { IconName } from '../../utils/icons';
 import { isApiFailure } from '../../utils/request';
 import { definePage } from '../../utils/page';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
+import { chooseAndUploadImage } from '../../utils/upload';
 
 const PAGE_ICONS: IconName[] = ['chat'];
 
@@ -18,14 +19,12 @@ const IMAGE_SLOTS = [0, 1, 2];
  * 表单按设计稿完整还原（类型单选、描述与字数、图片位、联系方式、匿名开关），
  * 提交走 `POST /app/feedback` → 落 `biz_feedback`，门店在后台跟进。
  *
- * 两条口径：
+ * 三条口径：
  * 1. **不要求绑定手机号**：访客也有意见要说，硬拦只会让他去别处说；
  * 2. **匿名真的匿名**：`anonymous: true` 时后端一律落 `customer_id = null` ——
- *    「记了身份再标匿名」等于骗人，而这是当着顾客的面做出的承诺。
- *
- * **图片位暂未接入**：设计稿有三格图片，需要先把小程序上传接到文件接口
- * （后端的文件存储与管理端上传已有，缺的是 C 端上传入口与配额约束）。
- * 现在点它如实提示，不假装能传。
+ *    「记了身份再标匿名」等于骗人，而这是当着顾客的面做出的承诺；
+ * 3. **图片先传后提交**：选图即刻上传（`/app/upload`），提交时只带地址；
+ *    单张传失败不影响文字提交（顾客不该因为一张图重填整页）。
  */
 definePage({
   chromeIcons: PAGE_ICONS,
@@ -37,7 +36,10 @@ definePage({
     contact: '',
     anonymous: false,
     imageSlots: IMAGE_SLOTS,
+    /** 已上传的截图：`src` 用于预览、`path` 提交给后端 */
+    images: [] as { src: string; path: string }[],
     submitting: false,
+    uploading: false,
   },
 
   onType(event: WechatMiniprogram.TouchEvent) {
@@ -57,7 +59,30 @@ definePage({
   },
 
   onAddImage() {
-    toast('图片上传还在接入，先写文字也能提交');
+    void this.addImage();
+  },
+
+  /** 选图并上传：选完立刻传，提交时只带地址（提交那一刻不该再等网络） */
+  async addImage() {
+    if (this.data.uploading) return;
+    const room = IMAGE_SLOTS.length - this.data.images.length;
+    if (room <= 0) {
+      toast('最多传 3 张图');
+      return;
+    }
+    this.setData({ uploading: true });
+    const uploaded = await chooseAndUploadImage(room);
+    this.setData({
+      uploading: false,
+      images: uploaded ? [...this.data.images, uploaded] : this.data.images,
+    });
+  },
+
+  onRemoveImage(event: WechatMiniprogram.TouchEvent) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({
+      images: this.data.images.filter((_, i) => i !== index),
+    });
   },
 
   /**
@@ -86,6 +111,9 @@ definePage({
         type: activeType,
         content: content.trim(),
         ...(contact.trim() ? { contact: contact.trim() } : {}),
+        ...(this.data.images.length > 0
+          ? { images: this.data.images.map((item) => item.path) }
+          : {}),
         anonymous,
       });
       hideLoading();
@@ -95,6 +123,7 @@ definePage({
         content: '',
         contact: '',
         anonymous: false,
+        images: [],
       });
       wx.showModal({
         title: '已收到你的反馈',

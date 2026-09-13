@@ -10,13 +10,25 @@
  *    门店档案来自 `sys_config`，没配过时回落默认值而不是空字符串。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import multipart from '@fastify/multipart';
 import { BizConfigService } from '../../src/modules/biz/common/biz-config.service.js';
 import { createTestContext, type TestContext } from './harness.js';
 
 let ctx: TestContext;
 
 beforeAll(async () => {
-  ctx = await createTestContext();
+  /**
+   * 用例要在测试里打**真实 multipart**，而 harness 默认不注册 `@fastify/multipart`
+   * （它的注释里写明「不注册 rate-limit / helmet / multipart，需要验时通过 `configure` 补」）。
+   * 这里按 `main.ts` 的真实配置补上，限制值保持一致 —— 否则测的就不是线上那套。
+   */
+  ctx = await createTestContext({
+    configure: async (app) => {
+      await app.register(multipart, {
+        limits: { files: 1, fileSize: 10 * 1024 * 1024 },
+      });
+    },
+  });
 });
 
 afterAll(async () => {
@@ -493,6 +505,149 @@ describe('B6 意见反馈 /app/feedback', () => {
       `SELECT COUNT(*) AS total FROM biz_feedback`,
     );
     expect(Number(rows[0].total)).toBe(0);
+  });
+
+  it('带截图：图片地址落库；超过 3 张或空数组的处理', async () => {
+    const customerId = await seedCustomer('李女士', '13800009023');
+    const { token } = await seedBoundAppUser('openid-feedback-5', customerId);
+
+    const withImages = await ctx.request('POST', '/api/v1/app/feedback', {
+      token,
+      body: {
+        ...BODY,
+        images: ['/api/v1/files/1/download', '/api/v1/files/2/download'],
+      },
+    });
+    expect(withImages.status).toBe(200);
+    const [row] = await ctx.sql<{ images: unknown }[]>(
+      `SELECT images FROM biz_feedback WHERE id = ?`,
+      [withImages.body.id],
+    );
+    // mysql2 会把 JSON 列直接解析成数组，也可能给原始字符串 —— 两种都兜住
+    const parsed =
+      typeof row!.images === 'string'
+        ? (JSON.parse(row!.images) as string[])
+        : (row!.images as string[]);
+    expect(parsed).toEqual([
+      '/api/v1/files/1/download',
+      '/api/v1/files/2/download',
+    ]);
+
+    // 超过 3 张直接 400（设计稿三格图位，多传说明前端在乱塞）
+    const tooMany = await ctx.request('POST', '/api/v1/app/feedback', {
+      token,
+      body: {
+        ...BODY,
+        images: ['/a', '/b', '/c', '/d'],
+      },
+    });
+    expect(tooMany.status).toBe(400);
+
+    // 空数组 = 没传图：存 null，而不是空 JSON（前端判空只判一种值）
+    const empty = await ctx.request('POST', '/api/v1/app/feedback', {
+      token,
+      body: { ...BODY, images: [] },
+    });
+    expect(empty.status).toBe(200);
+    const [emptyRow] = await ctx.sql<{ images: string | null }[]>(
+      `SELECT images FROM biz_feedback WHERE id = ?`,
+      [empty.body.id],
+    );
+    expect(emptyRow!.images).toBeNull();
+  });
+});
+
+describe('B6 C 端图片上传 /app/upload', () => {
+  /** 1×1 的合法 PNG（真实字节，避免用假数据绕过图片解析） */
+  const PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8AAAwAB/gGr' +
+      'HwAAAABJRU5ErkJggg==',
+    'base64',
+  );
+
+  /** 手工拼一个 multipart 请求体（Fastify inject 需要原始 payload） */
+  function multipart(
+    filename: string,
+    mime: string,
+    content: Buffer,
+  ): { boundary: string; payload: Buffer } {
+    const boundary = '----dshAppUploadBoundary';
+    const payload = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+          `Content-Type: ${mime}\r\n\r\n`,
+      ),
+      content,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    return { boundary, payload };
+  }
+
+  it('上传图片：200 + 可访问的 url；下载回来就是图片', async () => {
+    const customerId = await seedCustomer('李女士', '13800009030');
+    const { token } = await seedBoundAppUser('openid-upload-1', customerId);
+    const { boundary, payload } = multipart('shot.png', 'image/png', PNG);
+
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/app/upload',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      payload,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      id: number;
+      url: string;
+      mime: string;
+      size: number;
+    };
+    expect(body.mime).toBe('image/png');
+    expect(body.size).toBe(PNG.length);
+    // url 是相对路径（小程序侧用 absoluteAssetUrl 拼接口域名）
+    expect(body.url).toBe(`/api/v1/files/${body.id}/download`);
+
+    // 再把这个 url 下回来：能拿到图片字节，证明真的落盘了
+    const download = await ctx.app.inject({ method: 'GET', url: body.url });
+    expect(download.statusCode).toBe(200);
+    expect(download.headers['content-type']).toContain('image/png');
+    expect(Buffer.from(download.rawPayload).length).toBe(PNG.length);
+  });
+
+  it('只收图片：文本文件 400；不带 app token 401', async () => {
+    const customerId = await seedCustomer('李女士', '13800009031');
+    const { token } = await seedBoundAppUser('openid-upload-2', customerId);
+
+    const text = multipart(
+      'note.txt',
+      'text/plain',
+      Buffer.from('not an image'),
+    );
+    const rejected = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/app/upload',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': `multipart/form-data; boundary=${text.boundary}`,
+      },
+      payload: text.payload,
+    });
+    expect(rejected.statusCode).toBe(400);
+    expect(JSON.parse(rejected.body).message).toContain('图片');
+
+    const png = multipart('shot.png', 'image/png', PNG);
+    const noToken = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/app/upload',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${png.boundary}`,
+      },
+      payload: png.payload,
+    });
+    expect(noToken.statusCode).toBe(401);
   });
 });
 

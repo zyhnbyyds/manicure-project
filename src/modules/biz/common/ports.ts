@@ -7,6 +7,7 @@
  *
  * 方法签名是冻结契约，见 `project-design/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`。
  */
+import type { MultipartFile } from '@fastify/multipart';
 import type {
   bizBookingItems,
   bizBookingRecurrences,
@@ -667,6 +668,37 @@ export type NoticeInboxRow = {
   bookingId: number | null;
   createdAt: Date;
 };
+
+/* ------------------------------------------------------------------ *
+ * 文件上传（C 端图片：评价配图、意见反馈截图）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 已保存文件的视图。
+ *
+ * 只给 app 域要用的四样：`id` / `url`（可直接回给小程序拼展示地址）/ 类型 / 大小。
+ * **不暴露 `path`**（服务器绝对路径）与 `createdBy` —— 那些是后台文件管理页才需要的。
+ */
+export type UploadedFileView = {
+  id: number;
+  url: string;
+  mime: string;
+  size: number;
+};
+
+/**
+ * 文件存储端口。
+ *
+ * app 域**不直接依赖 `FilesModule`**（那边是后台文件管理，带权限点与列表/删除接口），
+ * 只通过这个端口借「存一个文件」这一件事 —— 复用同一份落盘逻辑与大小/类型约束，
+ * 避免小程序自己写一套上传（两套实现必然在大小限制、扩展名白名单上分叉）。
+ */
+export abstract class FilePort {
+  abstract save(
+    part: MultipartFile,
+    actorId: number | undefined,
+  ): Promise<UploadedFileView>;
+}
 
 export type SubscribeGrantInput = {
   appWxUserId: number;

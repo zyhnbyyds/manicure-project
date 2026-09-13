@@ -5,6 +5,7 @@ import { goBack, goBookings } from '../../utils/nav';
 import { definePage } from '../../utils/page';
 import { isApiFailure } from '../../utils/request';
 import { hideLoading, showLoading, toast } from '../../utils/ui';
+import { chooseAndUploadImage } from '../../utils/upload';
 
 /** 设计稿里的快捷标签（点选后拼进评价内容） */
 const TAGS = ['手艺细腻', '沟通耐心', '环境干净', '款式还原度高'];
@@ -17,7 +18,7 @@ const MAX_IMAGES = 9;
  *
  * 入参 `bookingId`，提交走 `POST /app/reviews`（后端已是真实现：
  * 仅本人 + 仅已完成 + 一单一评）。评分与文字是真提交；
- * **图片上传降级**：app 域没有文件上传接口（后端的上传在管理端），
+ * **配图先传后提交**：选图即刻上传（/app/upload），提交时只带地址（单张失败不影响文字提交）。
  * 所以图片位保留设计稿视觉，点击如实提示。
  */
 definePage({
@@ -38,7 +39,10 @@ definePage({
     content: '',
     /** 图片位：默认展示 3 个占位格（设计稿即 3 格 + 「+」） */
     imageSlots: [0, 1, 2],
+    /** 已上传的配图：src 用于预览、path 提交给后端 */
+    images: [] as { src: string; path: string }[],
     submitting: false,
+    uploading: false,
   },
 
   /** 被评价的订单 id（实例属性，不进 data） */
@@ -96,8 +100,28 @@ definePage({
   },
 
   onAddImage() {
-    // app 域没有文件上传接口（上传能力在管理端），保留设计稿的图片位
-    toast('图片上传开发中，先写点文字吧');
+    void this.addImage();
+  },
+
+  /** 选图并上传：选完立刻传，提交时只带地址（提交那一刻不该再等网络） */
+  async addImage() {
+    if (this.data.uploading) return;
+    const room = MAX_IMAGES - this.data.images.length;
+    if (room <= 0) {
+      toast(`最多传 ${MAX_IMAGES} 张`);
+      return;
+    }
+    this.setData({ uploading: true });
+    const uploaded = await chooseAndUploadImage(room);
+    this.setData({
+      uploading: false,
+      images: uploaded ? [...this.data.images, uploaded] : this.data.images,
+    });
+  },
+
+  onRemoveImage(event: WechatMiniprogram.TouchEvent) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({ images: this.data.images.filter((_, i) => i !== index) });
   },
 
   async onSubmit() {
@@ -119,6 +143,10 @@ definePage({
         bookingId: this.targetBookingId,
         rating: this.data.rating,
         content: content || undefined,
+        // 图片先传后提交：这里只带地址（后端 images 上限 9，与设计稿一致）
+        ...(this.data.images.length > 0
+          ? { images: this.data.images.map((item) => item.path) }
+          : {}),
       });
       hideLoading();
       wx.showModal({

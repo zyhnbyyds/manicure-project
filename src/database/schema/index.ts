@@ -2715,6 +2715,13 @@ export const bizFeedbacks = mysqlTable(
     /** 反馈类型（自由文本：功能异常 / 体验建议 / 内容问题 / 其他） */
     type: varchar('type', { length: 30 }).notNull(),
     content: varchar('content', { length: 1000 }).notNull(),
+    /**
+     * 图片（`/api/v1/files/:id/download` 路径数组，最多 3 张）。
+     *
+     * 存**路径**而不是文件 id：小程序提交的本来就是这个地址，再存一份 id
+     * 只会多出一处可能与文件表对不上的地方（截图是证据，不该有第二份真相）。
+     */
+    images: json('images').$type<string[]>(),
     /** 顾客留的联系方式（可空；匿名顾客想被回复时会填） */
     contact: varchar('contact', { length: 100 }),
     isAnonymous: boolean('is_anonymous').default(false).notNull(),

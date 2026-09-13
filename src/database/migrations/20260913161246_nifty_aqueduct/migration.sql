@@ -1,0 +1,1 @@
+ALTER TABLE `biz_feedback` ADD `images` json;

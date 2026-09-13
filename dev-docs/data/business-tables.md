@@ -983,6 +983,7 @@ MySQL 没有`WHERE is_default = 1`这种**部分唯一索引**；而 `(customer_
 | `customer_id` | int unsigned | **可空**：匿名提交与未绑定访客都是 `null` |
 | `type` | varchar(30) | 反馈类型（自由文本：功能异常 / 体验建议 / 内容问题 / 其他） |
 | `content` | varchar(1000) | 反馈内容 |
+| `images` | json | 截图路径数组（最多 3 张，元素形如 `/api/v1/files/12/download`） |
 | `contact` | varchar(100) | 顾客留的联系方式（可空） |
 | `is_anonymous` | boolean | 是否匿名提交 |
 | `status` | enum | `pending` / `processing` / `resolved` / `closed`（门店侧流转） |

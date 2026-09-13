@@ -33,12 +33,34 @@
       />
       <view class="counter">{{content.length}}/500</view>
 
+      <!-- 已上传的截图（点 × 移除）+ 还能再传的空位 -->
       <view class="images">
-        <view wx:for="{{imageSlots}}" wx:key="*this" class="images__slot press-sm" bindtap="onAddImage">
-          <view class="images__plus">+</view>
+        <view
+          wx:for="{{images}}"
+          wx:key="path"
+          class="images__item"
+        >
+          <image class="images__photo" src="{{item.src}}" mode="aspectFill" />
+          <view
+            class="images__remove press-sm"
+            data-index="{{index}}"
+            bindtap="onRemoveImage"
+            >×</view
+          >
+        </view>
+        <view
+          wx:for="{{imageSlots}}"
+          wx:key="*this"
+          wx:if="{{index + images.length < imageSlots.length}}"
+          class="images__slot press-sm"
+          bindtap="onAddImage"
+        >
+          <view class="images__plus">{{uploading ? '…' : '+'}}</view>
         </view>
       </view>
-      <view class="images__hint">上传图片（选填）×3，图片功能开发中</view>
+      <view class="images__hint"
+        >上传截图（选填）最多 3 张，已传 {{images.length}} 张</view
+      >
     </view>
 
     <!-- 联系方式与匿名 -->

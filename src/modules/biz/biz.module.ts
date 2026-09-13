@@ -11,6 +11,7 @@ import {
   CommissionPort,
   CreditPort,
   CustomerPort,
+  FilePort,
   MemberAccountPort,
   MemberCardPort,
   NoticePort,
@@ -26,6 +27,8 @@ import {
   StaffPort,
 } from './common/ports.js';
 import { CreditModule } from './credit/credit.module.js';
+import { FilesModule } from '../files/files.module.js';
+import { FilesService } from '../files/files.service.js';
 import { ReceivablesService } from './credit/receivables/receivables.service.js';
 import { RechargePlansService } from './membership/recharge-plans/recharge-plans.service.js';
 import { MembershipModule } from './membership/membership.module.js';
@@ -63,6 +66,8 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
 @Module({
   imports: [
     BizCommonModule,
+    /** 文件存储：C 端上传复用后台同一套落盘与大小/类型约束 */
+    FilesModule,
     BaseDataModule,
     SchedulingModule,
     BookingModule,
@@ -76,6 +81,7 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
     { provide: ServiceItemPort, useExisting: ServiceItemsService },
     { provide: StaffPort, useExisting: StaffsService },
     { provide: CustomerPort, useExisting: CustomersService },
+    { provide: FilePort, useExisting: FilesService },
     { provide: SchedulePort, useExisting: SchedulingService },
     { provide: SlotPort, useExisting: SlotsService },
     { provide: SettlementPort, useExisting: BookingSettlementService },
@@ -99,6 +105,7 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
     ServiceItemPort,
     StaffPort,
     CustomerPort,
+    FilePort,
     SchedulePort,
     SlotPort,
     SettlementPort,

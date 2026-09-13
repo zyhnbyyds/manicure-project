@@ -417,6 +417,7 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | **取消页费用预览** | `GET /app/bookings/:id/refund-preview` 复用 `RefundPort.preview`，取消页显示**真实可退 / 扣除金额**（以前只能写「可能扣除部分定金」）。 |
 | **会员卡促销区降级** | 优惠券接口失败不再静默显示「暂无可领的券」，改为「加载失败 / 点这里重新加载」。 |
 | **意见反馈（文字通道）** | 新表 `biz_feedback` + `POST /app/feedback`：**不要求绑定手机号**（访客也有意见要说），**匿名提交一律落 `customer_id = null`**（记了身份再标匿名等于骗人）。batch5 第 4 屏 |
+| **C 端图片上传** | `POST /app/upload`（app token 域；后台 `/files/upload` 是后台 token，小程序打过去只会 401）+ `utils/upload.ts`（`wx.chooseMedia` → `wx.uploadFile`）。意见反馈三格图位、评价九格配图都接上了；反馈表加 `images` 列。**注意 `sys_file.created_by` 是 `sys_user` 外键**，C 端上传必须传 `undefined`，否则撞外键（实测 500），更糟的是可能记到别人名下 |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 
@@ -431,8 +432,7 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 
 | 项 | 现状 | 需要 |
 | --- | --- | --- |
-| **图片上传（意见反馈 / 评价）** | 设计稿里的三格图片位**在位但传不了**，点了如实提示 | 后端已有 `FilesService.save` + `POST /files/upload`（但那是**后台 token** 域）；缺 **C 端上传入口** `POST /app/upload`（app token + 类型/大小/配额约束，按 `FilePort` 端口复用后台存储）+ 反馈表 `images` 列 + 小程序 `wx.chooseMedia`/`wx.uploadFile` |
-| **意见反馈的门店处理页** | 反馈已能落库（`status`/`reply` 字段都在），但**后台还没有页面**去看/回复 | web 后台加一个「意见反馈」列表页（`GET/POST /biz/feedbacks`），与其它后台页面同构 |
+| **意见反馈的门店处理页** | 反馈已能落库、带图、`status`/`reply` 字段都在，但**后台还没有页面**去看/回复 | web 后台加一个「意见反馈」列表页（`GET/POST /biz/feedbacks`），与其它后台页面同构 |
 | **充值下单** | 档位展示已有，点充值如实提示 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
 
 ### D. 做不了 / 不该做（不是缺陷）

@@ -677,6 +677,8 @@ export const appCreateFeedbackRequestSchema = z
       .max(100)
       .optional()
       .openapi({ example: '13800000000', description: '联系方式（可空）' }),
+    /** 截图（`POST /app/upload` 返回的 url），最多 3 张 */
+    images: z.array(z.string().max(500)).max(3).optional(),
     /** 匿名开关：true 时后端**不记录**顾客身份 */
     anonymous: z.boolean().optional(),
   })
@@ -693,6 +695,21 @@ export const appCreateFeedbackVo = z.object({
 });
 registerComponent('AppCreateFeedbackVo', appCreateFeedbackVo);
 export type AppCreateFeedbackVo = z.infer<typeof appCreateFeedbackVo>;
+
+/**
+ * 上传图片的返回（`POST /app/upload`）。
+ *
+ * `url` 是可以直接塞进小程序 `<image src>` 的路径（相对路径，
+ * 由小程序的 `absoluteAssetUrl` 拼上接口域名）。
+ */
+export const appUploadVo = z.object({
+  id: z.number().int(),
+  url: z.string().openapi({ example: '/api/v1/files/12/download' }),
+  mime: z.string().openapi({ example: 'image/jpeg' }),
+  size: z.number().int().openapi({ description: '字节数' }),
+});
+registerComponent('AppUploadVo', appUploadVo);
+export type AppUploadVo = z.infer<typeof appUploadVo>;
 
 /* ------------------------------------------------------------------ *
  * 取消/退款预览（batch4「取消预约」页要显示真实可退金额）

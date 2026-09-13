@@ -462,6 +462,8 @@ export class AppCustomerDataService {
       customerId,
       type: input.type,
       content: input.content,
+      // 空数组与「没传」都存 null：前端判空只需判一种值
+      images: input.images && input.images.length > 0 ? input.images : null,
       contact: input.contact && input.contact !== '' ? input.contact : null,
       isAnonymous: anonymous,
       status: 'pending',

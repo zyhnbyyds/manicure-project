@@ -10,6 +10,7 @@ import {
 } from './auth/wx-miniapp.provider.js';
 import { AppCatalogController } from './catalog/app-catalog.controller.js';
 import { AppCatalogService } from './catalog/app-catalog.service.js';
+import { AppUploadController } from './app-upload.controller.js';
 import { AppCustomerDataController } from './member/app-customer-data.controller.js';
 import { AppCustomerDataService } from './member/app-customer-data.service.js';
 import { AppMemberController } from './member/app-member.controller.js';
@@ -40,6 +41,7 @@ import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
     AppCatalogController,
     AppMemberController,
     AppCustomerDataController,
+    AppUploadController,
     AppPaymentsController,
     AppStaffController,
     AppStaffGrantsController,
