@@ -59,6 +59,15 @@ export function getCustomerId(): number | null {
 /**
  * 保证有登录态：已登录直接返回；否则走一次 wx.login 换 token。
  * 并发调用共享同一个 promise。
+ *
+ * ⚠️ **无论成功失败都要把 `loginPromise` 复位**（`finally`）。
+ * 只在失败时复位会留下一个坑：**退出登录后再点「微信一键登录」不会有任何反应** ——
+ * `isLoggedIn()` 已经是 false，但 `if (loginPromise) return loginPromise` 会把上一次
+ * **已成功**的那个 promise 直接还回去，于是既不重新 `wx.login`，也没有 token，
+ * 用户只能杀掉小程序重开（实测复现：退出后点登录只弹「已登录」，storage 里仍然没有 token）。
+ *
+ * 复位不影响并发去重：同一时刻的多个调用者拿到的仍是**同一个 in-flight promise**，
+ * 只有等它 settle 之后的新调用才会重新发起。
  */
 export function ensureLogin(): Promise<void> {
   if (isLoggedIn()) return Promise.resolve();
@@ -73,10 +82,15 @@ export function ensureLogin(): Promise<void> {
     rememberStaffStatus(result.staffStatus);
   })();
 
-  // 失败后允许下次重试，否则一次网络抖动会把用户永久卡在未登录
-  loginPromise.catch(() => {
-    loginPromise = null;
-  });
+  // settle 之后复位：失败允许下次重试（一次网络抖动不该把人永久卡在未登录），
+  // 成功也要复位（否则退出登录后就再也登不回来）
+  loginPromise
+    .catch(() => {
+      /* 错误交给调用方；这里只负责复位 */
+    })
+    .finally(() => {
+      loginPromise = null;
+    });
 
   return loginPromise;
 }

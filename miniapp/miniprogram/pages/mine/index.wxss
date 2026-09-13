@@ -1,33 +1,16 @@
-/* 个人中心 —— 对齐 docs/design.png 第 5 屏 */
+/* 个人中心 —— 对齐新设计稿 manicure-ui-mine-v2 */
 
-/* ── 自定义导航栏 ─────────────────────────────────────────── */
+/* ── 自定义导航栏（只有左上角一枚太阳） ────────────────────── */
 
 .navbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   height: 88rpx;
   padding-left: 28rpx;
   box-sizing: content-box;
 }
 
-/* 设计稿左上角是一枚圆形头像；这里用昵称做无图兜底，避免空白圆 */
-.navbar__avatar {
-  max-width: 220rpx;
-  height: 72rpx;
-  padding: 0 22rpx;
-  border-radius: var(--r-pill);
-  background: var(--c-chip);
-  color: var(--c-text-sub);
-  font-size: 22rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.navbar__settings {
+.navbar__theme {
   width: 64rpx;
   height: 64rpx;
   display: flex;
@@ -35,41 +18,99 @@
   justify-content: center;
 }
 
-.navbar__settings-icon {
+.navbar__theme-icon {
   width: 44rpx;
   height: 44rpx;
 }
 
-/* ── 用户区 ───────────────────────────────────────────────── */
+/* ── 用户卡（不加卡片底，直接落在页面底色上，靠留白分区） ───── */
 
 .user {
+  display: flex;
+  align-items: center;
   padding: 8rpx 8rpx 0;
+}
+
+.user__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 148rpx;
+  height: 148rpx;
+  margin-right: 24rpx;
+}
+
+.user__avatar {
+  width: 148rpx;
+  height: 148rpx;
+  border-radius: 50%;
+  background: var(--c-chip);
+}
+
+/* 没头像时用昵称首字兜底（不伪造一张别人的照片） */
+.user__avatar--text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 56rpx;
+  color: var(--c-primary-deep);
+  background: var(--c-primary-soft);
+}
+
+/* 右下角相机角标：与「个人资料」页同款（纯 CSS 画，项目不引图标包） */
+.user__camera {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--c-bg);
+  background: var(--c-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user__camera-lens {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  border: 4rpx solid #fff;
+}
+
+.user__body {
+  min-width: 0;
 }
 
 .user__name {
   display: flex;
   align-items: center;
+}
+
+.user__name-text {
+  max-width: 300rpx;
   font-family: var(--font-serif);
-  font-size: 46rpx;
+  font-size: 40rpx;
   font-weight: 600;
 }
 
+/* 等级标签：贴纸式小胶囊（与卡面的等级材质无关，这里是列表语境） */
 .user__badge {
-  margin-left: 16rpx;
-  height: 40rpx;
-  line-height: 40rpx;
-  padding: 0 18rpx;
+  flex-shrink: 0;
+  margin-left: 14rpx;
+  height: 38rpx;
+  line-height: 38rpx;
+  padding: 0 16rpx;
   border-radius: var(--r-pill);
-  background: var(--c-gradient);
-  color: var(--c-primary-deep);
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  background: var(--c-chip);
+  color: var(--c-text-sub);
   font-size: 20rpx;
-  font-weight: 400;
 }
 
 .user__slogan {
   margin-top: 10rpx;
-  font-size: 25rpx;
+  font-size: 24rpx;
   color: var(--c-text-sub);
 }
 
@@ -79,27 +120,102 @@
   color: var(--c-text-weak);
 }
 
-/* ── 三列数据 ─────────────────────────────────────────────── */
-
-.stats {
-  display: flex;
-  margin-top: 36rpx;
+.user__arrow {
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  font-size: 34rpx;
+  color: var(--c-text-weak);
 }
 
-.stats__item {
+/* ── 统计卡（上排三列 + 下排积分余额） ─────────────────────── */
+
+.stat {
+  margin-top: 30rpx;
+  padding: 0;
+}
+
+.stat__row {
+  display: flex;
+  padding: 26rpx 0 22rpx;
+}
+
+.stat__item {
   flex: 1;
   text-align: center;
 }
 
-.stats__value {
+.stat__value {
   font-family: var(--font-serif);
   font-size: 44rpx;
   font-weight: 600;
 }
 
-.stats__label {
+.stat__label {
   margin-top: 6rpx;
   font-size: 22rpx;
+  color: var(--c-text-weak);
+}
+
+.stat__split {
+  height: 2rpx;
+  margin: 0 28rpx;
+  background: var(--c-border);
+}
+
+.stat__assets {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 28rpx;
+}
+
+.stat__asset {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.stat__asset--right {
+  justify-content: flex-start;
+  padding-left: 24rpx;
+}
+
+/* ¥ 与 ◎：用文字/圆环画，避免为两个符号引图标 */
+.stat__asset-icon {
+  flex-shrink: 0;
+  width: 32rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  text-align: center;
+  margin-right: 10rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--c-border);
+  color: var(--c-text-sub);
+  font-size: 20rpx;
+}
+
+.stat__asset-icon--ring {
+  border: 4rpx solid var(--c-border);
+  background: transparent;
+}
+
+.stat__asset-label {
+  flex-shrink: 0;
+  margin-right: 10rpx;
+  font-size: 23rpx;
+  color: var(--c-text-sub);
+}
+
+.stat__asset-value {
+  font-family: var(--font-serif);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.stat__arrow {
+  flex-shrink: 0;
+  margin-left: 8rpx;
+  font-size: 32rpx;
   color: var(--c-text-weak);
 }
 
@@ -117,9 +233,29 @@
   align-items: center;
 }
 
+.orders__icon-wrap {
+  position: relative;
+}
+
 .orders__icon {
   width: 46rpx;
   height: 46rpx;
+}
+
+/* 待支付角标：真实数量，为 0 时不渲染 */
+.orders__badge {
+  position: absolute;
+  top: -12rpx;
+  right: -18rpx;
+  min-width: 28rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  padding: 0 8rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 18rpx;
+  text-align: center;
 }
 
 .orders__label {
@@ -188,13 +324,15 @@
   margin-top: 40rpx;
 }
 
+/* 退出登录：设计稿是**描边胶囊**（不是填充按钮），保持「危险动作低调」 */
 .logout {
-  margin-top: 40rpx;
+  margin: 44rpx 0 0;
+  border-radius: var(--r-pill);
 }
 
 /* 未登录 / 未绑定引导卡（登录态区分） */
 .guest {
-  margin-top: 36rpx;
+  margin-top: 30rpx;
   text-align: center;
 }
 

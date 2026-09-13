@@ -1,39 +1,75 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <!-- 自定义导航栏（设计稿：左侧头像、右侧设置齿轮，无标题） -->
+  <!--
+    自定义导航栏：设计稿左上角是一枚太阳（主题/外观快捷入口），无标题；
+    右上角给微信胶囊留位（navRightGap）。
+  -->
   <view
     class="navbar"
     style="padding-top:{{statusBarHeight}}px;padding-right:{{navRightGap}}px"
   >
-    <view class="navbar__avatar">{{nickname}}</view>
-    <view class="navbar__settings press-sm" bindtap="onSettings">
-      <image class="navbar__settings-icon" src="{{icons.settings}}" mode="aspectFit" />
+    <view class="navbar__theme press-sm" bindtap="goTheme">
+      <image class="navbar__theme-icon" src="{{icons.sun}}" mode="aspectFit" />
     </view>
   </view>
 
   <view class="page-body">
-    <!-- 用户区（不加卡片，直接落在底色上，靠留白分区） -->
-    <view class="user">
-      <view class="user__name">
-        {{nickname}}
-        <view wx:if="{{levelName}}" class="user__badge">{{levelName}}</view>
+    <!-- 用户卡：整卡可点，进「个人资料」（改头像/昵称都在那里） -->
+    <view class="user press-sm anim-rise" bindtap="onUserCard">
+      <view class="user__avatar-wrap">
+        <image
+          wx:if="{{avatarSrc}}"
+          class="user__avatar"
+          src="{{avatarSrc}}"
+          mode="aspectFill"
+        />
+        <view wx:else class="user__avatar user__avatar--text">{{avatarText}}</view>
+        <view class="user__camera"><view class="user__camera-lens"></view></view>
       </view>
-      <view class="user__slogan">{{slogan}}</view>
-      <view class="user__bind">{{bindText}}</view>
+
+      <view class="user__body grow">
+        <view class="user__name">
+          <text class="user__name-text ellipsis">{{nickname}}</text>
+          <view wx:if="{{levelName}}" class="user__badge">{{levelName}}</view>
+        </view>
+        <view class="user__slogan">{{slogan}}</view>
+        <view class="user__bind">{{bindText}}</view>
+      </view>
+
+      <view class="user__arrow">›</view>
     </view>
 
-    <!-- 三列数据：**只有已绑定才显示**。未登录时显示 0 会让人误以为「我的资产是 0」 -->
-    <view wx:if="{{bound}}" class="stats anim-rise">
-      <view class="stats__item press-sm" data-key="booking" bindtap="onStatTap">
-        <view class="stats__value">{{bookingCount}}</view>
-        <view class="stats__label">我的预约</view>
+    <!-- 统计卡：**只有已绑定才显示真实数字**；未绑定显示引导（不写死 0） -->
+    <view wx:if="{{bound}}" class="card stat anim-rise">
+      <view class="stat__row">
+        <view class="stat__item press-sm" data-key="booking" bindtap="onStatTap">
+          <view class="stat__value">{{bookingCount}}</view>
+          <view class="stat__label">我的预约</view>
+        </view>
+        <view class="stat__item press-sm" data-key="favorite" bindtap="onStatTap">
+          <view class="stat__value">{{favoriteCount}}</view>
+          <view class="stat__label">收藏款式</view>
+        </view>
+        <view class="stat__item press-sm" data-key="coupon" bindtap="onStatTap">
+          <view class="stat__value">{{couponCount}}</view>
+          <view class="stat__label">优惠券</view>
+        </view>
       </view>
-      <view class="stats__item press-sm" data-key="favorite" bindtap="onStatTap">
-        <view class="stats__value">{{favoriteCount}}</view>
-        <view class="stats__label">收藏款式</view>
-      </view>
-      <view class="stats__item press-sm" data-key="coupon" bindtap="onStatTap">
-        <view class="stats__value">{{couponCount}}</view>
-        <view class="stats__label">优惠券</view>
+
+      <view class="stat__split"></view>
+
+      <!-- 下排：积分 / 余额（都落在「会员卡」页） -->
+      <view class="stat__assets press-sm" bindtap="onAssets">
+        <view class="stat__asset">
+          <view class="stat__asset-icon">¥</view>
+          <view class="stat__asset-label">我的积分</view>
+          <view class="stat__asset-value">{{points}}</view>
+        </view>
+        <view class="stat__asset stat__asset--right">
+          <view class="stat__asset-icon stat__asset-icon--ring"></view>
+          <view class="stat__asset-label">账户余额</view>
+          <view class="stat__asset-value">{{balanceText}}元</view>
+        </view>
+        <view class="stat__arrow">›</view>
       </view>
     </view>
 
@@ -43,28 +79,43 @@
         {{loggedIn ? '绑定手机号，解锁会员权益' : '登录后查看会员权益'}}
       </view>
       <view class="guest__text">储值余额、积分、次卡与优惠券都会在这里显示</view>
-      <view class="btn btn--primary btn--block guest__btn" bindtap="onGuestAction">去登录 / 绑定</view>
-    </view>
-
-    <!-- 我的订单（同样只有已绑定才有意义） -->
-    <view wx:if="{{bound}}" class="section">
-      <view class="section__title">我的订单</view>
-      <view class="section__more" bindtap="goBookings">查看全部 ›</view>
-    </view>
-    <view wx:if="{{bound}}" class="card orders anim-rise">
-      <view
-        wx:for="{{orderTabs}}"
-        wx:key="label"
-        class="orders__item press-sm"
-        data-key="{{item.key}}"
-        bindtap="onOrderTab"
-      >
-        <image class="orders__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
-        <view class="orders__label">{{item.label}}</view>
+      <view class="btn btn--primary btn--block guest__btn" bindtap="onGuestAction">
+        去登录 / 绑定
       </view>
     </view>
 
-    <!-- 功能列表 -->
+    <!-- 我的订单 -->
+    <block wx:if="{{bound}}">
+      <view class="section">
+        <view class="section__title">我的订单</view>
+        <view class="section__more" bindtap="goBookings">查看全部 ›</view>
+      </view>
+      <view class="card orders anim-rise">
+        <view
+          wx:for="{{orderTabs}}"
+          wx:key="label"
+          class="orders__item press-sm"
+          data-key="{{item.key}}"
+          bindtap="onOrderTab"
+        >
+          <view class="orders__icon-wrap">
+            <image class="orders__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+            <!-- 待支付角标：显示真实数量（为 0 时不显示，别用 0 当装饰） -->
+            <view
+              wx:if="{{item.key === 'unpaid' && unpaidCount > 0}}"
+              class="orders__badge"
+              >{{unpaidCount}}</view
+            >
+          </view>
+          <view class="orders__label">{{item.label}}</view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 更多服务 -->
+    <view class="section">
+      <view class="section__title">更多服务</view>
+    </view>
     <view class="card menu">
       <view
         wx:for="{{menu}}"
@@ -77,6 +128,7 @@
         <view class="grow">{{item.label}}</view>
         <view class="menu__arrow">›</view>
       </view>
+      <!-- 主题设置排最后（设计稿把它放在列表末尾，右侧显示当前主题名） -->
       <view class="menu__item menu__item--last press" bindtap="goTheme">
         <image class="menu__icon" src="{{icons.settings}}" mode="aspectFit" />
         <view class="grow">主题设置</view>

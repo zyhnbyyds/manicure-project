@@ -36,6 +36,7 @@ export type IconName =
   | 'coupon'
   | 'settings'
   | 'check'
+  | 'sun'
   | 'star';
 
 /** 24x24 视图框内的描边路径（fill=none，描边由外层控制） */
@@ -57,8 +58,7 @@ const PATHS: Record<IconName, string> = {
   chevron: "<path d='M9.4 4.8 16.6 12l-7.2 7.2'/>",
   share:
     "<path d='M12 3.6v10.2'/><path d='M8.2 7.2 12 3.6l3.8 3.6'/><path d='M6 13.4v6.4h12v-6.4'/>",
-  heart:
-    "<path d='M12 19.4c-1.2-.9-7-5-7-9.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7 3c0 4.2-5.8 8.3-7 9.2z'/>",
+  heart:    "<path d='M12 19.4c-1.2-.9-7-5-7-9.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7 3c0 4.2-5.8 8.3-7 9.2z'/>",
   headset:
     "<path d='M5 13.4v-1.2a7 7 0 0 1 14 0v1.2'/><rect x='4.2' y='12.6' width='3.2' height='5.4' rx='1.6'/><rect x='16.6' y='12.6' width='3.2' height='5.4' rx='1.6'/>",
   location:
@@ -69,6 +69,9 @@ const PATHS: Record<IconName, string> = {
   settings:
     "<circle cx='12' cy='12' r='3'/><path d='M12 3.4v2.2'/><path d='M12 18.4v2.2'/><path d='M3.4 12h2.2'/><path d='M18.4 12h2.2'/><path d='M6.2 6.2 7.8 7.8'/><path d='M16.2 16.2l1.6 1.6'/><path d='M17.8 6.2 16.2 7.8'/><path d='M7.8 16.2 6.2 17.8'/>",
   check: "<path d='M5.2 12.6 9.6 17l9.2-9.6'/>",
+  // 太阳：主题/外观的快捷入口（「我的」页左上角，设计稿是一枚细线太阳）
+  // 圆心 + 8 条短射线，与 settings 的齿轮区分开
+  sun: "<circle cx='12' cy='12' r='4'/><path d='M12 2.6v2.6'/><path d='M12 18.8v2.6'/><path d='M2.6 12h2.6'/><path d='M18.8 12h2.6'/><path d='M5.3 5.3 7.2 7.2'/><path d='M16.8 16.8l1.9 1.9'/><path d='M18.7 5.3 16.8 7.2'/><path d='M7.2 16.8l-1.9 1.9'/>",
   // 五角星：评分用。描边态与实心态共用同一条路径（见 svgIcon 的 filled 参数）
   star: "<path d='M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.8-5.2-2.75-5.2 2.75 1-5.8-4.2-4.1 5.8-.85z'/>",
 };
