@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new GlobalExceptionFilter());
   const config = app.get(AppConfigService);
   await app.register(helmet);
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: 1000, timeWindow: '1 minute' });
   await app.register(multipart, {
     limits: { files: 1, fileSize: 10 * 1024 * 1024 },
   });

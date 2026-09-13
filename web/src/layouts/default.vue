@@ -71,7 +71,7 @@ const pageTransition = {
       :style="{ width: sidebarWidth }"
     >
       <div
-        class="flex items-center justify-center gap-2 h-14 shrink-0 px-3 overflow-hidden border-b border-[var(--app-border)]"
+        class="flex items-center justify-start pl-30px gap-2 h-14 shrink-0 px-3 overflow-hidden border-b border-[var(--app-border)]"
       >
         <img
           src="/image/logo.png"
@@ -82,7 +82,7 @@ const pageTransition = {
           v-if="!settings.collapsed"
           class="text-17px font-800 tracking--2% whitespace-nowrap text-[var(--lew-color-primary)]"
         >
-          美甲管理系统
+          不做美甲吗
         </span>
       </div>
       <SidebarMenu :items="sidebarItems" :collapsed="settings.collapsed" />
