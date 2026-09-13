@@ -98,6 +98,31 @@ page {
   box-sizing: border-box;
 }
 
+/**
+ * 吸顶工具栏（搜索框 / 筛选 / 页签）—— 列表页的筛选控件必须**一直够得着**。
+ *
+ * 不吸顶的后果不是「不好看」，是**不能用**：列表一长，滚到下面就再也改不了筛选，
+ * 只能一路滚回顶部再滚回来（款式库实测：列表滚 700px 后搜索框 top 从 0 变成 -700）。
+ *
+ * 用法：工具栏放在 `.page` 下、`.page-body` **之前**（或 `.page-body` 的首个子元素），
+ * 加 `sticky-head` 类，自己带左右内边距；`.page-body` 若紧跟其后，记得把它的 `padding-top` 置 0。
+ *
+ * 三条铁律（少一条就失效）：
+ * 1. **背景必须不透明**（默认 `--c-bg`）—— sticky 不做裁剪，透底会把滚过去的列表透出来；
+ * 2. 从**滚动容器**到它的每一层祖先都不能有 `overflow: hidden/auto/scroll`，
+ *    否则 sticky 被困在那个盒子里（本项目用原生滚动，`.page` / `.page-body` 都没有 overflow，安全）；
+ * 3. 别改成 `position: fixed` —— `.page` 里的 `.anim-rise` 会加 `transform`，
+ *    而带 transform 的祖先会成为 fixed 的包含块（见本文件末尾 `anim-rise` 那段注释）。
+ *
+ * 参考实现：`pages/staffs` 的 `.summary`（更早写的同款，保留原样）。
+ */
+.sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--c-bg);
+}
+
 /* 有自定义 TabBar 的页面，底部留出占位 */
 .page-with-tabbar {
   padding-bottom: calc(140rpx + env(safe-area-inset-bottom));

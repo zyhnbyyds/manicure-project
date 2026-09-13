@@ -1,42 +1,49 @@
 <view class="page" style="{{themeStyle}}">
-  <!-- 搜索（设计稿：胶囊搜索框 + 放大镜） -->
-  <view class="search">
-    <view class="search__box">
-      <image class="search__icon" src="{{icons.search}}" mode="aspectFit" />
-      <input
-        class="search__input"
-        value="{{keyword}}"
-        placeholder="搜款式名 / 风格"
-        placeholder-class="search__placeholder"
-        confirm-type="search"
-        bindinput="onSearchInput"
-      />
-      <view wx:if="{{keyword}}" class="search__clear" bindtap="onSearchClear">×</view>
-    </view>
-  </view>
-
-  <!-- 分类 + 排序入口 -->
-  <view class="filters">
-    <scroll-view class="filters__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
-      <view class="filters__row">
-        <view
-          wx:for="{{categories}}"
-          wx:key="*this"
-          class="chip {{activeCategory === item ? 'is-active' : ''}}"
-          data-name="{{item}}"
-          bindtap="onCategory"
-        >
-          {{item}}
-        </view>
+  <!--
+    搜索 + 分类/排序：整块吸顶（列表滚到哪都够得着）。
+    两条实测约束见 app.wxss 的 `.sticky-head`：背景要不透明、祖先不能有 overflow。
+  -->
+  <view class="head sticky-head">
+    <!-- 搜索（设计稿：胶囊搜索框 + 放大镜） -->
+    <view class="search">
+      <view class="search__box">
+        <image class="search__icon" src="{{icons.search}}" mode="aspectFit" />
+        <input
+          class="search__input"
+          value="{{keyword}}"
+          placeholder="搜款式名 / 风格"
+          placeholder-class="search__placeholder"
+          confirm-type="search"
+          bindinput="onSearchInput"
+        />
+        <view wx:if="{{keyword}}" class="search__clear" bindtap="onSearchClear">×</view>
       </view>
-    </scroll-view>
-    <view class="filters__sort" bindtap="onFilter">
-      <image class="filters__sort-icon" src="{{icons.funnel}}" mode="aspectFit" />
-      <view class="filters__dot"></view>
+    </view>
+
+    <!-- 分类 + 排序入口 -->
+    <view class="filters">
+      <scroll-view class="filters__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+        <view class="filters__row">
+          <view
+            wx:for="{{categories}}"
+            wx:key="*this"
+            class="chip {{activeCategory === item ? 'is-active' : ''}}"
+            data-name="{{item}}"
+            bindtap="onCategory"
+          >
+            {{item}}
+          </view>
+        </view>
+      </scroll-view>
+      <view class="filters__sort" bindtap="onFilter">
+        <image class="filters__sort-icon" src="{{icons.funnel}}" mode="aspectFit" />
+        <view class="filters__dot"></view>
+      </view>
     </view>
   </view>
 
-  <view class="page-body">
+  <!-- 结算条出现时给列表让位，否则最后一张卡被压在条下面（滚不出来） -->
+  <view class="page-body {{selectedCount > 0 ? 'has-action-bar' : ''}}">
     <!-- 骨架屏（batch3）：设计稿用的是色块骨架，不是一个转圈 -->
     <block wx:if="{{loading}}">
       <view wx:for="{{skeletonRows}}" wx:key="*this" class="card skeleton-card">

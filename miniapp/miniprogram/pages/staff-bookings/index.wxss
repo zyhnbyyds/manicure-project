@@ -195,7 +195,11 @@
   margin-left: 20rpx;
 }
 
-/* 日期条 */
+/* 日期条 + 状态筛选：吸顶（定位/背景见 app.wxss `.sticky-head`，这里补一条分隔线） */
+
+.head {
+  border-bottom: 2rpx solid var(--c-border);
+}
 
 .dates {
   white-space: nowrap;

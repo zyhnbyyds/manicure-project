@@ -1,36 +1,42 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <!-- 搜索（batch1 第 1 屏：单号 / 项目 / 美甲师都能搜） -->
-  <view class="search">
-    <view class="search__box">
-      <image class="search__icon" src="{{icons.search}}" mode="aspectFit" />
-      <input
-        class="search__input"
-        value="{{keyword}}"
-        placeholder="搜索单号 / 项目 / 美甲师"
-        placeholder-class="search__placeholder"
-        bindinput="onSearchInput"
-      />
-      <view wx:if="{{keyword}}" class="search__clear" bindtap="onSearchClear">×</view>
-    </view>
-  </view>
-
-  <!-- 状态筛选 + 排序 -->
-  <view class="filters">
-    <scroll-view class="filters__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
-      <view class="filters__row">
-        <view
-          wx:for="{{filters}}"
-          wx:key="key"
-          class="chip {{activeFilter === item.key ? 'is-active' : ''}}"
-          data-key="{{item.key}}"
-          bindtap="onFilter"
-        >
-          {{item.label}}
-        </view>
+  <!--
+    搜索 + 状态筛选：整块吸顶（列表一长就再也够不着筛选，见 app.wxss `.sticky-head`）。
+    「我的预约」是 tab 页、底部有自定义 TabBar，所以头部的 sticky 只到 top: 0。
+  -->
+  <view class="head sticky-head">
+    <!-- 搜索（batch1 第 1 屏：单号 / 项目 / 美甲师都能搜） -->
+    <view class="search">
+      <view class="search__box">
+        <image class="search__icon" src="{{icons.search}}" mode="aspectFit" />
+        <input
+          class="search__input"
+          value="{{keyword}}"
+          placeholder="搜索单号 / 项目 / 美甲师"
+          placeholder-class="search__placeholder"
+          bindinput="onSearchInput"
+        />
+        <view wx:if="{{keyword}}" class="search__clear" bindtap="onSearchClear">×</view>
       </view>
-    </scroll-view>
-    <view class="filters__sort" bindtap="onFilterSort">
-      <image class="filters__sort-icon" src="{{icons.funnel}}" mode="aspectFit" />
+    </view>
+
+    <!-- 状态筛选 + 排序 -->
+    <view class="filters">
+      <scroll-view class="filters__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+        <view class="filters__row">
+          <view
+            wx:for="{{filters}}"
+            wx:key="key"
+            class="chip {{activeFilter === item.key ? 'is-active' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onFilter"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </scroll-view>
+      <view class="filters__sort" bindtap="onFilterSort">
+        <image class="filters__sort-icon" src="{{icons.funnel}}" mode="aspectFit" />
+      </view>
     </view>
   </view>
 

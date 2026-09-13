@@ -1,6 +1,16 @@
 /* 消息中心 —— 对齐 docs/manicure-ui-batch5 第 2 屏（缺读取接口，先还原骨架） */
 
+/*
+ * 页签条在 `.page-body` 之外（要吸顶，见 app.wxss `.sticky-head`）：
+ * 左右/上内边距自己带一份（与原 `.page-body` 的 24rpx 对齐），
+ * `.notice-body` 的 `padding-top` 归零，保持与改动前同样的间距。
+ */
+.bar-head {
+  padding: 24rpx 24rpx 0;
+}
+
 .notice-body {
+  padding-top: 0;
   padding-bottom: 60rpx;
 }
 

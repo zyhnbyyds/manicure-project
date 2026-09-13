@@ -1,5 +1,9 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body notice-body anim-rise">
+  <!--
+    页签 + 「全部已读」吸顶：消息是会越攒越多的列表，滚到下面就再也切不了类型、
+    也点不到「全部已读」。挪到 `.page-body` 之外才吸得住（见 app.wxss `.sticky-head`）。
+  -->
+  <view class="bar-head sticky-head">
     <!-- 页签 + 全部已读 -->
     <view class="bar">
       <scroll-view class="bar__scroll" scroll-x enable-flex show-scrollbar="{{false}}">
@@ -17,7 +21,10 @@
       </scroll-view>
       <view class="bar__read press-sm" bindtap="onReadAll">全部已读</view>
     </view>
+  </view>
 
+  <!-- 注意：`.anim-rise` 带 `transform`，只挂在内容容器上，别往吸顶条的祖先上加 */
+  <view class="page-body notice-body anim-rise">
     <!-- 空态：缺的是读取接口，不是没有这个能力 -->
     <view class="empty anim-pop">
       <view class="empty__badge">

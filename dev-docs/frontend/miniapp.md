@@ -198,6 +198,38 @@ definePage({
 
 数据源**整体换了**（如时段页换日期）要传 `force: true` 回骨架屏；`onPullDownRefresh` 一律用 `runPullDownLoad`（`finally` 保证下拉圈会停）。
 
+## 列表页的工具栏一律吸顶（`.sticky-head`）
+
+小程序页面用的是**原生滚动**（不是 `scroll-view`，因为要保留下拉刷新），所以顶部的搜索/筛选/页签**默认会跟着列表一起滚走**。列表一长，用户就再也够不着筛选，只能一路滚回顶部再滚回来 —— 这不是「不好看」，是**不能用**。
+
+`app.wxss` 里定义了公共类 `.sticky-head`（`position: sticky; top: 0; z-index: 6; background: var(--c-bg)`），用法与三条铁律写在它的注释里：
+
+```html
+<view class="page" style="{{themeStyle}}">
+  <view class="head sticky-head"><!-- 搜索 / 筛选 / 页签 --></view>
+  <view class="page-body"><!-- 列表 --></view>
+</view>
+```
+
+- **背景必须不透明**（sticky 不裁剪，透底会把滚过去的列表透出来）；
+- 滚动容器到它的每一级祖先都**不能有 `overflow`**，否则 sticky 被困在那个盒子里；
+- 别用 `position: fixed`：`.anim-rise` 会加 `transform`，而带 transform 的祖先会成为 fixed 的包含块（`app.wxss` 末尾记过这个坑）；
+- 工具栏**在 `.page-body` 之外**时，自己带左右内边距，并把紧随其后的 `.page-body` 的 `padding-top` 置 0，间距才与改动前一致。
+
+当前状态（2026-09 排查过一遍）：
+
+| 页面 | 工具栏 | 状态 |
+| --- | --- | --- |
+| `services` 款式库 | 搜索 + 分类/排序 | ✅ 吸顶（用户反馈「筛选框滚走了」） |
+| `bookings` 我的预约 | 搜索 + 状态筛选 | ✅ 吸顶 |
+| `staff-bookings` 我的预约（工作台） | 日期条 + 状态筛选 | ✅ 吸顶 |
+| `coupons` 优惠券 | 可用/已用/过期页签 | ✅ 吸顶 |
+| `notices` 消息 | 页签 + 全部已读 | ✅ 吸顶 |
+| `staffs` 选美甲师 | 已选款式摘要 | ✅ 早就吸顶（`.summary`，本次未动） |
+| `favorites` 收藏 / `points` 积分 | 分类胶囊 | ⚠️ **故意不吸顶** —— 这两个页面的分类**还没接上筛选**（点了只 toast「待接口接入」），先别给死控件做吸顶 |
+
+另外一条同源的可用性问题：**固定底栏会盖住列表最后一屏**。带 `.action-bar` 的 13 个页面里，只有款式库漏了给列表补 `padding-bottom: 200rpx`（它是有条件出现的，所以跟着 `selectedCount` 走，没选款式时不留空白）。
+
 ## 主题系统
 
 ### 7 套预设

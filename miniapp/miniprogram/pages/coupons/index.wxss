@@ -1,6 +1,16 @@
 /* 我的优惠券 —— 对齐 docs/manicure-ui-batch4 第 5 屏 */
 
+/*
+ * 页签条现在在 `.page-body` 之外（要吸顶，见 app.wxss `.sticky-head`），
+ * 所以左右/上内边距得自己带一份（数值与原 `.page-body` 的 24rpx 对齐）；
+ * `.coupon-body` 的 `padding-top` 归零，保持「页签 → 第一张券」的间距与改动前一致。
+ */
+.tabs-head {
+  padding: 24rpx 24rpx 0;
+}
+
 .coupon-body {
+  padding-top: 0;
   padding-bottom: 60rpx;
 }
 

@@ -1,27 +1,33 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <!-- 日期条 -->
-  <scroll-view class="dates" scroll-x enable-flex>
-    <view
-      wx:for="{{dates}}"
-      wx:key="value"
-      class="dates__item {{activeDate === item.value ? 'is-active' : ''}}"
-      data-value="{{item.value}}"
-      bindtap="onDate"
-    >
-      {{item.label}}
-    </view>
-  </scroll-view>
+  <!--
+    日期条 + 状态筛选：整块吸顶（列表一长，改日期/改状态就得一路滚回顶部，见 app.wxss `.sticky-head`）。
+    横向滚动的 `scroll-view` 放在 sticky 容器里没问题 —— 它自己是横轴滚动，不影响纵向吸顶。
+  -->
+  <view class="head sticky-head">
+    <!-- 日期条 -->
+    <scroll-view class="dates" scroll-x enable-flex>
+      <view
+        wx:for="{{dates}}"
+        wx:key="value"
+        class="dates__item {{activeDate === item.value ? 'is-active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onDate"
+      >
+        {{item.label}}
+      </view>
+    </scroll-view>
 
-  <!-- 状态筛选 -->
-  <view class="filters">
-    <view
-      wx:for="{{filters}}"
-      wx:key="key"
-      class="filters__item press-sm {{activeFilter === item.key ? 'is-active' : ''}}"
-      data-key="{{item.key}}"
-      bindtap="onFilter"
-    >
-      {{item.label}}
+    <!-- 状态筛选 -->
+    <view class="filters">
+      <view
+        wx:for="{{filters}}"
+        wx:key="key"
+        class="filters__item press-sm {{activeFilter === item.key ? 'is-active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="onFilter"
+      >
+        {{item.label}}
+      </view>
     </view>
   </view>
 

@@ -1,6 +1,10 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body coupon-body">
-    <!-- 状态页签（筛选在服务端做，保证分页正确） -->
+  <!--
+    状态页签吸顶（筛选在服务端做，保证分页正确）：
+    券多的时候「可用 / 已用 / 过期」必须一直能切，否则要滚回顶部。
+    这里把它挪到 `.page-body` **之外**，才是滚动容器的直接子节点（见 app.wxss `.sticky-head`）。
+  -->
+  <view class="tabs-head sticky-head">
     <view class="tabs">
       <view
         wx:for="{{tabs}}"
@@ -12,7 +16,9 @@
         {{item.label}}
       </view>
     </view>
+  </view>
 
+  <view class="page-body coupon-body">
     <!-- 未绑定：券是个人权益，先引导而不是显示加载失败 -->
     <view wx:if="{{guest}}" class="empty anim-pop">
       <view class="empty__badge"><view class="empty__badge-dot"></view></view>
