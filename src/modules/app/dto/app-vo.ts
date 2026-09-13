@@ -257,6 +257,58 @@ registerComponent('AppMemberCardVo', appMemberCardVo);
 export type AppMemberCardVo = z.infer<typeof appMemberCardVo>;
 
 /**
+ * 次卡详情（batch4 第 2 屏「次卡详情」）。
+ *
+ * 比列表项多两样顾客真正要看的东西：
+ * - `remainingTimes`：**服务端算**的剩余次数。不要让前端做 `total - used` ——
+ *   撤销核销会把 `used_times` 退回去，两边的口径必须只有一份；
+ * - `usable` + `unusableReason`：现在到店到底能不能用，不能用时说明是过期还是用完了。
+ */
+export const appMemberCardDetailVo = appMemberCardVo.extend({
+  remainingTimes: z
+    .number()
+    .int()
+    .openapi({ description: '剩余次数（服务端算）' }),
+  usable: z.boolean().openapi({ description: '现在到店是否可用' }),
+  unusableReason: z
+    .string()
+    .nullable()
+    .openapi({
+      example: '次卡已过期',
+      description: '不可用原因；可用时为 null',
+    }),
+});
+registerComponent('AppMemberCardDetailVo', appMemberCardDetailVo);
+export type AppMemberCardDetailVo = z.infer<typeof appMemberCardDetailVo>;
+
+/**
+ * 次卡使用记录一条（核销 / 撤销）。
+ *
+ * `serviceItemName` / `staffName` 都可能为 null：撤销记录不带项目，
+ * 美甲师档案被删后名字也取不到 —— 前端显示「—」，**不要编一个名字**。
+ */
+export const appMemberCardLogVo = z.object({
+  id: z.number().int(),
+  /** `use` = 核销，`revert` = 撤销（退款/改单把次数退回） */
+  type: z.enum(['use', 'revert']),
+  times: z.number().int(),
+  serviceItemName: z.string().nullable(),
+  staffName: z.string().nullable(),
+  remark: z.string().nullable(),
+  createdAt: z.string().openapi({ example: '2026-09-13T10:00:00.000Z' }),
+});
+registerComponent('AppMemberCardLogVo', appMemberCardLogVo);
+export type AppMemberCardLogVo = z.infer<typeof appMemberCardLogVo>;
+
+export const appMemberCardLogListVo = z.object({
+  items: z.array(appMemberCardLogVo),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+registerComponent('AppMemberCardLogListVo', appMemberCardLogListVo);
+export type AppMemberCardLogListVo = z.infer<typeof appMemberCardLogListVo>;
+
+/**
  * 「我的次卡」入参。
  *
  * A9 补上了分页：控制器与 `AppMemberCardListVo` **本来就声明了** `page/pageSize`

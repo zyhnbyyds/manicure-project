@@ -160,6 +160,64 @@ export class AppMemberController {
     );
   }
 
+  @Get('member/cards/:id')
+  @ApiOperation({
+    summary: '次卡详情（含剩余次数与可用性）',
+    description:
+      '比列表多两样：**服务端算的剩余次数**（不让前端做 `total - used`，撤销核销会让两者对不上）' +
+      '与**现在能不能用**（不能用时说明是过期还是用完）。不是自己的卡 → 404。',
+  })
+  @ApiParam({ name: 'id', description: '次卡 ID', example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppMemberCardDetailVo' },
+  })
+  @ApiResponse({ status: 404, description: '次卡不存在或不属于当前顾客' })
+  cardDetail(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.cardDetail(appUser.id, id);
+  }
+
+  @Get('member/cards/:id/logs')
+  @ApiOperation({
+    summary: '次卡使用记录（核销 / 撤销）',
+    description:
+      '只读、按时间倒序。撤销记录没有项目名 —— 前端显示「—」，不要编名字。' +
+      '不是自己的卡 → 404。',
+  })
+  @ApiParam({ name: 'id', description: '次卡 ID', example: 1 })
+  @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    description: '每页条数',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppMemberCardLogListVo' },
+  })
+  @ApiResponse({ status: 404, description: '次卡不存在或不属于当前顾客' })
+  cardLogs(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.cardLogs(
+      appUser.id,
+      id,
+      appListQuerySchema.parse(query),
+    );
+  }
+
   @Get('recharge-plans')
   @ApiOperation({
     summary: '上架中的充值档位',

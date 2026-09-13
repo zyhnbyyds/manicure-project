@@ -8,9 +8,13 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
   appWxUsers,
+  bizBookings,
   bizCustomers,
+  bizMemberCardLogs,
   bizMemberCards,
   bizMemberLevels,
+  bizServiceItems,
+  bizStaffs,
 } from '../../../database/schema/index.js';
 import {
   BookingPort,
@@ -35,6 +39,8 @@ import type {
   AppCancelBookingVo,
   AppCreateBookingVo,
   AppMemberCardListVo,
+  AppMemberCardDetailVo,
+  AppMemberCardLogListVo,
   AppMemberCardVo,
   AppMemberMeVo,
   AppPointsGoodsListVo,
@@ -55,6 +61,21 @@ function needBind(): UnauthorizedException {
     message: '请先绑定手机号',
     needBind: true,
   });
+}
+
+/**
+ * 次卡不可用的原因（可用时为 null）。
+ *
+ * 顾客看到「不能用」时最想知道的是**为什么**：过期了可以问门店能否延期，
+ * 用完了就是真没了 —— 两种情形的下一步动作完全不同。
+ */
+function cardUnusableReason(
+  status: 'active' | 'used_up' | 'expired' | 'refunded',
+): string | null {
+  if (status === 'expired') return '次卡已过期';
+  if (status === 'used_up') return '次数已用完';
+  if (status === 'refunded') return '次卡已退款';
+  return null;
 }
 
 /**
@@ -444,6 +465,88 @@ export class AppMemberService {
       items: filtered
         .slice(offset, offset + pageSize)
         .map((row) => mapCard(row, displayCardStatus(row))),
+      page,
+      pageSize,
+    };
+  }
+
+  /**
+   * 次卡详情（batch4 第 2 屏）。
+   *
+   * 归属校验靠 `listByCustomer` —— 它只返回本人的卡，所以「拿别人的卡 id」
+   * 在这里天然查不到（404），不需要额外写一条 `customer_id = ?` 的查询。
+   * 卡数量是「一位顾客几张」的量级，取全量再 find 比多一个端口方法划算。
+   */
+  async cardDetail(
+    appUserId: number,
+    cardId: number,
+  ): Promise<AppMemberCardDetailVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const rows = await this.memberCards.listByCustomer(customerId);
+    const card = rows.find((row) => row.id === cardId);
+    if (!card) throw new NotFoundException('次卡不存在');
+
+    const status = displayCardStatus(card);
+    const remainingTimes = Math.max(0, card.totalTimes - card.usedTimes);
+    return {
+      ...mapCard(card, status),
+      remainingTimes,
+      usable: status === 'active',
+      unusableReason: cardUnusableReason(status),
+    };
+  }
+
+  /**
+   * 次卡使用记录（核销 / 撤销），按时间倒序。
+   *
+   * `biz_member_card_log` 只追加（`money-invariants` 的口径），所以这里只读、不聚合。
+   * 项目名与美甲师名从关联表取：撤销记录没有项目 → 前端显示「—」。
+   */
+  async cardLogs(
+    appUserId: number,
+    cardId: number,
+    query: { page?: number | undefined; pageSize?: number | undefined },
+  ): Promise<AppMemberCardLogListVo> {
+    // 先验归属（不存在 / 不是自己的卡 → 404），再查记录；
+    // 归属校验完全交给 `cardDetail`，这里不再重复解析 customer_id
+    await this.cardDetail(appUserId, cardId);
+    const { page, pageSize, offset } = parsePagination(
+      query.page,
+      query.pageSize,
+    );
+
+    const rows = await this.database.db
+      .select({
+        id: bizMemberCardLogs.id,
+        type: bizMemberCardLogs.type,
+        times: bizMemberCardLogs.times,
+        remark: bizMemberCardLogs.remark,
+        createdAt: bizMemberCardLogs.createdAt,
+        serviceItemName: bizServiceItems.name,
+        staffName: bizStaffs.nickname,
+      })
+      .from(bizMemberCardLogs)
+      .leftJoin(
+        bizServiceItems,
+        eq(bizServiceItems.id, bizMemberCardLogs.serviceItemId),
+      )
+      .leftJoin(bizBookings, eq(bizBookings.id, bizMemberCardLogs.bookingId))
+      .leftJoin(bizStaffs, eq(bizStaffs.id, bizBookings.staffId))
+      .where(eq(bizMemberCardLogs.cardId, cardId))
+      .orderBy(desc(bizMemberCardLogs.id))
+      .limit(pageSize)
+      .offset(offset);
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        times: row.times,
+        serviceItemName: row.serviceItemName ?? null,
+        staffName: row.staffName ?? null,
+        remark: row.remark ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })),
       page,
       pageSize,
     };

@@ -148,3 +148,29 @@
   font-size: 21rpx;
   color: var(--c-text-weak);
 }
+
+/* 记录状态：核销 = 主色，撤销 = 弱色（撤销是「退回」，不该看起来像一次新的核销） */
+.record__type {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding: 0 14rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+  font-size: 19rpx;
+}
+
+.record__type.is-revert {
+  background: var(--c-chip);
+  color: var(--c-text-sub);
+}
+
+/* 卡不可用时把原因直接压在核销码下面（顾客第一眼要看到「为什么不能用」） */
+.code__blocked {
+  margin-top: 20rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--c-danger, #b45f6b);
+}

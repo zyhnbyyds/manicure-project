@@ -46,10 +46,15 @@
           <!-- 不伪造二维码：假码扫出来是错的，比没有更糟 -->
           <view class="code__placeholder">
             <view class="code__no">{{card.cardNo}}</view>
-            <view class="code__hint">出示卡号给美甲师核销</view>
+            <view class="code__hint">点这里复制卡号，出示给美甲师核销</view>
           </view>
         </view>
-        <view class="code__tip">核销码应由服务端生成（带时效签名），避免客户端离线造码</view>
+        <view wx:if="{{!card.isActive}}" class="code__blocked"
+          >{{card.unusableReason}}</view
+        >
+        <view class="code__tip"
+          >动态二维码需要服务端签名（否则客户端可离线造码），当前门店按卡号核销</view
+        >
       </view>
 
       <!-- 使用记录 -->
@@ -63,14 +68,23 @@
         <view wx:for="{{records}}" wx:key="id" class="record">
           <view class="grow">
             <view class="record__name ellipsis">{{item.name}}</view>
-            <view class="record__date">{{item.dateText}}</view>
+            <view class="record__date">
+              {{item.dateText}}{{item.staffName ? ' · ' + item.staffName : ''}}
+            </view>
           </view>
+          <view class="record__type {{item.isRevert ? 'is-revert' : ''}}"
+            >{{item.typeText}}</view
+          >
         </view>
       </view>
     </view>
 
     <view class="action-bar">
-      <view class="btn btn--ghost btn--block" bindtap="onMoreRecords">查看全部记录</view>
+      <view
+        class="btn {{hasMoreRecords ? 'btn--ghost' : 'btn--disabled'}} btn--block"
+        bindtap="onMoreRecords"
+        >{{loadingMore ? '加载中…' : hasMoreRecords ? '加载更多记录' : '已全部加载'}}</view
+      >
     </view>
   </block>
 </view>

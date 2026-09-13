@@ -164,6 +164,31 @@ export interface MemberCard {
 }
 
 /**
+ * 次卡详情：列表项 + 服务端算的剩余次数与可用性。
+ *
+ * `remainingTimes` **不要在页面里自己算** `totalTimes - usedTimes`：
+ * 撤销核销会把 `usedTimes` 退回去，只有服务端那一份口径与门店一致。
+ */
+export interface MemberCardDetail extends MemberCard {
+  remainingTimes: number;
+  usable: boolean;
+  /** 不可用原因（可用时为 null），如「次卡已过期」「次数已用完」 */
+  unusableReason: string | null;
+}
+
+/** 次卡使用记录（核销 / 撤销） */
+export interface MemberCardLog {
+  id: number;
+  type: 'use' | 'revert';
+  times: number;
+  /** 撤销记录没有项目 → null（显示「—」，不要编名字） */
+  serviceItemName: string | null;
+  staffName: string | null;
+  remark: string | null;
+  createdAt: string;
+}
+
+/**
  * 上架中的充值档位（服务端配置）。
  *
  * 小程序**不得**再硬编码档位：门店在后台改「充多少送多少」，小程序还按旧比例

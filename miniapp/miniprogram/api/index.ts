@@ -32,6 +32,8 @@ import type {
   LoginRequest,
   LoginVo,
   MemberCard,
+  MemberCardDetail,
+  MemberCardLog,
   MemberMe,
   Paged,
   ServiceItem,
@@ -129,6 +131,23 @@ export const memberApi = {
     return request<Paged<MemberCard>>({
       path: '/app/member/cards',
       data: status ? { status } : undefined,
+    });
+  },
+
+  /** 次卡详情：剩余次数与可用性由**服务端**算（撤销核销会让本地减法对不上） */
+  cardDetail(cardId: number): Promise<MemberCardDetail> {
+    return request<MemberCardDetail>({ path: `/app/member/cards/${cardId}` });
+  },
+
+  /** 次卡使用记录（核销 / 撤销），倒序分页 */
+  cardLogs(
+    cardId: number,
+    page = 1,
+    pageSize = 20,
+  ): Promise<Paged<MemberCardLog>> {
+    return request<Paged<MemberCardLog>>({
+      path: `/app/member/cards/${cardId}/logs`,
+      data: { page, pageSize },
     });
   },
 
