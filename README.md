@@ -279,6 +279,7 @@ bun run typecheck / lint
 
 # 小程序（根目录执行即可，miniapp 自身不装 typescript）
 bunx tsc --noEmit -p miniapp/tsconfig.json
+bun scripts/verify-wxml-tags.mjs   # WXML 标签配对（tsc 不管 WXML；离线、秒级）
 ```
 
 ### 文档自检

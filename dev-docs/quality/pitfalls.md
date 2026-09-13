@@ -314,6 +314,11 @@ title: 踩坑记录与排查手册
   - **原因**：本项目走 `http + IP`，必须跳过合法域名校验；且 app 域登录要求 `WX_MINIAPP_APPID` / `WX_MINIAPP_SECRET` 配置齐全（未配置按设计返回 503）。
   - **处置**：`miniapp/project.private.config.json` 改 `urlCheck: false`（该文件被 `miniapp/.gitignore` 忽略，本机怎么改都不会进仓库）；后端 `.env` 配 `WX_MINIAPP_APPID` + `WX_MINIAPP_SECRET`；本地临时可用 `WX_MINIAPP_FAKE=true`（**生产强制失效**，见 `AppConfigService.wxMiniappFake`）。
   - **预防**：上线必须换成正式 AppID/HTTPS 域名白名单，`urlCheck: false` 不能上线。（来源 `HANDOVER-miniapp.md` §7、`src/config/app-config.service.ts`）
+- **M26 · WXML 注释用 CSS 的收尾符号 → 注释不闭合，吞掉后面的标签，**报错行号完全对不上****
+  - **症状**（用户报障）：`[WXML 文件编译错误] ./pages/notices/index.wxml — get tag end without start / unexpected end tag: view`，指针落在**文件最后一行**（`50 | </view>`），而那一行看着完全正常。
+  - **原因**：写在 `<view class="page-body">` **上面**的那条注释被写成了 CSS 的收尾（星号加斜杠），而 WXML 注释必须以 `--` + `>` 收尾。注释一直没闭合，把紧跟其后的 `<view class="page-body">` 一起吞成了注释内容 —— 于是开标签少一个，编译器只能在读到文件末尾时抱怨「多了一个结束标签」。**症状离病因 24 行远。**
+  - **处置**：找到那条注释改回收尾符；`bun scripts/verify-wxml-tags.mjs` 会直接指出来（它会提示「往上找：多半是某个注释没闭合」）。同一坑在 JS 里也会复现：**JSDoc 里写这个符号组合会提前结束块注释**（本仓 `scripts/verify-wxml-tags.mjs` 第一版就是这么写坏的）。
+  - **预防**：`tsc` **不检查 WXML**，所以小程序改动除了 `bunx tsc --noEmit -p miniapp/tsconfig.json`，还要跑一次 `bun scripts/verify-wxml-tags.mjs`（离线、秒级）；改完 WXML 最好在开发者工具里编译一次确认。（来源 `miniapp/miniprogram/pages/notices/index.wxml`、用户报障）
 
 ---
 

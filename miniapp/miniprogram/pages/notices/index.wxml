@@ -23,7 +23,7 @@
     </view>
   </view>
 
-  <!-- 注意：`.anim-rise` 带 `transform`，只挂在内容容器上，别往吸顶条的祖先上加 */
+  <!-- 注意：`.anim-rise` 带 `transform`，只挂在内容容器上，别往吸顶条的祖先上加 -->
   <view class="page-body notice-body anim-rise">
     <!-- 空态：缺的是读取接口，不是没有这个能力 -->
     <view class="empty anim-pop">

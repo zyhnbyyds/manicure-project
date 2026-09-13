@@ -51,6 +51,16 @@ miniapp/
 `api/index.ts` 头部：「导入本模块必须写**显式文件路径** `'../api/index'`／`'../../api/index'`：小程序的模块解析**不支持目录导入**，`'../../api'` 会被编译成 `require('../../api')` 并在运行时抛 `module 'api.js' is not defined`（已实测）。这一点与 Node/TS 的默认解析行为不同，新增页面时最容易踩。」
 :::
 
+::: danger 改完 WXML 一定要跑一遍标签自检
+`tsc` **不检查 WXML**（它只看 TS）。写坏一个标签，本地 `typecheck` 照样全绿，
+直到开发者工具编译时才红 —— 而且**报错行号往往不是出错行**（真实案例：注释少了收尾，
+错误报在文件最后一行，真正的错在 24 行之前，见 pitfalls M26）。
+
+```bash
+bun scripts/verify-wxml-tags.mjs      # 离线、秒级、无依赖；退出码非 0 即有问题
+```
+:::
+
 ## 请求层
 
 ### `config.ts`
