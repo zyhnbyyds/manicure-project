@@ -57,6 +57,8 @@ export type PointsGoodsInput = {
 export type PointsGoodsListFilter = {
   status?: 'active' | 'disabled' | undefined;
   keyword?: string | undefined;
+  /** 分类（自由文本，与 `biz_points_goods.category` 精确匹配） */
+  category?: string | undefined;
 };
 
 export type RedeemListFilter = {
@@ -112,6 +114,8 @@ export class PointsGoodsService {
     const conditions = [isNull(bizPointsGoods.deletedAt)];
     if (filter.status)
       conditions.push(eq(bizPointsGoods.status, filter.status));
+    if (filter.category)
+      conditions.push(eq(bizPointsGoods.category, filter.category));
     const keyword = keywordLike(bizPointsGoods.name, filter.keyword);
     if (keyword) conditions.push(keyword);
 
@@ -130,6 +134,31 @@ export class PointsGoodsService {
       .limit(safePageSize)
       .offset(offset);
     return { items, page: safePage, pageSize: safePageSize };
+  }
+
+  /**
+   * 兑换品的分类清单（去重）。
+   *
+   * 给 C 端的筛选胶囊用：**分类选项必须来自数据**，不能在前端硬编码一份清单 ——
+   * 门店把「周边好物」改成「护手周边」时，硬编码的胶囊就会点出一片空列表。
+   * 没设分类的商品不进清单（它们在 C 端归到「全部」里）。
+   */
+  async listCategories(): Promise<string[]> {
+    const rows = await this.database.db
+      .selectDistinct({ category: bizPointsGoods.category })
+      .from(bizPointsGoods)
+      .where(
+        andConditions([
+          isNull(bizPointsGoods.deletedAt),
+          eq(bizPointsGoods.status, 'active'),
+          sql`${bizPointsGoods.category} IS NOT NULL`,
+          ne(bizPointsGoods.category, ''),
+        ]),
+      )
+      .orderBy(asc(bizPointsGoods.category));
+    return rows
+      .map((row) => row.category)
+      .filter((category): category is string => Boolean(category));
   }
 
   async findOne(

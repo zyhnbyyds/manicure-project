@@ -42,10 +42,14 @@ async function seedGoods(input: {
   perLimit?: number;
   /** 后台备注：**不应该**出现在 app 侧响应里 */
   remark?: string;
+  /** 分类（C 端筛选胶囊按它出） */
+  category?: string;
+  /** 商品图 */
+  image?: string;
 }): Promise<number> {
   const inserted = await ctx.sql<{ insertId: number }>(
-    `INSERT INTO biz_points_goods (name, card_type_id, points, stock, per_limit, status, sort, remark)
-     VALUES (?, ?, ?, -1, ?, ?, 1, ?)`,
+    `INSERT INTO biz_points_goods (name, card_type_id, points, stock, per_limit, status, sort, remark, category, image)
+     VALUES (?, ?, ?, -1, ?, ?, 1, ?, ?, ?)`,
     [
       input.name,
       input.cardTypeId,
@@ -53,6 +57,8 @@ async function seedGoods(input: {
       input.perLimit ?? 0,
       input.status,
       input.remark ?? null,
+      input.category ?? null,
+      input.image ?? null,
     ],
   );
   return inserted.insertId;
@@ -142,9 +148,14 @@ describe('app 域积分兑换品目录（§15.3 / §8.3）', () => {
     expect(res.status).toBe(200);
     const first = (res.body.items as Record<string, unknown>[])[0];
     // 用键集合全等断言：多一个字段就失败（这是 §8.3 的硬要求）
+    // `image` / `category` 是 C 端宫格与筛选胶囊要用的（门店可上传商品图、给商品分类），
+    // 属于「顾客看得到的目录字段」，不是内部字段 —— 但**仍然逐个列出**，
+    // 这样以后谁顺手 spread 整行都会被这条用例拦下。
     expect(Object.keys(first).sort()).toEqual([
       'cardTypeName',
+      'category',
       'id',
+      'image',
       'name',
       'perLimit',
       'points',
@@ -152,5 +163,66 @@ describe('app 域积分兑换品目录（§15.3 / §8.3）', () => {
     ]);
     expect(JSON.stringify(res.body)).not.toContain('后台备注');
     expect(res.body.items[0].perLimit).toBe(2);
+  });
+
+  it('分类：可按分类精确筛选，并回一份分类清单给前端出胶囊', async () => {
+    const { token } = await seedAppUser('points-category');
+    const cardTypeId = await seedCardType('测试单次卡');
+    await seedGoods({
+      name: '美甲项目 A',
+      cardTypeId,
+      points: 1000,
+      status: 'active',
+      category: '美甲项目',
+    });
+    await seedGoods({
+      name: '周边好物 B',
+      cardTypeId,
+      points: 2000,
+      status: 'active',
+      category: '周边好物',
+    });
+    // 没分类的商品：不进胶囊清单，但在「全部」里能看到
+    await seedGoods({
+      name: '没分类的 C',
+      cardTypeId,
+      points: 3000,
+      status: 'active',
+    });
+    // 下架商品：分类清单也不该带上它的分类
+    await seedGoods({
+      name: '下架的 D',
+      cardTypeId,
+      points: 4000,
+      status: 'disabled',
+      category: '已停用分类',
+    });
+
+    const all = await ctx.request('GET', '/api/v1/app/points-goods', { token });
+    expect(all.status).toBe(200);
+    expect(all.body.items).toHaveLength(3);
+    // 胶囊选项来自数据，且**只含上架且有分类的**
+    expect(all.body.categories).toEqual(['周边好物', '美甲项目'].sort());
+
+    const filtered = await ctx.request(
+      'GET',
+      '/api/v1/app/points-goods?category=美甲项目',
+      { token },
+    );
+    expect(filtered.status).toBe(200);
+    expect(
+      (filtered.body.items as { name: string }[]).map((item) => item.name),
+    ).toEqual(['美甲项目 A']);
+    // 筛选时清单仍然是全量（否则切一次分类，其它胶囊就消失了）
+    expect(filtered.body.categories).toEqual(all.body.categories);
+
+    // 不存在的分类：空列表，不是报错
+    const none = await ctx.request(
+      'GET',
+      '/api/v1/app/points-goods?category=不存在的分类',
+      { token },
+    );
+    expect(none.status).toBe(200);
+    expect(none.body.items).toEqual([]);
   });
 });

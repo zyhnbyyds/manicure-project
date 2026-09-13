@@ -1072,14 +1072,25 @@ export type PointsGoodsView = {
   remark: string | null;
   /** 兑换后发放的卡种名（让顾客知道换到的到底是什么） */
   cardTypeName: string | null;
+  /** 商品图（文件路径；未上传为 null） */
+  image: string | null;
+  /** 分类（自由文本；C 端筛选胶囊按它出） */
+  category: string | null;
 };
 
 export abstract class PointsGoodsPort {
   abstract list(
     page: number,
     pageSize: number,
-    filter?: { status?: 'active' | 'disabled'; keyword?: string },
+    filter?: {
+      status?: 'active' | 'disabled';
+      keyword?: string;
+      category?: string;
+    },
   ): Promise<{ items: PointsGoodsView[]; page: number; pageSize: number }>;
+
+  /** C 端筛选胶囊的选项：**必须来自数据**，不能在前端硬编码一份分类清单 */
+  abstract listCategories(): Promise<string[]>;
 
   /**
    * 兑换（§15.3）：**必须在后台现成的同事务实现里做**。

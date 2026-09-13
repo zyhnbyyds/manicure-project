@@ -128,18 +128,27 @@ export class AppMemberService {
    * （与 `/app/service-items` 同为可匿名浏览的目录）。
    *
    * 只取 `status=active`；返回**逐字段白名单投影**，不把后台 `remark` 带出去。
+   * `category` 是精确匹配（胶囊选的是一份真实存在的分类，不是模糊搜索）；
+   * 同时把**分类清单**一起回给前端 —— 胶囊选项必须来自数据。
    */
   async listPointsGoods(
     page: number,
     pageSize: number,
+    category?: string,
   ): Promise<AppPointsGoodsListVo> {
-    const result = await this.pointsGoods.list(page, pageSize, {
-      status: 'active',
-    });
+    const [result, categories] = await Promise.all([
+      this.pointsGoods.list(page, pageSize, {
+        status: 'active',
+        ...(category ? { category } : {}),
+      }),
+      this.pointsGoods.listCategories(),
+    ]);
     return {
       items: result.items.map((item) => ({
         id: item.id,
         name: item.name,
+        category: item.category,
+        image: item.image,
         points: item.points,
         stock: item.stock,
         perLimit: item.perLimit,
@@ -147,6 +156,7 @@ export class AppMemberService {
       })),
       page: result.page,
       pageSize: result.pageSize,
+      categories,
     };
   }
 

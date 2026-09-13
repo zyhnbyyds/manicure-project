@@ -393,6 +393,10 @@ export const staffApi = {
 export interface PointsGoods {
   id: number;
   name: string;
+  /** 分类（C 端筛选胶囊按它出；未分类为 null） */
+  category: string | null;
+  /** 商品图（未上传为 null，页面走本地占位图） */
+  image: string | null;
   points: number;
   /** -1 = 不限库存 */
   stock: number;
@@ -409,10 +413,20 @@ export interface PointsGoods {
  * 这是非个人的目录信息，未绑定用户也能先看到「能换什么」，兑换那一步才需要身份。
  */
 export const pointsApi = {
-  listGoods(page = 1, pageSize = 50): Promise<Paged<PointsGoods>> {
-    return request<Paged<PointsGoods>>({
+  /**
+   * 兑换品目录（可按分类筛选）。
+   *
+   * 响应里带 `categories`（分类清单）—— 胶囊选项**必须来自数据**：
+   * 前端硬编码一份清单的话，门店把「周边好物」改名后，那个胶囊就永远点出空列表。
+   */
+  listGoods(
+    page = 1,
+    pageSize = 50,
+    category?: string,
+  ): Promise<Paged<PointsGoods> & { categories: string[] }> {
+    return request<Paged<PointsGoods> & { categories: string[] }>({
       path: '/app/points-goods',
-      data: { page, pageSize },
+      data: category ? { page, pageSize, category } : { page, pageSize },
     });
   },
 

@@ -230,10 +230,30 @@ export const WEEKLY_SHIFT_SEEDS: {
   startTime: string;
   endTime: string;
 }[] = [
-  { staff: '小美', weekdays: [2, 3, 4, 5, 6, 7], startTime: '10:00:00', endTime: '19:00:00' },
-  { staff: '小雅', weekdays: [2, 3, 4, 5, 6, 7], startTime: '11:00:00', endTime: '20:00:00' },
-  { staff: '阿琳', weekdays: [2, 3, 4, 5, 6], startTime: '10:00:00', endTime: '18:00:00' },
-  { staff: '婷婷', weekdays: [3, 4, 5, 6, 7], startTime: '12:00:00', endTime: '21:00:00' },
+  {
+    staff: '小美',
+    weekdays: [2, 3, 4, 5, 6, 7],
+    startTime: '10:00:00',
+    endTime: '19:00:00',
+  },
+  {
+    staff: '小雅',
+    weekdays: [2, 3, 4, 5, 6, 7],
+    startTime: '11:00:00',
+    endTime: '20:00:00',
+  },
+  {
+    staff: '阿琳',
+    weekdays: [2, 3, 4, 5, 6],
+    startTime: '10:00:00',
+    endTime: '18:00:00',
+  },
+  {
+    staff: '婷婷',
+    weekdays: [3, 4, 5, 6, 7],
+    startTime: '12:00:00',
+    endTime: '21:00:00',
+  },
 ];
 
 /* ------------------------------------------------------------------ *
@@ -357,6 +377,14 @@ type PointsGoodsSeed = {
   stock: number;
   /** 0 = 不限每人兑换次数 */
   perLimit: number;
+  /**
+   * 分类：C 端筛选胶囊按它出。
+   *
+   * 自由文本而非枚举 —— 分类是门店自己的运营语言，加一个分类不该改表结构。
+   * 现有两条兑换品都会发一张次卡，所以都归「美甲项目」；门店将来上架实物周边时
+   * 自己填新分类，C 端胶囊会跟着变（**胶囊选项来自数据，不是前端硬编码**）。
+   */
+  category: string;
   remark: string;
   sort: number;
 };
@@ -368,6 +396,7 @@ export const POINTS_GOODS_SEEDS: PointsGoodsSeed[] = [
     points: 8800,
     stock: -1,
     perLimit: 1,
+    category: '美甲项目',
     remark: '8800 积分兑换一次纯色美甲（等价 ¥88）',
     sort: 10,
   },
@@ -377,6 +406,7 @@ export const POINTS_GOODS_SEEDS: PointsGoodsSeed[] = [
     points: 6800,
     stock: -1,
     perLimit: 2,
+    category: '美甲项目',
     remark: '6800 积分兑换一次手部护理（等价 ¥68）',
     sort: 20,
   },
@@ -499,7 +529,9 @@ async function seedServiceItems(db: DbLike): Promise<SeedStat> {
 
 /** 美甲师：无唯一索引，按 nickname 判断 */
 async function seedStaffs(db: DbLike): Promise<SeedStat> {
-  const existing = await db.select({ nickname: bizStaffs.nickname }).from(bizStaffs);
+  const existing = await db
+    .select({ nickname: bizStaffs.nickname })
+    .from(bizStaffs);
   const known = new Set(existing.map((row) => row.nickname));
 
   const pending = STAFF_SEEDS.filter((row) => !known.has(row.nickname));
@@ -576,8 +608,7 @@ async function seedStaffSkills(db: DbLike): Promise<SeedStat> {
     });
   }
 
-  if (pending.length > 0)
-    await db.insert(bizStaffServiceItems).values(pending);
+  if (pending.length > 0) await db.insert(bizStaffServiceItems).values(pending);
   return stat('biz_staff_service_item', pending.length, skipped);
 }
 
@@ -619,8 +650,7 @@ async function seedWeeklyShifts(db: DbLike): Promise<SeedStat> {
     }
   }
 
-  if (pending.length > 0)
-    await db.insert(bizStaffWeeklyShifts).values(pending);
+  if (pending.length > 0) await db.insert(bizStaffWeeklyShifts).values(pending);
   return stat('biz_staff_weekly_shift', pending.length, skipped);
 }
 
@@ -727,6 +757,8 @@ async function seedPointsGoods(db: DbLike): Promise<SeedStat> {
     perLimit: number;
     status: 'active';
     sort: number;
+    /** C 端筛选胶囊按它出 */
+    category: string;
     remark: string;
   }[] = [];
   for (const row of pending) {
@@ -741,6 +773,7 @@ async function seedPointsGoods(db: DbLike): Promise<SeedStat> {
       perLimit: row.perLimit,
       status: 'active',
       sort: row.sort,
+      category: row.category,
       remark: row.remark,
     });
   }

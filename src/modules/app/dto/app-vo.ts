@@ -287,6 +287,11 @@ registerComponent('AppMemberCardListVo', appMemberCardListVo);
 export const appPointsGoodsVo = z.object({
   id: z.number().int(),
   name: z.string(),
+  category: z.string().nullable().openapi({ example: '美甲项目' }),
+  image: z
+    .string()
+    .nullable()
+    .openapi({ description: '商品图（未上传为 null，前端走本地占位图）' }),
   points: z.number().int().openapi({ description: '兑换所需积分' }),
   stock: z.number().int().openapi({ description: '-1 = 不限库存' }),
   perLimit: z.number().int().openapi({ description: '0 = 不限每人兑换次数' }),
@@ -302,6 +307,16 @@ export const appPointsGoodsListVo = z.object({
   items: z.array(appPointsGoodsVo),
   page: z.number().int(),
   pageSize: z.number().int(),
+  /**
+   * 筛选胶囊的选项（与 `items` 同一次响应回来）。
+   *
+   * 为什么放在列表响应里而不是单独一个接口：C 端进页面就要「胶囊 + 首屏列表」两样东西，
+   * 合成一次往返少一次闪烁；而且分类是**跟着数据变**的 —— 单独接口会让
+   * 「胶囊里有这个分类、列表却空了」这种不一致有出现的可能。
+   */
+  categories: z
+    .array(z.string())
+    .openapi({ example: ['美甲项目', '周边好物'] }),
 });
 registerComponent('AppPointsGoodsListVo', appPointsGoodsListVo);
 export type AppPointsGoodsListVo = z.infer<typeof appPointsGoodsListVo>;

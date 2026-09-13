@@ -197,6 +197,12 @@ export class AppMemberController {
     description: '每页条数',
     example: 20,
   })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    description: '按分类精确筛选（选项取响应里的 categories）',
+    example: '美甲项目',
+  })
   @ApiResponse({
     status: 200,
     description: '成功',
@@ -206,7 +212,14 @@ export class AppMemberController {
   pointsGoods(@Query() query: Record<string, unknown>) {
     // `appListQuerySchema` 的 page/pageSize 都是可选，这里给默认值（与分页口径一致）
     const { page = 1, pageSize = 20 } = appListQuerySchema.parse(query);
-    return this.member.listPointsGoods(page, pageSize);
+    // 分类是精确匹配（胶囊选的是真实存在的分类）；响应里同时回 `categories` 供前端出胶囊
+    const category =
+      typeof query.category === 'string' ? query.category.trim() : '';
+    return this.member.listPointsGoods(
+      page,
+      pageSize,
+      category === '' ? undefined : category,
+    );
   }
 
   @Post('points/redeem')
