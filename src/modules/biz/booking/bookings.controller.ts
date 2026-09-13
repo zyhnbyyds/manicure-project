@@ -262,6 +262,12 @@ export class BookingsController {
   })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({
+    name: 'collectable',
+    required: false,
+    description:
+      '只看还能收款的单据（服务状态不含 cancelled / no_show）；收银台队列专用，预约列表不要传',
+  })
+  @ApiQuery({
     name: 'keyword',
     required: false,
     description: '单号 / 顾客姓名 / 手机号',
@@ -278,6 +284,7 @@ export class BookingsController {
     @Query('status') status?: BookingStatus,
     @Query('payStatus') payStatus?: BookingPayStatus,
     @Query('customerId') rawCustomerId?: string,
+    @Query('collectable') rawCollectable?: string,
     @Query('keyword') keyword?: string,
   ) {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
@@ -289,6 +296,7 @@ export class BookingsController {
       status,
       payStatus,
       customerId: rawCustomerId ? Number(rawCustomerId) : undefined,
+      collectable: rawCollectable === 'true' || rawCollectable === '1',
       keyword,
     };
     return this.bookings.list(page, pageSize, filter, request.user);

@@ -14,6 +14,7 @@ import {
   gte,
   isNull,
   lt,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -129,6 +130,19 @@ export type SettleBookingInput = {
  */
 const APP_SETTLE_CHANNELS: readonly PayChannel[] = ['balance', 'card'];
 
+/**
+ * 「已经不可能再收钱」的服务状态 —— 已取消 / 已爽约。
+ *
+ * 这两个状态是**服务侧终态**：`cancel` / `no-show` 只改 `status`（外加冲销提成），
+ * **不会动 `pay_status`**。所以一张「收了定金后又取消」的单，`pay_status` 仍然是
+ * `partial`、`due_amount` 也还在 —— 光看资金状态分辨不出它已经作废。
+ *
+ * 两处必须用同一份定义，否则会漂移成「列表里能点、点进去报错」：
+ * 1. `applySettlement`：结算闸门，命中直接 409；
+ * 2. 列表 `collectable` 过滤：收银台队列靠它把这类单排掉。
+ */
+export const UNSETTLEABLE_BOOKING_STATUSES = ['cancelled', 'no_show'] as const;
+
 export type BookingListFilter = {
   date?: string | undefined;
   dateFrom?: string | undefined;
@@ -138,6 +152,14 @@ export type BookingListFilter = {
   payStatus?: BookingPayStatus | undefined;
   customerId?: number | undefined;
   keyword?: string | undefined;
+  /**
+   * 只看「还能收款」的单（服务状态不在 {@link UNSETTLEABLE_BOOKING_STATUSES}）。
+   *
+   * 收银台队列专用：队列按 `payStatus` 筛，如果不排掉已取消 / 爽约，
+   * 店员会看到一堆永远收不到钱的单，点「去收款」只会拿到 409。
+   * 预约列表页**不传**这个参数（它必须能查历史取消单）。
+   */
+  collectable?: boolean | undefined;
 };
 
 /** 动作 → 允许的起始状态（集中一张表，禁止散落在 controller，§7.3） */
@@ -234,6 +256,9 @@ export class BookingsService implements BookingPort {
       filter.status ? eq(bizBookings.status, filter.status) : undefined,
       filter.payStatus
         ? eq(bizBookings.payStatus, filter.payStatus)
+        : undefined,
+      filter.collectable
+        ? notInArray(bizBookings.status, [...UNSETTLEABLE_BOOKING_STATUSES])
         : undefined,
       filter.customerId
         ? eq(bizBookings.customerId, filter.customerId)
@@ -1337,7 +1362,11 @@ export class BookingsService implements BookingPort {
     allowedChannels: readonly PayChannel[] | null,
   ) {
     const id = booking.id;
-    if (['cancelled', 'no_show'].includes(booking.status))
+    if (
+      (UNSETTLEABLE_BOOKING_STATUSES as readonly string[]).includes(
+        booking.status,
+      )
+    )
       throw new ConflictException('已取消 / 爽约的预约不能结算');
 
     const memberConfig = await this.config.member();

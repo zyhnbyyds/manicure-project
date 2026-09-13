@@ -360,6 +360,21 @@ await tx.update(bizBookings).set({ bookingNo }).where(eq(bizBookings.id, booking
 3. **取消不回滚资金**：取消只改服务状态与冲销提成，退款/积分回补/次卡退回都由独立流程处理。
 :::
 
+### 作废单与收银台队列（`collectable`）
+
+红线 3 有个直接后果：**取消 / 爽约只改 `status`，`pay_status` 原样保留** —— 收了 3000 定金再取消的单，资金侧仍然是 `partial` + `due_amount=7000`。只看资金状态分辨不出它已经作废。
+
+所以「还能不能收钱」必须同时看两个状态机，服务端把它收进一个常量 `UNSETTLEABLE_BOOKING_STATUSES = ['cancelled','no_show']`（`bookings.service.ts`），两处共用：
+
+| 用处 | 行为 |
+| --- | --- |
+| `applySettlement` 闸门 | 命中直接 409「已取消 / 爽约的预约不能结算」 |
+| 列表 `GET /biz/bookings?collectable=true` | `notInArray(status, …)`，把这类单排掉 |
+
+- **收银台队列必须带 `collectable=true`**（三个 `payStatus` 分组各带一次）。不带就会把作废单列进「待收款」，店员点「去收款」只能拿到 409 —— 真实的坑，验收用例在 `tests/integration/b1-booking.int.spec.ts` 的「收银台队列：作废单不进队」。
+- **预约列表页不传**这个参数：它必须能查历史取消单（列表过滤是 opt-in 的，不要改成默认排除）。
+- 列表过滤只是 UI 友好，**闸门始终在服务端**：直接 POST 结算作废单仍然 409。
+
 ## 七、关联的 `biz_*` 表与关键字段
 
 定义在 `src/database/schema/index.ts`（drizzle 变量 → 真实表名）：

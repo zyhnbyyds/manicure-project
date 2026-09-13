@@ -493,3 +493,110 @@ describe('B1 定时任务幂等（§11）', () => {
     expect((await ops.autoNoShowExpired()).noShow).toBe(0);
   });
 });
+
+describe('收银台队列：作废单不进队（§10.5 / §17.2）', () => {
+  /** 收了定金的单：pay_status=partial、还挂着尾款 */
+  function depositBody(
+    row: Seed,
+    startAt: string,
+    overrides: Record<string, unknown> = {},
+  ) {
+    return createBody(row, startAt, {
+      payMode: 'deposit',
+      depositAmount: 3000,
+      payments: [{ channel: 'cash', amount: 3000 }],
+      ...overrides,
+    });
+  }
+
+  async function queueNos(query: string): Promise<string[]> {
+    const response = await ctx.request(
+      'GET',
+      `/api/v1/biz/bookings?page=1&pageSize=50&${query}`,
+    );
+    expect(response.status).toBe(200);
+    return response.body.items.map(
+      (item: { bookingNo: string }) => item.bookingNo,
+    );
+  }
+
+  it('取消只改服务状态、不改资金状态：列表必须靠 collectable 排掉它', async () => {
+    const row = await seed();
+    const kept = await ctx.request('POST', '/api/v1/biz/bookings', {
+      body: depositBody(row, `${date}T10:00:00+08:00`),
+    });
+    const killed = await ctx.request('POST', '/api/v1/biz/bookings', {
+      body: depositBody(row, `${date}T12:00:00+08:00`),
+    });
+    const killedId = killed.body.id as number;
+
+    const cancelled = await ctx.request(
+      'POST',
+      `/api/v1/biz/bookings/${killedId}/cancel`,
+      { body: { reason: '顾客临时有事' } },
+    );
+    expect(cancelled.status).toBe(201);
+
+    // 取消**不动** pay_status：这正是不带 collectable 就会把它列进队列的原因
+    const rows = await ctx.sql<
+      { status: string; pay_status: string; due_amount: number }[]
+    >(`SELECT status, pay_status, due_amount FROM biz_booking WHERE id = ?`, [
+      killedId,
+    ]);
+    expect(rows[0]!.status).toBe('cancelled');
+    expect(rows[0]!.pay_status).toBe('partial');
+    expect(Number(rows[0]!.due_amount)).toBe(7000);
+
+    // 收银台队列（collectable=true）：只留还能收的那张
+    const queue = await queueNos('payStatus=partial&collectable=true');
+    expect(queue).toContain(kept.body.bookingNo);
+    expect(queue).not.toContain(killed.body.bookingNo);
+
+    // 预约列表不传 collectable：历史取消单必须还查得到（不能把列表也一起改了）
+    const all = await queueNos('payStatus=partial');
+    expect(all).toContain(killed.body.bookingNo);
+  });
+
+  it('爽约同样不进队，且列表顺序/关键字筛选下也排得掉', async () => {
+    const row = await seed();
+    const noShow = await ctx.request('POST', '/api/v1/biz/bookings', {
+      body: depositBody(row, `${date}T14:00:00+08:00`),
+    });
+    await ctx.request('POST', `/api/v1/biz/bookings/${noShow.body.id}/confirm`);
+    const result = await ctx.request(
+      'POST',
+      `/api/v1/biz/bookings/${noShow.body.id}/no-show`,
+      { body: { reason: '顾客未到店' } },
+    );
+    expect(result.status).toBe(201);
+
+    expect(await queueNos('payStatus=partial&collectable=true')).not.toContain(
+      noShow.body.bookingNo,
+    );
+    // 关键字 + collectable 同时生效（队列搜索框就是这条组合）
+    expect(
+      await queueNos('payStatus=partial&collectable=true&keyword=张女士'),
+    ).not.toContain(noShow.body.bookingNo);
+  });
+
+  it('列表排掉只是 UI 友好：直接结算作废单仍然 409（闸门在服务端）', async () => {
+    const row = await seed();
+    const created = await ctx.request('POST', '/api/v1/biz/bookings', {
+      body: depositBody(row, `${date}T16:00:00+08:00`),
+    });
+    await ctx.request(
+      'POST',
+      `/api/v1/biz/bookings/${created.body.id}/cancel`,
+      {
+        body: { reason: '顾客临时有事' },
+      },
+    );
+    const settled = await ctx.request(
+      'POST',
+      `/api/v1/biz/bookings/${created.body.id}/settle`,
+      { body: { payments: [{ channel: 'cash', amount: 7000 }] } },
+    );
+    expect(settled.status).toBe(409);
+    expect(String(settled.body.message)).toContain('不能结算');
+  });
+});

@@ -356,7 +356,7 @@ flowchart TB
 | 方法 | 路径 | 权限点 | 说明 | 备注 |
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/biz/bookings/available-slots` | `biz:booking:list` | 查询可约时段（店内本地日） | `staffId` + `date` + `serviceItemIds` 必填；`channel=admin\|miniapp` |
-| GET | `/api/v1/biz/bookings` | `biz:booking:list` | 预约列表 | **无 `total`**，前端多取一条判 `hasMore` |
+| GET | `/api/v1/biz/bookings` | `biz:booking:list` | 预约列表 | **无 `total`**，前端多取一条判 `hasMore`；筛选项 `status` / `payStatus` / `staffId` / `customerId` / `date` / `keyword` / `collectable`（收银台队列专用：`collectable=true` 排掉已取消与爽约，预约列表不要传） |
 | GET | `/api/v1/biz/bookings/customers/:customerId/brief` | `biz:booking:list` | 顾客账务摘要（折扣 / 余额） | 创建弹窗用 |
 | GET | `/api/v1/biz/bookings/:id` | `biz:booking:list` | 预约详情（含项目明细与支付单） | |
 | POST | `/api/v1/biz/bookings` | `biz:booking:create` | **创建预约**（建单 + 收定金/全款，同事务） | 时段被占 / 顾客同时段已有单 → `409` |

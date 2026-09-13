@@ -158,10 +158,25 @@ async function loadQueue() {
   queueLoading.value = true;
   try {
     const keyword = queueKeyword.value.trim() || undefined;
+    // collectable：让服务端排掉已取消 / 爽约的单。
+    // 取消只改服务状态、不动 pay_status，光按 payStatus 筛会把作废单当成待收款列出来，
+    // 点「去收款」只会 409（服务端 applySettlement 有闸门）。
     const [unpaid, partial, credit] = await Promise.all([
-      listCashierBookings(1, 50, { payStatus: 'unpaid', keyword }),
-      listCashierBookings(1, 50, { payStatus: 'partial', keyword }),
-      listCashierBookings(1, 50, { payStatus: 'credit', keyword }),
+      listCashierBookings(1, 50, {
+        payStatus: 'unpaid',
+        collectable: true,
+        keyword,
+      }),
+      listCashierBookings(1, 50, {
+        payStatus: 'partial',
+        collectable: true,
+        keyword,
+      }),
+      listCashierBookings(1, 50, {
+        payStatus: 'credit',
+        collectable: true,
+        keyword,
+      }),
     ]);
     unpaidItems.value = unpaid.items;
     partialItems.value = partial.items;
