@@ -158,6 +158,22 @@ export const permission: Directive<HTMLElement, string | string[]> = {
 
 用法 `v-permission="'biz:payment:create'"` 或数组（任一命中即可）；组件版见 `components/IconButton.vue`。**权限点字符串必须与 `src/database/seed/menus.ts` 完全一致**。
 
+## 组件优先：lew-ui 有的就用
+
+设计文档的取舍口径是「**lew-ui 无可直接复用的组件才自研**，且要在 §10.3 写明理由」（排班周视图、预约日历就是这么留下来的）。所以别用裸 `div` / `button` + 原子类手搓控件，先翻一遍 lew-ui：
+
+| 场景 | 用什么 | 别用 |
+| --- | --- | --- |
+| 分段页签 / 视图切换 | `LewTabs`（`type="block"` + `round` = 分段胶囊，`type="line"` = 下划线式） | 一排 `<button>` + 选中态原子类 |
+| 状态 / 折扣 / 类型小标签 | `LewTag`（`type="light"` + `size="small"`） | `<span>` + 手写 `bg-[...light]` |
+| 金额输入 | `LewInputNumber`（`:min="0"` `:step="0.01"`，`v-model` 绑 **number**） | `LewInput` + 字符串再 `Number()` |
+| 图标按钮 | `<IconButton>`（项目组件，带 `permission`） | 裸 `<button class="icon-btn">` |
+| 加载占位 | `<AppLoading>`（见「加载态与过渡」一节） | 自己写骨架 / 转圈 |
+
+**没有对应组件的**（自研，别重复造）：加载骨架与转圈（`AppLoading`）、周视图排班网格与预约日历（§10.3）、首字圆形头像（`LewAvatar` 只认 `src`，全站 AppHeader / profile 都是首字 `<span>`）。
+
+两个实测坑：`LewTabs` **没有逐项插槽**（`LewTabsOption` 只有 `label / value / disabled`，带数量的标签只能拼进 `label`）；**宽度/间距类别写在 lew-ui 组件的 `class` 上会失效** —— lew-ui 样式与 Uno 工具类同权重，谁生效看产物 CSS 顺序（`.lew-tabs-wrapper` 自带 `max-width:100%` 会盖掉 `max-w-420px`，`app-card` 的 `transition-shadow` 会盖掉 `transition-[opacity,...]` 同理），要限制尺寸就套一层普通 div 或走内联 `:style`。
+
 ## 列表页统一模式
 
 ```ts

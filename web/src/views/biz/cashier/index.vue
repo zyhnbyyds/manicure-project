@@ -18,11 +18,15 @@ import {
 import {
   LewButton,
   LewInput,
+  LewInputNumber,
   LewMessage,
   LewModal,
   LewSelect,
+  LewTabs,
+  LewTag,
   LewTextarea,
 } from 'lew-ui';
+import type { LewColor, LewTabsOption } from 'lew-ui';
 import {
   ONLINE_CHANNELS,
   closePayment,
@@ -115,17 +119,32 @@ const allQueueDueFen = computed(() =>
   ),
 );
 
-const queueTabs = computed(() =>
+/** 分组数量：`count` 既是页签上的角标，也是空态判断的依据 */
+function groupCount(key: QueueTabKey) {
+  return key === 'all'
+    ? groups.value.reduce((sum, group) => sum + group.items.length, 0)
+    : (groups.value.find((group) => group.key === key)?.items.length ?? 0);
+}
+
+/** 队列总数（收起摘要 / 空态引导用） */
+const totalQueueCount = computed(() => groupCount('all'));
+
+/**
+ * 分组页签交给 `LewTabs`（`type="block"` + `round` 就是设计稿里的分段胶囊）。
+ *
+ * 数量只能拼进 `label`：`LewTabsOption` 只有 `label/value/disabled`，没有逐项插槽。
+ */
+const queueTabOptions = computed<LewTabsOption[]>(() =>
   QUEUE_TABS.map((tab) => ({
-    key: tab.key,
-    title: tab.title,
-    count:
-      tab.key === 'all'
-        ? groups.value.reduce((sum, group) => sum + group.items.length, 0)
-        : (groups.value.find((group) => group.key === tab.key)?.items.length ??
-          0),
+    label: `${tab.title} ${groupCount(tab.key)}`,
+    value: tab.key,
   })),
 );
+
+/** `LewTabs` 的 change 只给 `string | undefined`，这里收回联合类型 */
+function handleQueueTabChange(value?: string) {
+  if (value) activeQueueTab.value = value as QueueTabKey;
+}
 
 /** 当前页签下要展示的分组（「全部」= 三个分组依次展示） */
 const visibleGroups = computed(() =>
@@ -195,43 +214,21 @@ function discountTag(item: CashierBooking): string | null {
   return formatDiscount(permille);
 }
 
-/** 支付状态文案 + 配色（枚举以后端为准，前端只做中文映射） */
-const PAY_STATUS_META: Record<string, { text: string; style: string }> = {
-  unpaid: {
-    text: '未收',
-    style:
-      'color: var(--lew-color-error); background: var(--lew-color-error-light);',
-  },
-  partial: {
-    text: '待收尾款',
-    style:
-      'color: var(--lew-color-warning); background: var(--lew-color-warning-light);',
-  },
-  paid: {
-    text: '已结清',
-    style:
-      'color: var(--lew-color-success); background: var(--lew-color-success-light);',
-  },
-  refunded: {
-    text: '已退款',
-    style: 'color: var(--app-text-secondary); background: var(--app-bg-hover);',
-  },
-  credit: {
-    text: '挂账',
-    style:
-      'color: var(--lew-color-primary); background: var(--lew-color-primary-light);',
-  },
+/** 支付状态文案 + 配色（枚举以后端为准，前端只做中文映射；渲染交给 `LewTag`） */
+const PAY_STATUS_META: Record<string, { text: string; color: LewColor }> = {
+  unpaid: { text: '未收', color: 'error' },
+  partial: { text: '待收尾款', color: 'warning' },
+  paid: { text: '已结清', color: 'success' },
+  refunded: { text: '已退款', color: 'normal' },
+  credit: { text: '挂账', color: 'primary' },
 };
 
 function payStatusText(status: string): string {
   return PAY_STATUS_META[status]?.text ?? status;
 }
 
-function payStatusStyle(status: string): string {
-  return (
-    PAY_STATUS_META[status]?.style ??
-    'color: var(--app-text-secondary); background: var(--app-bg-hover);'
-  );
+function payStatusColor(status: string): LewColor {
+  return PAY_STATUS_META[status]?.color ?? 'normal';
 }
 
 // ---------- 中栏：选中单据 ----------
@@ -294,8 +291,24 @@ const customerInitial = computed(
   () => selected.value?.customerName?.trim().slice(0, 1) || '客',
 );
 
-/** 会员信息区页签：会员等级 / 可用余额积分 */
+/** 会员信息区页签：会员等级 / 可用余额积分（同样交给 `LewTabs`） */
 const memberTab = ref<'level' | 'account'>('level');
+
+const MEMBER_TABS = [
+  { key: 'level', title: '会员等级' },
+  { key: 'account', title: '可用余额积分' },
+] as const;
+
+type MemberTabKey = (typeof MEMBER_TABS)[number]['key'];
+
+const memberTabOptions: LewTabsOption[] = MEMBER_TABS.map((tab) => ({
+  label: tab.title,
+  value: tab.key,
+}));
+
+function handleMemberTabChange(value?: string) {
+  if (value) memberTab.value = value as MemberTabKey;
+}
 
 const memberLevelText = computed(
   () =>
@@ -396,10 +409,10 @@ interface PaymentRow {
   key: number;
   /** 渠道（LewSelect 的值为字符串，提交时断言成 PaymentChannel） */
   channel: string;
-  /** 应收（元，LewInput 只接受字符串，提交时换算成分） */
-  amount: string;
+  /** 应收（元，`LewInputNumber` 的绑定值就是 number，提交时换算成分） */
+  amount: number;
   /** 实收（元，现金找零用） */
-  receivedAmount: string;
+  receivedAmount: number;
   memberCardId?: string;
 }
 
@@ -429,12 +442,11 @@ const channelOptions = Object.entries(CHANNEL_LABELS).map(([value, label]) => ({
 
 function addRow(channel: PaymentChannel = 'cash', amount = 0) {
   rowSeq += 1;
-  const text = String(amount);
   paymentRows.value.push({
     key: rowSeq,
     channel,
-    amount: text,
-    receivedAmount: text,
+    amount,
+    receivedAmount: amount,
     memberCardId: undefined,
   });
 }
@@ -591,7 +603,7 @@ function handleSettle() {
     return;
   }
   const rows = paymentRows.value.filter(
-    (row) => row.channel === 'card' || Number(row.amount) > 0,
+    (row) => row.channel === 'card' || (row.amount ?? 0) > 0,
   );
   if (!rows.length) {
     LewMessage.error('请至少添加一笔收款');
@@ -930,7 +942,7 @@ onBeforeUnmount(() => {
           v-if="queueCollapsed"
           class="rounded-8px bg-[var(--app-bg-hover)] px-2.5 py-2 text-12px text-[var(--app-text-secondary)]"
         >
-          共 {{ queueTabs[0]?.count ?? 0 }} 单 · 尾款
+          共 {{ totalQueueCount }} 单 · 尾款
           <span class="font-600 text-[var(--lew-color-warning)]"
             >¥{{ fen2yuan(allQueueDueFen) }}</span
           >
@@ -959,25 +971,23 @@ onBeforeUnmount(() => {
             </LewButton>
           </div>
 
-          <!-- 分组页签 -->
-          <div
-            class="mt-2 flex w-full max-w-420px shrink-0 items-center gap-1 rounded-8px bg-[var(--app-bg-hover)] p-1"
-          >
-            <button
-              v-for="tab in queueTabs"
-              :key="tab.key"
-              type="button"
-              class="flex-1 cursor-pointer whitespace-nowrap rounded-6px border-none bg-transparent px-0.5 py-1.5 text-12px transition-colors"
-              :class="
-                activeQueueTab === tab.key
-                  ? 'bg-[var(--app-bg-card)] font-600 text-[var(--lew-color-primary)] shadow-[var(--app-shadow)]'
-                  : 'text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]'
-              "
-              @click="activeQueueTab = tab.key"
-            >
-              {{ tab.title
-              }}<span class="ml-0.5 text-10px opacity-60">{{ tab.count }}</span>
-            </button>
+          <!--
+            分组页签（LewTabs：block + round 即设计稿的分段胶囊；数量拼进 label）。
+            宽度上限套在外层 div 上，不能写进 LewTabs 的 class —— lew-ui 的
+            `.lew-tabs-wrapper` 自己也声明了 `max-width:100%`，与 Uno 的 `.max-w-420px`
+            同权重，谁生效看产物 CSS 顺序（实测被 lew-ui 覆盖，标签会拉满整页）。
+          -->
+          <div class="mt-2 w-full max-w-420px shrink-0">
+            <LewTabs
+              :model-value="activeQueueTab"
+              :options="queueTabOptions"
+              type="block"
+              size="small"
+              width="100%"
+              item-width="auto"
+              round
+              @change="handleQueueTabChange"
+            />
           </div>
 
           <!-- 队列列表 -->
@@ -1054,16 +1064,24 @@ onBeforeUnmount(() => {
                           class="truncate text-12px text-[var(--app-text-secondary)]"
                           >编号 {{ item.bookingNo }}</span
                         >
-                        <span
+                        <LewTag
                           v-if="discountTag(item)"
-                          class="shrink-0 rounded-4px bg-[var(--lew-color-warning-light)] px-1 text-11px text-[var(--lew-color-warning)]"
-                          >{{ discountTag(item) }}</span
-                        >
-                        <span
+                          class="shrink-0"
+                          :text="discountTag(item) ?? ''"
+                          type="light"
+                          color="warning"
+                          size="small"
+                          round
+                        />
+                        <LewTag
                           v-if="item.payStatus === 'credit'"
-                          class="shrink-0 rounded-4px bg-[var(--lew-color-primary-light)] px-1 text-11px text-[var(--lew-color-primary)]"
-                          >挂账</span
-                        >
+                          class="shrink-0"
+                          text="挂账"
+                          type="light"
+                          color="primary"
+                          size="small"
+                          round
+                        />
                       </div>
                       <div
                         class="mt-0.5 flex items-center justify-between text-11.5px text-[var(--app-text-muted)]"
@@ -1086,7 +1104,7 @@ onBeforeUnmount(() => {
 
           <!-- 未选中单据时的引导（队列为空时没必要说「点一张单据」） -->
           <p
-            v-if="!showDetail && (queueTabs[0]?.count ?? 0) > 0"
+            v-if="!showDetail && totalQueueCount > 0"
             class="page-subtitle m-0 shrink-0 text-center"
           >
             点一张单据，右侧会展开「金额明细 + 混合支付」
@@ -1144,42 +1162,24 @@ onBeforeUnmount(() => {
               <div class="flex items-start justify-between gap-3">
                 <div class="flex items-center gap-2">
                   <h3 class="m-0 text-18px font-700">订单信息</h3>
-                  <span
-                    class="rounded-4px px-1.5 py-0.5 text-11.5px font-600"
-                    :style="payStatusStyle(selected.payStatus)"
-                    >{{ payStatusText(selected.payStatus) }}</span
-                  >
+                  <LewTag
+                    :text="payStatusText(selected.payStatus)"
+                    :color="payStatusColor(selected.payStatus)"
+                    type="light"
+                    size="small"
+                    round
+                  />
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
-                  <div
+                  <LewTabs
                     v-if="memberInfo"
-                    class="flex items-center gap-1 rounded-8px bg-[var(--app-bg-hover)] p-1"
-                  >
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded-6px border-none px-2.5 py-1 text-12.5px transition-colors"
-                      :class="
-                        memberTab === 'level'
-                          ? 'bg-[var(--app-bg-card)] font-600 text-[var(--lew-color-primary)] shadow-[var(--app-shadow)]'
-                          : 'bg-transparent text-[var(--app-text-secondary)]'
-                      "
-                      @click="memberTab = 'level'"
-                    >
-                      会员等级
-                    </button>
-                    <button
-                      type="button"
-                      class="cursor-pointer rounded-6px border-none px-2.5 py-1 text-12.5px transition-colors"
-                      :class="
-                        memberTab === 'account'
-                          ? 'bg-[var(--app-bg-card)] font-600 text-[var(--lew-color-primary)] shadow-[var(--app-shadow)]'
-                          : 'bg-transparent text-[var(--app-text-secondary)]'
-                      "
-                      @click="memberTab = 'account'"
-                    >
-                      可用余额积分
-                    </button>
-                  </div>
+                    :model-value="memberTab"
+                    :options="memberTabOptions"
+                    type="block"
+                    size="small"
+                    round
+                    @change="handleMemberTabChange"
+                  />
                   <IconButton
                     title="收起详情（队列重新铺满整页）"
                     @click="clearSelection"
@@ -1533,10 +1533,12 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="mt-2">
-                  <LewInput
+                  <LewInputNumber
                     v-model="row.amount"
                     width="100%"
                     size="small"
+                    :min="0"
+                    :step="0.01"
                     placeholder="金额（元）"
                     :disabled="row.channel === 'card'"
                   />
@@ -1550,10 +1552,12 @@ onBeforeUnmount(() => {
                   <span class="shrink-0 text-12px text-[var(--app-text-muted)]"
                     >实收(元)</span
                   >
-                  <LewInput
+                  <LewInputNumber
                     v-model="row.receivedAmount"
                     width="100%"
                     size="small"
+                    :min="0"
+                    :step="0.01"
                     placeholder="顾客实际递交的现金"
                   />
                 </div>

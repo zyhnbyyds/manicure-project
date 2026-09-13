@@ -20,6 +20,60 @@ metadata:
 - 路由：菜单在后端 `seed/menus.ts` 里配（`M` 目录 / `C` 页面 / `F` 按钮），**前端路由自动生成，
   不要手改 `router/index.ts`**。
 
+### 组件优先：lew-ui 有的就必须用（§10.2 / §10.3）
+
+设计文档的取舍口径是「**lew-ui 无可直接复用的组件才自研**，且要在 §10.3 写明理由」
+（排班周视图、预约日历就是这么留下来的）。所以别用裸 `div` / `button` + 原子类手搓
+控件——先翻一遍 lew-ui 有没有现成的：
+
+| 场景 | 用什么 | 别用 |
+| --- | --- | --- |
+| 分段页签 / 视图切换 | `LewTabs`（`type="block"` + `round` 就是分段胶囊；`type="line"` 是下划线式） | 一排 `<button>` + 选中态原子类 |
+| 状态 / 折扣 / 类型小标签 | `LewTag`（`type="light"` + `size="small"`，`color` 取 `LewColor`） | `<span>` + 手写 `bg-[...light] text-[...]` |
+| 金额输入 | `LewInputNumber`（`:min="0"` `:step="0.01"`，`v-model` 是 **number**） | `LewInput` + 字符串再 `Number()` |
+| 图标按钮 | `<IconButton>`（项目组件，带 `permission`） | 裸 `<button class="icon-btn">` |
+| 加载占位 | `<AppLoading>`（见下） | 自己写骨架/转圈 |
+
+**目前没有对应组件的**（自研，别重复造）：加载骨架/转圈（`AppLoading`）、
+周视图排班网格与预约日历（§10.3 已说明）、首字圆形头像（`LewAvatar` 只认 `src`，
+全站 AppHeader / profile 都是首字 `<span>` 手搓的，保持一致）。
+
+### `AppLoading`（`web/src/components/AppLoading.vue`）
+
+lew-ui 2.8.2 没有 `LewLoading` / `LewSkeleton`，所以自己封了一个，三种形态按
+**「内容会不会被销毁」**区分：
+
+| `variant` | 场景 | 行为 |
+| --- | --- | --- |
+| `skeleton` | 首屏（列表 / 详情 / 统计卡） | 隐藏内容，骨架撑开高度（`shape="line"` \| `"card"`、`:rows`、`min-height`） |
+| `spinner` | 高度不固定的小区域 | 转圈 + 文案（`align="start"` 可塞进一行文字里） |
+| `overlay` | **刷新 / 局部重载** | 半透明遮罩盖住旧内容，**内容始终挂载** |
+
+```vue
+<AppLoading variant="skeleton" shape="card" :rows="4" min-height="220px" :loading="queueLoading">
+  <MyList />
+</AppLoading>
+```
+
+- 内容用 `v-show` 不用 `v-if`：否则每次「加载一下」都重建插槽，echarts 实例、表单焦点、
+  滚动位置全丢，图表还会在 `display:none` 容器里拿到 0×0 画布（首页 `initCharts()`
+  因此挪到 `loading=false` + `nextTick()` 之后）；
+- 内容包裹层是 `display: contents`，外面给的 flex / grid 布局类直接作用到插槽内容上；
+  插槽里若是「靠外层 `gap` 排版的一组行内元素」，布局类要给到 `<AppLoading>` 自己；
+- 配套全局动画在 `styles/index.css`：`.app-skeleton` / `.app-swap-*` / `.app-fade-*` /
+  `.app-rise-in`（逐条入场，延迟由内联 `--app-stagger` 控制），末尾统一带
+  `prefers-reduced-motion` 兜底。
+
+两个实测坑：
+
+1. **`LewTabs` 没有逐项插槽**：`LewTabsOption` 只有 `label / value / disabled`，
+   所以「未收 3」这种带数量的标签只能拼进 `label` 字符串。
+2. **宽度/间距类别写在 lew-ui 组件的 `class` 上**：lew-ui 自己的样式和 Uno 工具类同权重
+   （都是单类选择器），谁生效看产物 CSS 顺序。实测 `.lew-tabs-wrapper` 自带
+   `max-width:100%`，会盖掉 `class="max-w-420px"`（`app-card` 的 `transition-shadow`
+   盖掉 `transition-[opacity,...]` 是同一个坑）。要限制尺寸就**套一层普通 div**，
+   或走内联 `:style`。
+
 ## 展示口径（两端必须一致）
 
 - **时间**：后端存 UTC，前端统一按 `Asia/Shanghai`（`web/src/composables/useFormat.ts`）展示；
