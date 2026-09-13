@@ -1,10 +1,11 @@
-/* 收货地址 —— 对齐 docs/manicure-ui-batch4 第 6 屏（模型不存在，先还原骨架） */
+/* 收货地址 —— 对齐 docs/manicure-ui-batch4 第 6 屏（列表 + 新增/编辑弹层） */
 
 .addr-body {
+  /* 固定底栏「新增收货地址」的高度 + 安全区 */
   padding-bottom: 200rpx;
 }
 
-/* ── 地址卡（有数据时用；当前为空态）──────────────────────── */
+/* ── 地址卡 ───────────────────────────────────────────────── */
 
 .addr {
   margin-bottom: 20rpx;
@@ -51,7 +52,148 @@
   margin-top: 18rpx;
 }
 
-/* ── 空态 ─────────────────────────────────────────────────── */
+/* ── 说明 ─────────────────────────────────────────────────── */
+
+.tips {
+  margin-top: 8rpx;
+  padding: 0 8rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}
+
+/* ── 新增 / 编辑弹层 ──────────────────────────────────────── */
+
+.sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(45, 34, 30, 0.45);
+}
+
+.sheet {
+  width: 100%;
+  /* 留出顶部一点空间，长表单可滚动 */
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 32rpx 32rpx 0 0;
+  background: var(--c-bg);
+  /* 从下往上推入 */
+  animation: sheet-up 0.24s ease-out;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(60rpx);
+    opacity: 0.4;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx 8rpx;
+}
+
+.sheet__title {
+  font-family: var(--font-serif);
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.sheet__close {
+  padding: 8rpx 12rpx;
+  font-size: 30rpx;
+  color: var(--c-text-sub);
+}
+
+.sheet__body {
+  flex: 1;
+  min-height: 0;
+  padding: 8rpx 24rpx 0;
+}
+
+.sheet__tip {
+  padding: 16rpx 8rpx 8rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}
+
+.sheet__foot {
+  padding: 16rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  border-top: 2rpx solid var(--c-border);
+}
+
+/* ── 表单字段 ─────────────────────────────────────────────── */
+
+.field {
+  display: flex;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 16rpx;
+  border-radius: var(--r-md);
+  background: var(--c-card);
+}
+
+.field--last {
+  margin-bottom: 0;
+}
+
+.field--column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.field__label {
+  flex-shrink: 0;
+  width: 140rpx;
+  font-size: 27rpx;
+  color: var(--c-text-sub);
+}
+
+.field__input,
+.field__picker {
+  flex: 1;
+  min-width: 0;
+  font-size: 29rpx;
+  color: var(--c-text);
+}
+
+.field__picker.is-empty {
+  color: var(--c-text-weak);
+}
+
+.field__textarea {
+  width: 100%;
+  height: 120rpx;
+  font-size: 29rpx;
+  line-height: 1.6;
+  color: var(--c-text);
+}
+
+.field__placeholder {
+  color: var(--c-text-weak);
+  font-size: 29rpx;
+}
+
+.field__switch {
+  margin-left: auto;
+  transform: scale(0.85);
+}
+
+/* ── 空态徽章（本页沿用设计稿的圆形底） ─────────────────────── */
 
 .empty__badge {
   width: 160rpx;
@@ -64,9 +206,8 @@
   justify-content: center;
 }
 
-.empty__icon {
+.empty__badge-icon {
   width: 68rpx;
   height: 68rpx;
   opacity: 0.5;
 }
-

@@ -19,6 +19,8 @@
  */
 import { request } from '../utils/request';
 import type {
+  Address,
+  AddressUpsertRequest,
   AvailableSlots,
   BindPhoneVo,
   Booking,
@@ -136,6 +138,52 @@ export const memberApi = {
       path: '/app/member/profile',
       method: 'POST',
       data: payload as unknown as Record<string, unknown>,
+    });
+  },
+};
+
+/* ── 收货地址 ──────────────────────────────────────────────── */
+
+/**
+ * 收货地址 CRUD。
+ *
+ * 全部写操作都是 **POST**：`wx.request` 的 method 里没有 PATCH，
+ * 所以编辑/删除/设默认都走动作端点（与 `bookings/:id/cancel` 同风格）。
+ */
+export const addressApi = {
+  list(): Promise<{ items: Address[] }> {
+    return request<{ items: Address[] }>({ path: '/app/member/addresses' });
+  },
+
+  create(payload: AddressUpsertRequest): Promise<Address> {
+    return request<Address>({
+      path: '/app/member/addresses',
+      method: 'POST',
+      data: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  update(id: number, payload: AddressUpsertRequest): Promise<Address> {
+    return request<Address>({
+      path: `/app/member/addresses/${id}/update`,
+      method: 'POST',
+      data: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  setDefault(id: number): Promise<Address> {
+    return request<Address>({
+      path: `/app/member/addresses/${id}/default`,
+      method: 'POST',
+      data: {},
+    });
+  },
+
+  remove(id: number): Promise<{ ok: true }> {
+    return request<{ ok: true }>({
+      path: `/app/member/addresses/${id}/delete`,
+      method: 'POST',
+      data: {},
     });
   },
 };

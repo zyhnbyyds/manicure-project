@@ -4,7 +4,7 @@ title: 业务表详解
 
 # 业务表详解
 
-本页逐张讲清 **31 张 `biz_*` 表**：字段口径、索引与约束、状态机、真实代码位置。
+本页逐张讲清 **33 张 `biz_*` 表**：字段口径、索引与约束、状态机、真实代码位置。
 
 - 表结构唯一权威：`src/database/schema/index.ts`
 - 所有金额单位**分**（`int unsigned`），所有时刻**UTC**；「店内本地日」是 `date` 字符串
@@ -925,6 +925,53 @@ UPDATE biz_receivable
 **索引与约束**：`idx_comm_record_staff_period(staff_id, period, status)`、
 `idx_comm_record_booking(booking_id)`。**只追加**（状态列可变，但不物理删）。
 **相关代码**：`src/modules/biz/reports/commission/commission.service.ts`。
+
+## 顾客自助数据
+
+### biz_customer_address —— 收货地址
+
+顾客在小程序「我的地址」里自维护的地址簿（batch4 设计稿）。**到店服务本来不需要地址**，
+这张表是给门店卖「周边好物」做邮寄用的。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `customer_id` | int unsigned | 归属顾客；接口层强制来自 token，入参里没有它 |
+| `contact_name` / `contact_phone` | varchar(30) / varchar(20) | 收货人，**可以不是顾客本人**（家人 / 公司前台），所以独立存 |
+| `province` / `city` / `district` | varchar(30) | 拆开存：微信 `chooseAddress` / `picker mode="region"` 原生就是三段 |
+| `detail` | varchar(200) | 街道、楼栋、门牌号 |
+| `is_default` | boolean | 默认地址 |
+
+**索引与约束**：`idx_customer_address(customer_id, is_default, id)`（列表：默认优先 + 新的在前）；
+外键 `fk_customer_address_customer` → `biz_customer`（**CASCADE**：顾客物理删时地址跟着走）。
+
+::: warning 「同一顾客最多一个默认」由代码保证，不能靠索引
+MySQL 没有`WHERE is_default = 1`这种**部分唯一索引**；而 `(customer_id, is_default)` 组合唯一会把
+「两个非默认地址」也判重。所以规则落在 `AppCustomerDataService` 的事务里：切默认先清旧的、
+删默认把剩下最新的顶上（「有地址但没有默认」是下游没人能处理的状态）。
+:::
+
+**相关代码**：`src/modules/app/member/app-customer-data.service.ts`。
+
+### biz_customer_favorite —— 款式收藏
+
+顾客收藏的服务项目（`customer_id` + `service_item_id`）。软删即「取消收藏」，
+重新收藏**复用同一行**（把 `deleted_at` 置回 null）。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `customer_id` | int unsigned | 归属顾客 |
+| `service_item_id` | int unsigned | 被收藏的款式 |
+
+**索引与约束**：`uq_customer_favorite(customer_id, service_item_id)` 唯一；
+`idx_customer_favorite_item(service_item_id)`（款式详情的「多少人收藏」）；
+外键指向 `biz_customer` / `biz_service_item`，均 **CASCADE**。
+
+::: warning 唯一索引 + 软删的经典坑
+软删行**仍然占着** `uq_customer_favorite`，直接 INSERT 会撞 1062。
+新增收藏前查重时**不要过滤 `deletedAt`**：命中软删行就走「恢复」，而不是插新行。
+:::
+
+**相关代码**：`src/database/schema/index.ts`（表定义）。
 
 ## 通知模板与日志
 

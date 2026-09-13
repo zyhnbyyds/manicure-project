@@ -13,7 +13,7 @@ metadata:
 ## 表分组（共 61 张，全部在 `src/database/schema/index.ts`）
 
 > ⚠️ **数量与分组以 schema 文件为准**：历史上这里的清单是 32 张（spec §4.1 的早期设计），
-> 现状是 **61 张 = 业务 `biz_*` 31 / 系统 `sys_*` 20 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
+> 现状是 **63 张 = 业务 `biz_*` 33 / 系统 `sys_*` 20 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
 > 逐张字段表见开发者文档 `dev-docs/data/business-tables.md` 与 `dev-docs/data/system-tables.md`。
 > 下面按功能分组列出 **biz_* 业务表 31 张**（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
 
@@ -24,10 +24,10 @@ metadata:
 **B. 预约（3）**
 `biz_booking`、`biz_booking_item`、`biz_booking_recurrence`
 
-**C. 会员与资产（11）**
+**C. 会员与资产（13）**
 `biz_member_level`、`biz_recharge_plan`、`biz_member_card_type`、`biz_member_card_type_item`、
 `biz_member_card`、`biz_member_card_log`、`biz_member_transaction`、
-`biz_points_goods`、`biz_points_redeem`、`biz_coupon_template`、`biz_customer_coupon`
+`biz_points_goods`、`biz_points_redeem`、`biz_coupon_template`、`biz_customer_coupon`、`biz_customer_address`、`biz_customer_favorite`
 
 **D. 支付与账务（8）**
 `biz_payment`、`biz_payment_log`、`biz_payment_diff`、`biz_refund`、`biz_refund_policy`、

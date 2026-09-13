@@ -1,33 +1,166 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body addr-body anim-rise">
-    <!-- 空态：到店服务不需要收货地址，如实说明 -->
-    <view class="empty anim-pop">
+  <view class="page-body addr-body">
+    <!-- 未绑定：地址是个人数据，先引导 -->
+    <view wx:if="{{needBind}}" class="empty anim-pop">
       <view class="empty__badge">
-        <image class="empty__icon" src="{{icons.location}}" mode="aspectFit" />
+        <image class="empty__badge-icon" src="{{icons.location}}" mode="aspectFit" />
       </view>
-      <view class="empty__text">还没有收货地址</view>
-      <view class="empty__hint">本店以到店服务为主，通常不需要填写收货地址</view>
+      <view class="empty__text">绑定手机号后可以保存地址</view>
+      <view class="empty__hint">周边好物邮寄时，地址跟着账号走</view>
+      <view class="btn btn--primary empty__action" bindtap="onGuestLogin"
+        >去绑定手机号</view
+      >
     </view>
 
-    <view wx:for="{{addresses}}" wx:key="id" class="card addr">
-      <view class="addr__top">
-        <view class="addr__name">{{item.name}}</view>
-        <view class="addr__phone">{{item.phone}}</view>
-        <view wx:if="{{item.isDefault}}" class="addr__default">默认</view>
+    <view wx:elif="{{loading}}" class="loading">正在读取地址…</view>
+
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
+      <view class="empty__badge">
+        <image class="empty__badge-icon" src="{{icons.location}}" mode="aspectFit" />
       </view>
-      <view class="addr__detail">{{item.detail}}</view>
-      <view class="addr__actions">
-        <view class="mini-btn press-sm" data-id="{{item.id}}" bindtap="onEdit">编辑</view>
-        <view class="mini-btn mini-btn--ghost press-sm" data-id="{{item.id}}" bindtap="onDelete">删除</view>
-      </view>
+      <view class="empty__text">{{errorText}}</view>
+      <view class="empty__hint">请检查网络后重试</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry"
+        >重新加载</view
+      >
     </view>
 
-    <view class="tips">
-      仅当门店提供「周边好物邮寄」时才需要收货地址；到店服务请直接预约到店。
-    </view>
+    <block wx:else>
+      <!-- 空态：如实说明何时需要地址（到店服务本来就不需要） -->
+      <view wx:if="{{addresses.length === 0}}" class="empty anim-pop">
+        <view class="empty__badge">
+          <image
+            class="empty__badge-icon"
+            src="{{icons.location}}"
+            mode="aspectFit"
+          />
+        </view>
+        <view class="empty__text">还没有收货地址</view>
+        <view class="empty__hint">到店服务不需要地址；买周边好物邮寄时才用得上</view>
+      </view>
+
+      <view wx:for="{{addresses}}" wx:key="id" class="card addr">
+        <view class="addr__top">
+          <view class="addr__name">{{item.contactName}}</view>
+          <view class="addr__phone">{{item.contactPhone}}</view>
+          <view wx:if="{{item.isDefault}}" class="addr__default">默认</view>
+        </view>
+        <view class="addr__detail"
+          >{{item.province}}{{item.city}}{{item.district}}{{item.detail}}</view
+        >
+        <view class="addr__actions">
+          <view
+            wx:if="{{!item.isDefault}}"
+            class="mini-btn press-sm"
+            data-id="{{item.id}}"
+            bindtap="onSetDefault"
+            >设为默认</view
+          >
+          <view class="mini-btn press-sm" data-id="{{item.id}}" bindtap="onEdit"
+            >编辑</view
+          >
+          <view
+            class="mini-btn mini-btn--ghost press-sm"
+            data-id="{{item.id}}"
+            bindtap="onDelete"
+            >删除</view
+          >
+        </view>
+      </view>
+
+      <view wx:if="{{addresses.length > 0}}" class="tips">
+        最多保存 10 个地址；下单时会自动带出默认地址。
+      </view>
+    </block>
   </view>
 
+  <!-- 固定底栏：新增 -->
   <view class="action-bar">
-    <view class="btn btn--primary btn--block press" bindtap="onAdd">新增收货地址</view>
+    <view class="btn btn--primary btn--block press" bindtap="onAdd"
+      >＋ 新增收货地址</view
+    >
+  </view>
+
+  <!--
+    新增 / 编辑弹层：一张表单两个用途。
+    字段与后端 `AppAddressUpsertRequest` 一一对应（省市区用原生 region picker）。
+  -->
+  <view wx:if="{{sheetOpen}}" class="sheet-mask" bindtap="onCloseSheet">
+    <view class="sheet" catchtap="onSheetBodyTap">
+      <view class="sheet__head">
+        <view class="sheet__title"
+          >{{mode === 'create' ? '新增地址' : '编辑地址'}}</view
+        >
+        <view class="sheet__close press-sm" bindtap="onCloseSheet">✕</view>
+      </view>
+
+      <scroll-view class="sheet__body" scroll-y>
+        <view class="field">
+          <view class="field__label">收货人</view>
+          <input
+            class="field__input"
+            value="{{form.contactName}}"
+            maxlength="30"
+            placeholder="姓名"
+            placeholder-class="field__placeholder"
+            bindinput="onNameInput"
+          />
+        </view>
+
+        <view class="field">
+          <view class="field__label">联系电话</view>
+          <input
+            class="field__input"
+            type="text"
+            value="{{form.contactPhone}}"
+            maxlength="20"
+            placeholder="手机号或座机"
+            placeholder-class="field__placeholder"
+            bindinput="onPhoneInput"
+          />
+        </view>
+
+        <view class="field">
+          <view class="field__label">所在地区</view>
+          <picker mode="region" value="{{region}}" bindchange="onRegion">
+            <view class="field__picker {{region.length ? '' : 'is-empty'}}">
+              {{region.length ? region[0] + ' ' + region[1] + ' ' + region[2] : '选择省 / 市 / 区'}}
+            </view>
+          </picker>
+        </view>
+
+        <view class="field field--column">
+          <view class="field__label">详细地址</view>
+          <textarea
+            class="field__textarea"
+            value="{{form.detail}}"
+            maxlength="200"
+            placeholder="街道、楼栋、门牌号"
+            placeholder-class="field__placeholder"
+            bindinput="onDetailInput"
+          />
+        </view>
+
+        <view class="field field--last">
+          <view class="field__label">设为默认</view>
+          <switch
+            class="field__switch"
+            checked="{{form.isDefault}}"
+            color="#B45F6B"
+            bindchange="onDefaultSwitch"
+          />
+        </view>
+
+        <view class="sheet__tip">收货人可以是家人或公司前台；电话填座机也可以。</view>
+      </scroll-view>
+
+      <view class="sheet__foot">
+        <view
+          class="btn btn--primary btn--block {{submitting ? 'btn--disabled' : ''}}"
+          bindtap="onSubmit"
+          >{{submitting ? '保存中…' : '保存'}}</view
+        >
+      </view>
+    </view>
   </view>
 </view>

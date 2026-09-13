@@ -90,6 +90,32 @@ export interface AvailableSlots {
 
 export type MemberCardStatus = 'active' | 'used_up' | 'expired' | 'refunded';
 
+/** 收货地址（`/app/member/addresses`） */
+export interface Address {
+  id: number;
+  contactName: string;
+  contactPhone: string;
+  province: string | null;
+  city: string | null;
+  district: string | null;
+  /** 详细地址（门牌号 / 楼层 / 房间） */
+  detail: string;
+  /** 同一顾客最多一个默认地址（服务端保证） */
+  isDefault: boolean;
+}
+
+/** 新增 / 编辑收货地址的入参 */
+export interface AddressUpsertRequest {
+  contactName: string;
+  contactPhone: string;
+  province?: string | null;
+  city?: string | null;
+  district?: string | null;
+  detail: string;
+  /** 不传 = 保持原样（编辑时忘了勾默认，不该把默认取消） */
+  isDefault?: boolean;
+}
+
 /**
  * 性别：与后端 `biz_customer.gender` **逐字一致**（`unknown` / `male` / `female`）。
  * 前端不要自己映射成中文以外的第三套值。

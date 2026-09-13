@@ -503,6 +503,80 @@ export const appUpdateProfileRequestSchema = z
 registerComponent('AppUpdateProfileRequest', appUpdateProfileRequestSchema);
 
 /* ------------------------------------------------------------------ *
+ * 收货地址（batch4 设计稿「收货地址」页）
+ * ------------------------------------------------------------------ */
+
+export const appAddressVo = z.object({
+  id: z.number().int(),
+  contactName: z.string().openapi({ example: '王女士' }),
+  contactPhone: z.string().openapi({ example: '13800008888' }),
+  province: z.string().nullable(),
+  city: z.string().nullable(),
+  district: z.string().nullable(),
+  detail: z.string().openapi({ example: '南京西路1788号3楼355室' }),
+  /** 同一顾客最多一个默认地址（由 service 在同一事务里保证） */
+  isDefault: z.boolean(),
+});
+registerComponent('AppAddressVo', appAddressVo);
+export type AppAddressVo = z.infer<typeof appAddressVo>;
+
+export const appAddressListVo = z.object({
+  items: z.array(appAddressVo),
+});
+registerComponent('AppAddressListVo', appAddressListVo);
+export type AppAddressListVo = z.infer<typeof appAddressListVo>;
+
+/**
+ * 新增 / 编辑收货地址（`POST /app/member/addresses`、`.../:id/update`）。
+ *
+ * 手机号这里**只做宽松校验**（6~20 位数字，允许 + - 空格）而不是只收 11 位手机号：
+ * 收货人可以是家人、也可以是公司前台座机 —— 用顾客档案那套手机号规则卡地址簿，
+ * 只会让顾客填不进去。真正的顾客身份仍然由 token 决定，跟这串号码无关。
+ */
+export const appAddressUpsertRequestSchema = z
+  .object({
+    contactName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(30)
+      .openapi({ example: '王女士' }),
+    contactPhone: z
+      .string()
+      .trim()
+      .regex(/^[\d+\-() ]{6,20}$/)
+      .openapi({ example: '13800008888', description: '收货人电话' }),
+    province: z
+      .string()
+      .trim()
+      .max(30)
+      .nullish()
+      .openapi({ example: '上海市' }),
+    city: z.string().trim().max(30).nullish().openapi({ example: '上海市' }),
+    district: z
+      .string()
+      .trim()
+      .max(30)
+      .nullish()
+      .openapi({ example: '静安区' }),
+    detail: z
+      .string()
+      .trim()
+      .min(2)
+      .max(200)
+      .openapi({ example: '南京西路1788号3楼355室' }),
+    isDefault: z
+      .boolean()
+      .optional()
+      .openapi({ description: '是否设为默认地址' }),
+  })
+  .strict();
+registerComponent('AppAddressUpsertRequest', appAddressUpsertRequestSchema);
+export type AppAddressUpsertRequest = z.infer<
+  typeof appAddressUpsertRequestSchema
+>;
+
+/* ------------------------------------------------------------------ *
  * 预约 / 评价 / 支付 / 订阅：本期只留契约骨架（501）
  * ------------------------------------------------------------------ */
 

@@ -1870,12 +1870,32 @@ export const bizPointsGoods = mysqlTable(
       .default('active')
       .notNull(),
     sort: int('sort').default(0).notNull(),
+    /**
+     * 商品图（文件下载路径，与 `biz_service_item.image` 同口径）。
+     *
+     * 单图就够：兑换品是「一物一图」的目录项，不需要图集，
+     * 所以不用 `biz_service_item` 那套「images json + 派生封面」范式。
+     */
+    image: varchar('image', { length: 500 }),
+    /**
+     * 分类（自由文本，C 端按它出筛选胶囊）。
+     *
+     * 刻意**不做枚举表**：兑换品分类是门店自己的运营语言（「美甲项目」「周边好物」
+     * 「优惠券」「会员权益」…），加一个分类就要改表结构的话，运营会绕开系统用备注。
+     */
+    category: varchar('category', { length: 30 }),
     remark: varchar('remark', { length: 200 }),
     ...auditColumns,
   },
   (table) => [
     uniqueIndex('uq_points_goods_name').on(table.name),
     index('idx_points_goods_status').on(table.status, table.sort),
+    /** C 端按分类筛选：`(status, category, sort)` 覆盖「只看上架 + 某分类 + 按排序」 */
+    index('idx_points_goods_category').on(
+      table.status,
+      table.category,
+      table.sort,
+    ),
     foreignKey({
       columns: [table.cardTypeId],
       foreignColumns: [bizMemberCardTypes.id],
@@ -2663,5 +2683,98 @@ export const bizCustomerCoupons = mysqlTable(
       foreignColumns: [bizBookings.id],
       name: 'fk_customer_coupon_booking',
     }).onDelete('set null'),
+  ],
+);
+
+/* ------------------------------------------------------------------ *
+ * 顾客自助数据：收货地址 / 款式收藏（batch4 设计稿，本目标新增）
+ *
+ * 两张表都是「顾客自己维护、别的顾客看不到」的数据：app 域的接口一律
+ * 强制 `customer_id = 当前绑定顾客`，不接受客户端传 customerId。
+ *
+ * ⚠️ 与两张优惠券表一样，这里定义在 `defineRelations()` **之后** ——
+ * JS 的 `const` 在定义前处于暂时性死区，把本块挪到 `defineRelations` 之前
+ * 才能注册进关系表。当前两块都**未注册关系**，所以 `db.query.*` 用不了，
+ * 查询请用 `db.select()`（本功能的接口正是这么写的）。
+ * 将来若要用关系查询，把这两张（连同优惠券两张）整体移到 `defineRelations` 之前，
+ * 再补进它的两个参数对象即可。
+ * ------------------------------------------------------------------ */
+
+/** 收货地址（小程序「我的地址」） */
+export const bizCustomerAddresses = mysqlTable(
+  'biz_customer_address',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    /** 联系人 / 联系电话：可以不是顾客本人（给家人朋友寄东西），所以独立存 */
+    contactName: varchar('contact_name', { length: 30 }).notNull(),
+    contactPhone: varchar('contact_phone', { length: 20 }).notNull(),
+    /**
+     * 省 / 市 / 区拆开存：微信 `chooseAddress` 原生就是三段返回，
+     * 拆开才能在不重新取地址的情况下单独改某一段；门店导购按区统计也用得上。
+     */
+    province: varchar('province', { length: 30 }),
+    city: varchar('city', { length: 30 }),
+    district: varchar('district', { length: 30 }),
+    /** 详细地址（门牌号 / 楼层 / 房间号） */
+    detail: varchar('detail', { length: 200 }).notNull(),
+    /**
+     * 默认地址。
+     *
+     * 「同一顾客最多一个默认」**由 service 在同一事务里保证**（先把旧的置 0 再置新），
+     * 不能建部分唯一索引：MySQL 没有 `WHERE is_default = 1` 这种部分索引，
+     * 而 `(customer_id, is_default)` 组合唯一会把「两个非默认地址」也判重。
+     */
+    isDefault: boolean('is_default').default(false).notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    /** 列表查询：某顾客的地址，默认地址排最前 */
+    index('idx_customer_address').on(
+      table.customerId,
+      table.isDefault,
+      table.id,
+    ),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_customer_address_customer',
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * 款式收藏（顾客 ↔ 服务项目）。
+ *
+ * 软删即「取消收藏」，重新收藏**复用同一行**（把 `deleted_at` 置回 null）——
+ * 唯一索引 `uq_customer_favorite` 是 `(customer_id, service_item_id)`，
+ * 软删行仍然占着这个键，直接 INSERT 会撞 1062（data-model 技能里那个经典坑）。
+ * 因此查重时**不要过滤 `deletedAt`**。
+ */
+export const bizCustomerFavorites = mysqlTable(
+  'biz_customer_favorite',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    customerId: int('customer_id', { unsigned: true }).notNull(),
+    serviceItemId: int('service_item_id', { unsigned: true }).notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_customer_favorite').on(
+      table.customerId,
+      table.serviceItemId,
+    ),
+    /** 「这个款式被多少人收藏」以及款式详情里的收藏数 */
+    index('idx_customer_favorite_item').on(table.serviceItemId),
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [bizCustomers.id],
+      name: 'fk_customer_favorite_customer',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.serviceItemId],
+      foreignColumns: [bizServiceItems.id],
+      name: 'fk_customer_favorite_item',
+    }).onDelete('cascade'),
   ],
 );

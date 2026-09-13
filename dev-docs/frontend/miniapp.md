@@ -400,12 +400,14 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 按「能不能马上做」分成三档。**判断依据不是注释怎么写，而是后端有没有对应的表与 service** ——
 这份仓库里注释经常落后于实现。
 
-### A. 已实现（本轮）
+### A. 已实现
 
 | 项 | 做了什么 |
 | --- | --- |
 | **顾客自助改资料** | 新增 `POST /app/member/profile`（白名单 name/gender/birthday，`.strict()` 拒白名单外字段）+ 新页 `pages/profile-edit` + 「我的」入口。**用 POST 而不是 PATCH**：`wx.request` 没有 PATCH |
 | **会员卡号** | `GET /app/member/me` 暴露真 `memberNo`；会员卡页不再拿 customerId 补零编一个假号 |
+| **会员卡分等级皮肤** | `me` 新增 `levelRank`（0 = 最低等级，与等级命名无关）；卡面按名次换四档皮肤（银/金/钻/曜石黑金）+ 金属描边 + 箔光 + 等级徽章 |
+| **收货地址** | 新表 `biz_customer_address` + `/app/member/addresses` 五个端点（列表/新增/编辑/删除/设默认）+ `pages/address` 真实 CRUD（列表 + 新增编辑弹层 + 默认徽标）。设计稿 batch4 第 6 屏 |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 
@@ -413,18 +415,19 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | --- | --- | --- | --- |
 | **消息中心**（`pages/notices`） | 五个页签、卡片、空态按设计稿还原好了，但列表**恒为空** | `sys_notice_log` **已有** `recipient_type/recipient_id/read_at`；缺 `GET /app/notices`（分类 + 分页 + 未读数）与「标已读 / 全部已读」两个动作端点 | 中 |
 | **门店档案**（`pages/shop`、`config.ts` 的 `SHOP`） | 门店名/电话/地址/营业时间/经纬度都是**前端常量**，改一次要重新发版 | 缺 `GET /app/shop`；值可读 `sys_config`（门店名、电话、地址、营业时间），缺省回落现在的常量 | 小 |
-| **兑换品分类**（`pages/points`） | 分类胶囊是**死控件**（点了只改高亮，不过滤） | `biz_points_goods` 没有分类列 → 要么加列（`db:generate` 迁移）+ 下推筛选，要么把胶囊删掉。**没有第三选择** | 小 |
-| **取消页扣费说明**（`pages/cancel`） | 只写原则，不显示具体扣多少 | app 域拿不到判责规则（在 `RefundPort.preview`）→ 加一个只读的 `GET /app/bookings/:id/refund-preview` | 小 |
+| **积分兑换宫格 + 分类**（`pages/points`） | 分类胶囊是**死控件**；列表是单列，设计稿是**两列宫格带图** | 后端已加 `biz_points_goods.image` / `.category` 两列 → 补 app 域按分类筛选 + 前端宫格 | 中 |
+| **次卡详情**（`pages/card-detail`） | 有卡面与「核销记录」空态 | 设计稿要**到店核销码**（二维码 + 卡号）与使用记录列表 → 补后端核销记录接口 + 前端 | 中 |
+| **充值中心**（`pages/recharge`） | 档位来自服务端，点充值如实提示 | 设计稿要余额卡 + 累计充值 + 档位选中 + 自定义金额 → 补 `me` 里的累计充值/余额展示 + 前端 | 中 |
+| **取消页扣费说明**（`pages/cancel`） | 只写原则，不显示具体扣多少 | app 域拿不到判责规则（在 `RefundPort.preview`）→ 加只读的 `GET /app/bookings/:id/refund-preview` | 小 |
 | **会员卡页促销区** | 接口失败被 `.catch` 降级成「暂无可领的券」 | 把「加载失败」与「确实没有」分开（前端改一处） | 小 |
 
-### C. 需要新表 / 新接口（做之前先定模型）
+### C. 仍需新表 / 新接口
 
 | 项 | 现状 | 需要 |
 | --- | --- | --- |
-| **收货地址**（`pages/address`） | 设计稿的列表 + 底部新增按钮还原了，**不做假数据** | `biz_customer_address` 表（customer_id / 联系人 / 电话 / 省市区 / 详址 / 默认标记）+ CRUD + 下单时可选 —— **模型里连表都没有** |
-| **我的收藏**（`pages/favorites`） | 标题、分类胶囊、空态按设计稿还原，**不塞假收藏**（塞了顾客会以为自己收藏过） | `biz_customer_favorite` 表 + 增删查 + 款式库/详情页的收藏按钮；分类胶囊要等款式有分类字段 |
+| **我的收藏**（`pages/favorites`） | 标题、分类胶囊、空态按设计稿还原，**不塞假收藏** | 表 `biz_customer_favorite` **已建**；缺 app 域增删查接口 + 款式库收藏按钮 + 收藏页两列卡片（设计稿 batch4 第 4 屏） |
 | **意见反馈**（`pages/feedback`） | 表单（类型/描述/图片位/联系方式/匿名）完整，提交只 toast | `biz_feedback` 表（**匿名提交不能写 customer_id**，否则「匿名」是假的）+ `POST /app/feedback`。注意别复用 `sys_notice`（那是**发出的**通知） |
-| **充值下单**（`pages/recharge`） | 档位来自服务端，点充值如实提示「到店/待开放」 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
+| **充值下单** | 档位展示已有，点充值如实提示 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
 
 ### D. 做不了 / 不该做（不是缺陷）
 
