@@ -159,6 +159,11 @@ export function goMember(): void {
   wx.navigateTo({ url: '/pages/member/index' });
 }
 
+/** 个人资料（姓名 / 性别 / 生日） */
+export function goProfileEdit(): void {
+  wx.navigateTo({ url: '/pages/profile-edit/index' });
+}
+
 export function goServiceDetail(serviceItemId: number): void {
   wx.navigateTo({ url: `/pages/service-detail/index?id=${serviceItemId}` });
 }

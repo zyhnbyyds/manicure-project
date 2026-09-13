@@ -13,6 +13,7 @@ import {
   goFeedback,
   goLogin,
   goMember,
+  goProfileEdit,
   goStaffWorkbench,
   goTheme,
 } from '../../utils/nav';
@@ -57,6 +58,9 @@ definePage({
     couponCount: 0,
     /** 功能列表 */
     menu: [
+      // 个人资料排第一：这是顾客最常想改的东西（姓名/性别/生日），
+      // 以前只能在门店让店员改，现在自助
+      { key: 'profile', label: '个人资料', icon: 'person' as IconName },
       { key: 'address', label: '我的地址', icon: 'location' as IconName },
       { key: 'service', label: '联系客服', icon: 'headset' as IconName },
       { key: 'feedback', label: '意见反馈', icon: 'chat' as IconName },
@@ -189,6 +193,11 @@ definePage({
 
   async onMenuTap(event: WechatMiniprogram.TouchEvent) {
     const key = String(event.currentTarget.dataset.key);
+    if (key === 'profile') {
+      if (!(await this.guard('修改资料需要先绑定手机号'))) return;
+      goProfileEdit();
+      return;
+    }
     if (key === 'service') {
       wx.showModal({
         title: '联系门店',

@@ -89,8 +89,10 @@ definePage({
         needBind: false,
         name: me.name,
         levelName: me.levelName ?? '普通会员',
-        // 库里是 member_no；app VO 暂未暴露，这里用顾客 ID 补零兜底
-        cardNo: `NO. ${String(me.customerId).padStart(4, '0')} 0000 0000`,
+        // 真会员号来自 `biz_customer.member_no`（未入会为 null）。
+        // **不要再用 customerId 补零编一个** —— 那个号跟门店系统里的对不上，
+        // 顾客报给店员时谁也查不到。
+        cardNo: me.memberNo ? `NO. ${me.memberNo}` : 'NO. 待入会后生成',
         discountText: formatDiscount(me.discountPermille),
         balanceText: fenToYuan(me.balancePrincipal + me.balanceBonus),
         principalText: fenToYuan(me.balancePrincipal),

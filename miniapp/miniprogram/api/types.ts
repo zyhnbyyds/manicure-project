@@ -90,6 +90,25 @@ export interface AvailableSlots {
 
 export type MemberCardStatus = 'active' | 'used_up' | 'expired' | 'refunded';
 
+/**
+ * 性别：与后端 `biz_customer.gender` **逐字一致**（`unknown` / `male` / `female`）。
+ * 前端不要自己映射成中文以外的第三套值。
+ */
+export type Gender = 'unknown' | 'male' | 'female';
+
+/**
+ * 顾客自助改资料的入参（`PATCH /app/member/me`）。
+ *
+ * 只有这三项：**手机号不在这里** —— 换号等于换绑，必须走 `bindPhone()` 那条
+ * 「授权 → 换手机号 → 留痕」的链路；等级 / 积分 / 余额只能由门店改。
+ */
+export interface UpdateProfileRequest {
+  name?: string;
+  gender?: Gender;
+  /** 传 `null` 表示清空 */
+  birthday?: string | null;
+}
+
 export interface MemberCard {
   id: number;
   cardNo: string;
@@ -118,6 +137,17 @@ export interface MemberMe {
   customerId: number;
   name: string;
   phone: string | null;
+  /**
+   * 会员号（`biz_customer.member_no`）。首次储值 / 消费时才生成，未入会是 `null`。
+   *
+   * **不要再拿 customerId 补零编一个卡号**：那个号跟门店系统里的对不上，
+   * 顾客报给店员时谁也查不到。
+   */
+  memberNo: string | null;
+  /** 性别（可在「个人资料」页自助修改） */
+  gender: Gender;
+  /** 生日 `YYYY-MM-DD`（可在「个人资料」页自助修改） */
+  birthday: string | null;
   levelName: string | null;
   /** 折扣率千分比；无等级 = 1000 */
   discountPermille: number;

@@ -44,6 +44,7 @@ import type {
   StaffReview,
   StaffSchedule,
   RechargePlan,
+  UpdateProfileRequest,
 } from './types';
 
 /** 演示数据只提示一次，避免每个请求都刷日志 */
@@ -119,6 +120,22 @@ export const memberApi = {
     return request<Paged<MemberCard>>({
       path: '/app/member/cards',
       data: status ? { status } : undefined,
+    });
+  },
+
+  /**
+   * 改自己的资料（姓名 / 性别 / 生日）。
+   *
+   * 返回**更新后的整份会员信息**，所以调用方拿到结果直接 `setData` 即可，不用再打一次 `getMe`。
+   * 手机号**不在这里**：换号要走 `authApi.bindPhone()`（授权 + 留痕）。
+   *
+   * 端点是 POST 而不是 PATCH：`wx.request` 的 method 里**没有 PATCH**（见 `HttpMethod`）。
+   */
+  updateProfile(payload: UpdateProfileRequest): Promise<MemberMe> {
+    return request<MemberMe>({
+      path: '/app/member/profile',
+      method: 'POST',
+      data: payload as unknown as Record<string, unknown>,
     });
   },
 };

@@ -1,0 +1,119 @@
+<view class="page" style="{{themeStyle}}">
+  <view class="page-body profile-body anim-rise">
+    <!-- 未绑定：资料是个人档案，先引导而不是显示空表单 -->
+    <view wx:if="{{needBind}}" class="empty anim-pop">
+      <view class="empty__badge">
+        <image class="empty__badge-icon" src="{{icons.person}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">绑定手机号后可以修改资料</view>
+      <view class="empty__hint"
+        >资料跟着手机号走，绑定后才能把你的档案认出来</view
+      >
+      <view class="btn btn--primary empty__action" bindtap="onGuestLogin"
+        >去绑定手机号</view
+      >
+    </view>
+
+    <view wx:elif="{{loading}}" class="loading">正在读取你的资料…</view>
+
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
+      <view class="empty__badge">
+        <image class="empty__badge-icon" src="{{icons.person}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">{{errorText}}</view>
+      <view class="empty__hint">请检查网络后重试</view>
+      <view class="btn btn--primary btn--sm empty__action" bindtap="onRetry"
+        >重新加载</view
+      >
+    </view>
+
+    <block wx:else>
+      <!-- 会员号：只读展示（门店系统里报的就是这个号） -->
+      <view class="card member-row">
+        <view class="member-row__label">会员号</view>
+        <view class="member-row__value">{{memberNo}}</view>
+      </view>
+
+      <view class="section">
+        <view class="section__title">基本信息</view>
+      </view>
+
+      <view class="card">
+        <!-- 姓名 -->
+        <view class="field">
+          <view class="field__label">姓名</view>
+          <input
+            class="field__input"
+            value="{{name}}"
+            maxlength="30"
+            placeholder="怎么称呼你"
+            placeholder-class="field__placeholder"
+            bindinput="onNameInput"
+          />
+        </view>
+
+        <!-- 性别：取值与后端同枚举，中文只作标签 -->
+        <view class="field field--column">
+          <view class="field__label">性别</view>
+          <view class="genders">
+            <view
+              wx:for="{{genderOptions}}"
+              wx:key="value"
+              class="chip {{gender === item.value ? 'is-active' : ''}}"
+              data-value="{{item.value}}"
+              bindtap="onGender"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <!-- 生日：native picker，范围 1930-01-01 ~ 今天 -->
+        <view class="field">
+          <view class="field__label">生日</view>
+          <picker
+            mode="date"
+            value="{{birthday}}"
+            start="{{minBirthday}}"
+            end="{{maxBirthday}}"
+            bindchange="onBirthday"
+          >
+            <view class="field__picker {{birthday ? '' : 'is-empty'}}">
+              {{birthday || '选择生日'}}
+            </view>
+          </picker>
+          <view
+            wx:if="{{birthday}}"
+            class="field__clear press-sm"
+            bindtap="onBirthdayClear"
+            >清空</view
+          >
+        </view>
+      </view>
+
+      <!-- 手机号只读：换号要走授权 + 换绑留痕，不在这里改 -->
+      <view class="section">
+        <view class="section__title">账号</view>
+      </view>
+      <view class="card">
+        <view class="field field--last" bindtap="onChangePhone">
+          <view class="field__label">手机号</view>
+          <view class="field__readonly">{{phone || '未绑定'}}</view>
+          <view class="field__arrow">›</view>
+        </view>
+      </view>
+      <view class="hint"
+        >手机号是账号凭据（预约、会员、券都跟着它），更换需要重新授权一次。</view
+      >
+
+      <view class="submit">
+        <view
+          class="btn btn--primary btn--block {{dirty && !saving ? '' : 'btn--disabled'}}"
+          bindtap="onSave"
+          >{{saving ? '保存中…' : '保存'}}</view
+        >
+      </view>
+      <view class="safe-bottom"></view>
+    </block>
+  </view>
+</view>

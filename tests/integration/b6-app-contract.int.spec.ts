@@ -309,13 +309,19 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
       [
         'balanceBonus',
         'balancePrincipal',
+        // 生日 / 性别：顾客可自助修改（POST /app/member/profile），要能回显当前值
+        'birthday',
         'cards',
         'customerId',
         'discountPermille',
+        'gender',
         'levelName',
         // 积分抵扣上限（‰）：**刻意对 C 端公开** —— 小程序要用它算预估，
         // 前端不该硬编码服务端配置（曾经硬编码 500 而后端 300，预估必然对不上）
         'maxPointsPermille',
+        // 会员卡号：**刻意对 C 端公开** —— 那是顾客自己的卡号（印在卡上、报给店员用的）。
+        // 早先没暴露，小程序只能拿顾客 id 补零编一个，跟门店系统里的号对不上。
+        'memberNo',
         'name',
         'phone',
         'points',
@@ -397,6 +403,135 @@ describe('B6 /app/member/me：字段集合与越权（G8）', () => {
     const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
     expect(me.status).toBe(401);
     expect(me.body.needBind).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('B6 顾客自助改资料 POST /app/member/profile', () => {
+  it('改姓名 / 性别 / 生日：落库、回显，并返回更新后的整份资料', async () => {
+    const customerId = await seedRichCustomer('李女士', '13800000031');
+    const { token } = await seedBoundAppUser('openid-profile', customerId);
+
+    const updated = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token,
+      body: { name: '李小雨', gender: 'female', birthday: '1996-08-12' },
+    });
+    expect(updated.status).toBe(200);
+    // 返回值就是会员信息本体，前端一次往返即可刷新
+    expect(updated.body.name).toBe('李小雨');
+    expect(updated.body.gender).toBe('female');
+    expect(updated.body.birthday).toBe('1996-08-12');
+    expect(updated.body.customerId).toBe(customerId);
+
+    const [row] = await ctx.sql<
+      { name: string; gender: string; birthday: string; updated_by: number }[]
+    >(
+      // DATE 列直接用 SQL 格式化成字符串：mysql2 会把 DATE 解析成**本地时区的 Date**，
+      // `String(date)` 得到的是 "Mon Aug 12 1996 …"，`toISOString()` 又会整体偏一天
+      `SELECT name, gender, DATE_FORMAT(birthday, '%Y-%m-%d') AS birthday, updated_by
+         FROM biz_customer WHERE id = ?`,
+      [customerId],
+    );
+    expect(row!.name).toBe('李小雨');
+    expect(row!.gender).toBe('female');
+    expect(row!.birthday).toBe('1996-08-12');
+    // app 端没有 sys_user，审计字段记 0（与建单/结算同口径）
+    expect(Number(row!.updated_by)).toBe(0);
+
+    // 再读一次 `me`：改的是同一份档案，不是只改了响应
+    const me = await ctx.request('GET', '/api/v1/app/member/me', { token });
+    expect(me.body.name).toBe('李小雨');
+    expect(me.body.birthday).toBe('1996-08-12');
+  });
+
+  it('部分更新：只传生日也能改，其余字段原样不动', async () => {
+    const customerId = await seedRichCustomer('王女士', '13800000032');
+    const { token } = await seedBoundAppUser('openid-profile-2', customerId);
+
+    const updated = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token,
+      body: { birthday: '2000-01-01' },
+    });
+    expect(updated.status).toBe(200);
+    expect(updated.body.name).toBe('王女士');
+    expect(updated.body.birthday).toBe('2000-01-01');
+
+    // 生日可传 null 清空
+    const cleared = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token,
+      body: { birthday: null },
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.birthday).toBeNull();
+  });
+
+  it('白名单之外一律 400：手机号 / 等级 / 积分 / 余额都改不了（不静默忽略）', async () => {
+    const customerId = await seedRichCustomer('赵女士', '13800000033');
+    const { token } = await seedBoundAppUser('openid-profile-3', customerId);
+
+    for (const body of [
+      { phone: '13900000000' }, // 手机号必须走 /app/auth/phone 换绑链路
+      { points: 999999 },
+      { balancePrincipal: 999999 },
+      { levelId: 1 },
+      { customerId: 1 },
+      { name: '张三', phone: '13900000000' }, // 混着传也不行
+    ]) {
+      const response = await ctx.request('POST', '/api/v1/app/member/profile', {
+        token,
+        body,
+      });
+      expect(response.status, JSON.stringify(body)).toBe(400);
+    }
+
+    // 一个字段都不给 → 400（否则就是「改了但什么都没改」的空操作）
+    const empty = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token,
+      body: {},
+    });
+    expect(empty.status).toBe(400);
+
+    // 上面全被拒 → 档案一个字都没变
+    const [row] = await ctx.sql<
+      { name: string; phone: string; points: number }[]
+    >(`SELECT name, phone, points FROM biz_customer WHERE id = ?`, [
+      customerId,
+    ]);
+    expect(row!.name).toBe('赵女士');
+    expect(row!.phone).toBe('13800000033');
+    expect(Number(row!.points)).toBe(320);
+  });
+
+  it('未绑定手机号 → 401 + needBind；改不了别人的档案', async () => {
+    const customerId = await seedRichCustomer('钱女士', '13800000034');
+    const { token: boundToken } = await seedBoundAppUser(
+      'openid-profile-4a',
+      customerId,
+    );
+    // 另一个 openid：未绑定（customer_id 为空）
+    const { token: unboundToken } = await seedBoundAppUser(
+      'openid-profile-4b',
+      null,
+    );
+
+    const unbound = await ctx.request('POST', '/api/v1/app/member/profile', {
+      token: unboundToken,
+      body: { name: '想改别人' },
+    });
+    expect(unbound.status).toBe(401);
+    expect(unbound.body.needBind).toBe(true);
+
+    // 归属只认 token：带别人的 customerId 也没用（前面已断言被 strict 拒），
+    // 这里再确认「自己改自己」不会牵连别人
+    await ctx.request('POST', '/api/v1/app/member/profile', {
+      token: boundToken,
+      body: { name: '钱小雨' },
+    });
+    const [other] = await ctx.sql<{ name: string }[]>(
+      `SELECT name FROM biz_customer WHERE phone = '13800000033'`,
+    );
+    expect(other?.name ?? null).not.toBe('钱小雨');
   });
 });
 

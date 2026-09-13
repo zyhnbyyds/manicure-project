@@ -23,6 +23,7 @@
     "pages/login/index",
     "pages/cancel/index",
     "pages/member/index",
+    "pages/profile-edit/index",
     "pages/mine/index",
     "pages/theme/index",
     "pages/staff-workbench/index",

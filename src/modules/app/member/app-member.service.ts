@@ -14,6 +14,7 @@ import {
 } from '../../../database/schema/index.js';
 import {
   BookingPort,
+  CustomerPort,
   MemberAccountPort,
   MemberCardPort,
   type MemberCardRow,
@@ -26,6 +27,7 @@ import {
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
 import { BizConfigService } from '../../biz/common/biz-config.service.js';
+import { APP_ACTOR_ID } from '../app-actor.js';
 import { inPayRollout } from '../pay-rollout.js';
 import type {
   AppBookingListVo,
@@ -62,7 +64,9 @@ function needBind(): UnauthorizedException {
  *   不接受任何来自客户端的顾客 ID（防越权查别人）；
  * - 余额 / 积分 / 折扣率以 `MemberAccountPort`（会员账务）为单一事实来源；
  * - 所有查询**逐个字段显式 select**，响应再投影成 `AppMemberMeVo`，
- *   绝不出现 totalSpent / memberNo / remark / createdBy 等内部字段。
+ *   绝不出现 totalSpent / remark / createdBy 等内部字段。
+ *   （`memberNo` 是**例外且有意为之**：那是顾客自己的会员卡号，
+ *   早先没暴露时小程序只能拿顾客 id 补零编一个，顾客看到的号跟门店系统对不上。）
  */
 @Injectable()
 export class AppMemberService {
@@ -77,6 +81,8 @@ export class AppMemberService {
     private readonly coupons: CouponPort,
     private readonly rechargePlanPort: RechargePlanPort,
     private readonly bizConfig: BizConfigService,
+    /** 门店档案的**唯一写入口**（顾客自助改资料走它，不直接 update 表） */
+    private readonly customers: CustomerPort,
   ) {}
 
   /**
@@ -281,6 +287,9 @@ export class AppMemberService {
         id: bizCustomers.id,
         name: bizCustomers.name,
         phone: bizCustomers.phone,
+        memberNo: bizCustomers.memberNo,
+        gender: bizCustomers.gender,
+        birthday: bizCustomers.birthday,
       })
       .from(bizCustomers)
       .where(
@@ -326,6 +335,9 @@ export class AppMemberService {
       customerId,
       name: customer.name,
       phone: customer.phone,
+      memberNo: customer.memberNo,
+      gender: customer.gender,
+      birthday: customer.birthday,
       levelName,
       discountPermille: context.levelDiscountPermille,
       points: context.points,
@@ -337,6 +349,42 @@ export class AppMemberService {
       // 保证「前端显示可用」与「接口真的放行」永远一致
       selfPayEnabled: await this.selfPayEnabledFor(appUserId),
     };
+  }
+
+  /**
+   * 顾客自助改资料（`POST /app/member/profile`，POST 而非 PATCH 的原因见 controller）。
+   *
+   * 门店档案的写入口**只有 `CustomerPort.update` 一个**（顾客端与后台共用同一条链路），
+   * app 域不直接 update 表 —— 否则手机号唯一性校验、审计字段这些规则会在两边分叉。
+   *
+   * 三处刻意收窄：
+   * 1. **顾客身份只从 token 来**，入参里没有 customerId，改不了别人；
+   * 2. **白名单只有 name / gender / birthday**：手机号要走 `/app/auth/phone` 换绑链路
+   *    （同事务写绑定留痕），等级/积分/余额只能由门店账务链路改；
+   * 3. 传白名单外的字段由 schema `.strict()` 直接 400，不静默忽略。
+   *
+   * 返回**更新后的整份会员信息**：前端一次往返就能刷新，不用再打一次 `me()`。
+   */
+  async updateProfile(
+    appUserId: number,
+    input: {
+      name?: string | undefined;
+      gender?: 'unknown' | 'male' | 'female' | undefined;
+      birthday?: string | null | undefined;
+    },
+  ): Promise<AppMemberMeVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    await this.customers.update(
+      customerId,
+      {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.gender !== undefined ? { gender: input.gender } : {}),
+        ...(input.birthday !== undefined ? { birthday: input.birthday } : {}),
+      },
+      // app 端没有 sys_user，与建单/结算一致记 0（`updated_by` 的既有口径）
+      APP_ACTOR_ID,
+    );
+    return this.me(appUserId);
   }
 
   /**

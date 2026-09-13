@@ -38,6 +38,7 @@ import {
   appPointsRedeemRequestSchema,
   appSettleBookingRequestSchema,
   appSubscribeRequestSchema,
+  appUpdateProfileRequestSchema,
   appWxpayJsapiRequestSchema,
   type AppBookingListVo,
   type AppRechargePlanListVo,
@@ -87,6 +88,42 @@ export class AppMemberController {
     const appUser = request.appUser;
     if (!appUser) throw new UnauthorizedException();
     return this.member.me(appUser.id);
+  }
+
+  @Post('member/profile')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '修改我的资料（姓名 / 性别 / 生日）',
+    description:
+      '只允许改这三项，且**至少提交一项**；`phone` 走 `POST /app/auth/phone`（换绑要留痕），' +
+      '等级 / 积分 / 余额只能由门店改。传白名单外的字段直接 400（不静默忽略）。' +
+      '返回**更新后的整份会员信息**，前端一次往返即可刷新。' +
+      '⚠️ 用 POST 而不是 PATCH：**`wx.request` 的 method 里没有 PATCH**' +
+      '（只有 OPTIONS/GET/HEAD/POST/PUT/DELETE/TRACE/CONNECT），' +
+      'app 域的动作一律开成 POST 端点（见 `miniapp/miniprogram/utils/request.ts` 的 `HttpMethod` 注释）。',
+  })
+  @ApiBody({ schema: { $ref: '#/components/schemas/AppUpdateProfileRequest' } })
+  @ApiResponse({
+    status: 200,
+    description: '成功，返回更新后的会员信息',
+    schema: { $ref: '#/components/schemas/AppMemberMeVo' },
+  })
+  @ApiResponse({
+    status: 400,
+    description: '字段不在白名单 / 格式不对 / 一个字段都没提交',
+  })
+  @ApiResponse({
+    status: 401,
+    description:
+      '未登录，或未绑定手机号（响应体 `{ message, needBind: true }`）',
+  })
+  updateMe(@Req() request: AppRequest, @Body() body: unknown) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.member.updateProfile(
+      appUser.id,
+      appUpdateProfileRequestSchema.parse(body),
+    );
   }
 
   @Get('member/cards')

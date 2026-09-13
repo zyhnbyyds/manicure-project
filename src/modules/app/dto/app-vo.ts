@@ -392,11 +392,29 @@ registerComponent('AppClaimCouponRequest', appClaimCouponRequestSchema);
 export type AppCustomerCouponListVo = z.infer<typeof appCustomerCouponListVo>;
 export type AppMemberCardListVo = z.infer<typeof appMemberCardListVo>;
 
+/** 性别：与 `biz_customer.gender` 同枚举（app 域自己声明，不复用后台 DTO） */
+export const appGenderSchema = z
+  .enum(['unknown', 'male', 'female'])
+  .openapi({ example: 'female', description: '性别' });
+
 /** 会员信息：余额只有本金 + 赠送，无任何内部字段 */
 export const appMemberMeVo = z.object({
   customerId: z.number().int(),
   name: z.string(),
   phone: z.string().nullable(),
+  /**
+   * 会员号（`biz_customer.member_no`；首次储值/消费时生成 → 未入会是 `null`）。
+   *
+   * 早先没暴露，小程序只能用顾客 id 补零假装一个卡号（见 `pages/member` 的注释），
+   * 顾客看到的号跟门店系统里的对不上。这里直接给真值，前端不做任何拼装。
+   */
+  memberNo: z.string().nullable().openapi({ example: 'M2026000001' }),
+  /** 性别（顾客可在小程序自助修改） */
+  gender: appGenderSchema,
+  birthday: z
+    .string()
+    .nullable()
+    .openapi({ example: '1996-08-12', description: '生日 YYYY-MM-DD' }),
   levelName: z.string().nullable(),
   discountPermille: z
     .number()
@@ -431,6 +449,46 @@ export const appMemberMeVo = z.object({
 });
 registerComponent('AppMemberMeVo', appMemberMeVo);
 export type AppMemberMeVo = z.infer<typeof appMemberMeVo>;
+
+/**
+ * 顾客自助改资料（`POST /app/member/profile`）。
+ *
+ * 用 POST 而不是 PATCH：**`wx.request` 的 method 里没有 PATCH**（见
+ * `miniapp/miniprogram/utils/request.ts` 的 `HttpMethod`），app 域的动作一律开成 POST。
+ *
+ * 白名单只有这三项，且**至少给一项**：
+ * - **不含 `phone`** —— 手机号是绑定锚点，换号等于换绑，必须走
+ *   `POST /app/auth/phone` 那条「同事务写 `app_wx_user_bind_log` 留痕」的链路；
+ * - 不含等级 / 积分 / 余额 —— 那些只能由门店的账务链路改。
+ *
+ * `.strict()` 是刻意的：传白名单外的字段直接 400，而不是静默忽略 ——
+ * 静默忽略会让顾客以为「我改过了」，回头发现没生效，变成查不出原因的悬案。
+ */
+export const appUpdateProfileRequestSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(30)
+      .optional()
+      .openapi({ example: '张女士', description: '姓名（1~30 字）' }),
+    gender: appGenderSchema.optional(),
+    birthday: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional()
+      .openapi({
+        example: '1996-08-12',
+        description: '生日 YYYY-MM-DD；传 null 表示清空',
+      }),
+  })
+  .strict()
+  .refine((value) => Object.values(value).some((item) => item !== undefined), {
+    message: '至少提交一个要修改的字段',
+  });
+registerComponent('AppUpdateProfileRequest', appUpdateProfileRequestSchema);
 
 /* ------------------------------------------------------------------ *
  * 预约 / 评价 / 支付 / 订阅：本期只留契约骨架（501）

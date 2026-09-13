@@ -18,13 +18,8 @@ import type {
   AppLoginRequest,
   AppLoginVo,
 } from '../dto/app-vo.js';
+import { APP_ACTOR_ID } from '../app-actor.js';
 import { WxMiniappProvider } from './wx-miniapp.provider.js';
-
-/**
- * 小程序顾客档案自建时的 `created_by`（`biz_customer.created_by` 无外键约束）。
- * 用 0 表示「小程序/系统代建」，与后台操作者（`sys_user.id`）区分开，便于事后审计。
- */
-const APP_ACTOR_ID = 0;
 
 /** 身份记录快照（去掉了不必要的外传字段） */
 type AppIdentity = {
@@ -208,7 +203,8 @@ export class AppAuthService {
       .from(appWxUsers)
       .where(and(eq(appWxUsers.id, appUserId), isNull(appWxUsers.deletedAt)))
       .limit(1);
-    if (!identity) throw new UnauthorizedException('身份不存在，请重新进入小程序');
+    if (!identity)
+      throw new UnauthorizedException('身份不存在，请重新进入小程序');
     return identity;
   }
 

@@ -1,0 +1,120 @@
+/* 个人资料（姓名 / 性别 / 生日）—— 后端白名单只有这三项 */
+
+.profile-body {
+  padding-bottom: 60rpx;
+}
+
+/* ── 会员号（只读） ───────────────────────────────────────── */
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+  padding: 24rpx 28rpx;
+}
+
+.member-row__label {
+  font-size: 26rpx;
+  color: var(--c-text-sub);
+}
+
+.member-row__value {
+  font-family: var(--font-serif);
+  font-size: 30rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+}
+
+/* ── 字段行 ───────────────────────────────────────────────── */
+
+.field {
+  display: flex;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 20rpx 28rpx;
+  border-bottom: 2rpx solid var(--c-border);
+}
+
+.field--last,
+.field:last-child {
+  border-bottom: none;
+}
+
+/* 性别一行放不下标签 + 三个胶囊，改成上下排 */
+.field--column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.field__label {
+  flex-shrink: 0;
+  width: 120rpx;
+  font-size: 27rpx;
+  color: var(--c-text-sub);
+}
+
+.field__input {
+  flex: 1;
+  min-width: 0;
+  font-size: 29rpx;
+  color: var(--c-text);
+}
+
+.field__placeholder {
+  color: var(--c-text-weak);
+  font-size: 29rpx;
+}
+
+.field__picker {
+  flex: 1;
+  min-width: 0;
+  font-size: 29rpx;
+  color: var(--c-text);
+}
+
+/* 未选生日：灰一点，和「已选」区分开 */
+.field__picker.is-empty {
+  color: var(--c-text-weak);
+}
+
+.field__clear {
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  font-size: 25rpx;
+  color: var(--c-text-sub);
+}
+
+.field__readonly {
+  flex: 1;
+  min-width: 0;
+  font-size: 29rpx;
+  color: var(--c-text-sub);
+}
+
+.field__arrow {
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  font-size: 32rpx;
+  color: var(--c-text-weak);
+}
+
+.genders {
+  display: flex;
+  gap: 16rpx;
+}
+
+/* ── 说明与提交 ───────────────────────────────────────────── */
+
+.hint {
+  margin-top: 16rpx;
+  padding: 0 8rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--c-text-weak);
+}
+
+.submit {
+  margin-top: 40rpx;
+}

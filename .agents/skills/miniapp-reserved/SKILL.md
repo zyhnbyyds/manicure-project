@@ -56,6 +56,22 @@ wx.login → code
   验收要求两者结果一致。
 - 在线支付本期走后台 **Native 扫码**；`jsapi` 只是给 P2 留的契约位。
 
+## app 域写接口的三条硬约定
+
+1. **`wx.request` 的 method 里没有 PATCH**（只有 OPTIONS/GET/HEAD/POST/PUT/DELETE/TRACE/CONNECT）——
+   需要「部分更新」语义时，后端开一个 **POST 动作端点**（如 `POST /app/member/profile`），
+   不要在客户端硬塞 PATCH：`miniapp/miniprogram/utils/request.ts` 的 `HttpMethod` 会直接拦下来。
+   （2026-09 就差点把「顾客自助改资料」设计成 `PATCH /app/member/me`，写前端时才发现调用不了。）
+2. **动作型 POST 用 `@HttpCode(200)`**（`points/redeem` / `coupons/claim` / `bookings/:id/settle`
+   / `member/profile` 都这么写）；只有真正「建单」才保留 201。
+3. **写门店档案必须走 `CustomerPort`**（`src/modules/biz/common/ports.ts`），app 域不直接 update 表 ——
+   手机号唯一性校验、审计字段这些规则只在 biz 侧有一份。`created_by` / `updated_by` 统一用
+   `APP_ACTOR_ID = 0`（`src/modules/app/app-actor.ts`），与后台操作者（真实 `sys_user.id`）区分开。
+
+字段白名单一律 `.strict()`：传白名单外的字段直接 400，**不要静默忽略** —— 静默忽略会让顾客以为
+「我改过了」，回头发现没生效，变成查不出原因的悬案。（`POST /app/member/profile` 只放开
+name / gender / birthday；**`phone` 必须走 `/app/auth/phone` 的换绑留痕链路**。）
+
 ## 验收（§12 B6）
 
 - 测试 code 能换到 app token；同一 openid 重复登录不产生第二条身份记录
