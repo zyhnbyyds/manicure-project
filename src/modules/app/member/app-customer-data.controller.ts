@@ -27,6 +27,8 @@ import {
   appAddressUpsertRequestSchema,
   type AppAddressListVo,
   type AppAddressVo,
+  type AppFavoriteListVo,
+  type AppFavoriteToggleVo,
 } from '../dto/app-vo.js';
 import { AppCustomerDataService } from './app-customer-data.service.js';
 
@@ -155,5 +157,63 @@ export class AppCustomerDataController {
   ): Promise<{ ok: true }> {
     await this.customerData.removeAddress(this.appUserId(request), id);
     return { ok: true };
+  }
+
+  /* ------------------------------ 款式收藏 ------------------------------ */
+
+  @Get('member/favorites')
+  @ApiOperation({
+    summary: '我的收藏（款式）',
+    description:
+      '只返回「还在上架且未删」的款式 —— 门店下架的款式不该还能点进去。' +
+      '收藏行本身保留：门店重新上架，收藏就回来。',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppFavoriteListVo' },
+  })
+  listFavorites(@Req() request: AppRequest): Promise<AppFavoriteListVo> {
+    return this.customerData.listFavorites(this.appUserId(request));
+  }
+
+  @Post('member/favorites/:id')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '收藏款式（幂等）',
+    description:
+      '返回**目标状态** `{ serviceItemId, favorited: true }`，前端据此改心形图标。' +
+      '重复收藏不算错；软删过的收藏走「恢复」而不是插新行。',
+  })
+  @ApiParam({ name: 'id', description: '款式 ID', example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppFavoriteToggleVo' },
+  })
+  addFavorite(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<AppFavoriteToggleVo> {
+    return this.customerData.addFavorite(this.appUserId(request), id);
+  }
+
+  @Post('member/favorites/:id/delete')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '取消收藏（幂等）',
+    description: '软删；没收藏过也返回 `favorited: false`，不是错误。',
+  })
+  @ApiParam({ name: 'id', description: '款式 ID', example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppFavoriteToggleVo' },
+  })
+  removeFavorite(
+    @Req() request: AppRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<AppFavoriteToggleVo> {
+    return this.customerData.removeFavorite(this.appUserId(request), id);
   }
 }

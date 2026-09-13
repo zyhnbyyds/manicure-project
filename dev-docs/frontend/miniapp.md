@@ -408,6 +408,7 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | **会员卡号** | `GET /app/member/me` 暴露真 `memberNo`；会员卡页不再拿 customerId 补零编一个假号 |
 | **会员卡分等级皮肤** | `me` 新增 `levelRank`（0 = 最低等级，与等级命名无关）；卡面按名次换四档皮肤（银/金/钻/曜石黑金）+ 金属描边 + 箔光 + 等级徽章 |
 | **收货地址** | 新表 `biz_customer_address` + `/app/member/addresses` 五个端点（列表/新增/编辑/删除/设默认）+ `pages/address` 真实 CRUD（列表 + 新增编辑弹层 + 默认徽标）。设计稿 batch4 第 6 屏 |
+| **款式收藏** | `biz_customer_favorite` + `/app/member/favorites` 三端点（列表/收藏/取消，**幂等**且返回目标状态）+ 款式详情的两态心形 + `pages/favorites` 两列宫格（**分类胶囊这次真能筛**，选项来自收藏里真实出现过的分类）。设计稿 batch4 第 4 屏 |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 
@@ -425,7 +426,6 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 
 | 项 | 现状 | 需要 |
 | --- | --- | --- |
-| **我的收藏**（`pages/favorites`） | 标题、分类胶囊、空态按设计稿还原，**不塞假收藏** | 表 `biz_customer_favorite` **已建**；缺 app 域增删查接口 + 款式库收藏按钮 + 收藏页两列卡片（设计稿 batch4 第 4 屏） |
 | **意见反馈**（`pages/feedback`） | 表单（类型/描述/图片位/联系方式/匿名）完整，提交只 toast | `biz_feedback` 表（**匿名提交不能写 customer_id**，否则「匿名」是假的）+ `POST /app/feedback`。注意别复用 `sys_notice`（那是**发出的**通知） |
 | **充值下单** | 档位展示已有，点充值如实提示 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
 

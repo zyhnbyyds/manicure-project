@@ -27,6 +27,7 @@ import type {
   BookingStatus,
   CreateBookingRequest,
   CreateReviewRequest,
+  Favorite,
   JsapiPayment,
   LoginRequest,
   LoginVo,
@@ -48,6 +49,12 @@ import type {
   RechargePlan,
   UpdateProfileRequest,
 } from './types';
+
+/** 收藏动作的返回：目标状态，不是「成功」两个字 */
+interface FavoriteToggle {
+  serviceItemId: number;
+  favorited: boolean;
+}
 
 /** 演示数据只提示一次，避免每个请求都刷日志 */
 
@@ -182,6 +189,37 @@ export const addressApi = {
   remove(id: number): Promise<{ ok: true }> {
     return request<{ ok: true }>({
       path: `/app/member/addresses/${id}/delete`,
+      method: 'POST',
+      data: {},
+    });
+  },
+};
+
+/* ── 款式收藏 ──────────────────────────────────────────────── */
+
+/**
+ * 收藏款式。
+ *
+ * `add` / `remove` 都返回**目标状态** `{ serviceItemId, favorited }`：
+ * 前端拿它直接改心形图标，双击或慢网时不会出现「图标与真实状态不一致」。
+ * 两个动作都是幂等的（重复收藏不报错、取消没收藏过的也不报错）。
+ */
+export const favoriteApi = {
+  list(): Promise<{ items: Favorite[] }> {
+    return request<{ items: Favorite[] }>({ path: '/app/member/favorites' });
+  },
+
+  add(serviceItemId: number): Promise<FavoriteToggle> {
+    return request<FavoriteToggle>({
+      path: `/app/member/favorites/${serviceItemId}`,
+      method: 'POST',
+      data: {},
+    });
+  },
+
+  remove(serviceItemId: number): Promise<FavoriteToggle> {
+    return request<FavoriteToggle>({
+      path: `/app/member/favorites/${serviceItemId}/delete`,
       method: 'POST',
       data: {},
     });

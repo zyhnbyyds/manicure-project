@@ -214,6 +214,11 @@
   color: var(--c-text-sub);
 }
 
+/* 已收藏：文案跟着心形一起变主色，否则「实心图标 + 灰字」看着像没生效 */
+.detail-bar__label.is-on {
+  color: var(--c-primary-deep);
+}
+
 .detail-bar__submit {
   flex: 1;
   margin-left: 12rpx;

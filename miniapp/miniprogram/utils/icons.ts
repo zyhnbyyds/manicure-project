@@ -149,3 +149,20 @@ export function starIcons(): {
     iconsStarOff: buildIcons(['star'], tokens.border, 24),
   };
 }
+
+/**
+ * 心形收藏两态：实心（主色 = 已收藏）+ 描边（弱色 = 未收藏）。
+ *
+ * 与 `starIcons()` 同一个理由：颜色必须从主题令牌取 —— 页面里手写主色，
+ * 换主题时不会跟着变。款式详情与收藏页共用这一套。
+ */
+export function favoriteIcons(): {
+  iconsHeartOn: Record<string, string>;
+  iconsHeartOff: Record<string, string>;
+} {
+  const tokens = getThemeTokens();
+  return {
+    iconsHeartOn: buildIcons(['heart'], tokens.primary, 24, true),
+    iconsHeartOff: buildIcons(['heart'], tokens.border, 24),
+  };
+}

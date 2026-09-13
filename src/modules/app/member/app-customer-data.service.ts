@@ -8,12 +8,16 @@ import { DatabaseService } from '../../../database/database.service.js';
 import {
   appWxUsers,
   bizCustomerAddresses,
+  bizCustomerFavorites,
+  bizServiceItems,
 } from '../../../database/schema/index.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
 import type {
   AppAddressListVo,
   AppAddressUpsertRequest,
   AppAddressVo,
+  AppFavoriteListVo,
+  AppFavoriteToggleVo,
 } from '../dto/app-vo.js';
 
 /** 每个顾客最多保存多少个收货地址（防刷，也防「默认地址」被淹没） */
@@ -195,6 +199,134 @@ export class AppCustomerDataService {
         ),
       );
     await this.ensureDefault(customerId);
+  }
+
+  /* ------------------------------ 款式收藏 ------------------------------ */
+
+  /**
+   * 我的收藏（款式卡面字段 + 收藏时间）。
+   *
+   * **只出「还在上架且未删」的款式**：门店下架或删掉一个款式后，顾客收藏夹里那条
+   * 不该还能点进去（点进去是 404 空页，比不显示更糟）。收藏行本身保留着 ——
+   * 门店重新上架，收藏自然就回来了。
+   */
+  async listFavorites(appUserId: number): Promise<AppFavoriteListVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    const rows = await this.database.db
+      .select({
+        id: bizServiceItems.id,
+        name: bizServiceItems.name,
+        category: bizServiceItems.category,
+        durationMinutes: bizServiceItems.durationMinutes,
+        price: bizServiceItems.price,
+        description: bizServiceItems.description,
+        image: bizServiceItems.image,
+        favoritedAt: bizCustomerFavorites.createdAt,
+      })
+      .from(bizCustomerFavorites)
+      .innerJoin(
+        bizServiceItems,
+        eq(bizServiceItems.id, bizCustomerFavorites.serviceItemId),
+      )
+      .where(
+        and(
+          eq(bizCustomerFavorites.customerId, customerId),
+          isNull(bizCustomerFavorites.deletedAt),
+          isNull(bizServiceItems.deletedAt),
+          eq(bizServiceItems.status, 'active'),
+        ),
+      )
+      .orderBy(desc(bizCustomerFavorites.id));
+
+    return {
+      items: rows.map((row) => ({
+        ...row,
+        favoritedAt: row.favoritedAt.toISOString(),
+      })),
+    };
+  }
+
+  /**
+   * 收藏一个款式（幂等）。
+   *
+   * `uq_customer_favorite(customer_id, service_item_id)` 在，而**软删行仍然占着**这个唯一键 ——
+   * 所以查重时**不能过滤 `deletedAt`**：命中软删行就走「恢复」（`deleted_at` 置回 null），
+   * 直接 INSERT 会撞 1062（data-model 技能里记的那个经典坑）。
+   */
+  async addFavorite(
+    appUserId: number,
+    serviceItemId: number,
+  ): Promise<AppFavoriteToggleVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    await this.assertServiceItemOnSale(serviceItemId);
+
+    const [existing] = await this.database.db
+      .select({
+        id: bizCustomerFavorites.id,
+        deletedAt: bizCustomerFavorites.deletedAt,
+      })
+      .from(bizCustomerFavorites)
+      .where(
+        and(
+          eq(bizCustomerFavorites.customerId, customerId),
+          eq(bizCustomerFavorites.serviceItemId, serviceItemId),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      if (existing.deletedAt) {
+        await this.database.db
+          .update(bizCustomerFavorites)
+          .set({ deletedAt: null, updatedBy: APP_ACTOR_ID })
+          .where(eq(bizCustomerFavorites.id, existing.id));
+      }
+      // 已经收藏着也算成功：这个动作要的语义是「让它处于已收藏」，不是「插入一行」
+      return { serviceItemId, favorited: true };
+    }
+
+    await this.database.db.insert(bizCustomerFavorites).values({
+      customerId,
+      serviceItemId,
+      createdBy: APP_ACTOR_ID,
+      updatedBy: APP_ACTOR_ID,
+    });
+    return { serviceItemId, favorited: true };
+  }
+
+  /** 取消收藏（软删，幂等）：没收藏过也返回 `favorited: false` */
+  async removeFavorite(
+    appUserId: number,
+    serviceItemId: number,
+  ): Promise<AppFavoriteToggleVo> {
+    const customerId = await this.requireCustomerId(appUserId);
+    await this.database.db
+      .update(bizCustomerFavorites)
+      .set({ deletedAt: new Date(), updatedBy: APP_ACTOR_ID })
+      .where(
+        and(
+          eq(bizCustomerFavorites.customerId, customerId),
+          eq(bizCustomerFavorites.serviceItemId, serviceItemId),
+          isNull(bizCustomerFavorites.deletedAt),
+        ),
+      );
+    return { serviceItemId, favorited: false };
+  }
+
+  /** 只能收藏「在架且未删」的款式，否则收藏夹里会出现点不开的空壳 */
+  private async assertServiceItemOnSale(serviceItemId: number): Promise<void> {
+    const [item] = await this.database.db
+      .select({ id: bizServiceItems.id })
+      .from(bizServiceItems)
+      .where(
+        and(
+          eq(bizServiceItems.id, serviceItemId),
+          isNull(bizServiceItems.deletedAt),
+          eq(bizServiceItems.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (!item) throw new NotFoundException('款式不存在或已下架');
   }
 
   /* ------------------------------ 内部工具 ------------------------------ */

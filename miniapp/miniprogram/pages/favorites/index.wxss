@@ -1,4 +1,4 @@
-/* 我的收藏 —— 对齐 docs/manicure-ui-batch4 第 4 屏（数据未接入，先还原骨架） */
+/* 我的收藏 —— 对齐 docs/manicure-ui-batch4 第 4 屏（两列宫格 + 心形取消收藏） */
 
 .fav-body {
   padding-bottom: 60rpx;
@@ -20,6 +20,84 @@
   display: flex;
 }
 
+/* ── 两列宫格 ─────────────────────────────────────────────── */
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 24rpx;
+}
+
+.gcard {
+  width: 332rpx;
+  margin-bottom: 28rpx;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--c-card);
+  box-shadow: var(--shadow-card);
+}
+
+.gcard:active {
+  opacity: 0.9;
+}
+
+.gcard__photo-wrap {
+  position: relative;
+  width: 100%;
+  height: 332rpx;
+  background: var(--c-chip);
+}
+
+.gcard__photo {
+  width: 100%;
+  height: 100%;
+}
+
+/* 心形：右上角浮在图上，白底圆片保证在任何照片上都看得见 */
+.gcard__heart {
+  position: absolute;
+  right: 14rpx;
+  bottom: 14rpx;
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.gcard__heart-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.gcard__name {
+  margin: 16rpx 18rpx 0;
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.gcard__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 10rpx 18rpx 20rpx;
+}
+
+.gcard__duration {
+  font-size: 21rpx;
+  color: var(--c-text-sub);
+}
+
+.gcard__price {
+  font-family: var(--font-serif);
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--c-primary-deep);
+}
+
 /* ── 空态 ─────────────────────────────────────────────────── */
 
 .empty__badge {
@@ -38,4 +116,3 @@
   height: 68rpx;
   opacity: 0.5;
 }
-

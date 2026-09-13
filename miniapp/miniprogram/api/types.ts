@@ -117,6 +117,24 @@ export interface AddressUpsertRequest {
 }
 
 /**
+ * 收藏项：款式卡面字段 + 收藏时间。
+ *
+ * 字段与 `ServiceItem` 同名同义（收藏页与款式库看到的是同一种卡片），
+ * 但**不是同一个类型**：这里多一个 `favoritedAt`。
+ */
+export interface Favorite {
+  /** 款式 ID */
+  id: number;
+  name: string;
+  category: string | null;
+  durationMinutes: number;
+  price: number;
+  description: string | null;
+  image: string | null;
+  favoritedAt: string;
+}
+
+/**
  * 性别：与后端 `biz_customer.gender` **逐字一致**（`unknown` / `male` / `female`）。
  * 前端不要自己映射成中文以外的第三套值。
  */

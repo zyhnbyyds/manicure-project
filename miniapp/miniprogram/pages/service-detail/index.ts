@@ -1,7 +1,9 @@
 import { getNavMetrics } from '../../utils/metrics';
-import { catalogApi } from '../../api/index';
+import { catalogApi, favoriteApi } from '../../api/index';
 import { setDraftItems } from '../../store/draft';
-import type { IconName } from '../../utils/icons';
+import { isBound } from '../../store/auth';
+import { requireSession } from '../../store/session';
+import { favoriteIcons, type IconName } from '../../utils/icons';
 import { runLoad } from '../../utils/load';
 import { goBack, goStaffs } from '../../utils/nav';
 import { definePage } from '../../utils/page';
@@ -11,6 +13,7 @@ import {
   type ServiceItemVM,
   type StaffVM,
 } from '../../utils/present';
+import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
 
 const PAGE_ICONS: IconName[] = ['back', 'share', 'heart', 'headset', 'chevron'];
@@ -34,6 +37,8 @@ const COLOR_SWATCHES = [
 
 definePage({
   chromeIcons: PAGE_ICONS,
+  /** 心形两态（实心 = 已收藏，描边 = 未收藏），颜色随主题令牌 */
+  extra: () => favoriteIcons(),
   whiteIcons: WHITE_ICONS,
 
   data: {
@@ -49,6 +54,10 @@ definePage({
     activeSwatch: 0,
     /** 图片张数：契约里只有单图，故为 1/1（保留设计稿的角标视觉） */
     photoCountText: '1/1',
+    /** 是否已收藏（进页面时按收藏列表回填，切换时以服务端返回为准） */
+    favorited: false,
+    /** 防抖：连点两次不会发出两个相反方向的请求 */
+    favoriting: false,
   },
 
   serviceItemId: 0,
@@ -83,15 +92,23 @@ definePage({
           // 故拉列表按 id 取；项目量级在几十条，多一次列表请求可接受。
           catalogApi.listServiceItems(1, 100),
           catalogApi.listStaffs(),
+          // 收藏态：**未绑定时不发**（接口会 400 + needBind，明知会失败还打一次
+          // 只会让「未登录」看起来像「加载失败」）
+          isBound()
+            ? favoriteApi.list().catch(() => ({ items: [] }))
+            : Promise.resolve({ items: [] }),
         ]),
       {
-        merge: ([page, staffs]) => {
+        merge: ([page, staffs, favorites]) => {
           const found = page.items.find(
             (candidate) => candidate.id === this.serviceItemId,
           );
           return {
             item: found ? toServiceItemVM(found) : null,
             staff: staffs.items.length > 0 ? toStaffVM(staffs.items[0]) : null,
+            favorited: favorites.items.some(
+              (favorite) => favorite.id === this.serviceItemId,
+            ),
             // runLoad 成功时会先把 errorText 清空，这里的「下架」态覆盖它
             errorText: found ? '' : '这个款式可能已经下架了',
           };
@@ -120,8 +137,33 @@ definePage({
   },
 
   onFavorite() {
-    // 数据模型里没有「顾客↔款式」收藏表：保留设计稿入口，交互如实降级
-    toast('收藏功能开发中');
+    void this.toggleFavorite();
+  },
+
+  /**
+   * 收藏 / 取消收藏（先门禁、再切换）。
+   *
+   * 状态以**服务端返回的目标状态**为准（`{ favorited }`），不在本地取反 ——
+   * 双击、慢网或并发点两次时，本地取反一定会与真实状态错位。
+   * 未绑定手机号时先引导绑定（收藏是个人数据，服务端也会 400 + needBind）。
+   */
+  async toggleFavorite() {
+    const { item, favorited } = this.data;
+    if (!item || this.data.favoriting) return;
+    if (!(await requireSession({ needBind: true, reason: '收藏需要先绑定手机号' }))) {
+      return;
+    }
+    this.setData({ favoriting: true });
+    try {
+      const result = favorited
+        ? await favoriteApi.remove(item.id)
+        : await favoriteApi.add(item.id);
+      this.setData({ favorited: result.favorited, favoriting: false });
+      toast(result.favorited ? '已收藏，可在「我的收藏」查看' : '已取消收藏');
+    } catch (error) {
+      this.setData({ favoriting: false });
+      toast(isApiFailure(error) ? error.message : '操作失败，请稍后再试');
+    }
   },
 
   onService() {

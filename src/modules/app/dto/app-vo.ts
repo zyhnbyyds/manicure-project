@@ -577,6 +577,50 @@ export type AppAddressUpsertRequest = z.infer<
 >;
 
 /* ------------------------------------------------------------------ *
+ * 款式收藏（batch4 设计稿「我的收藏」页）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 收藏项 = 「款式卡面字段 + 收藏时间」。
+ *
+ * 卡面字段与 `AppServiceItemVo` **同名同义**（顾客在收藏页与款式库看到的是同一种卡片），
+ * 但**刻意不复用同一个 schema**：收藏项多一个 `favoritedAt`，而且将来款式库加字段时
+ * 不该被迫同时改收藏接口（app 域不复用后台 DTO，这条同理）。
+ */
+export const appFavoriteVo = z.object({
+  id: z.number().int().openapi({ description: '款式 ID（= serviceItemId）' }),
+  name: z.string(),
+  category: z.string().nullable(),
+  durationMinutes: z.number().int(),
+  price: z.number().int().openapi({ description: '价格（分）' }),
+  description: z.string().nullable(),
+  image: z.string().nullable(),
+  /** 收藏时间（ISO）；收藏页按它倒序 */
+  favoritedAt: z.string().openapi({ example: '2026-09-13T10:00:00.000Z' }),
+});
+registerComponent('AppFavoriteVo', appFavoriteVo);
+export type AppFavoriteVo = z.infer<typeof appFavoriteVo>;
+
+export const appFavoriteListVo = z.object({
+  items: z.array(appFavoriteVo),
+});
+registerComponent('AppFavoriteListVo', appFavoriteListVo);
+export type AppFavoriteListVo = z.infer<typeof appFavoriteListVo>;
+
+/**
+ * 收藏动作的返回：**目标状态**，而不是「成功」两个字。
+ *
+ * 前端拿它直接改心形图标 —— 双击、慢网、并发点两次时，不会出现
+ * 「图标显示的收藏状态与真实状态不一致」这种只能靠重启小程序恢复的怪象。
+ */
+export const appFavoriteToggleVo = z.object({
+  serviceItemId: z.number().int(),
+  favorited: z.boolean(),
+});
+registerComponent('AppFavoriteToggleVo', appFavoriteToggleVo);
+export type AppFavoriteToggleVo = z.infer<typeof appFavoriteToggleVo>;
+
+/* ------------------------------------------------------------------ *
  * 预约 / 评价 / 支付 / 订阅：本期只留契约骨架（501）
  * ------------------------------------------------------------------ */
 

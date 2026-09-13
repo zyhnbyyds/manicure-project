@@ -81,8 +81,14 @@
     <!-- 底部操作条：收藏 / 客服 / 立即预约 -->
     <view class="action-bar detail-bar">
       <view class="detail-bar__icon-btn press-sm" bindtap="onFavorite">
-        <image class="detail-bar__icon" src="{{icons.heart}}" mode="aspectFit" />
-        <view class="detail-bar__label">收藏</view>
+        <image
+          class="detail-bar__icon"
+          src="{{favorited ? iconsHeartOn.heart : icons.heart}}"
+          mode="aspectFit"
+        />
+        <view class="detail-bar__label {{favorited ? 'is-on' : ''}}"
+          >{{favorited ? '已收藏' : '收藏'}}</view
+        >
       </view>
       <view class="detail-bar__icon-btn press-sm" bindtap="onService">
         <image class="detail-bar__icon" src="{{icons.headset}}" mode="aspectFit" />

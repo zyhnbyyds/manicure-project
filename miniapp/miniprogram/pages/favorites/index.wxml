@@ -1,30 +1,108 @@
 <view class="page" style="{{themeStyle}}">
-  <view class="page-body fav-body anim-rise">
-    <view class="head">共收藏 {{total}} 款</view>
-
-    <!-- 分类胶囊（设计稿有；数据未接入前仅作视觉骨架） -->
-    <scroll-view class="cats" scroll-x enable-flex show-scrollbar="{{false}}">
-      <view class="cats__row">
-        <view
-          wx:for="{{categories}}"
-          wx:key="*this"
-          class="chip {{activeCategory === item ? 'is-active' : ''}}"
-          data-name="{{item}}"
-          bindtap="onCategory"
-        >
-          {{item}}
-        </view>
-      </view>
-    </scroll-view>
-
-    <!-- 收藏为空：不塞假数据，如实引导去挑款式 -->
-    <view class="empty anim-pop">
+  <view class="page-body fav-body">
+    <!-- 未绑定：收藏是个人数据 -->
+    <view wx:if="{{needBind}}" class="empty anim-pop">
       <view class="empty__badge">
         <image class="empty__heart" src="{{icons.heart}}" mode="aspectFit" />
       </view>
-      <view class="empty__text">还没有收藏的款式</view>
-      <view class="empty__hint">在款式详情点「收藏」，喜欢的款式就会出现在这里</view>
-      <view class="btn btn--primary empty__action press" bindtap="goServices">去挑款式</view>
+      <view class="empty__text">绑定手机号后可以收藏款式</view>
+      <view class="empty__hint">收藏跟着账号走，换手机也能找回来</view>
+      <view class="btn btn--primary empty__action press" bindtap="onGuestLogin"
+        >去绑定手机号</view
+      >
     </view>
+
+    <view wx:elif="{{loading}}" class="loading">正在读取收藏…</view>
+
+    <view wx:elif="{{errorText}}" class="empty anim-pop">
+      <view class="empty__badge">
+        <image class="empty__heart" src="{{icons.heart}}" mode="aspectFit" />
+      </view>
+      <view class="empty__text">{{errorText}}</view>
+      <view class="empty__hint">请检查网络后重试</view>
+      <view class="btn btn--primary btn--sm empty__action press" bindtap="onRetry"
+        >重新加载</view
+      >
+    </view>
+
+    <block wx:else>
+      <view class="head">共收藏 {{total}} 款</view>
+
+      <!-- 分类胶囊：选项来自收藏里真实出现过的分类，点击就地过滤 -->
+      <scroll-view
+        wx:if="{{total > 0}}"
+        class="cats"
+        scroll-x
+        enable-flex
+        show-scrollbar="{{false}}"
+      >
+        <view class="cats__row">
+          <view
+            wx:for="{{categories}}"
+            wx:key="*this"
+            class="chip {{activeCategory === item ? 'is-active' : ''}}"
+            data-name="{{item}}"
+            bindtap="onCategory"
+          >
+            {{item}}
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- 空态：不塞假数据，如实引导去挑款式 -->
+      <view wx:if="{{total === 0}}" class="empty anim-pop">
+        <view class="empty__badge">
+          <image class="empty__heart" src="{{icons.heart}}" mode="aspectFit" />
+        </view>
+        <view class="empty__text">还没有收藏的款式</view>
+        <view class="empty__hint"
+          >在款式详情点「收藏」，喜欢的款式就会出现在这里</view
+        >
+        <view class="btn btn--primary empty__action press" bindtap="goServices"
+          >去挑款式</view
+        >
+      </view>
+
+      <!-- 该分类下没有：与「一个都没收藏」区分开 -->
+      <view wx:elif="{{items.length === 0}}" class="empty anim-pop">
+        <view class="empty__text">这个分类下还没有收藏</view>
+        <view class="empty__hint">换个分类看看</view>
+      </view>
+
+      <!-- 两列宫格：图 + 名称 + 时长 · 价格 + 心形（取消收藏） -->
+      <view wx:else class="grid">
+        <view
+          wx:for="{{items}}"
+          wx:key="id"
+          class="gcard"
+          data-id="{{item.id}}"
+          bindtap="onOpen"
+        >
+          <view class="gcard__photo-wrap">
+            <image
+              class="gcard__photo"
+              src="{{item.imageResolved}}"
+              mode="aspectFill"
+            />
+            <view
+              class="gcard__heart press-sm"
+              data-id="{{item.id}}"
+              catchtap="onRemove"
+            >
+              <image
+                class="gcard__heart-icon"
+                src="{{icons.heart}}"
+                mode="aspectFit"
+              />
+            </view>
+          </view>
+          <view class="gcard__name ellipsis">{{item.name}}</view>
+          <view class="gcard__meta">
+            <text class="gcard__duration">{{item.durationText}}</text>
+            <text class="gcard__price">¥{{item.priceYuan}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
   </view>
 </view>
