@@ -9,6 +9,7 @@ import {
   appWxUsers,
   bizCustomerAddresses,
   bizCustomerFavorites,
+  bizFeedbacks,
   bizServiceItems,
 } from '../../../database/schema/index.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
@@ -18,6 +19,8 @@ import type {
   AppAddressListVo,
   AppAddressUpsertRequest,
   AppAddressVo,
+  AppCreateFeedbackRequest,
+  AppCreateFeedbackVo,
   AppFavoriteListVo,
   AppFavoriteToggleVo,
   AppNoticeListVo,
@@ -425,6 +428,47 @@ export class AppCustomerDataService {
   private async unreadNotices(customerId: number): Promise<number> {
     const result = await this.notices.customerInbox(customerId, 1, 1);
     return result.unread;
+  }
+
+  /* ------------------------------ 意见反馈 ------------------------------ */
+
+  /**
+   * 提交意见反馈（batch5 第 4 屏）。
+   *
+   * 三处刻意与别处不同：
+   * 1. **不要求绑定手机号**：未绑定的访客也有意见要说，硬拦只会让他去别处骂。
+   *    身份能取到就带上，取不到就按未实名处理；
+   * 2. **匿名提交绝不写 `customer_id`** —— 「匿名」是当着顾客的面做出的承诺，
+   *    写成「记了 id 但标了匿名」等于骗人；
+   * 3. 落库后**不返回内容回显**，只回 id 与是否匿名：反馈是只写不读的通道。
+   */
+  async createFeedback(
+    appUserId: number,
+    input: AppCreateFeedbackRequest,
+  ): Promise<AppCreateFeedbackVo> {
+    const anonymous = input.anonymous === true;
+    // 非匿名时才去解析顾客身份（未绑定时为 null，不报错）
+    let customerId: number | null = null;
+    if (!anonymous) {
+      const [identity] = await this.database.db
+        .select({ customerId: appWxUsers.customerId })
+        .from(appWxUsers)
+        .where(and(eq(appWxUsers.id, appUserId), isNull(appWxUsers.deletedAt)))
+        .limit(1);
+      customerId = identity?.customerId ?? null;
+    }
+
+    const inserted = await this.database.db.insert(bizFeedbacks).values({
+      customerId,
+      type: input.type,
+      content: input.content,
+      contact: input.contact && input.contact !== '' ? input.contact : null,
+      isAnonymous: anonymous,
+      status: 'pending',
+      createdBy: APP_ACTOR_ID,
+      updatedBy: APP_ACTOR_ID,
+    });
+    return { id: Number(inserted[0].insertId), anonymous };
   }
 
   /* ------------------------------ 门店档案 ------------------------------ */

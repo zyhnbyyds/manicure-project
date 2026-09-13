@@ -4,7 +4,7 @@ title: 业务表详解
 
 # 业务表详解
 
-本页逐张讲清 **33 张 `biz_*` 表**：字段口径、索引与约束、状态机、真实代码位置。
+本页逐张讲清 **34 张 `biz_*` 表**：字段口径、索引与约束、状态机、真实代码位置。
 
 - 表结构唯一权威：`src/database/schema/index.ts`
 - 所有金额单位**分**（`int unsigned`），所有时刻**UTC**；「店内本地日」是 `date` 字符串
@@ -972,6 +972,33 @@ MySQL 没有`WHERE is_default = 1`这种**部分唯一索引**；而 `(customer_
 :::
 
 **相关代码**：`src/database/schema/index.ts`（表定义）。
+
+### biz_feedback —— 意见反馈
+
+顾客在小程序「意见反馈」里提交的内容（batch5 第 4 屏）。**只写不读**：顾客侧没有列表，
+门店在后台跟进处理。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `customer_id` | int unsigned | **可空**：匿名提交与未绑定访客都是 `null` |
+| `type` | varchar(30) | 反馈类型（自由文本：功能异常 / 体验建议 / 内容问题 / 其他） |
+| `content` | varchar(1000) | 反馈内容 |
+| `contact` | varchar(100) | 顾客留的联系方式（可空） |
+| `is_anonymous` | boolean | 是否匿名提交 |
+| `status` | enum | `pending` / `processing` / `resolved` / `closed`（门店侧流转） |
+| `reply` / `replied_at` | varchar(500) / datetime | 门店的处理备注与时间；**顾客侧不展示** |
+
+**索引与约束**：`idx_feedback_status(status, id)`（后台按状态翻页）、
+`idx_feedback_customer(customer_id)`。**刻意不加外键**：匿名记录本来就没有顾客，
+而且反馈要能在顾客档案被删后仍然留存（它是门店的改进依据）。
+
+::: warning 匿名提交不能写 `customer_id`
+小程序上的「匿名」是**当着顾客的面做出的承诺**。写成「记了 id 但标了匿名」等于骗人 ——
+要匿名就真的不落身份（`is_anonymous = true` + `customer_id = null`），
+门店想追问只能靠顾客自己留的 `contact`。集成测试专门断言了这一点。
+:::
+
+**相关代码**：`src/modules/app/member/app-customer-data.service.ts`（`createFeedback`）。
 
 ## 通知模板与日志
 

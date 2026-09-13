@@ -27,6 +27,7 @@ import {
 } from '../auth/app-access-token.guard.js';
 import {
   appAddressUpsertRequestSchema,
+  appCreateFeedbackRequestSchema,
   appListQuerySchema,
   type AppAddressListVo,
   type AppAddressVo,
@@ -311,8 +312,33 @@ export class AppCustomerDataController {
     );
   }
 
-  /* ------------------------------ 门店档案 ------------------------------ */
+  @Post('feedback')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '提交意见反馈',
+    description:
+      '**不要求绑定手机号**（未绑定的访客也有意见要说，硬拦只会让他去别处说）。' +
+      '`anonymous: true` 时**后端一律落 `customer_id = null`** —— 「匿名」是当着顾客的' +
+      '面做出的承诺，记了身份再标匿名等于骗人。只写不读：响应不回显内容。',
+  })
+  @ApiBody({
+    schema: { $ref: '#/components/schemas/AppCreateFeedbackRequest' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppCreateFeedbackVo' },
+  })
+  createFeedback(@Req() request: AppRequest, @Body() body: unknown) {
+    const appUser = request.appUser;
+    if (!appUser) throw new UnauthorizedException();
+    return this.customerData.createFeedback(
+      appUser.id,
+      appCreateFeedbackRequestSchema.parse(body),
+    );
+  }
 
+  /* ------------------------------ 门店档案 ------------------------------ */
   @Get('shop')
   @ApiOperation({
     summary: '门店档案（公开信息）',

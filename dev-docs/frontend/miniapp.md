@@ -412,6 +412,11 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 | **积分兑换分类与配图** | `biz_points_goods` 加 `image`/`category` 并接到接口；`GET /app/points-goods?category=` 精确筛选 + 响应带 `categories` 清单；兑换页胶囊选项**来自数据**、切分类下推服务端；配图优先用门店上传的图。设计稿 batch4 第 3 屏 |
 | **次卡详情** | `GET /app/member/cards/:id`（**服务端算**剩余次数与可用性 + 不可用原因）+ `.../logs`（核销/撤销记录，带项目与美甲师）+ `pages/card-detail` 接真数据、分页「加载更多」。**核销码用卡号**：不伪造动态二维码（要服务端签名 + 工作台扫码端才有意义）。设计稿 batch4 第 2 屏 |
 | **充值中心** | `me` 新增 `totalRecharged`（充值流水**毛额**合计）；余额卡补上设计稿的「累计充值」，档位/自定义金额/合计实付均已就位。**「立即充值」仍如实提示**：余额充值属虚拟支付，受合规闸门与 JSAPI 501 契约位限制。设计稿 batch4 第 1 屏 |
+| **消息中心** | 迁移给 `sys_notice_template` 加 `category`；`NoticePort.customerInbox` + `markCustomerInboxRead`（只出 `channel='site'`）；`GET /app/notices`（分类 + 未读 + 分类清单）、单条已读、全部已读（可只清当前分类）。页签来自数据、点开乐观标已读。batch5 第 2 屏 |
+| **门店档案** | 7 个门店配置键进 `sys_config`（默认值与小程序原常量一致）+ `GET /app/shop`；门店改完最多 10 秒生效、不用发版；小程序首屏用常量、请求回来覆盖、**失败继续用常量**。 |
+| **取消页费用预览** | `GET /app/bookings/:id/refund-preview` 复用 `RefundPort.preview`，取消页显示**真实可退 / 扣除金额**（以前只能写「可能扣除部分定金」）。 |
+| **会员卡促销区降级** | 优惠券接口失败不再静默显示「暂无可领的券」，改为「加载失败 / 点这里重新加载」。 |
+| **意见反馈（文字通道）** | 新表 `biz_feedback` + `POST /app/feedback`：**不要求绑定手机号**（访客也有意见要说），**匿名提交一律落 `customer_id = null`**（记了身份再标匿名等于骗人）。batch5 第 4 屏 |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 
@@ -426,7 +431,8 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 
 | 项 | 现状 | 需要 |
 | --- | --- | --- |
-| **意见反馈**（`pages/feedback`） | 表单（类型/描述/图片位/联系方式/匿名）完整，提交只 toast | `biz_feedback` 表（**匿名提交不能写 customer_id**，否则「匿名」是假的）+ `POST /app/feedback`。注意别复用 `sys_notice`（那是**发出的**通知） |
+| **图片上传（意见反馈 / 评价）** | 设计稿里的三格图片位**在位但传不了**，点了如实提示 | 后端已有 `FilesService.save` + `POST /files/upload`（但那是**后台 token** 域）；缺 **C 端上传入口** `POST /app/upload`（app token + 类型/大小/配额约束，按 `FilePort` 端口复用后台存储）+ 反馈表 `images` 列 + 小程序 `wx.chooseMedia`/`wx.uploadFile` |
+| **意见反馈的门店处理页** | 反馈已能落库（`status`/`reply` 字段都在），但**后台还没有页面**去看/回复 | web 后台加一个「意见反馈」列表页（`GET/POST /biz/feedbacks`），与其它后台页面同构 |
 | **充值下单** | 档位展示已有，点充值如实提示 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
 
 ### D. 做不了 / 不该做（不是缺陷）

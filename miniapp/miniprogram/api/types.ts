@@ -214,6 +214,18 @@ export interface ShopProfile {
   notice: string | null;
 }
 
+/** 提交意见反馈的入参（`POST /app/feedback`） */
+export interface CreateFeedbackRequest {
+  /** 反馈类型（功能异常 / 体验建议 / 内容问题 / 其他） */
+  type: string;
+  /** 内容（后端要求 ≥5 字） */
+  content: string;
+  /** 联系方式（可空） */
+  contact?: string;
+  /** 匿名开关：true 时后端**不记录**顾客身份 */
+  anonymous?: boolean;
+}
+
 /**
  * 上架中的充值档位（服务端配置）。
  *

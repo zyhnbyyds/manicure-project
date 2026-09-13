@@ -26,6 +26,7 @@ import type {
   Booking,
   BookingStatus,
   CreateBookingRequest,
+  CreateFeedbackRequest,
   CreateReviewRequest,
   Favorite,
   JsapiPayment,
@@ -293,6 +294,22 @@ export const noticeApi = {
 export const shopApi = {
   get(): Promise<ShopProfile> {
     return request<ShopProfile>({ path: '/app/shop' });
+  },
+};
+
+/**
+ * 意见反馈（只写不读）。
+ *
+ * **不要求绑定手机号**：访客也有意见要说。`anonymous: true` 时后端一律不记身份 ——
+ * 「匿名」是当着顾客的面做出的承诺，前端不许偷偷带上手机号。
+ */
+export const feedbackApi = {
+  submit(payload: CreateFeedbackRequest): Promise<{ id: number; anonymous: boolean }> {
+    return request<{ id: number; anonymous: boolean }>({
+      path: '/app/feedback',
+      method: 'POST',
+      data: payload as unknown as Record<string, unknown>,
+    });
   },
 };
 

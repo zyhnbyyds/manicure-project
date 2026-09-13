@@ -97,7 +97,10 @@ describe('B6 站内消息 /app/notices', () => {
     await seedTemplate('member_recharged', '账户通知');
 
     await seedLog({ templateCode: 'booking_created', recipientId: customerId });
-    await seedLog({ templateCode: 'member_recharged', recipientId: customerId });
+    await seedLog({
+      templateCode: 'member_recharged',
+      recipientId: customerId,
+    });
     // 不该出现的三种
     await seedLog({
       templateCode: 'booking_created',
@@ -215,7 +218,10 @@ describe('B6 站内消息 /app/notices', () => {
     await seedTemplate('booking_created', '预约提醒');
     await seedTemplate('member_recharged', '账户通知');
     await seedLog({ templateCode: 'booking_created', recipientId: customerId });
-    await seedLog({ templateCode: 'member_recharged', recipientId: customerId });
+    await seedLog({
+      templateCode: 'member_recharged',
+      recipientId: customerId,
+    });
 
     // 只清「预约提醒」
     const partial = await ctx.request(
@@ -390,7 +396,108 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
   });
 });
 
-describe('B6 门店档案 /app/shop', () => {  it('未配置时回落内置默认值（不是空字符串），且不要求绑定手机号', async () => {
+describe('B6 意见反馈 /app/feedback', () => {
+  const BODY = {
+    type: '体验建议',
+    content: '希望可以按美甲师筛选档期，现在只能一个个点进去看',
+  };
+
+  it('实名提交：落库并带上顾客身份', async () => {
+    const customerId = await seedCustomer('李女士', '13800009020');
+    const { token } = await seedBoundAppUser('openid-feedback-1', customerId);
+
+    const res = await ctx.request('POST', '/api/v1/app/feedback', {
+      token,
+      body: { ...BODY, contact: '13800009020' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: expect.any(Number), anonymous: false });
+
+    const [row] = await ctx.sql<
+      {
+        customer_id: number | null;
+        type: string;
+        content: string;
+        contact: string | null;
+        is_anonymous: number;
+        status: string;
+      }[]
+    >(
+      `SELECT customer_id, type, content, contact, is_anonymous, status
+         FROM biz_feedback WHERE id = ?`,
+      [res.body.id],
+    );
+    expect(row!.customer_id).toBe(customerId);
+    expect(row!.type).toBe('体验建议');
+    expect(row!.content).toBe(BODY.content);
+    expect(row!.contact).toBe('13800009020');
+    expect(Number(row!.is_anonymous)).toBe(0);
+    // 新反馈一律「待处理」，门店在后台跟进
+    expect(row!.status).toBe('pending');
+  });
+
+  it('匿名提交：**不写 customer_id**（记了身份再标匿名等于骗人）', async () => {
+    const customerId = await seedCustomer('李女士', '13800009021');
+    const { token } = await seedBoundAppUser('openid-feedback-2', customerId);
+
+    const res = await ctx.request('POST', '/api/v1/app/feedback', {
+      token,
+      body: { ...BODY, anonymous: true },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.anonymous).toBe(true);
+
+    const [row] = await ctx.sql<
+      { customer_id: number | null; is_anonymous: number }[]
+    >(`SELECT customer_id, is_anonymous FROM biz_feedback WHERE id = ?`, [
+      res.body.id,
+    ]);
+    expect(row!.customer_id).toBeNull();
+    expect(Number(row!.is_anonymous)).toBe(1);
+  });
+
+  it('未绑定手机号也能提交（访客也有意见要说），此时不记身份', async () => {
+    const { token } = await seedBoundAppUser('openid-feedback-3', null);
+    const res = await ctx.request('POST', '/api/v1/app/feedback', {
+      token,
+      body: BODY,
+    });
+    expect(res.status).toBe(200);
+
+    const [row] = await ctx.sql<{ customer_id: number | null }[]>(
+      `SELECT customer_id FROM biz_feedback WHERE id = ?`,
+      [res.body.id],
+    );
+    expect(row!.customer_id).toBeNull();
+  });
+
+  it('入参：白名单外字段 400、内容太短 400、类型必填', async () => {
+    const customerId = await seedCustomer('李女士', '13800009022');
+    const { token } = await seedBoundAppUser('openid-feedback-4', customerId);
+
+    for (const body of [
+      { ...BODY, customerId: 999 }, // 身份由 token 决定
+      { ...BODY, status: 'resolved' }, // 状态是门店侧的
+      { ...BODY, content: '太短' }, // 少于 5 个字
+      { type: '', content: BODY.content },
+      { content: BODY.content }, // 类型必填
+    ]) {
+      const res = await ctx.request('POST', '/api/v1/app/feedback', {
+        token,
+        body,
+      });
+      expect(res.status, JSON.stringify(body)).toBe(400);
+    }
+    // 全部被拒 → 一条都没落
+    const rows = await ctx.sql<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM biz_feedback`,
+    );
+    expect(Number(rows[0].total)).toBe(0);
+  });
+});
+
+describe('B6 门店档案 /app/shop', () => {
+  it('未配置时回落内置默认值（不是空字符串），且不要求绑定手机号', async () => {
     const { token } = await seedBoundAppUser('openid-shop-1', null);
     // 先把 seed 写进去的默认值删掉，才验得到「完全没配」这条路径
     await ctx.sql(`DELETE FROM sys_config WHERE config_key LIKE 'biz.shop.%'`);

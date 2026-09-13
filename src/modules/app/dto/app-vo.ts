@@ -652,6 +652,49 @@ export type AppAddressUpsertRequest = z.infer<
 >;
 
 /* ------------------------------------------------------------------ *
+ * 意见反馈（batch5 第 4 屏）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 提交意见反馈（`POST /app/feedback`）。
+ *
+ * **匿名时不写 `customer_id`**（不是写进去再标注匿名）—— 小程序上的「匿名」开关
+ * 必须真的匿名，否则门店一查就知道是谁写的，而这个承诺是当着顾客的面做出的。
+ * 因此 `isAnonymous: true` 时后端一律落 `customer_id = null`。
+ */
+export const appCreateFeedbackRequestSchema = z
+  .object({
+    type: z.string().trim().min(1).max(30).openapi({ example: '体验建议' }),
+    content: z
+      .string()
+      .trim()
+      .min(5)
+      .max(1000)
+      .openapi({ example: '希望可以按美甲师筛选档期' }),
+    contact: z
+      .string()
+      .trim()
+      .max(100)
+      .optional()
+      .openapi({ example: '13800000000', description: '联系方式（可空）' }),
+    /** 匿名开关：true 时后端**不记录**顾客身份 */
+    anonymous: z.boolean().optional(),
+  })
+  .strict();
+registerComponent('AppCreateFeedbackRequest', appCreateFeedbackRequestSchema);
+export type AppCreateFeedbackRequest = z.infer<
+  typeof appCreateFeedbackRequestSchema
+>;
+
+export const appCreateFeedbackVo = z.object({
+  id: z.number().int(),
+  /** 是否按匿名提交（前端据实提示「已匿名提交」） */
+  anonymous: z.boolean(),
+});
+registerComponent('AppCreateFeedbackVo', appCreateFeedbackVo);
+export type AppCreateFeedbackVo = z.infer<typeof appCreateFeedbackVo>;
+
+/* ------------------------------------------------------------------ *
  * 取消/退款预览（batch4「取消预约」页要显示真实可退金额）
  * ------------------------------------------------------------------ */
 

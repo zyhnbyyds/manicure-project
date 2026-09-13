@@ -2695,6 +2695,45 @@ export const bizCustomerCoupons = mysqlTable(
 );
 
 /* ------------------------------------------------------------------ *
+ * 意见反馈（batch5 第 4 屏「意见反馈」）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 顾客意见反馈。
+ *
+ * `customer_id` **可空，且匿名提交时一律写 null** —— 小程序上有「匿名」开关，
+ * 如果匿名也把 `customer_id` 落库，「匿名」就是假的（门店一查就知道是谁写的）。
+ * 所以匿名与否用 `is_anonymous` 记下来、但**不写身份**：门店想追问细节，
+ * 只能靠顾客自己留的联系方式。
+ */
+export const bizFeedbacks = mysqlTable(
+  'biz_feedback',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    /** 实名提交时为顾客 id；匿名 / 未绑定访客为 null（不是「忘了写」） */
+    customerId: int('customer_id', { unsigned: true }),
+    /** 反馈类型（自由文本：功能异常 / 体验建议 / 内容问题 / 其他） */
+    type: varchar('type', { length: 30 }).notNull(),
+    content: varchar('content', { length: 1000 }).notNull(),
+    /** 顾客留的联系方式（可空；匿名顾客想被回复时会填） */
+    contact: varchar('contact', { length: 100 }),
+    isAnonymous: boolean('is_anonymous').default(false).notNull(),
+    /** 处理状态：门店在后台跟进（待处理 → 处理中 → 已解决 / 不处理） */
+    status: mysqlEnum('status', ['pending', 'processing', 'resolved', 'closed'])
+      .default('pending')
+      .notNull(),
+    /** 门店的处理备注（顾客侧不展示，避免「已读不回」被当成结论） */
+    reply: varchar('reply', { length: 500 }),
+    repliedAt: datetime('replied_at'),
+    ...auditColumns,
+  },
+  (table) => [
+    index('idx_feedback_status').on(table.status, table.id),
+    index('idx_feedback_customer').on(table.customerId),
+  ],
+);
+
+/* ------------------------------------------------------------------ *
  * 顾客自助数据：收货地址 / 款式收藏（batch4 设计稿，本目标新增）
  *
  * 两张表都是「顾客自己维护、别的顾客看不到」的数据：app 域的接口一律
