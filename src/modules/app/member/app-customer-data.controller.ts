@@ -343,8 +343,9 @@ export class AppCustomerDataController {
   @ApiOperation({
     summary: '门店档案（公开信息）',
     description:
-      '门店名 / 电话 / 地址 / 营业时间 / 经纬度 / 公告：来自 `sys_config`（门店可在后台改），' +
-      '缺省回落内置默认值。**只要求 app token，不要求绑定手机号** —— 这是公开信息，' +
+      '门店名 / 电话 / 地址 / 营业时间 / 经纬度 / 公告：**门店表 `sys_store` 优先**，' +
+      '门店字段为空时回落 `sys_config` 的 `biz.shop.*`（两者并存期的兜底）。' +
+      '**只要求 app token，不要求绑定手机号** —— 这是公开信息，' +
       '与 `/app/service-items` 同为可匿名浏览的目录。',
   })
   @ApiResponse({

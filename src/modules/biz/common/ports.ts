@@ -18,6 +18,7 @@ import type {
   bizReceivables,
   bizServiceItems,
   bizStaffs,
+  sysStores,
 } from '../../../database/schema/index.js';
 import type { BizDatabase, BizTx } from './tx.js';
 
@@ -668,6 +669,27 @@ export type NoticeInboxRow = {
   bookingId: number | null;
   createdAt: Date;
 };
+
+/* ------------------------------------------------------------------ *
+ * 门店（连锁直营，阶段 0）
+ * ------------------------------------------------------------------ */
+
+export type StoreRow = typeof sysStores.$inferSelect;
+
+/**
+ * 门店档案端口。
+ *
+ * 单店期只有一条「默认门店」，但**接口一律按「门店」语义来写**（`findDefault` / `listActive` /
+ * `findById`），这样小程序将来加门店选择、后台加门店切换器时，调用方不用改。
+ * 门店是经营主体：业务表将来会带 `store_id`，资产（余额/积分/次卡/券）在全店通兑口径下不带。
+ */
+export abstract class StorePort {
+  /** 启用中的门店（按 sort），小程序门店选择/后台切换器都用它 */
+  abstract listActive(): Promise<StoreRow[]>;
+  /** 默认门店：没指定门店时的兜底（单店期就是唯一那家） */
+  abstract findDefault(): Promise<StoreRow | null>;
+  abstract findById(id: number): Promise<StoreRow | null>;
+}
 
 /* ------------------------------------------------------------------ *
  * 文件上传（C 端图片：评价配图、意见反馈截图）

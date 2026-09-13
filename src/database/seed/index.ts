@@ -6,6 +6,7 @@ import { roles, userRoles, users } from '../schema/index';
 import { seedBiz } from './biz.js';
 import { seedMenus } from './menus.js';
 import { seedNail } from './nail.js';
+import { seedStores } from './stores.js';
 
 async function seed(): Promise<void> {
   const url = Bun.env.DATABASE_URL;
@@ -49,6 +50,8 @@ async function seed(): Promise<void> {
   await seedMenus(pool);
   // 配置类初始数据（会员等级 / 退款规则 / 通知模板 / 定时任务）
   await seedBiz(pool);
+  // 门店档案（默认门店：迁移已建就只补空字段，不覆盖运营改动）
+  await seedStores(pool);
   // 美甲基础资料（服务项目 / 美甲师 / 排班 / 卡种 / 充值方案 / 积分兑换品 / 挂账主体 / 提成规则）
   await seedNail(pool);
   // 演示顾客档案是**可选**的，不在这里灌；需要时单独跑 `bun run db:seed:demo`

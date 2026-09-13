@@ -14,7 +14,7 @@ import {
 } from '../../../database/schema/index.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
 import { BizConfigService } from '../../biz/common/biz-config.service.js';
-import { NoticePort } from '../../biz/common/ports.js';
+import { NoticePort, StorePort } from '../../biz/common/ports.js';
 import type {
   AppAddressListVo,
   AppAddressUpsertRequest,
@@ -53,8 +53,10 @@ export class AppCustomerDataService {
     private readonly database: DatabaseService,
     /** 站内消息走 biz 侧同一套收件箱实现（不强求 app 域自己写一份查询） */
     private readonly notices: NoticePort,
-    /** 门店档案来自 `sys_config`（门店可改，小程序不用发版） */
+    /** 门店档案：门店表优先，遗留的单店配置 `biz.shop.*` 兜底 */
     private readonly bizConfig: BizConfigService,
+    /** 门店实体（阶段 0 起门店是实体，不再是散落的配置键） */
+    private readonly stores: StorePort,
   ) {}
 
   /** 取当前身份绑定的顾客 ID（唯一归属来源，与 `AppMemberService` 同一口径） */
@@ -478,21 +480,31 @@ export class AppCustomerDataService {
   /**
    * 门店档案（公开信息）。
    *
-   * 读 `sys_config`（`BizConfigService.shopProfile()`）：门店在后台「参数配置」里改完
-   * 最多 10 秒生效，小程序不用发版。
+   * 数据来源两层，**门店表优先、遗留配置兜底**：
+   * 1. `sys_store` 的默认门店（阶段 0 起门店是实体；多店后这里会变成「按 storeId 取」）；
+   * 2. 门店行里为空的字段回落 `biz.shop.*`（`BizConfigService.shopProfile()`）——
+   *    老库的门店行是迁移时从配置生成的，可能整列是 null，不兜就会给小程序一片空白。
    */
   async shopProfile(): Promise<AppShopVo> {
-    const profile = await this.bizConfig.shopProfile();
+    const [store, profile] = await Promise.all([
+      this.stores.findDefault(),
+      this.bizConfig.shopProfile(),
+    ]);
     return {
-      name: profile.name,
-      nameEn: profile.nameEn,
-      phone: profile.phone,
-      address: profile.address,
-      hours: profile.hours,
-      latitude: profile.latitude,
-      longitude: profile.longitude,
+      storeId: store?.id ?? null,
+      storeCode: store?.code ?? null,
+      name: store?.name ?? profile.name,
+      nameEn: store?.nameEn ?? profile.nameEn,
+      phone: store?.phone ?? profile.phone,
+      address: store?.address ?? profile.address,
+      hours: store?.hours ?? profile.hours,
+      latitude: store?.latitude ?? profile.latitude,
+      longitude: store?.longitude ?? profile.longitude,
       // 空串统一成 null：前端判「有没有公告」只需判一种值
-      notice: profile.notice === '' ? null : profile.notice,
+      notice:
+        (store?.notice ?? profile.notice) === ''
+          ? null
+          : (store?.notice ?? profile.notice),
     };
   }
 

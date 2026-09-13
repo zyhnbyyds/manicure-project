@@ -4,14 +4,14 @@ title: 系统 · 监控 · AI · 小程序身份表
 
 # 系统 · 监控 · AI · 小程序身份表
 
-本页覆盖 **20 张 `sys_*` + 7 张 `ai_*` + 3 张 `app_*`，共 30 张表**。
+本页覆盖 **21 张 `sys_*` + 7 张 `ai_*` + 3 张 `app_*`，共 31 张表**。
 `biz_*` 的 31 张表见 [/data/business-tables](/data/business-tables)。
 
 阅读约定：除特别标注外，表都展开 `auditColumns`
 （`created_at` / `updated_at` / `deleted_at` / `created_by` / `updated_by`），
 下文字段表不再重复列出这 5 列。
 
-## 一、系统与权限（13 张）
+## 一、系统与权限（14 张）
 
 ### sys_user —— 后台用户
 
@@ -86,6 +86,28 @@ seed 内置两个角色：`admin`（超级管理员，`is_system=true`）、`use
 
 **相关代码**：`src/modules/system/menus/menus.service.ts`；
 seed 驱动文件 `src/database/seed/menus.ts`（幂等：按 `name` 查 → 逐字段比对，值没变不发 UPDATE）。
+
+### sys_store —— 门店档案（连锁直营）
+
+经营主体。**阶段 0** 引入：门店信息原本散在 `sys_config` 的 `biz.shop.*` 一堆键里（单店假设，
+一个 `config_key` 只能存一份值），现在收敛成一条实体记录。业务表将来会带 `store_id`，
+资产（余额/积分/次卡/券）在「全店通兑」口径下不带。
+
+| 字段 | 类型 | 必填/默认 | 说明 | 口径与坑 |
+| --- | --- | --- | --- | --- |
+| `id` | `int unsigned` | PK 自增 | 主键 | — |
+| `code` | `varchar(32)` | 必填 | 门店编码 | `uq_store_code` 唯一；**软删也占位**（与用户名同口径） |
+| `name` / `name_en` | `varchar(50)` | 必填 / 可空 | 门店名与英文副标题 | 通知模板 `{shopName}` 取它 |
+| `phone` / `address` / `hours` | `varchar(20/200/50)` | 可空 | 电话 / 地址 / 营业时间文案 | 门店页展示口径 |
+| `latitude` / `longitude` | `double` | 可空 | 坐标（地图导航） | 迁移从配置回填时用 `value + 0` 转数值 |
+| `notice` | `varchar(500)` | 可空 | 公告 / 到店须知 | 空串在接口层统一成 `null` |
+| `timezone` | `varchar(64)` | 可空 | 门店时区 | **现在留空**：有效时区仍走全局 `biz.booking.timezone`（跨时区连锁才需要） |
+| `status` | `enum('active','disabled')` | 默认 `active` | 启停 | 停用门店不参与默认门店回落 |
+| `sort` | `int` | 默认 `0` | 排序 | — |
+| `is_default` | `boolean` | 默认 `false` | 默认门店 | 单店期就是唯一那家；多店期是「未指定门店时的兜底」。**同刻最多一个**（MySQL 没有部分唯一索引，规则在 service 事务里） |
+
+**相关代码**：`src/modules/biz/base-data/stores/stores.service.ts`（CRUD + 默认唯一 + 默认门店不可删）；
+seed 补空字段 `src/database/seed/stores.ts`；小程序 `GET /app/shop` 以门店表为准、`biz.shop.*` 兜底。
 
 ### sys_dept —— 部门
 

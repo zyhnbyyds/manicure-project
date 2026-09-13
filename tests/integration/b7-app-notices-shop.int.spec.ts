@@ -672,17 +672,17 @@ describe('B6 门店档案 /app/shop', () => {
     expect(res.body.notice).toBeNull();
   });
 
-  it('门店在后台改了配置，小程序读到新值（不用发版）', async () => {
+  it('门店在后台改了门店档案，小程序读到新值（不用发版）', async () => {
     const { token } = await seedBoundAppUser('openid-shop-2', null);
+    /**
+     * 阶段 0 起**门店表是唯一事实来源**（`sys_store` 优先、`biz.shop.*` 只兜底未填字段），
+     * 所以这里改的是门店表 —— 也就是后台「门店管理」改的那张表。
+     * 顺带验「即时生效」：门店读取不走配置缓存（10 秒 TTL），改完下一次请求就是新值。
+     */
     await ctx.sql(
-      `INSERT INTO sys_config (config_key, name, value, builtin)
-       VALUES ('biz.shop.phone', '门店电话', '021-8888-9999', 1),
-              ('biz.shop.notice', '门店公告', '本周三店休，请提前改约', 1)
-       ON DUPLICATE KEY UPDATE value = VALUES(value)`,
+      `UPDATE sys_store SET phone = '021-8888-9999', notice = '本周三店休，请提前改约'
+        WHERE is_default = 1`,
     );
-    // 配置有 10 秒缓存；这里显式失效，等价于「改完等 TTL 过去」但不用真等 10 秒
-    // （管理端保存走的是同一条路径：写 `sys_config` → 缓存自然过期）
-    ctx.app.get(BizConfigService).invalidate();
 
     const res = await ctx.request('GET', '/api/v1/app/shop', { token });
     expect(res.status).toBe(200);
@@ -690,5 +690,10 @@ describe('B6 门店档案 /app/shop', () => {
     expect(res.body.notice).toBe('本周三店休，请提前改约');
     // 没改的字段仍然是原来的值
     expect(res.body.name).toBeTruthy();
+
+    // 复原，免得污染后面的用例（门店是 `sys_*`，resetBusinessData 不清它）
+    await ctx.sql(
+      `UPDATE sys_store SET phone = '13800000000', notice = NULL WHERE is_default = 1`,
+    );
   });
 });

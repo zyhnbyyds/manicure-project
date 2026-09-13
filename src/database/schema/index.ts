@@ -4,6 +4,7 @@ import {
   char,
   date,
   datetime,
+  double,
   foreignKey,
   index,
   int,
@@ -41,6 +42,69 @@ const auditColumns = {
 function bigintId(name: string) {
   return int(name, { unsigned: true });
 }
+
+/**
+ * 门店档案（连锁直营的门店主数据）。
+ *
+ * ## 为什么现在就要建它（单店期也不白建）
+ *
+ * 门店信息原本散在 `sys_config` 的 `biz.shop.*` 一堆键里（名称/电话/地址/经纬度/营业时间/公告），
+ * 那是**单店假设**：一个 `config_key` 只能有一份值，开第二家店就没地方放。
+ * 先把「门店」变成一条**实体**，将来给业务表加 `store_id` 时，回填就是「全部指向默认门店」，
+ * 一次 `UPDATE` 的事；小程序 `GET /app/shop` 也改读这张表（`biz.shop.*` 退居兜底默认值）。
+ *
+ * ## 与 `sys_dept` 的关系
+ *
+ * `sys_dept` 是**组织树**（RBAC 的数据范围按它算），门店是**经营主体**：直营连锁里
+ * 通常「一个门店 = 一个部门」，但两者不该混用同一张表 —— 组织会拆合、门店有营业时间与坐标，
+ * 生命周期与用途都不同。将来若要让「部门 ↔ 门店」对应，加一列 `dept_id` 即可，不必合并。
+ */
+export const sysStores = mysqlTable(
+  'sys_store',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    /** 门店编码（对账/报表/单号里要能看出是哪家店；唯一） */
+    code: varchar('code', { length: 32 }).notNull(),
+    name: varchar('name', { length: 50 }).notNull(),
+    /** 英文副标题（设计稿里有这个字样） */
+    nameEn: varchar('name_en', { length: 50 }),
+    phone: varchar('phone', { length: 20 }),
+    address: varchar('address', { length: 200 }),
+    /** 营业时间文案（如「10:00 - 20:00」）：门店按天排班另有 `biz_staff_weekly_shift`，这里是展示口径 */
+    hours: varchar('hours', { length: 50 }),
+    latitude: double('latitude'),
+    longitude: double('longitude'),
+    /** 公告 / 到店须知（小程序门店页展示） */
+    notice: varchar('notice', { length: 500 }),
+    /**
+     * 门店时区（可空）。
+     *
+     * 同城连锁一家店一个时区没差别，所以**现在留空**：有效时区仍走全局
+     * `biz.booking.timezone`。跨时区连锁时才需要按店配置，那时把这里填上、
+     * 由 `StoresService` 决定用哪个（列先留着，不给运营看到未实现的开关）。
+     */
+    timezone: varchar('timezone', { length: 64 }),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    /**
+     * 默认门店。
+     *
+     * 单店期它就是唯一那家店；多店期它是「没指定门店时的兜底」（小程序按定位/上次选择带 storeId，
+     * 带不上时回落到这里）。**同一时刻最多一个**，由 service 在事务里保证
+     * （MySQL 没有部分唯一索引，规则只能落在代码里 —— 与收货地址的默认地址同一套做法）。
+     */
+    isDefault: boolean('is_default').default(false).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_store_code').on(table.code),
+    /** 列表：只看启用的，按 sort 排；默认门店查询也走它 */
+    index('idx_store_status').on(table.status, table.sort, table.id),
+  ],
+);
 
 export const departments = mysqlTable(
   'sys_dept',
@@ -1950,8 +2014,7 @@ export const bizPointsRedeems = mysqlTable(
   ],
 );
 
-/** 通知模板：{变量} 必须都已声明 */
-export const sysNoticeTemplates = mysqlTable(
+/** 通知模板：{变量} 必须都已声明 */export const sysNoticeTemplates = mysqlTable(
   'sys_notice_template',
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),

@@ -25,6 +25,7 @@ import {
   SettlementPort,
   SlotPort,
   StaffPort,
+  StorePort,
 } from './common/ports.js';
 import { CreditModule } from './credit/credit.module.js';
 import { FilesModule } from '../files/files.module.js';
@@ -47,6 +48,7 @@ import { SchedulingModule } from './scheduling/scheduling.module.js';
 import { SchedulingService } from './scheduling/scheduling.service.js';
 import { CustomersService } from './base-data/customers/customers.service.js';
 import { ServiceItemsService } from './base-data/service-items/service-items.service.js';
+import { StoresService } from './base-data/stores/stores.service.js';
 import { StaffsService } from './base-data/staffs/staffs.service.js';
 import { PointsGoodsService } from './membership/points-goods/points-goods.service.js';
 import { PointsGoodsPort, CouponPort } from './common/ports.js';
@@ -79,6 +81,7 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
   ],
   providers: [
     { provide: ServiceItemPort, useExisting: ServiceItemsService },
+    { provide: StorePort, useExisting: StoresService },
     { provide: StaffPort, useExisting: StaffsService },
     { provide: CustomerPort, useExisting: CustomersService },
     { provide: FilePort, useExisting: FilesService },
@@ -103,6 +106,7 @@ import { CouponsService } from './membership/coupons/coupons.service.js';
   ],
   exports: [
     ServiceItemPort,
+    StorePort,
     StaffPort,
     CustomerPort,
     FilePort,

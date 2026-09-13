@@ -853,6 +853,14 @@ export type AppNoticeReadVo = z.infer<typeof appNoticeReadVo>;
  * 营业时间恰恰是最常改的信息。字段一律给非空字符串，C 端直接渲染不用到处判 null。
  */
 export const appShopVo = z.object({
+  /**
+   * 门店 ID / 编码（`sys_store`）。
+   *
+   * 单店期它就是那唯一一家店；多店后小程序会用它承载「选定的门店」。
+   * 门店表一条记录都没有时（还没跑迁移的老库）为 null，此时其余字段来自遗留配置。
+   */
+  storeId: z.number().int().nullable(),
+  storeCode: z.string().nullable().openapi({ example: 'MAIN' }),
   name: z.string().openapi({ example: '美甲小铺' }),
   nameEn: z.string().openapi({ example: 'BEAUTY NAILS' }),
   phone: z.string().openapi({ example: '13800000000' }),

@@ -6,16 +6,33 @@ import { ServiceItemsController } from './service-items/service-items.controller
 import { ServiceItemsService } from './service-items/service-items.service.js';
 import { StaffsController } from './staffs/staffs.controller.js';
 import { StaffsService } from './staffs/staffs.service.js';
+import { StoresController } from './stores/stores.controller.js';
+import { StoresService } from './stores/stores.service.js';
 
 /**
- * 基础数据（B1）：服务项目 / 美甲师（含可做项目）/ 顾客档案。
+ * 基础数据（B1）：服务项目 / 美甲师（含可做项目）/ 顾客档案 / 门店档案。
  *
  * 只依赖端口与公共工具；端口到具体实现的绑定由根模块 `BizModule` 统一负责（§1.1）。
  */
 @Module({
   imports: [BizCommonModule],
-  controllers: [ServiceItemsController, StaffsController, CustomersController],
-  providers: [ServiceItemsService, StaffsService, CustomersService],
-  exports: [ServiceItemsService, StaffsService, CustomersService],
+  controllers: [
+    ServiceItemsController,
+    StaffsController,
+    CustomersController,
+    StoresController,
+  ],
+  providers: [
+    ServiceItemsService,
+    StaffsService,
+    CustomersService,
+    StoresService,
+  ],
+  exports: [
+    ServiceItemsService,
+    StaffsService,
+    CustomersService,
+    StoresService,
+  ],
 })
 export class BaseDataModule {}

@@ -210,6 +210,9 @@ export interface Notice {
 
 /** 门店档案（`/app/shop`，来自 `sys_config`，门店可改） */
 export interface ShopProfile {
+  /** 门店 ID / 编码（sys_store）：多店后小程序用它承载「选定的门店」 */
+  storeId: number | null;
+  storeCode: string | null;
   name: string;
   nameEn: string;
   phone: string;
