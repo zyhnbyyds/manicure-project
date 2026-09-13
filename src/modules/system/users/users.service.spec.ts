@@ -69,6 +69,17 @@ describe('UsersService', () => {
                 .mockResolvedValue([{ userId: 1, id: 1, name: 'admin' }]),
             }),
           }),
+        })
+        /**
+         * 第三次 select：`fetchStoreMap`（可见门店，连锁直营）。
+         * 空数组 = 该账号没有门店授权（列表里 `stores` 就是 `[]`）。
+         */
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([]),
+            }),
+          }),
         });
       const service = new UsersService({ db } as any);
       const result = await service.list(1, 20);
@@ -116,6 +127,14 @@ describe('UsersService', () => {
               where: vi
                 .fn()
                 .mockResolvedValue([{ userId: 2, id: 2, name: 'editor' }]),
+            }),
+          }),
+        })
+        // 第三次 select：`fetchStoreMap`（可见门店）—— 空数组 = 无门店授权
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([]),
             }),
           }),
         });

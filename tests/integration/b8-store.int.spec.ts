@@ -162,3 +162,94 @@ describe('小程序门店档案 GET /app/shop 以门店为准', () => {
     await ctx.sql(`UPDATE sys_store SET deleted_at = NULL`);
   });
 });
+
+describe('用户可见门店授权 /system/users/:id/stores', () => {
+  /** 造一个后台账号（授权对象）；用户名带随机串，避免与残留数据撞 `uq_user_username` */
+  async function seedUser(username: string): Promise<number> {
+    const unique = `${username}-${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const inserted = await ctx.sql<{ insertId: number }>(
+      `INSERT INTO sys_user (username, display_name, password_hash, status)
+       VALUES (?, ?, 'x', 'active')`,
+      [unique, username],
+    );
+    return inserted.insertId;
+  }
+
+  it('设置与回填：整体替换、列表带上门店、取消全部授权', async () => {
+    const storeB = await ctx.request('POST', '/api/v1/stores', {
+      body: { code: 'XJH', name: '徐家汇店' },
+    });
+    const storeId = storeB.body.id as number;
+    const userId = await seedUser('store-manager');
+
+    const set = await ctx.request(
+      'PUT',
+      `/api/v1/system/users/${userId}/stores`,
+      {
+        body: { storeIds: [storeId] },
+      },
+    );
+    expect(set.status).toBe(200);
+
+    const read = await ctx.request(
+      'GET',
+      `/api/v1/system/users/${userId}/stores`,
+      {},
+    );
+    expect(read.status).toBe(200);
+    expect(read.body.storeIds).toEqual([storeId]);
+
+    // 列表里带上门店名（前端「可见门店」列不用逐行查）
+    const list = await ctx.request(
+      'GET',
+      '/api/v1/system/users?page=1&pageSize=50',
+      {},
+    );
+    const row = list.body.items.find(
+      (item: { id: number }) => item.id === userId,
+    );
+    expect(row.stores).toEqual([{ id: storeId, name: '徐家汇店' }]);
+
+    // 空数组 = 取消全部授权
+    await ctx.request('PUT', `/api/v1/system/users/${userId}/stores`, {
+      body: { storeIds: [] },
+    });
+    const cleared = await ctx.request(
+      'GET',
+      `/api/v1/system/users/${userId}/stores`,
+      {},
+    );
+    expect(cleared.body.storeIds).toEqual([]);
+  });
+
+  it('门店不存在或已停用 → 404；用户不存在 → 404', async () => {
+    const userId = await seedUser('store-manager-2');
+    const missing = await ctx.request(
+      'PUT',
+      `/api/v1/system/users/${userId}/stores`,
+      { body: { storeIds: [999999] } },
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.body.message).toContain('门店不存在或已停用');
+
+    await ctx.sql(
+      `UPDATE sys_store SET status = 'disabled' WHERE code = 'MAIN'`,
+    );
+    const [main] = await ctx.sql<{ id: number }[]>(
+      `SELECT id FROM sys_store WHERE code = 'MAIN'`,
+    );
+    const disabled = await ctx.request(
+      'PUT',
+      `/api/v1/system/users/${userId}/stores`,
+      { body: { storeIds: [main!.id] } },
+    );
+    expect(disabled.status).toBe(404);
+
+    const ghost = await ctx.request(
+      'PUT',
+      `/api/v1/system/users/999999/stores`,
+      { body: { storeIds: [] } },
+    );
+    expect(ghost.status).toBe(404);
+  });
+});

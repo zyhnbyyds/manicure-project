@@ -9,6 +9,8 @@ import { DatabaseService } from '../../../database/database.service';
 import {
   departments,
   roles,
+  sysStores,
+  sysUserStores,
   userRoles,
   users,
 } from '../../../database/schema/index';
@@ -89,15 +91,78 @@ export class UsersService {
       .limit(pageSize)
       .offset((page - 1) * pageSize);
     const roleMap = await this.fetchRoleMap(items.map((item) => item.id));
+    const storeMap = await this.fetchStoreMap(items.map((item) => item.id));
     return {
       items: items.map((item) => ({
         ...item,
         roleIds: roleMap.get(item.id)?.map((r) => r.id) ?? [],
         roleNames: roleMap.get(item.id)?.map((r) => r.name) ?? [],
+        /**
+         * 可见门店（连锁直营）。列表里带上名字，前端「门店」列不用再逐行查一次；
+         * 空数组 = 这个账号看不到任何门店的业务数据（超管除外）。
+         */
+        stores: storeMap.get(item.id) ?? [],
       })),
       page,
       pageSize,
     };
+  }
+
+  /** 某账号的可见门店 id（授权弹窗回填用） */
+  async listStores(userId: number): Promise<number[]> {
+    await this.requireUser(userId);
+    const rows = await this.database.db
+      .select({ storeId: sysUserStores.storeId })
+      .from(sysUserStores)
+      .where(eq(sysUserStores.userId, userId));
+    return rows.map((row) => row.storeId).sort((a, b) => a - b);
+  }
+
+  /**
+   * 全量替换某账号的可见门店。
+   *
+   * 与角色授权同款：**先删后增**（授权界面就是一个多选，语义是「最终是这几家」）。
+   * 只校验门店存在且未停用 —— 给账号授权门店是总部行为，不检查操作人自己有没有这家店
+   * （否则就没人能给新店授权了；接口本身的权限点 `system:user:store` 才是闸门）。
+   */
+  async replaceStores(userId: number, storeIds: number[]): Promise<void> {
+    await this.requireUser(userId);
+    const unique = [...new Set(storeIds)];
+    if (unique.length) {
+      const valid = await this.database.db
+        .select({ id: sysStores.id })
+        .from(sysStores)
+        .where(
+          and(
+            inArray(sysStores.id, unique),
+            eq(sysStores.status, 'active'),
+            isNull(sysStores.deletedAt),
+          ),
+        );
+      const validIds = new Set(valid.map((row) => row.id));
+      const missing = unique.filter((id) => !validIds.has(id));
+      if (missing.length)
+        throw new NotFoundException(
+          `门店不存在或已停用：${missing.join(', ')}`,
+        );
+    }
+    await this.database.db.transaction(async (tx) => {
+      await tx.delete(sysUserStores).where(eq(sysUserStores.userId, userId));
+      if (unique.length) {
+        await tx
+          .insert(sysUserStores)
+          .values(unique.map((storeId) => ({ userId, storeId })));
+      }
+    });
+  }
+
+  private async requireUser(userId: number): Promise<void> {
+    const [row] = await this.database.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1);
+    if (!row) throw new NotFoundException('用户不存在');
   }
   async create(input: CreateUserInput, actorId: number) {
     const [existing] = await this.database.db
@@ -142,6 +207,34 @@ export class UsersService {
   }
   async assignRole(userId: number, roleId: number) {
     await this.assignRoles(userId, [roleId]);
+  }
+
+  /** 查询一批用户的可见门店（id + name），一次查询避免 N+1 */
+  private async fetchStoreMap(
+    userIds: number[],
+  ): Promise<Map<number, { id: number; name: string }[]>> {
+    if (!userIds.length) return new Map();
+    const rows = await this.database.db
+      .select({
+        userId: sysUserStores.userId,
+        id: sysStores.id,
+        name: sysStores.name,
+      })
+      .from(sysUserStores)
+      .innerJoin(sysStores, eq(sysUserStores.storeId, sysStores.id))
+      .where(
+        and(
+          inArray(sysUserStores.userId, userIds),
+          isNull(sysStores.deletedAt),
+        ),
+      );
+    const map = new Map<number, { id: number; name: string }[]>();
+    for (const row of rows) {
+      const list = map.get(row.userId) ?? [];
+      list.push({ id: row.id, name: row.name });
+      map.set(row.userId, list);
+    }
+    return map;
   }
 
   /** 查询一批用户的所有角色（id + name） */

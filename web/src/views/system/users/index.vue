@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, nextTick, reactive, ref } from 'vue';
-import { Pencil, Plus, Trash2 } from 'lucide-vue-next';
+import { Pencil, Plus, Store as StoreIcon, Trash2 } from 'lucide-vue-next';
 import {
   LewButton,
   LewForm,
@@ -14,6 +14,11 @@ import type { LewFormOption } from 'lew-ui';
 import { withPassThroughRule } from '~/utils/form';
 import type { LewTableColumn } from 'lew-ui';
 import { createUser, deleteUser, updateUser } from '~/api/system/users';
+import {
+  getUserStores,
+  listStores,
+  setUserStores,
+} from '~/api/system/stores';
 import { listDepts } from '~/api/system/depts';
 import { listRoles } from '~/api/system/roles';
 import { useTable } from '~/composables/useTable';
@@ -113,6 +118,33 @@ const columns: LewTableColumn[] = [
         'span',
         { class: 'text-12.5px' },
         names.length ? names.join('、') : '-',
+      );
+    },
+  },
+  {
+    /**
+     * 可见门店（连锁直营）。
+     *
+     * 空 = 这个账号**看不到任何门店的业务数据**（预约/收款/退款/应收都会 403）。
+     * 这里用红色提示而不是 `-`：`-` 会被当成「没配置」而忽略过去，
+     * 而这条恰恰是「新开的店长账号为什么什么都看不到」的常见原因。
+     */
+    title: '可见门店',
+    field: 'stores',
+    width: 180,
+    customRender: ({ row }) => {
+      const stores = (row as unknown as User).stores ?? [];
+      if (!stores.length) {
+        return h(
+          'span',
+          { class: 'text-12.5px', style: 'color: var(--lew-color-error)' },
+          '未分配（看不到业务数据）',
+        );
+      }
+      return h(
+        'span',
+        { class: 'text-12.5px' },
+        stores.map((store) => store.name).join('、'),
       );
     },
   },
@@ -351,12 +383,61 @@ function handleDelete(row: User) {
     },
   });
 }
+
+// ---------- 可见门店（连锁直营） ----------
+/**
+ * 账号绑定了几家门店就只看得到这几家的单据（预约/收款/退款/应收）。
+ *
+ * 门店选项**先取后开弹窗**：lew-ui 的多选组件在 `setup` 时会把 `options` 快照进内部状态，
+ * 选项晚于组件挂载到达时，回填的已选项一个都不显示（关掉重开又正常）——
+ * 所以等选项就绪再打开弹窗（见 web-frontend 技能「常见坑」）。
+ */
+const storeModalVisible = ref(false);
+const storeTarget = ref<User | null>(null);
+/** 下拉是字符串（`LewSelectOption.value` 只收 string，与美甲师页的账号下拉同款），提交时转 number */
+const storeOptions = ref<{ label: string; value: string }[]>([]);
+const selectedStoreIds = ref<string[]>([]);
+const storeSaving = ref(false);
+
+async function ensureStoreOptions() {
+  if (storeOptions.value.length) return;
+  const data = await listStores(1, 200);
+  storeOptions.value = data.items.map((store) => ({
+    label: store.isDefault ? `${store.name}（默认）` : store.name,
+    value: String(store.id),
+  }));
+}
+
+async function openStores(row: User) {
+  await ensureStoreOptions();
+  storeTarget.value = row;
+  const data = await getUserStores(row.id);
+  selectedStoreIds.value = data.storeIds.map(String);
+  storeModalVisible.value = true;
+}
+
+async function submitStores() {
+  const target = storeTarget.value;
+  if (!target || storeSaving.value) return;
+  storeSaving.value = true;
+  try {
+    await setUserStores(target.id, selectedStoreIds.value.map(Number));
+    LewMessage.success(
+      selectedStoreIds.value.length
+        ? '门店授权已更新'
+        : '已取消全部门店授权（该账号将看不到业务数据）',
+    );
+    storeModalVisible.value = false;
+    void refresh();
+  } finally {
+    storeSaving.value = false;
+  }
+}
 </script>
 
 <template>
   <div class="page-container">
-    <!-- 页头 -->
-    <div class="flex items-center justify-between">
+    <!-- 页头 -->    <div class="flex items-center justify-between">
       <div>
         <h2 class="page-title m-0">用户管理</h2>
         <p class="page-subtitle mt-1 mb-0">管理系统用户账号</p>
@@ -402,6 +483,13 @@ function handleDelete(row: User) {
       >
         <template #operation="{ row }">
           <div class="flex items-center gap-1">
+            <IconButton
+              permission="system:user:store"
+              title="设置可见门店"
+              @click="openStores(row as unknown as User)"
+            >
+              <StoreIcon :size="14" />
+            </IconButton>
             <IconButton
               permission="system:user:update"
               title="编辑"
@@ -470,5 +558,57 @@ function handleDelete(row: User) {
         />
       </div>
     </LewModal>
+
+    <!-- 可见门店授权（连锁直营） -->
+    <LewModal
+      v-model:visible="storeModalVisible"
+      :title="`设置可见门店：${storeTarget?.displayName ?? ''}`"
+      width="520px"
+      :footer-buttons="[
+        {
+          props: {
+            type: 'text',
+            color: 'gray',
+            size: 'small',
+            text: '取消',
+            request: () => {
+              storeModalVisible = false;
+            },
+          },
+        },
+        {
+          props: {
+            type: 'fill',
+            color: 'primary',
+            size: 'small',
+            text: '保存',
+            loading: storeSaving,
+            request: submitStores,
+          },
+        },
+      ]"
+    >
+      <div class="p-5">
+        <p class="hint mb-3 mt-0">
+          绑定几家门店，该账号就只看得到这几家的单据（预约 / 收款 / 退款 / 应收）。
+          <b>不选 = 看不到任何业务数据</b>；超管不受此限制。
+        </p>
+        <LewSelect
+          v-model="selectedStoreIds"
+          multiple
+          clearable
+          placeholder="选择可见门店"
+          :options="storeOptions"
+        />
+      </div>
+    </LewModal>
   </div>
 </template>
+
+<style scoped>
+.hint {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--lew-text-color-3);
+}
+</style>

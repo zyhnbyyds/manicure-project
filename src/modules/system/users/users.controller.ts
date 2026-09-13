@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
@@ -103,6 +104,17 @@ const updateSchema = createSchema
 registerComponent('CreateUserRequest', createSchema);
 registerComponent('UpdateUserRequest', updateSchema);
 
+/** 门店授权：整体替换，空数组 = 取消全部 */
+const storeIdsSchema = z.object({
+  storeIds: z
+    .array(z.number().int().positive())
+    .openapi({
+      example: [1, 2],
+      description: '可见门店 id 列表（空数组 = 全部取消）',
+    }),
+});
+registerComponent('SetUserStoresRequest', storeIdsSchema);
+
 type AuthRequest = {
   user: { id: number; roles: string[]; permissions: string[] };
 };
@@ -182,5 +194,42 @@ export class UsersController {
   @ApiResponse({ status: 200, description: '成功' })
   remove(@Param('id', ParseIntPipe) id: number, @Req() request: AuthRequest) {
     return this.users.remove(id, request.user.id);
+  }
+
+  /* ------------------------------ 可见门店（连锁直营） ------------------------------ */
+
+  @Get(':id/stores')
+  @RequirePermissions('system:user:list')
+  @ApiOperation({
+    summary: '该账号的可见门店',
+    description:
+      '连锁直营：账号绑定了几家门店，就只看得到这几家的单据（预约/收款/退款/应收）；' +
+      '超管（`*:*:*`）不受此限制；一个都没绑 → 访问业务数据时 403 并说明原因。',
+  })
+  @ApiParam({ name: 'id', description: '用户ID' })
+  @ApiResponse({ status: 200, description: '成功' })
+  async listStores(@Param('id', ParseIntPipe) id: number) {
+    return { storeIds: await this.users.listStores(id) };
+  }
+
+  @Put(':id/stores')
+  @RequirePermissions('system:user:store')
+  @ApiOperation({
+    summary: '设置该账号的可见门店（整体替换）',
+    description:
+      '传空数组 = 取消所有门店授权（该账号将看不到任何业务数据）。' +
+      '只校验门店存在且未停用；给账号授权门店是总部行为，不检查操作人自己有没有这家店。',
+  })
+  @ApiParam({ name: 'id', description: '用户ID' })
+  @ApiBody({ schema: { $ref: '#/components/schemas/SetUserStoresRequest' } })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 404, description: '门店不存在或已停用' })
+  async replaceStores(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+  ) {
+    const { storeIds } = storeIdsSchema.parse(body);
+    await this.users.replaceStores(id, storeIds);
+    return { success: true };
   }
 }

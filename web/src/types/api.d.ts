@@ -84,6 +84,51 @@ export interface User {
   loginAt: string | null;
   roleIds?: number[];
   roleNames?: string[];
+  /**
+   * 可见门店（连锁直营）：账号绑定了几家门店，就只看得到这几家的单据。
+   * 空数组 = 看不到任何业务数据（超管除外）—— 列表里要显式提示，别让人以为是没数据。
+   */
+  stores?: { id: number; name: string }[];
+}
+
+// ============ stores ============
+
+/** 门店档案（连锁直营） */
+export interface Store {
+  id: number;
+  /** 门店编码（唯一，对账/单号用） */
+  code: string;
+  name: string;
+  nameEn: string | null;
+  phone: string | null;
+  address: string | null;
+  hours: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  notice: string | null;
+  timezone: string | null;
+  status: EntityStatus;
+  sort: number;
+  /** 默认门店：未指定门店时的兜底（同一时刻最多一个） */
+  isDefault: boolean;
+  remark: string | null;
+  createdAt: string;
+}
+
+export interface StoreBody {
+  code: string;
+  name: string;
+  nameEn?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  hours?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  notice?: string | null;
+  status?: EntityStatus;
+  sort?: number;
+  isDefault?: boolean;
+  remark?: string | null;
 }
 
 /** GET /auth/profile 返回的当前用户资料 */

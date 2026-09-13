@@ -528,6 +528,60 @@ export const MENU_SEEDS: MenuSeed[] = [
     icon: 'config',
     sort: 7,
   },
+  {
+    parentKey: 'system',
+    name: 'system_stores',
+    title: '门店管理',
+    type: 'C',
+    path: '/system/stores',
+    component: 'system/stores/index',
+    permission: 'system:store:list',
+    icon: 'dept',
+    sort: 8,
+  },
+  // 门店管理的按钮权限。`system:store:all` 不是页面按钮而是**数据范围开关**：
+  // 拥有它 = 看得到全部门店（并可按门店筛选），等价于超管的门店视野。
+  {
+    parentKey: 'system_stores',
+    name: 'system_store_create',
+    title: '新建门店',
+    type: 'F',
+    permission: 'system:store:create',
+    sort: 1,
+  },
+  {
+    parentKey: 'system_stores',
+    name: 'system_store_update',
+    title: '修改门店',
+    type: 'F',
+    permission: 'system:store:update',
+    sort: 2,
+  },
+  {
+    parentKey: 'system_stores',
+    name: 'system_store_delete',
+    title: '删除门店',
+    type: 'F',
+    permission: 'system:store:delete',
+    sort: 3,
+  },
+  {
+    parentKey: 'system_stores',
+    name: 'system_store_all',
+    title: '查看全部门店',
+    type: 'F',
+    permission: 'system:store:all',
+    sort: 4,
+  },
+  // 用户管理下的「设置可见门店」按钮（连锁直营的门店授权入口）
+  {
+    parentKey: 'system_users',
+    name: 'system_user_store',
+    title: '设置可见门店',
+    type: 'F',
+    permission: 'system:user:store',
+    sort: 1,
+  },
   // ===== 系统监控（目录）=====
   {
     name: 'monitor',

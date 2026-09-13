@@ -6,7 +6,7 @@ title: 后台页面与权限点清单
 
 本页是**后台前端的全量页面清单 + 权限点对照表**，以及「新增一个后台页面」的完整步骤。
 
-- 页面文件：`web/src/views/**/*.vue`（共 **46** 个 `.vue`：26 业务 + 16 基座页面 + 4 隐藏页）
+- 页面文件：`web/src/views/**/*.vue`（共 **47** 个 `.vue`：26 业务 + 17 基座页面 + 4 隐藏页）
 - 菜单与权限点唯一事实来源：`src/database/seed/menus.ts`
 - 路由生成逻辑：`web/src/store/permission.ts` + `web/src/router/guard.ts`（见 [后台前端（Vue 3）](/frontend/)）
 
@@ -86,9 +86,10 @@ const claimed = new Set<string>();
 | 6 | `system_posts` | `/system/posts` | `web/src/views/system/posts/index.vue` | 岗位管理 | `system:post:list` |
 | 7 | `system_dicts` | `/system/dicts` | `web/src/views/system/dicts/index.vue` | 字典管理 | `system:dict:list` |
 | 8 | `system_configs` | `/system/configs` | `web/src/views/system/configs/index.vue` | 参数配置 | `system:config:list` |
-| 9 | `monitor_login_logs` | `/monitor/login-logs` | `web/src/views/monitor/login-logs/index.vue` | 登录日志 | `monitor:loginlog:list` |
-| 10 | `monitor_operation_logs` | `/monitor/operation-logs` | `web/src/views/monitor/operation-logs/index.vue` | 操作日志 | `monitor:operlog:list` |
-| 11 | `monitor_online` | `/monitor/online` | `web/src/views/monitor/online/index.vue` | 在线用户 | `monitor:online:list` |
+| 9 | `system_stores` | `/system/stores` | `web/src/views/system/stores/index.vue` | 门店管理（连锁直营） | `system:store:list`（+ create/update/delete、`system:store:all` = 看全部门店） |
+| 10 | `monitor_login_logs` | `/monitor/login-logs` | `web/src/views/monitor/login-logs/index.vue` | 登录日志 | `monitor:loginlog:list` |
+| 11 | `monitor_operation_logs` | `/monitor/operation-logs` | `web/src/views/monitor/operation-logs/index.vue` | 操作日志 | `monitor:operlog:list` |
+| 12 | `monitor_online` | `/monitor/online` | `web/src/views/monitor/online/index.vue` | 在线用户 | `monitor:online:list` |
 | 12 | `monitor_cache` | `/monitor/cache` | `web/src/views/monitor/cache/index.vue` | 缓存监控 | `monitor:cache:list` |
 | 13 | `jobs` | `/jobs` | `web/src/views/jobs/index.vue` | 定时任务 | `system:job:list` |
 | 14 | `files` | `/files` | `web/src/views/files/index.vue` | 文件管理 | `system:file:list` |
