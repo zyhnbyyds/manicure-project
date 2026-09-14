@@ -228,6 +228,10 @@ body {
   max-height: 70vh;
 }
 
+.lew-drawer-body .lew-drawer-body-slot {
+  overflow: auto !important;
+}
+
 /* ============================================
    LewUpload 缩略图：可点击放大
    lew-ui 2.8.2 **没有**内置图片预览（`preview-group-key` 无人消费），

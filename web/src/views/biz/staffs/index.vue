@@ -431,6 +431,7 @@ async function fetchStoreOptions(): Promise<SelectOption[]> {
 async function handleSaveStores() {
   if (!detail.value) return;
   await setStaffStores(detail.value.id, selectedStoreIds.value.map(Number));
+  search();
   LewMessage.success('服务门店已保存');
 }
 
@@ -453,7 +454,7 @@ const disabledSelected = computed(() => {
 });
 
 async function fetchItemOptions(): Promise<SelectOption[]> {
-  const data = await listActiveServiceItems(200);
+  const data = await listActiveServiceItems();
   return data.items.map((item) => ({
     label: `${item.name}（${item.durationMinutes} 分钟）`,
     value: String(item.id),
