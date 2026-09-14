@@ -3,6 +3,7 @@ import {
   ServiceItemPort,
   SlotPort,
   StaffPort,
+  StorePort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
 import {
@@ -28,6 +29,7 @@ export class AppCatalogService {
     private readonly serviceItems: ServiceItemPort,
     private readonly staffs: StaffPort,
     private readonly slots: SlotPort,
+    private readonly stores: StorePort,
   ) {}
 
   /** 启用中的服务项目：字段只有 id/name/category/durationMinutes/price/description/image */
@@ -56,7 +58,13 @@ export class AppCatalogService {
     rawPageSize?: string,
   ): Promise<AppStaffListVo> {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
-    const rows = await this.staffs.listActive();
+    /*
+     * 门店维度：小程序还没做「选店」，全程按**默认门店** ——
+     * 只回能服务这家店的人（没配过门店的美甲师依旧全店可用，见 biz_staff_store 的约定）。
+     * 将来小程序带 storeId 时，把这里换成请求里的门店即可。
+     */
+    const store = await this.stores.findDefault();
+    const rows = await this.staffs.listActive(store?.id);
     const offset = (page - 1) * pageSize;
     const items = rows.slice(offset, offset + pageSize).map((row) => ({
       id: row.id,

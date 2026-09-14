@@ -4,14 +4,34 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, eq, inArray, isNull, ne, or } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  exists,
+  inArray,
+  isNull,
+  ne,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
   bizBookings,
   bizServiceItems,
+  bizStaffStores,
   bizStaffs,
   bizStaffServiceItems,
+  sysStores,
 } from '../../../../database/schema/index.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import {
+  resolveStoreScope,
+  storeFilterIds,
+} from '../../../../common/data-scope/store-scope.js';
 import {
   StaffPort,
   type PageResult,
@@ -48,6 +68,11 @@ export type UpdateStaffInput = {
 export type StaffListFilter = {
   keyword?: string;
   status?: 'active' | 'disabled';
+  /**
+   * 门店筛选：只看**能服务这家店**的美甲师（含未配门店的 —— 空集合 = 全部门店）。
+   * 不传则按操作人的可见范围（店长限本店 / 超管全部）。
+   */
+  storeId?: number;
 };
 
 /**
@@ -65,7 +90,8 @@ export class StaffsService extends StaffPort {
     page: number,
     pageSize: number,
     filter: StaffListFilter,
-  ): Promise<PageResult<StaffRow>> {
+    actor?: RequestActor | null,
+  ): Promise<PageResult<StaffRow & { stores: { id: number; name: string }[] }>> {
     const conditions = [isNull(bizStaffs.deletedAt)];
     const nickname = keywordLike(bizStaffs.nickname, filter.keyword);
     const phone = keywordLike(bizStaffs.phone, filter.keyword);
@@ -74,14 +100,87 @@ export class StaffsService extends StaffPort {
       if (clause) conditions.push(clause);
     }
     if (filter.status) conditions.push(eq(bizStaffs.status, filter.status));
-    const items = await this.database.db
+
+    // 门店维度：显式 `?storeId=` → 切换器的 `x-store-id` 头 → 可见范围（店长限本店）
+    const store = await resolveStoreScope(
+      this.database.db,
+      actor ?? null,
+      filter.storeId,
+    );
+    const storeFilter = this.staffStoreCondition(storeFilterIds(store));
+    if (storeFilter) conditions.push(storeFilter);
+
+    const rows = await this.database.db
       .select()
       .from(bizStaffs)
       .where(and(...conditions))
       .orderBy(asc(bizStaffs.sort), asc(bizStaffs.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize);
+    const items = await this.withStores(rows);
     return { items, page, pageSize };
+  }
+
+  /**
+   * 「这些店能用的人」条件（`null` = 不筛）。
+   *
+   * `biz_staff_store` 的约定是**空集合 = 可服务全部门店**（与「可做项目」同款），
+   * 所以查某家店时必须把「没配过门店的人」也留下 —— 他们恰恰是默认全店可用的那批，
+   * 漏掉就等于「新上的美甲师在哪家店都约不到」。
+   */
+  private staffStoreCondition(storeIds: number[] | null): SQL | undefined {
+    if (!storeIds || !storeIds.length) return undefined;
+    return or(
+      notExists(
+        this.database.db
+          .select({ one: sql`1` })
+          .from(bizStaffStores)
+          .where(eq(bizStaffStores.staffId, bizStaffs.id)),
+      ),
+      exists(
+        this.database.db
+          .select({ one: sql`1` })
+          .from(bizStaffStores)
+          .where(
+            and(
+              eq(bizStaffStores.staffId, bizStaffs.id),
+              inArray(bizStaffStores.storeId, storeIds),
+            ),
+          ),
+      ),
+    );
+  }
+
+  /** 批量补「服务门店」（一次查询，避免列表 N+1）；空数组 = 全部门店 */
+  private async withStores<T extends { id: number }>(
+    rows: T[],
+  ): Promise<(T & { stores: { id: number; name: string }[] })[]> {
+    if (!rows.length) return [];
+    const links = await this.database.db
+      .select({
+        staffId: bizStaffStores.staffId,
+        id: sysStores.id,
+        name: sysStores.name,
+      })
+      .from(bizStaffStores)
+      .innerJoin(sysStores, eq(sysStores.id, bizStaffStores.storeId))
+      .where(
+        and(
+          inArray(
+            bizStaffStores.staffId,
+            rows.map((row) => row.id),
+          ),
+          isNull(sysStores.deletedAt),
+        ),
+      )
+      .orderBy(asc(sysStores.sort), asc(sysStores.id));
+    const grouped = new Map<number, { id: number; name: string }[]>();
+    for (const link of links) {
+      const list = grouped.get(link.staffId) ?? [];
+      list.push({ id: link.id, name: link.name });
+      grouped.set(link.staffId, list);
+    }
+    return rows.map((row) => ({ ...row, stores: grouped.get(row.id) ?? [] }));
   }
 
   async findOne(id: number): Promise<StaffRow> {
@@ -148,11 +247,24 @@ export class StaffsService extends StaffPort {
     return staff;
   }
 
-  async listActive(): Promise<StaffRow[]> {
+  /**
+   * 启用中的美甲师（后台预约弹窗 / 小程序目录用）。
+   *
+   * `storeId` 传了 → 只回**能服务这家店**的人（含未配门店的，空集合 = 全部门店），
+   * 不传 → 不过滤（保持旧调用语义）。
+   */
+  async listActive(storeId?: number): Promise<StaffRow[]> {
+    const conditions = [
+      eq(bizStaffs.status, 'active'),
+      isNull(bizStaffs.deletedAt),
+    ];
+    const storeFilter =
+      storeId === undefined ? undefined : this.staffStoreCondition([storeId]);
+    if (storeFilter) conditions.push(storeFilter);
     return this.database.db
       .select()
       .from(bizStaffs)
-      .where(and(eq(bizStaffs.status, 'active'), isNull(bizStaffs.deletedAt)))
+      .where(and(...conditions))
       .orderBy(asc(bizStaffs.sort), asc(bizStaffs.id));
   }
 
@@ -269,6 +381,65 @@ export class StaffsService extends StaffPort {
         ),
       )
       .orderBy(asc(bizStaffServiceItems.sort), asc(bizServiceItems.id));
+  }
+
+  /* ---------------- 可服务门店（连锁直营，阶段 1.9） ---------------- */
+
+  /** 整体替换（物理删表，§3 豁免）：空数组 = 恢复「可服务全部门店」 */
+  async setStores(
+    staffId: number,
+    storeIds: number[],
+    actorId: number,
+  ): Promise<void> {
+    await this.findOne(staffId);
+    const unique = [
+      ...new Set(storeIds.filter((id) => Number.isInteger(id) && id > 0)),
+    ];
+    if (unique.length) {
+      const rows = await this.database.db
+        .select({
+          id: sysStores.id,
+          name: sysStores.name,
+          status: sysStores.status,
+        })
+        .from(sysStores)
+        .where(
+          and(inArray(sysStores.id, unique), isNull(sysStores.deletedAt)),
+        );
+      const found = new Map(rows.map((row) => [row.id, row]));
+      const missing = unique.filter((id) => !found.has(id));
+      if (missing.length)
+        throw new BadRequestException(
+          `门店不存在或已删除：#${missing.join('、#')}`,
+        );
+      const disabled = unique
+        .map((id) => found.get(id))
+        .filter((row) => row !== undefined && row.status !== 'active');
+      if (disabled.length)
+        throw new BadRequestException(
+          `门店已停用，不能配置给美甲师：${disabled
+            .map((row) => row?.name)
+            .join('、')}`,
+        );
+    }
+    await this.database.db.transaction(async (tx) => {
+      await tx
+        .delete(bizStaffStores)
+        .where(eq(bizStaffStores.staffId, staffId));
+      if (unique.length) {
+        await tx
+          .insert(bizStaffStores)
+          .values(unique.map((storeId) => ({ staffId, storeId })));
+      }
+    });
+    void actorId;
+  }
+
+  /** 详情 / 授权弹窗回填：该美甲师的服务门店（含名称）；空数组 = 全部门店 */
+  async getStores(staffId: number): Promise<{ id: number; name: string }[]> {
+    await this.findOne(staffId);
+    const [row] = await this.withStores([{ id: staffId }]);
+    return row?.stores ?? [];
   }
 
   /** 一个后台账号只能绑定一位美甲师，否则 §8.2 的数据权限无法判定 */

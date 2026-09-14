@@ -14,6 +14,11 @@ export interface Staff {
   status: EntityStatus;
   sort: number;
   remark: string | null;
+  /**
+   * 可服务门店（列表接口带出）；**空数组 = 可服务全部门店**。
+   * 与「可做项目」同款约定：不配就是不限，运营要收窄时才勾选。
+   */
+  stores?: StaffStoreRef[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -38,6 +43,11 @@ export interface StaffListQuery {
   /** 昵称 / 手机号 */
   keyword?: string;
   status?: EntityStatus;
+  /**
+   * 门店维度：只看**能服务这家店**的美甲师（含未配门店的）。
+   * 不传时后端按顶栏切换器 / 账号可见范围
+   */
+  storeId?: number;
 }
 
 /** 美甲师可做项目（GET 返回；空数组 = 可做全部，§22） */
@@ -78,6 +88,24 @@ export function updateStaff(id: number, body: UpdateStaffBody) {
 /** 删除美甲师（软删；存在未完成预约时 409） */
 export function deleteStaff(id: number) {
   return del<void>(`/biz/staffs/${id}`);
+}
+
+/** 美甲师可服务门店（空数组 = 全部门店） */
+export interface StaffStoreRef {
+  id: number;
+  name: string;
+}
+
+/** 查询美甲师可服务门店（空数组 = 全部门店） */
+export function getStaffStores(id: number) {
+  return get<StaffStoreRef[]>(`/biz/staffs/${id}/stores`);
+}
+
+/** 整体替换美甲师可服务门店（空数组 = 恢复「可服务全部门店」） */
+export function setStaffStores(id: number, storeIds: number[]) {
+  return put<{ success: boolean; count: number }>(`/biz/staffs/${id}/stores`, {
+    storeIds,
+  });
 }
 
 /** 查询美甲师可做项目（空数组 = 可做全部） */

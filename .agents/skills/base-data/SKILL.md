@@ -17,6 +17,7 @@ metadata:
 | 服务项目           | `biz_service_item`       | `GET/POST/PATCH/DELETE /biz/service-items`                        |
 | 美甲师             | `biz_staff`              | `GET/POST/PATCH/DELETE /biz/staffs`                               |
 | 美甲师可做项目     | `biz_staff_service_item` | `GET/PUT /biz/staffs/:id/service-items`                           |
+| 美甲师可服务门店   | `biz_staff_store`        | `GET/PUT /biz/staffs/:id/stores`                                  |
 | 顾客档案（兼会员） | `biz_customer`           | `GET/POST/PATCH/DELETE /biz/customers` + `/bookings` + `/recount` |
 
 ## 关键设计点
@@ -36,6 +37,14 @@ metadata:
   前端选完项目后过滤美甲师列表；
 - 与**卡种适用项目**是两条独立规则：卡种管"这张卡能核销什么"，本表管"这个人会做什么"，核销要**同时满足**；
 - 整体 PUT 替换（物理删表，§3 已豁免）。
+
+**美甲师可服务门店（连锁直营，阶段 1.9）**：
+
+- 与「可做项目」同款约定：**空集合 = 可服务全部门店**，勾选后才变白名单；
+- 影响三处：后台列表（`?storeId=` / 店长按可见范围自动收窄）、预约选人、小程序美甲师目录；
+- 维护接口与项目配置一样是**整体 PUT 替换**（物理删表，§3 豁免）；
+- **不动排班**：班次仍是一人一份周模板，「这家店今天谁在」不由本表决定（见 data-model 与
+  `multi-store.md` 的「还没做」）。
 
 **顾客档案**：
 
@@ -58,7 +67,7 @@ metadata:
 ## 权限点
 
 `biz:serviceitem:*`、`biz:staff:list|create|update|delete`、`biz:staff:items`（可做项目）、
-`biz:customer:*`。菜单与按钮权限写进 `src/database/seed/menus.ts`。
+`biz:staff:stores`（可服务门店）、`biz:customer:*`。菜单与按钮权限写进 `src/database/seed/menus.ts`。
 
 ## 验收
 

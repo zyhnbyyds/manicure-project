@@ -1843,6 +1843,40 @@ export const bizStaffServiceItems = mysqlTable(
   ],
 );
 
+/**
+ * 美甲师可服务门店（物理删：整体替换，§3 豁免）。
+ *
+ * **空集合 = 可服务全部门店** —— 与「可做项目」（`biz_staff_service_item`）同款约定：
+ * 新建美甲师默认哪家店都能排，运营要收窄时才勾选；忘配的后果是「多个人可选」，
+ * 而不是「这个人从所有店消失」（后者会直接打断营业）。
+ *
+ * 为什么不是给 `biz_staff` 加一个 `store_id`：直营连锁里美甲师**跨店支援**是常态，
+ * 一人固定一家店会挡路；而且门店授权（新店开张 / 支援结束）不该去改人事档案本身。
+ * 排班仍是一人一套周模板（不按门店区分），那是另一件事，见 `multi-store.md`。
+ */
+export const bizStaffStores = mysqlTable(
+  'biz_staff_store',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    staffId: int('staff_id', { unsigned: true }).notNull(),
+    storeId: int('store_id', { unsigned: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_staff_store').on(table.staffId, table.storeId),
+    index('idx_staff_store_store').on(table.storeId),
+    foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [bizStaffs.id],
+      name: 'fk_staff_store_staff',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_staff_store_store',
+    }).onDelete('cascade'),
+  ],
+);
+
 /** 服务评价：一单一评 */
 export const bizReviews = mysqlTable(
   'biz_review',

@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
 import { parsePagination } from '../../common/query.js';
 import { StaffsService, type StaffListFilter } from './staffs.service.js';
@@ -66,11 +67,19 @@ const setServiceItemsSchema = z.object({
   }),
 });
 
+const setStoresSchema = z.object({
+  storeIds: z.array(z.number().int().positive()).openapi({
+    example: [1, 2],
+    description: '可服务门店 id；空数组 = 可服务全部门店',
+  }),
+});
+
 registerComponent('CreateStaffRequest', createSchema);
 registerComponent('UpdateStaffRequest', updateSchema);
 registerComponent('SetStaffServiceItemsRequest', setServiceItemsSchema);
+registerComponent('SetStaffStoresRequest', setStoresSchema);
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = { user: RequestActor };
 
 @ApiTags('美甲师')
 @ApiBearerAuth('access-token')
@@ -94,18 +103,56 @@ export class StaffsController {
     required: false,
     description: '状态 active / disabled',
   })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店维度：只看**能服务这家店**的美甲师（含未配门店的，空集合 = 全部门店）。' +
+      '不传 = 按操作人可见范围（店长限本店，超管全部）',
+  })
   @ApiResponse({ status: 200, description: '成功' })
   list(
+    @Req() request: AuthRequest,
     @Query('page') rawPage?: string,
     @Query('pageSize') rawPageSize?: string,
     @Query('keyword') keyword?: string,
     @Query('status') status?: string,
+    @Query('storeId') rawStoreId?: string,
   ) {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
     const filter: StaffListFilter = {};
     if (keyword) filter.keyword = keyword;
     if (status === 'active' || status === 'disabled') filter.status = status;
-    return this.staffs.list(page, pageSize, filter);
+    const storeId = Number(rawStoreId);
+    if (Number.isSafeInteger(storeId) && storeId > 0) filter.storeId = storeId;
+    return this.staffs.list(page, pageSize, filter, request.user);
+  }
+
+  @Get(':id/stores')
+  @RequirePermissions('biz:staff:list')
+  @ApiOperation({ summary: '美甲师可服务门店（空数组 = 全部门店）' })
+  @ApiParam({ name: 'id', description: '美甲师ID' })
+  @ApiResponse({ status: 200, description: '成功' })
+  getStores(@Param('id', ParseIntPipe) id: number) {
+    return this.staffs.getStores(id);
+  }
+
+  @Put(':id/stores')
+  @RequirePermissions('biz:staff:stores')
+  @ApiOperation({
+    summary: '整体替换美甲师可服务门店（空数组 = 可服务全部门店）',
+  })
+  @ApiParam({ name: 'id', description: '美甲师ID' })
+  @ApiBody({ schema: { $ref: '#/components/schemas/SetStaffStoresRequest' } })
+  @ApiResponse({ status: 200, description: '成功' })
+  async setStores(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+    @Req() request: AuthRequest,
+  ) {
+    const { storeIds } = setStoresSchema.parse(body);
+    await this.staffs.setStores(id, storeIds, request.user.id);
+    return { success: true, count: storeIds.length };
   }
 
   @Get(':id/service-items')

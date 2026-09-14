@@ -89,6 +89,37 @@ title: 业务表详解
 不是「什么都做不了」。过滤逻辑必须先判断集合是否为空。
 :::
 
+### biz_staff_store —— 美甲师可服务门店
+
+「这个人能在哪些店接单」的关联表（连锁直营 · 阶段 1.9）。美甲师列表、预约选人与小程序
+美甲师目录都按它收窄。
+
+| 字段       | 类型           | 必填/默认 | 说明     | 口径与坑 |
+| ---------- | -------------- | --------- | -------- | -------- |
+| `id`       | `int unsigned` | PK 自增   | 主键     | —        |
+| `staff_id` | `int unsigned` | 必填      | 美甲师   | —        |
+| `store_id` | `int unsigned` | 必填      | 可服务门店 | —      |
+
+**索引与约束**：`uq_staff_store(staff_id, store_id)`、`idx_staff_store_store(store_id)`；
+外键 `fk_staff_store_staff` / `fk_staff_store_store` 都是 `ON DELETE CASCADE`。
+**不套审计列** —— 物理删（整体替换）。
+**相关代码**：`StaffsService.setStores` / `getStores` / `staffStoreCondition`（列表过滤）、
+`StaffsService.listActive(storeId)`（小程序目录）。
+
+::: danger 空集合 = 可服务全部门店
+没有任何行表示「哪家店都能约」，**不是**「哪家店都不能约」—— 与 `biz_staff_service_item` 同款约定。
+给新美甲师忘配门店的后果是「多个人可选」，而不是「这个人从所有店消失」（后者会直接打断营业）。
+
+正因如此，迁移**不需要回填**：现存美甲师保持空集合，升级前后行为完全一致。
+:::
+
+::: warning 排班仍然不区分门店
+`biz_staff_weekly_shift` / `biz_staff_schedule_override` 依旧是**一人一份周模板**，
+所以「这家店今天谁在」仍由班次 + 预约决定；本表只回答「这个人能不能在这家店接单」。
+真要按店排班（同一人在不同门店不同班次），得连可约时段算法一起改，
+见 `multi-store.md` 的「还没做」。
+:::
+
 ### biz_customer —— 顾客档案（兼会员档案）
 
 **顾客即会员**：一张表同时装身份档案与资产结存。资产字段全部由账务流水驱动。

@@ -59,6 +59,7 @@ metadata:
 | `biz_staff_schedule_override` | 物理删（DELETE 接口）              |
 | `biz_member_card_type_item`   | 物理删（随卡种整体替换）           |
 | `biz_staff_service_item`      | 物理删（随美甲师项目配置整体替换） |
+| `biz_staff_store`             | 物理删（随美甲师门店配置整体替换） |
 | `biz_booking_item`            | 从属子表，**不套** `auditColumns`  |
 
 ## 只追加表（只有 `created_at` / `created_by`，无 update/delete）

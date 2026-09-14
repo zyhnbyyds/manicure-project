@@ -83,7 +83,13 @@ export abstract class StaffPort {
   abstract update(id: number, input: unknown, actorId: number): Promise<void>;
   abstract remove(id: number, actorId: number): Promise<void>;
   abstract requireActive(id: number, tx?: BizTx): Promise<StaffRow>;
-  abstract listActive(): Promise<StaffRow[]>;
+  /**
+   * 启用中的美甲师。
+   *
+   * `storeId` 传了 → 只回**能服务这家店**的人（含未配门店的：空集合 = 全部门店）；
+   * 不传 → 不过滤。小程序目录在还没做「选店」之前一律传默认门店。
+   */
+  abstract listActive(storeId?: number): Promise<StaffRow[]>;
   abstract findByUserId(userId: number): Promise<StaffRow | null>;
   /**
    * 手机号匹配美甲师档案（小程序工作台开通用）。

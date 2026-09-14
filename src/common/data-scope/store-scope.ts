@@ -258,3 +258,20 @@ export function storeConditions(
     conditions.push(inArray(column, context.scope.ids));
   return conditions;
 }
+
+/**
+ * 门店上下文的另一种读法：**要按哪些门店筛**（`null` = 不筛，看全部）。
+ *
+ * 用在「没法写成列条件」的地方 —— 比如「美甲师可服务门店」得先算出 id 集合，
+ * 再用 `EXISTS(... IN (ids))` 去匹配关联表。与 `storeConditions` 同一套优先顺序，
+ * 只是返回 id 而不是 SQL 片段。
+ */
+export function storeFilterIds(
+  context: StoreContext,
+  requestedStoreId?: number | null,
+): number[] | null {
+  const filterId = requestedStoreId ?? context.activeStoreId;
+  if (filterId !== undefined && filterId !== null) return [filterId];
+  if (context.scope.kind === 'stores') return context.scope.ids;
+  return null;
+}

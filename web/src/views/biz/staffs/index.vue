@@ -18,12 +18,15 @@ import {
   createStaff,
   deleteStaff,
   getStaffServiceItems,
+  getStaffStores,
   setStaffServiceItems,
+  setStaffStores,
   updateStaff,
 } from '~/api/biz/staffs';
 import type { CreateStaffBody, Staff } from '~/api/biz/staffs';
 import { filePreviewUrl, uploadFile } from '~/api/files';
 import { listActiveServiceItems } from '~/api/biz/service-items';
+import { getMyStores } from '~/api/system/stores';
 import { listUsers } from '~/api/system/users';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
@@ -110,6 +113,19 @@ const columns: LewTableColumn[] = [
     customRender: ({ row }) => {
       const userId = (row as unknown as Staff).userId;
       return userId ? `#${userId}` : '未绑定';
+    },
+  },
+  {
+    title: '服务门店',
+    field: 'stores',
+    width: 170,
+    customRender: ({ row }) => {
+      const stores = (row as unknown as Staff).stores ?? [];
+      // 空 = 不限门店（与「可做项目」同款约定），必须显式写出来，
+      // 否则会被当成「还没配」—— 而它其实是「全店都能约」。
+      if (!stores.length)
+        return h('span', { class: 'text-[var(--app-text-muted)]' }, '全部门店');
+      return trimCell(stores.map((store) => store.name).join('、'));
     },
   },
   { title: '排序', field: 'sort', width: 70 },
@@ -392,6 +408,40 @@ const optionsFailed = ref(false);
  */
 const optionsKey = ref(0);
 
+/* ---------------- 服务门店（连锁直营，阶段 1.9） ---------------- */
+
+/** 门店选项：与项目选项同一个坑 —— **等就绪再挂载**（`storeOptionsKey` 同上） */
+const storeOptions = ref<SelectOption[]>([]);
+const storeOptionsKey = ref(0);
+const selectedStoreIds = ref<string[]>([]);
+
+async function fetchStoreOptions(): Promise<SelectOption[]> {
+  /*
+   * 用 `GET /stores/mine`（登录即可）而不是门店管理页的 `listStores`：
+   * 后者要 `system:store:list`，而店长本来就不该有「门店档案」权限 ——
+   * 但他得能把自己店的美甲师配到本店。`/stores/mine` 回的就是「我能操作的门店」。
+   */
+  const data = await getMyStores();
+  return data.stores.map((store) => ({
+    label: store.name,
+    value: String(store.id),
+  }));
+}
+
+async function handleSaveStores() {
+  if (!detail.value) return;
+  await setStaffStores(detail.value.id, selectedStoreIds.value.map(Number));
+  LewMessage.success('服务门店已保存');
+}
+
+/** 清空 = 可服务全部门店（与「可做项目」的默认行为对齐） */
+async function handleClearStores() {
+  if (!detail.value) return;
+  selectedStoreIds.value = [];
+  await setStaffStores(detail.value.id, []);
+  LewMessage.success('已恢复为「可服务全部门店」');
+}
+
 /** 当前配置里已停用（保存会被后端拒绝）的项目名 */
 const disabledSelected = computed(() => {
   const disabled = new Set(
@@ -416,14 +466,19 @@ async function openDetail(row: Staff) {
   itemsLoading.value = true;
   optionsFailed.value = false;
   try {
-    const [selected, options] = await Promise.all([
+    const [selected, options, storeOptionList, staffStores] = await Promise.all([
       getStaffServiceItems(row.id),
       fetchItemOptions(),
+      fetchStoreOptions(),
+      getStaffStores(row.id),
     ]);
     // 已配置但已停用的项目：保留在选项里并标注，避免「保存后被静默丢弃」
     itemOptions.value = withDisabledSelected(options, selected);
     optionsKey.value += 1;
     selectedItemIds.value = selected.map((item) => String(item.id));
+    storeOptions.value = storeOptionList;
+    storeOptionsKey.value += 1;
+    selectedStoreIds.value = staffStores.map((store) => String(store.id));
   } catch {
     // 失败原因由 request 拦截器统一提示；这里只保证 UI 不谎报「没有可选项目」
     optionsFailed.value = true;
@@ -759,6 +814,83 @@ async function handleClearItems() {
               :loading="itemsLoading"
               @click="handleSaveItems"
               >保存可做项目</LewButton
+            >
+            <span class="text-12.5px text-[var(--app-text-muted)]"
+              >整体替换（PUT），非增量更新</span
+            >
+          </div>
+        </div>
+
+        <!-- 服务门店（连锁直营）：空 = 全部门店 -->
+        <div class="app-card p-4">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-14px font-600">服务门店</span>
+            <LewButton
+              v-permission="'biz:staff:stores'"
+              type="text"
+              color="gray"
+              size="small"
+              @click="handleClearStores"
+              >清空（= 全部门店）</LewButton
+            >
+          </div>
+
+          <!-- 空数组 = 全部门店：必须显式提示，否则会被当成「哪家店都不能约」 -->
+          <div
+            class="mb-3 rounded-8px border border-[var(--app-border)] bg-[var(--app-bg-hover)] p-3 text-12.5px leading-5"
+          >
+            <div class="font-600">
+              未选择任何门店 ·
+              <span class="text-[var(--lew-color-primary)]"
+                >空 = 可服务全部门店</span
+              >
+            </div>
+            <div class="mt-1 text-[var(--app-text-secondary)]">
+              勾选后就变成白名单：只有这几家店能约到该美甲师（跨店支援就把他勾到那家店）。
+              <span class="font-600">注意排班不区分门店</span>（一人一份周模板），
+              「这家店今天谁在」仍由班次与预约决定。
+            </div>
+          </div>
+
+          <!-- 与项目选择器同一个坑：选项就绪后再挂载（见 optionsKey 的注释） -->
+          <div
+            v-if="storeOptionsKey === 0"
+            class="rounded-8px border border-dashed border-[var(--app-border)] px-3 py-4 text-center text-12.5px text-[var(--app-text-muted)]"
+          >
+            正在加载可选门店…
+          </div>
+          <div
+            v-else-if="!storeOptions.length"
+            class="rounded-8px border border-dashed border-[var(--app-border)] px-3 py-4 text-center text-12.5px text-[var(--app-text-muted)]"
+          >
+            没有可配置的门店（你的账号没有门店可见范围，或门店都已停用）
+          </div>
+          <LewSelect
+            v-else
+            :key="storeOptionsKey"
+            v-model="selectedStoreIds"
+            width="100%"
+            multiple
+            clearable
+            placeholder="不选 = 可服务全部门店"
+            :options="storeOptions"
+          />
+          <div class="mt-2 text-12.5px text-[var(--app-text-secondary)]">
+            当前配置：{{
+              selectedStoreIds.length
+                ? `限服务 ${selectedStoreIds.length} 家门店`
+                : '可服务全部门店'
+            }}
+          </div>
+
+          <div class="mt-3 flex items-center gap-2">
+            <LewButton
+              v-permission="'biz:staff:stores'"
+              type="fill"
+              size="small"
+              :loading="itemsLoading"
+              @click="handleSaveStores"
+              >保存服务门店</LewButton
             >
             <span class="text-12.5px text-[var(--app-text-muted)]"
               >整体替换（PUT），非增量更新</span

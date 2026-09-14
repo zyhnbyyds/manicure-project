@@ -74,9 +74,10 @@ const BIZ_PAGES: BizPageSeed[] = [
     permission: 'biz:staff:list',
     permissions: [
       // items：维护「某美甲师可做哪些项目」（§22，不单独建页）
+      // stores：维护「某美甲师可服务哪些门店」（连锁直营，空 = 全部门店，也不单独建页）
       {
         resource: 'biz:staff',
-        actions: ['create', 'update', 'delete', 'items'],
+        actions: ['create', 'update', 'delete', 'items', 'stores'],
       },
     ],
   },
