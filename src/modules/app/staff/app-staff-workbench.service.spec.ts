@@ -216,6 +216,8 @@ function createHarness() {
     schedulePort as never,
     commissionPort as never,
     reviewPort as never,
+    // 只用到 `booking().timezone`：app 域时刻必须带店内偏移（见 `../common/app-time.ts`）
+    { booking: async () => ({ timezone: 'Asia/Shanghai' }) } as never,
   );
   return {
     service,
@@ -335,11 +337,13 @@ describe('AppStaffWorkbenchService（施工单 §12.5 S3 只读面）', () => {
       expect((booking.items as Row[])[0]).not.toHaveProperty('cost');
     });
 
-    it('时间统一转 ISO 字符串，前端不再自己解析', async () => {
+    it('时间统一带店内偏移输出（小程序直读字符串，不能用 UTC）', async () => {
       const h = createHarness();
       const result = await h.service.bookings(7, 1, 20, {});
-      expect(result.items[0]?.startAt).toBe('2026-09-11T02:00:00.000Z');
-      expect(result.items[0]?.endAt).toBe('2026-09-11T03:00:00.000Z');
+      // 库里存 UTC `02:00Z`，店内（+08:00）应显示为 10:00 ——
+      // 返回 `...Z` 会让小程序把 10:00 的预约显示成 02:00（跨日还会差一天）
+      expect(result.items[0]?.startAt).toBe('2026-09-11T10:00:00+08:00');
+      expect(result.items[0]?.endAt).toBe('2026-09-11T11:00:00+08:00');
     });
   });
 
@@ -416,7 +420,8 @@ describe('AppStaffWorkbenchService（施工单 §12.5 S3 只读面）', () => {
       expect(result.items).toHaveLength(2);
       // 未结算 → null；已结算 → ISO
       expect(result.items[0]?.settledAt).toBeNull();
-      expect(result.items[1]?.settledAt).toBe('2026-09-12T02:00:00.000Z');
+      // 库里的 UTC `02:00Z`，店内时区（+08:00）是 10:00
+      expect(result.items[1]?.settledAt).toBe('2026-09-12T10:00:00+08:00');
       expect(Object.keys(result)).toEqual([
         'period',
         'completedCount',
@@ -436,7 +441,7 @@ describe('AppStaffWorkbenchService（施工单 §12.5 S3 只读面）', () => {
   });
 
   describe('reviews', () => {
-    it('只拿本人评价，分页透传，时间转 ISO', async () => {
+    it('只拿本人评价，分页透传，时间带店内偏移', async () => {
       const h = createHarness();
       const result = await h.service.reviews(7, 1, 20);
       expect(h.calls.reviewListByStaff).toEqual([
@@ -451,7 +456,8 @@ describe('AppStaffWorkbenchService（施工单 §12.5 S3 只读面）', () => {
         score: 5,
         content: '很细心',
         reply: '谢谢～',
-        createdAt: '2026-09-11T10:00:00.000Z',
+        // 库里的 UTC `10:00Z`，店内时区（+08:00）是 18:00
+        createdAt: '2026-09-11T18:00:00+08:00',
       });
     });
   });

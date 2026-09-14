@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { BizConfigService } from '../../biz/common/biz-config.service.js';
 import {
   BookingPort,
   CommissionPort,
@@ -6,6 +7,7 @@ import {
   SchedulePort,
   StaffPort,
 } from '../../biz/common/ports.js';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
 import {
   maskPhone,
   type AppStaffMeVo,
@@ -32,7 +34,14 @@ export class AppStaffWorkbenchService {
     private readonly schedulePort: SchedulePort,
     private readonly commissionPort: CommissionPort,
     private readonly reviewPort: ReviewPort,
+    /** 只用于取店内时区：app 域时刻必须带偏移，见 `../common/app-time.ts` */
+    private readonly bizConfig: BizConfigService,
   ) {}
+
+  /** 店内时区（`biz.booking.timezone`，默认 `Asia/Shanghai`） */
+  private async shopTimeZone(): Promise<string> {
+    return appShopTimeZone(this.bizConfig);
+  }
 
   async me(staffId: number): Promise<AppStaffMeVo> {
     const staff = await this.staffPort.findOne(staffId);
@@ -55,6 +64,7 @@ export class AppStaffWorkbenchService {
     pageSize: number,
     filter: { date?: string | undefined; status?: string | undefined },
   ) {
+    const tz = await this.shopTimeZone();
     const result = await this.bookingPort.listByStaff(staffId, page, pageSize, {
       date: filter.date,
       status: filter.status as never,
@@ -67,8 +77,8 @@ export class AppStaffWorkbenchService {
         bookingNo: booking.bookingNo,
         customerName: booking.customerName,
         customerPhoneMasked: maskPhone(booking.customerPhone),
-        startAt: booking.startAt.toISOString(),
-        endAt: booking.endAt.toISOString(),
+        startAt: appIso(booking.startAt, tz),
+        endAt: appIso(booking.endAt, tz),
         status: booking.status,
         payStatus: booking.payStatus,
         payableAmount: booking.payableAmount,
@@ -116,6 +126,7 @@ export class AppStaffWorkbenchService {
   ): Promise<AppStaffPerformanceVo> {
     if (period !== undefined && !PERIOD_PATTERN.test(period))
       throw new BadRequestException('period 必须是 yyyyMM，例如 202609');
+    const tz = await this.shopTimeZone();
     const [summary, commission, rating] = await Promise.all([
       this.bookingPort.performanceByStaff(staffId, period),
       this.commissionPort.listByStaff(staffId, period),
@@ -137,12 +148,13 @@ export class AppStaffWorkbenchService {
         amount: item.amount,
         period: item.period,
         status: item.status,
-        settledAt: item.settledAt?.toISOString() ?? null,
+        settledAt: appIsoOrNull(item.settledAt, tz),
       })),
     };
   }
 
   async reviews(staffId: number, page: number, pageSize: number) {
+    const tz = await this.shopTimeZone();
     const result = await this.reviewPort.listByStaff(staffId, page, pageSize);
     return {
       page: result.page,
@@ -154,7 +166,7 @@ export class AppStaffWorkbenchService {
         score: review.score,
         content: review.content,
         reply: review.reply,
-        createdAt: review.createdAt.toISOString(),
+        createdAt: appIso(review.createdAt, tz),
       })),
     };
   }

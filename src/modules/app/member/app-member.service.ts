@@ -35,6 +35,7 @@ import {
 import { parsePagination } from '../../biz/common/query.js';
 import { BizConfigService } from '../../biz/common/biz-config.service.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
 import { resolveAppStore } from '../common/app-store.js';
 import { inPayRollout } from '../pay-rollout.js';
 import type {
@@ -131,6 +132,16 @@ export class AppMemberService {
     const { enabled, rolloutPercent } = await this.bizConfig.appSelfPay();
     if (!enabled) return false;
     return inPayRollout(appUserId, rolloutPercent);
+  }
+
+  /**
+   * 店内时区（`biz.booking.timezone`，默认 `Asia/Shanghai`）。
+   *
+   * app 域序列化时刻必须带上它 —— 见 `common/app-time.ts`：小程序直读字符串
+   * 显示时间，返回 UTC（`toISOString()`）会整体偏 8 小时、跨日还会差一天。
+   */
+  private async shopTimeZone(): Promise<string> {
+    return appShopTimeZone(this.bizConfig);
   }
 
   /**
@@ -233,6 +244,7 @@ export class AppMemberService {
     pageSize = 20,
   ): Promise<AppCustomerCouponListVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const result = await this.coupons.listMine(
       customerId,
       filter,
@@ -247,8 +259,8 @@ export class AppMemberService {
         discountAmount: row.discountAmount,
         thresholdAmount: row.thresholdAmount,
         status: row.displayStatus,
-        expireAt: row.expireAt ? row.expireAt.toISOString() : null,
-        usedAt: row.usedAt ? row.usedAt.toISOString() : null,
+        expireAt: appIsoOrNull(row.expireAt, tz),
+        usedAt: appIsoOrNull(row.usedAt, tz),
       })),
       page: result.page,
       pageSize: result.pageSize,
@@ -277,6 +289,7 @@ export class AppMemberService {
   /** 可领取的券（需要绑定：领了就是自己的权益） */
   async listCouponOffers(appUserId: number): Promise<AppCouponOfferListVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const rows = await this.coupons.listClaimable(customerId);
     return {
       items: rows.map((row) => ({
@@ -285,7 +298,7 @@ export class AppMemberService {
         thresholdAmount: row.thresholdAmount,
         discountAmount: row.discountAmount,
         validDays: row.validDays,
-        validTo: row.validTo ? row.validTo.toISOString() : null,
+        validTo: appIsoOrNull(row.validTo, tz),
       })),
     };
   }
@@ -301,6 +314,7 @@ export class AppMemberService {
     templateId: number,
   ): Promise<AppCustomerCouponVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const row = await this.coupons.claim({
       customerId,
       templateId,
@@ -314,13 +328,14 @@ export class AppMemberService {
       discountAmount: row.discountAmount,
       thresholdAmount: row.thresholdAmount,
       status: 'usable',
-      expireAt: row.expireAt ? row.expireAt.toISOString() : null,
+      expireAt: appIsoOrNull(row.expireAt, tz),
       usedAt: null,
     };
   }
 
   async me(appUserId: number): Promise<AppMemberMeVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
 
     const [customer] = await this.database.db
       .select({
@@ -457,7 +472,7 @@ export class AppMemberService {
       maxPointsPermille: context.maxPointsPermille,
       balancePrincipal: context.balancePrincipal,
       balanceBonus: context.balanceBonus,
-      cards: cards.map((row) => mapCard(row, displayCardStatus(row))),
+      cards: cards.map((row) => mapCard(row, displayCardStatus(row), tz)),
       // 与 `settleBooking` 走**同一个判定**（合规闸门 + 灰度），
       // 保证「前端显示可用」与「接口真的放行」永远一致
       selfPayEnabled: await this.selfPayEnabledFor(appUserId),
@@ -552,6 +567,7 @@ export class AppMemberService {
     },
   ): Promise<AppMemberCardListVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const { page, pageSize, offset } = parsePagination(
       query.page,
       query.pageSize,
@@ -565,7 +581,7 @@ export class AppMemberService {
     return {
       items: filtered
         .slice(offset, offset + pageSize)
-        .map((row) => mapCard(row, displayCardStatus(row))),
+        .map((row) => mapCard(row, displayCardStatus(row), tz)),
       page,
       pageSize,
     };
@@ -583,6 +599,7 @@ export class AppMemberService {
     cardId: number,
   ): Promise<AppMemberCardDetailVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const rows = await this.memberCards.listByCustomer(customerId);
     const card = rows.find((row) => row.id === cardId);
     if (!card) throw new NotFoundException('次卡不存在');
@@ -590,7 +607,7 @@ export class AppMemberService {
     const status = displayCardStatus(card);
     const remainingTimes = Math.max(0, card.totalTimes - card.usedTimes);
     return {
-      ...mapCard(card, status),
+      ...mapCard(card, status, tz),
       remainingTimes,
       usable: status === 'active',
       unusableReason: cardUnusableReason(status),
@@ -615,6 +632,7 @@ export class AppMemberService {
       query.page,
       query.pageSize,
     );
+    const tz = await this.shopTimeZone();
 
     const rows = await this.database.db
       .select({
@@ -646,7 +664,7 @@ export class AppMemberService {
         serviceItemName: row.serviceItemName ?? null,
         staffName: row.staffName ?? null,
         remark: row.remark ?? null,
-        createdAt: row.createdAt.toISOString(),
+        createdAt: appIso(row.createdAt, tz),
       })),
       page,
       pageSize,
@@ -670,6 +688,7 @@ export class AppMemberService {
     },
   ): Promise<AppReviewVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const created = await this.reviews.createForCustomer(
       customerId,
       {
@@ -685,7 +704,7 @@ export class AppMemberService {
       bookingId: input.bookingId,
       rating: input.rating,
       content: input.content ?? null,
-      createdAt: created.createdAt.toISOString(),
+      createdAt: appIso(created.createdAt, tz),
     };
   }
 
@@ -728,6 +747,7 @@ export class AppMemberService {
     },
   ): Promise<AppBookingListVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const { page, pageSize } = parsePagination(query.page, query.pageSize);
     const result = await this.bookingPort.listByCustomer(
       customerId,
@@ -738,7 +758,7 @@ export class AppMemberService {
     return {
       page: result.page,
       pageSize: result.pageSize,
-      items: result.items.map(mapBooking),
+      items: result.items.map((row) => mapBooking(row, tz)),
     };
   }
 
@@ -759,7 +779,7 @@ export class AppMemberService {
       bookingId,
     );
     if (!booking) throw new NotFoundException('预约不存在');
-    return mapBooking(booking);
+    return mapBooking(booking, await this.shopTimeZone());
   }
 
   /**
@@ -885,6 +905,7 @@ export class AppMemberService {
         '小程序内自助支付暂未开放，请到店支付（如有疑问请联系门店）',
       );
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const result = await this.bookingPort.settleForCustomer(
       customerId,
       bookingId,
@@ -900,7 +921,7 @@ export class AppMemberService {
       dueAmount: result.dueAmount,
       payStatus: result.payStatus,
       channelSummary: result.channelSummary,
-      settledAt: result.settledAt ? result.settledAt.toISOString() : null,
+      settledAt: appIsoOrNull(result.settledAt, tz),
     };
   }
 
@@ -926,14 +947,14 @@ export class AppMemberService {
 }
 
 /** 预约列表 VO 投影：只留 C 端字段 */
-function mapBooking(booking: BookingWithItems): AppBookingVo {
+function mapBooking(booking: BookingWithItems, timeZone: string): AppBookingVo {
   return {
     id: booking.id,
     bookingNo: booking.bookingNo,
     staffId: booking.staffId,
     staffName: null,
-    startAt: booking.startAt.toISOString(),
-    endAt: booking.endAt.toISOString(),
+    startAt: appIso(booking.startAt, timeZone),
+    endAt: appIso(booking.endAt, timeZone),
     status: booking.status,
     payStatus: booking.payStatus,
     payableAmount: booking.payableAmount,
@@ -977,6 +998,7 @@ function mapCard(
     expireAt: Date | null;
   },
   status: 'active' | 'used_up' | 'expired' | 'refunded',
+  timeZone: string,
 ): AppMemberCardVo {
   return {
     id: card.id,
@@ -984,7 +1006,7 @@ function mapCard(
     cardName: card.cardName,
     totalTimes: card.totalTimes,
     usedTimes: card.usedTimes,
-    expireAt: card.expireAt ? card.expireAt.toISOString() : null,
+    expireAt: appIsoOrNull(card.expireAt, timeZone),
     status,
   };
 }

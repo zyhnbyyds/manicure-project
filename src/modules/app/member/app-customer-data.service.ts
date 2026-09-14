@@ -13,6 +13,7 @@ import {
   bizServiceItems,
 } from '../../../database/schema/index.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
 import { BizConfigService } from '../../biz/common/biz-config.service.js';
 import { NoticePort, StorePort } from '../../biz/common/ports.js';
 import type {
@@ -60,6 +61,11 @@ export class AppCustomerDataService {
     /** 门店实体（阶段 0 起门店是实体，不再是散落的配置键） */
     private readonly stores: StorePort,
   ) {}
+
+  /** 店内时区（`biz.booking.timezone`，默认 `Asia/Shanghai`）—— 序列化 app 域时刻用 */
+  private async shopTimeZone(): Promise<string> {
+    return appShopTimeZone(this.bizConfig);
+  }
 
   /** 取当前身份绑定的顾客 ID（唯一归属来源，与 `AppMemberService` 同一口径） */
   private async requireCustomerId(appUserId: number): Promise<number> {
@@ -230,6 +236,7 @@ export class AppCustomerDataService {
    */
   async listFavorites(appUserId: number): Promise<AppFavoriteListVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const rows = await this.database.db
       .select({
         id: bizServiceItems.id,
@@ -259,7 +266,7 @@ export class AppCustomerDataService {
     return {
       items: rows.map((row) => ({
         ...row,
-        favoritedAt: row.favoritedAt.toISOString(),
+        favoritedAt: appIso(row.favoritedAt, tz),
       })),
     };
   }
@@ -363,6 +370,7 @@ export class AppCustomerDataService {
     query: { category?: string | undefined; page?: number; pageSize?: number },
   ): Promise<AppNoticeListVo> {
     const customerId = await this.requireCustomerId(appUserId);
+    const tz = await this.shopTimeZone();
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const result = await this.notices.customerInbox(
@@ -378,8 +386,8 @@ export class AppCustomerDataService {
         title: row.title ?? '门店通知',
         content: row.content,
         category: row.category,
-        readAt: row.readAt ? row.readAt.toISOString() : null,
-        createdAt: row.createdAt.toISOString(),
+        readAt: appIsoOrNull(row.readAt, tz),
+        createdAt: appIso(row.createdAt, tz),
         bookingId: row.bookingId,
       })),
       page: result.page,

@@ -7,7 +7,9 @@ import {
 import { and, eq, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import { appWxUsers } from '../../../database/schema/index.js';
+import { BizConfigService } from '../../biz/common/biz-config.service.js';
 import { StaffPort } from '../../biz/common/ports.js';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
 import type { AppStaffApplyVo } from '../dto/app-vo.js';
 
 /** 小程序美甲师申请：只能由手机号命中的在职档案发起，店长确认才 active。 */
@@ -16,9 +18,17 @@ export class AppStaffService {
   constructor(
     private readonly database: DatabaseService,
     private readonly staffs: StaffPort,
+    /** 只用于取店内时区：app 域时刻必须带偏移，见 `../common/app-time.ts` */
+    private readonly bizConfig: BizConfigService,
   ) {}
 
+  /** 店内时区（`biz.booking.timezone`，默认 `Asia/Shanghai`） */
+  private async shopTimeZone(): Promise<string> {
+    return appShopTimeZone(this.bizConfig);
+  }
+
   async apply(appUserId: number): Promise<AppStaffApplyVo> {
+    const tz = await this.shopTimeZone();
     const [identity] = await this.database.db
       .select({
         id: appWxUsers.id,
@@ -48,7 +58,7 @@ export class AppStaffService {
       return {
         staffId: staff.id,
         staffStatus: 'active',
-        staffRequestedAt: identity.staffRequestedAt?.toISOString() ?? null,
+        staffRequestedAt: appIsoOrNull(identity.staffRequestedAt, tz),
       };
     }
 
@@ -56,7 +66,7 @@ export class AppStaffService {
       return {
         staffId: staff.id,
         staffStatus: 'pending',
-        staffRequestedAt: identity.staffRequestedAt?.toISOString() ?? null,
+        staffRequestedAt: appIsoOrNull(identity.staffRequestedAt, tz),
       };
     }
 
@@ -75,7 +85,7 @@ export class AppStaffService {
     return {
       staffId: staff.id,
       staffStatus: 'pending',
-      staffRequestedAt: requestedAt.toISOString(),
+      staffRequestedAt: appIso(requestedAt, tz),
     };
   }
 }
