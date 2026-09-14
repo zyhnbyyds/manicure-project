@@ -58,11 +58,11 @@ node skills/installer/scripts/check-installation.mjs --install-root "<安装目�
 
 检查顺序：定位安装目录 → NW.js 标记 → Electron `version` → PATH / 安装目录 `wechatide` → 版本达标且 CLI 可用才 `compatible: true`（成功时带 `command`）。
 
-| # | 情况 | 返回特征 | Agent 动作 |
-|---|------|----------|------------|
-| 1 | **未安装**微信开发者工具 | `reason: not_installed` | 确认非自定义路径后，按本文「主动下载 / 手动下载」引导安装 |
-| 2 | **已安装**但无 `wechatide` 或**版本过低/不兼容** | `mustEnterInstaller: true`（如 `wechatide_missing` / `electron_version_too_old` / `nw_runtime_incompatible` / `cli_unavailable`） | 引导更新到兼容包；**禁止**继续业务工具 |
-| 3 | **已安装**（常为 macOS **DMG** 拖装），CLI 在 App 内但 PATH 无命令 | `compatible: true` 且有绝对路径 `command`，或日常仍找不到 `wechatide` | **只**跑 `ensure-cli-path.mjs` 建软链；**禁止**因此重新下载安装包 |
+| #   | 情况                                                               | 返回特征                                                                                                                          | Agent 动作                                                        |
+| --- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1   | **未安装**微信开发者工具                                           | `reason: not_installed`                                                                                                           | 确认非自定义路径后，按本文「主动下载 / 手动下载」引导安装         |
+| 2   | **已安装**但无 `wechatide` 或**版本过低/不兼容**                   | `mustEnterInstaller: true`（如 `wechatide_missing` / `electron_version_too_old` / `nw_runtime_incompatible` / `cli_unavailable`） | 引导更新到兼容包；**禁止**继续业务工具                            |
+| 3   | **已安装**（常为 macOS **DMG** 拖装），CLI 在 App 内但 PATH 无命令 | `compatible: true` 且有绝对路径 `command`，或日常仍找不到 `wechatide`                                                             | **只**跑 `ensure-cli-path.mjs` 建软链；**禁止**因此重新下载安装包 |
 
 结果字段释义见 [运行前检查](../../references/environment-readiness.md)。
 
@@ -82,10 +82,10 @@ node skills/installer/scripts/ensure-cli-path.mjs --install-root "<安装目录>
 
 脚本行为：
 
-| 系统 | 行为 |
-|------|------|
-| macOS | 对齐 PKG：`ln -sf <App>/Contents/MacOS/wechatide` → `/usr/local/bin/wechatide`（无写权限则退到 `~/.local/bin` 并写入 shell rc）；同时尽量链 `wechatidecli` |
-| Windows | 将安装目录加入**用户** PATH，使 `wechatide.cmd` 可被找到 |
+| 系统    | 行为                                                                                                                                                       |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS   | 对齐 PKG：`ln -sf <App>/Contents/MacOS/wechatide` → `/usr/local/bin/wechatide`（无写权限则退到 `~/.local/bin` 并写入 shell rc）；同时尽量链 `wechatidecli` |
+| Windows | 将安装目录加入**用户** PATH，使 `wechatide.cmd` 可被找到                                                                                                   |
 
 成功后优先用 `wechatide`；若当前会话尚未刷新 PATH，可暂用返回的 `targetPath`，或按 `pathHint` 新开终端 / `source` rc。**不要**因 PATH 缺失就循环下载安装包。
 
@@ -102,11 +102,11 @@ node skills/installer/scripts/resolve-download.mjs --channel latest --url-only
 
 脚本：拉官方下载页与配置 → 只接受规定前缀 → 按本机筛选并排除不大于门槛的包 → `stable` 按末位 `0→1→2`，`latest` 只选末位 `2` → `download_redirect` 的 `from` 改为 `skillauto`；macOS 探测重定向，非 `.pkg` 则跳过。
 
-| 系统 | 架构 | `type` |
-|------|------|--------|
-| macOS | Apple Silicon / arm64 | 优先 `darwin_arm64`，兼容 `darwin_arm` |
-| macOS | Intel / x64 | `darwin_x64` |
-| Windows | x64 / x86 | `win32_x64` / `win32_ia32` |
+| 系统    | 架构                  | `type`                                 |
+| ------- | --------------------- | -------------------------------------- |
+| macOS   | Apple Silicon / arm64 | 优先 `darwin_arm64`，兼容 `darwin_arm` |
+| macOS   | Intel / x64           | `darwin_x64`                           |
+| Windows | x64 / x86             | `win32_x64` / `win32_ia32`             |
 
 拿到 URL 后切到目标目录（默认系统 Downloads）下载：
 

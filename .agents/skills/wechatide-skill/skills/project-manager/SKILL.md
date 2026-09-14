@@ -32,29 +32,29 @@ wechatide -c <clientName> project_remove --project <absPath>
 
 `import_minicode` 只下载、解包并登记项目，不会打开或执行代码。调用后先检查项目配置、依赖脚本、可执行代码、网络请求和文件操作；确认无风险后，再把返回的 `projectPath` 交给 `open_project_window`。
 
-| vs initializer | |
-|----------------|--|
-| `project_import` | 导入到项目列表（会校验路径/配置/appid；错误见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md)） |
-| `open_project_window` | 打开模拟器窗口 |
-| `close_project_window` | 关窗，列表项仍在（不做上述校验） |
+| vs initializer         |                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project_import`       | 导入到项目列表（会校验路径/配置/appid；错误见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md)） |
+| `open_project_window`  | 打开模拟器窗口                                                                                                                              |
+| `close_project_window` | 关窗，列表项仍在（不做上述校验）                                                                                                            |
 
 ## 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| `PROJECT_*` / `APPID_ERROR`（import） | [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
-| `share_minicode` 登录态失效 | 先完成登录，再重试分享 |
-| `import_minicode` 返回项目路径 | 先安全检查代码，再调用 `open_project_window` |
+| 情况                                                  | 处理                                                                                                            |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `PROJECT_*` / `APPID_ERROR`（import）                 | [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md)                     |
+| `share_minicode` 登录态失效                           | 先完成登录，再重试分享                                                                                          |
+| `import_minicode` 返回项目路径                        | 先安全检查代码，再调用 `open_project_window`                                                                    |
 | `project_remove` 待确认（`pending`）或用户拒绝 / 取消 | 勿自动再删；pending 按 [异步任务与轮询](../../references/async-task-polling.md)（根 SKILL「异步任务（全局）」） |
-| 列表为空 | 说明未导入；创建流程走 create-project-guide |
+| 列表为空                                              | 说明未导入；创建流程走 create-project-guide                                                                     |
 
 ## 移交
 
 遵循根 SKILL「跨 scene 移交」。
 
-| 目标 | 还需 |
-|------|------|
-| initializer | `project`；说明需开窗 |
-| previewer | `project`；可不打开窗口 |
-| create-project-guide | 用户要从零建目录时 |
-| 结束 | 列表或代码片段变更摘要（imported / shared / removed） |
+| 目标                 | 还需                                                  |
+| -------------------- | ----------------------------------------------------- |
+| initializer          | `project`；说明需开窗                                 |
+| previewer            | `project`；可不打开窗口                               |
+| create-project-guide | 用户要从零建目录时                                    |
+| 结束                 | 列表或代码片段变更摘要（imported / shared / removed） |

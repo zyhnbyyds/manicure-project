@@ -62,12 +62,12 @@ wechatide -c <clientName> project_import --project <project>
 - `confirmed`：已登录且版本对齐、已 `project_import`（或 `alreadyImported`）、`appid` / `compileType`；若已选云环境则含 `env`
 - `nextScene` 与附加字段按下表
 
-| 用户下一步目标 | nextScene | 还需 |
-|----------------|-----------|------|
-| 打开模拟器做编译 / 调试 / 自动化 | `initializer` | 说明需 `open_project_window`；再交 compiler / debugger / automator |
-| 预览 / 上传 | `previewer` | 可不打开窗口 |
-| 云函数 / 云库 / 云存储 | `cloudbase-operator` | `appid`、`env`（未定则作 blocker） |
-| 仅留在列表 | 结束 | 说明已导入，无需开窗 |
+| 用户下一步目标                   | nextScene            | 还需                                                               |
+| -------------------------------- | -------------------- | ------------------------------------------------------------------ |
+| 打开模拟器做编译 / 调试 / 自动化 | `initializer`        | 说明需 `open_project_window`；再交 compiler / debugger / automator |
+| 预览 / 上传                      | `previewer`          | 可不打开窗口                                                       |
+| 云函数 / 云库 / 云存储           | `cloudbase-operator` | `appid`、`env`（未定则作 blocker）                                 |
+| 仅留在列表                       | 结束                 | 说明已导入，无需开窗                                               |
 
 ## 最小可运行项目结构
 
@@ -102,10 +102,10 @@ project/
 
 ## 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| `loginExpired: true` / `versionRelation` 为 `skip_check` 或 `agent_behind` | 回到根入口；完成登录或单向导入前勿继续创建 |
-| `PROJECT_*` / `APPID_ERROR` | [project-tool-error-guide.md](project-tool-error-guide.md) |
-| AppID 无效 / 无权限 | 换有权限的 AppID 或重新 `login`；勿死循环 |
-| 缺入口文件 | 补齐小程序 `app.json` 或小游戏 `game.json` / `game.js` 后再导入或开窗 |
-| 云相关失败 | 核对 `cloudfunctionRoot` 与 env（见 cloudbase-operator） |
+| 情况                                                                       | 处理                                                                  |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `loginExpired: true` / `versionRelation` 为 `skip_check` 或 `agent_behind` | 回到根入口；完成登录或单向导入前勿继续创建                            |
+| `PROJECT_*` / `APPID_ERROR`                                                | [project-tool-error-guide.md](project-tool-error-guide.md)            |
+| AppID 无效 / 无权限                                                        | 换有权限的 AppID 或重新 `login`；勿死循环                             |
+| 缺入口文件                                                                 | 补齐小程序 `app.json` 或小游戏 `game.json` / `game.js` 后再导入或开窗 |
+| 云相关失败                                                                 | 核对 `cloudfunctionRoot` 与 env（见 cloudbase-operator）              |

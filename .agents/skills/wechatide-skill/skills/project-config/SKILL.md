@@ -19,10 +19,10 @@ description: >-
 
 ## 文件与生效规则
 
-| 文件 | 作用 |
-|------|------|
-| `project.config.json` | 团队共享；影响编译/上传产物的开关必须写这里 |
-| `project.private.config.json` | 个人本机偏好；同名字段优先级更高 |
+| 文件                          | 作用                                        |
+| ----------------------------- | ------------------------------------------- |
+| `project.config.json`         | 团队共享；影响编译/上传产物的开关必须写这里 |
+| `project.private.config.json` | 个人本机偏好；同名字段优先级更高            |
 
 1. private 覆盖 common 同名字段
 2. 开发期偏好 → 优先改 private 的 `setting`
@@ -36,13 +36,13 @@ description: >-
 
 ## 常见意图
 
-| 意图 | 文件 | 修改 |
-|------|------|------|
-| 关合法域名校验 | private | `setting.urlCheck` → `false` |
-| 开热重载 | private | `setting.compileHotReLoad` → `true` |
-| 开 Skyline 调试 | private | `setting.skylineRenderEnable` → `true` |
-| 开 ES6 + 增强编译 | common | `setting.es6` 与 `enhance` **同开同关** |
-| 上传压缩 JS/WXSS/WXML | common | `minified` / `minifyWXSS` / `minifyWXML` |
+| 意图                        | 文件                                             | 修改                                       |
+| --------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| 关合法域名校验              | private                                          | `setting.urlCheck` → `false`               |
+| 开热重载                    | private                                          | `setting.compileHotReLoad` → `true`        |
+| 开 Skyline 调试             | private                                          | `setting.skylineRenderEnable` → `true`     |
+| 开 ES6 + 增强编译           | common                                           | `setting.es6` 与 `enhance` **同开同关**    |
+| 上传压缩 JS/WXSS/WXML       | common                                           | `minified` / `minifyWXSS` / `minifyWXML`   |
 | 改源码目录 / 基础库 / appid | common（appid 若 private 已有则以 private 为准） | `miniprogramRoot` / `libVersion` / `appid` |
 
 完整字段表：[references/project-config-fields.md](../../references/project-config-fields.md)

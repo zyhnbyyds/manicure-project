@@ -13,15 +13,15 @@ description: >-
 
 ## 工具（参数以 `--help` / tools.yaml 为准）
 
-| 意图 | 工具 |
-|------|------|
-| 查登录/版本 | `check_wechatide_status`（会话已在根入口查过则跳过） |
-| 登录 | `login --type window`（打开登录窗口，如果 agent 能处理图片返回，可以改为 `image`） |
-| 打开项目窗口 | `open_project_window` |
-| 关闭项目窗口 | `close_project_window` |
-| 退出 WechatIDE | `quit` |
-| 可用 AppID 列表 | `get_user_appids`（可选 `--type miniprogram\|minigame`） |
-| 当前页/系统信息 | `automation_runtime_info`（**主归属本 scene**） |
+| 意图            | 工具                                                                               |
+| --------------- | ---------------------------------------------------------------------------------- |
+| 查登录/版本     | `check_wechatide_status`（会话已在根入口查过则跳过）                               |
+| 登录            | `login --type window`（打开登录窗口，如果 agent 能处理图片返回，可以改为 `image`） |
+| 打开项目窗口    | `open_project_window`                                                              |
+| 关闭项目窗口    | `close_project_window`                                                             |
+| 退出 WechatIDE  | `quit`                                                                             |
+| 可用 AppID 列表 | `get_user_appids`（可选 `--type miniprogram\|minigame`）                           |
+| 当前页/系统信息 | `automation_runtime_info`（**主归属本 scene**）                                    |
 
 项目设置读写 → `skills/project-config/SKILL.md`（勿调已废弃的 `project_setting_*`）。
 
@@ -48,22 +48,22 @@ wechatide -c <clientName> open_project_window --project <project> [--window-mode
 
 ## 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| `PROJECT_*` / `APPID_ERROR` | [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
-| `login` 已出码但 `loginExpired: true` | 按全局规则主动轮询至终态；勿声称已登录 |
-| 开窗失败且路径/配置无误 | 原样抛错；勿反复无差别 `open_project_window` |
+| 情况                                  | 处理                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `PROJECT_*` / `APPID_ERROR`           | [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
+| `login` 已出码但 `loginExpired: true` | 按全局规则主动轮询至终态；勿声称已登录                                                      |
+| 开窗失败且路径/配置无误               | 原样抛错；勿反复无差别 `open_project_window`                                                |
 
 ## 移交
 
 遵循根 SKILL「跨 scene 移交」。信息齐备后再给 `nextScene`，`handoffContext` 至少含 `project`。
 
-| 目标 | 还需带上 |
-|------|----------|
-| automator | 当前/目标页、关键选择器或待验证结果；`confirmed` 含窗口已开 |
-| debugger | currentPage、异常现象、可复现步骤或关键字；窗口已开 |
-| compiler | 目标页或文件、是否需 build_npm；窗口已开 |
-| cloudbase-operator | appid/env、函数目录；增量还需相对变更路径 |
-| previewer | `project`；**通常不经本 scene**，可直接预览 |
+| 目标               | 还需带上                                                    |
+| ------------------ | ----------------------------------------------------------- |
+| automator          | 当前/目标页、关键选择器或待验证结果；`confirmed` 含窗口已开 |
+| debugger           | currentPage、异常现象、可复现步骤或关键字；窗口已开         |
+| compiler           | 目标页或文件、是否需 build_npm；窗口已开                    |
+| cloudbase-operator | appid/env、函数目录；增量还需相对变更路径                   |
+| previewer          | `project`；**通常不经本 scene**，可直接预览                 |
 
 预览 / 上传通常**不经本 scene**：直接走 `previewer`（可不打开窗口）。

@@ -26,18 +26,18 @@ description: >-
 
 ### 意图 → 工具
 
-| 意图 | 工具 |
-|------|------|
-| 页面导航 | `automation_navigate` |
-| 点击/输入/长按/读文本/样式/触摸 | `automation_element_action`（必须带 `selector`） |
-| 读/写 page data、querySelector、callMethod | `automation_page_action` |
-| 页面滚动；真机调试 / 关工具 | `automation_viewport_action`（`pageScrollTo` / `remote` / `close`） |
-| 截图 | `simulator_screenshot` |
-| 运行时页栈/当前页 | `automation_runtime_info`（主归属 initializer，此处只读） |
-| 执行受控表达式 | `automation_evaluate` |
-| 调用/mock wx API | `automation_wx_api`（主归属 debugger；此处限流程内 mock/调用） |
-| 测试号 / ticket | `automation_testaccount` |
-| 生成脚本草稿 | `automation_generate_script`（生成后需人工检查） |
+| 意图                                       | 工具                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------- |
+| 页面导航                                   | `automation_navigate`                                               |
+| 点击/输入/长按/读文本/样式/触摸            | `automation_element_action`（必须带 `selector`）                    |
+| 读/写 page data、querySelector、callMethod | `automation_page_action`                                            |
+| 页面滚动；真机调试 / 关工具                | `automation_viewport_action`（`pageScrollTo` / `remote` / `close`） |
+| 截图                                       | `simulator_screenshot`                                              |
+| 运行时页栈/当前页                          | `automation_runtime_info`（主归属 initializer，此处只读）           |
+| 执行受控表达式                             | `automation_evaluate`                                               |
+| 调用/mock wx API                           | `automation_wx_api`（主归属 debugger；此处限流程内 mock/调用）      |
+| 测试号 / ticket                            | `automation_testaccount`                                            |
+| 生成脚本草稿                               | `automation_generate_script`（生成后需人工检查）                    |
 
 ### 示例
 
@@ -56,12 +56,12 @@ wechatide -c <clientName> simulator_screenshot --project <project> --path <local
 
 ### 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| 窗口未开 / `PROJECT_*` | initializer 开窗；配置错误见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
-| timeout / 找不到元素 | 记录步骤与当前页；`querySelectorAll` 核对选择器；**不要**盲目加长 wait 死循环 |
-| 需要 console/network 归因 | 移交 debugger，带上复现步骤与选择器 |
-| User denied（测试号等） | 停等；勿自动重试破坏性动作 |
+| 情况                      | 处理                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 窗口未开 / `PROJECT_*`    | initializer 开窗；配置错误见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
+| timeout / 找不到元素      | 记录步骤与当前页；`querySelectorAll` 核对选择器；**不要**盲目加长 wait 死循环                                            |
+| 需要 console/network 归因 | 移交 debugger，带上复现步骤与选择器                                                                                      |
+| User denied（测试号等）   | 停等；勿自动重试破坏性动作                                                                                               |
 
 ---
 
@@ -76,13 +76,13 @@ wechatide -c <clientName> simulator_screenshot --project <project> --path <local
 
 ### 意图 → 工具
 
-| 意图 | 工具 |
-|------|------|
+| 意图                       | 工具                                                                 |
+| -------------------------- | -------------------------------------------------------------------- |
 | 画布 tap / swipe / touch\* | `automation_game_action`（默认画布坐标；或 `coordinateSpace=image`） |
-| 运行时执行表达式 | `automation_evaluate`（`wx.*` 等；勿依赖页面栈 / WXML） |
-| 截图 | `simulator_screenshot` |
-| 调用/mock wx API | `automation_wx_api`（主归属 debugger；此处限流程内 mock/调用） |
-| 测试号 / ticket | `automation_testaccount` |
+| 运行时执行表达式           | `automation_evaluate`（`wx.*` 等；勿依赖页面栈 / WXML）              |
+| 截图                       | `simulator_screenshot`                                               |
+| 调用/mock wx API           | `automation_wx_api`（主归属 debugger；此处限流程内 mock/调用）       |
+| 测试号 / ticket            | `automation_testaccount`                                             |
 
 **不要用**（小游戏无页面栈 / WXML）：`automation_navigate`、`automation_element_action`、`automation_page_action`、`automation_runtime_info`、`automation_generate_script`。
 
@@ -106,20 +106,20 @@ wechatide -c <clientName> automation_evaluate --project <project> --fn-source 'f
 
 ### 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| 窗口未开 / `PROJECT_*` | initializer 开窗；配置错误见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
-| 误用 selector / navigate / page_action | 停止；改用 `automation_game_action` |
-| 触摸无反馈 | 核对坐标空间（canvas vs image）与 image 尺寸；补截图；移交 debugger 看 console |
-| 需要 console/network 归因 | 移交 debugger，带上复现步骤与坐标 |
-| User denied（测试号等） | 停等；勿自动重试破坏性动作 |
+| 情况                                   | 处理                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 窗口未开 / `PROJECT_*`                 | initializer 开窗；配置错误见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
+| 误用 selector / navigate / page_action | 停止；改用 `automation_game_action`                                                                                      |
+| 触摸无反馈                             | 核对坐标空间（canvas vs image）与 image 尺寸；补截图；移交 debugger 看 console                                           |
+| 需要 console/network 归因              | 移交 debugger，带上复现步骤与坐标                                                                                        |
+| User denied（测试号等）                | 停等；勿自动重试破坏性动作                                                                                               |
 
 ---
 
 ## 移交
 
-| 目标 | 还需 |
-|------|------|
+| 目标     | 还需                                                                  |
+| -------- | --------------------------------------------------------------------- |
 | debugger | 失败步骤；小程序带 currentPage/selector，小游戏带坐标；已采集截图路径 |
-| compiler | 小程序：需重新编译的页面；小游戏：`simulator_refresh` |
-| 结束 | pass/fail 摘要与关键证据 |
+| compiler | 小程序：需重新编译的页面；小游戏：`simulator_refresh`                 |
+| 结束     | pass/fail 摘要与关键证据                                              |

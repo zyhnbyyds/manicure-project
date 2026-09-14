@@ -33,16 +33,16 @@ description: >-
 
 ## 意图 → 工具
 
-| 意图 | 工具 |
-|------|------|
-| 列环境 | `cloud_env_list`（优先 `--appid`；本地工程已有时也可用 `--project`） |
-| 列/查云函数 | `cloud_fn_list` / `cloud_fn_info` |
-| 完整部署 | `cloud_fn_deploy`（`appid` + `env` + 函数目录 `path`） |
-| 增量部署 | `cloud_fn_inc_deploy`（另需相对函数目录的 `file`） |
-| 库结构读/写 | `cloud_db_read_struct` / `cloud_db_write_struct` |
-| 文档读/写 | `cloud_db_read_doc` / `cloud_db_write_doc` |
-| 存储读 | `cloud_query_storage`（`list`/`info`/`url`/`read`） |
-| 存储写 | `cloud_manage_storage`（`upload`/`download`/`delete`；upload/delete 需确认） |
+| 意图        | 工具                                                                         |
+| ----------- | ---------------------------------------------------------------------------- |
+| 列环境      | `cloud_env_list`（优先 `--appid`；本地工程已有时也可用 `--project`）         |
+| 列/查云函数 | `cloud_fn_list` / `cloud_fn_info`                                            |
+| 完整部署    | `cloud_fn_deploy`（`appid` + `env` + 函数目录 `path`）                       |
+| 增量部署    | `cloud_fn_inc_deploy`（另需相对函数目录的 `file`）                           |
+| 库结构读/写 | `cloud_db_read_struct` / `cloud_db_write_struct`                             |
+| 文档读/写   | `cloud_db_read_doc` / `cloud_db_write_doc`                                   |
+| 存储读      | `cloud_query_storage`（`list`/`info`/`url`/`read`）                          |
+| 存储写      | `cloud_manage_storage`（`upload`/`download`/`delete`；upload/delete 需确认） |
 
 ```bash
 wechatide -c <clientName> cloud_env_list --appid <appid>
@@ -63,23 +63,23 @@ wechatide -c <clientName> cloud_query_storage --appid <appid> --env <envId> --ac
 
 ## 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| env 不明 / 多环境 | `cloud_env_list` 后让用户选；**禁止**自动挑 |
-| 环境未开通 / 无权限 | 说明需公众平台开通或换有权限账号；勿死循环部署 |
-| 用户拒绝或确认超时 | **不要**重试写操作 |
+| 情况                 | 处理                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| env 不明 / 多环境    | `cloud_env_list` 后让用户选；**禁止**自动挑                                                 |
+| 环境未开通 / 无权限  | 说明需公众平台开通或换有权限账号；勿死循环部署                                              |
+| 用户拒绝或确认超时   | **不要**重试写操作                                                                          |
 | `--project` 相关错误 | [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
-| 部署/写库部分成功 | 原样保留返回结构，说明已成功与失败项 |
+| 部署/写库部分成功    | 原样保留返回结构，说明已成功与失败项                                                        |
 
 ## 移交
 
 遵循根 SKILL「跨 scene 移交」。
 
-| 目标 | 还需 |
-|------|------|
-| project-config | 需改 `cloudfunctionRoot` 等本地配置时 |
-| debugger | 云调用失败且要对照小程序侧日志时：`project` + 现象 |
-| 结束 | appid、env、已做读写操作摘要 |
+| 目标           | 还需                                               |
+| -------------- | -------------------------------------------------- |
+| project-config | 需改 `cloudfunctionRoot` 等本地配置时              |
+| debugger       | 云调用失败且要对照小程序侧日志时：`project` + 现象 |
+| 结束           | appid、env、已做读写操作摘要                       |
 
 ## 备注
 

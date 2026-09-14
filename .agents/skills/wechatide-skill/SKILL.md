@@ -79,31 +79,31 @@ wechatide -c <clientName> <toolName> [flags...] [--token <cliAccessToken>]
 
 共享工具以 tool-index **主归属**为准；次要 scene 仅可按本 scene 文档调用，勿跨 scene 随便混用：
 
-| 工具 | 主归属 | 说明 |
-|------|--------|------|
-| `automation_runtime_info` | initializer | automator / debugger 可只读取上下文，勿当「开窗」替代 |
-| `automation_wx_api` | debugger | 自动化流程内 mock/调用可在 automator |
-| `simulator_screenshot` | debugger | **唯一推荐截图**（参数见 `--help`） |
-| `simulator_refresh` / `build_npm` | compiler | debugger 可借用刷新，勿无差别反复刷 |
-| `polling_task_result` | 通用 | 任意 scene 查询需要用户交互的 toolCall 最终结果 |
+| 工具                              | 主归属      | 说明                                                  |
+| --------------------------------- | ----------- | ----------------------------------------------------- |
+| `automation_runtime_info`         | initializer | automator / debugger 可只读取上下文，勿当「开窗」替代 |
+| `automation_wx_api`               | debugger    | 自动化流程内 mock/调用可在 automator                  |
+| `simulator_screenshot`            | debugger    | **唯一推荐截图**（参数见 `--help`）                   |
+| `simulator_refresh` / `build_npm` | compiler    | debugger 可借用刷新，勿无差别反复刷                   |
+| `polling_task_result`             | 通用        | 任意 scene 查询需要用户交互的 toolCall 最终结果       |
 
 完整主归属以 [tool-index](references/tool-index.md) 的 scene 列为准（多 scene 时第一项为主）。
 
 ## 路由
 
-| 用户意图 | Scene |
-|----------|--------|
-| 下载、安装或更新微信开发者工具；本 skill 首次安装/导入后的安装诊断；`wechatide` 调用不了经诊断需安装/更新；`agent_ahead` 后遇到明确版本兼容 blocker；macOS DMG 需补 `wechatide` 软链 | `skills/installer/SKILL.md` |
-| 从零创建小程序/小游戏项目（目录 + 配置 + 导入列表；**非**独立 scene） | `wechatide-tools/references/create-project-guide.md` |
-| 打开/关闭项目窗口、登录、AppID、运行时上下文 | `skills/initializer/SKILL.md` |
-| 项目列表查询 / 导入 / 从列表删除、代码片段分享 / 导入（不开窗口） | `skills/project-manager/SKILL.md` |
-| 改 `project.config.json`（修改基础库版本、域名校验、热重载、编译开关等，不调 MCP） | `skills/project-config/SKILL.md` |
-| 编译页面、单文件编译、构建 npm、刷新模拟器 | `skills/compiler/SKILL.md` |
-| 预览、二维码、上传体验版（预览优先 `auto_preview`；可不打开窗口） | `skills/previewer/SKILL.md` |
-| 点击、输入、滚动、页面断言、自动化脚本 | `skills/automator/SKILL.md` |
-| console / network / 截图取证 / 状态诊断 | `skills/debugger/SKILL.md` |
-| 云环境、云函数、云数据库、云存储 | `skills/cloudbase-operator/SKILL.md` |
-| 小程序地图组件 / 腾讯位置服务 API | 外部 skill：`tencentmap-miniprogram-skill`（前端）/ `tencentmap-webservice-skill`（后端）——本包不处理，需触发主动下载；详见 [map-skill-index](references/map-skill-index.md) |
+| 用户意图                                                                                                                                                                             | Scene                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 下载、安装或更新微信开发者工具；本 skill 首次安装/导入后的安装诊断；`wechatide` 调用不了经诊断需安装/更新；`agent_ahead` 后遇到明确版本兼容 blocker；macOS DMG 需补 `wechatide` 软链 | `skills/installer/SKILL.md`                                                                                                                                                  |
+| 从零创建小程序/小游戏项目（目录 + 配置 + 导入列表；**非**独立 scene）                                                                                                                | `wechatide-tools/references/create-project-guide.md`                                                                                                                         |
+| 打开/关闭项目窗口、登录、AppID、运行时上下文                                                                                                                                         | `skills/initializer/SKILL.md`                                                                                                                                                |
+| 项目列表查询 / 导入 / 从列表删除、代码片段分享 / 导入（不开窗口）                                                                                                                    | `skills/project-manager/SKILL.md`                                                                                                                                            |
+| 改 `project.config.json`（修改基础库版本、域名校验、热重载、编译开关等，不调 MCP）                                                                                                   | `skills/project-config/SKILL.md`                                                                                                                                             |
+| 编译页面、单文件编译、构建 npm、刷新模拟器                                                                                                                                           | `skills/compiler/SKILL.md`                                                                                                                                                   |
+| 预览、二维码、上传体验版（预览优先 `auto_preview`；可不打开窗口）                                                                                                                    | `skills/previewer/SKILL.md`                                                                                                                                                  |
+| 点击、输入、滚动、页面断言、自动化脚本                                                                                                                                               | `skills/automator/SKILL.md`                                                                                                                                                  |
+| console / network / 截图取证 / 状态诊断                                                                                                                                              | `skills/debugger/SKILL.md`                                                                                                                                                   |
+| 云环境、云函数、云数据库、云存储                                                                                                                                                     | `skills/cloudbase-operator/SKILL.md`                                                                                                                                         |
+| 小程序地图组件 / 腾讯位置服务 API                                                                                                                                                    | 外部 skill：`tencentmap-miniprogram-skill`（前端）/ `tencentmap-webservice-skill`（后端）——本包不处理，需触发主动下载；详见 [map-skill-index](references/map-skill-index.md) |
 
 选择原则：按**当前主目标**进一个 scene；不要跨 scene 混用原子工具。多目标时先完成 blocker，再移交。
 
@@ -111,14 +111,14 @@ wechatide -c <clientName> <toolName> [flags...] [--token <cliAccessToken>]
 
 切换 scene / 走完 create-project 后，带上下列上下文（可写入回复，勿丢）：
 
-| 字段 | 要求 |
-|------|------|
-| `nextScene` | 目标 scene 名，或 `create-project-guide` / 结束 |
-| `project` | 已有项目时必填：本地绝对路径 |
-| `confirmed` | 已确认事实（如已登录、`versionRelation` 及兼容性风险、窗口已开、appid、env、当前页） |
-| `blocker` | 未决项；无则省略 |
+| 字段          | 要求                                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `nextScene`   | 目标 scene 名，或 `create-project-guide` / 结束                                              |
+| `project`     | 已有项目时必填：本地绝对路径                                                                 |
+| `confirmed`   | 已确认事实（如已登录、`versionRelation` 及兼容性风险、窗口已开、appid、env、当前页）         |
+| `blocker`     | 未决项；无则省略                                                                             |
 | `pendingTask` | 有未完成异步任务时必填：`taskId`、原工具名、非敏感参数摘要、最后状态；后续不得直接重发原操作 |
-| 附加 | 见目标 scene「移交」表（页面、选择器、env 等） |
+| 附加          | 见目标 scene「移交」表（页面、选择器、env 等）                                               |
 
 下一 scene：**不要**重复 `check_wechatide_status`；**不要**无故 `open_project_window`（除非 `confirmed` 表明窗口未开且目标需要窗口）。
 

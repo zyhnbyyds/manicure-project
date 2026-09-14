@@ -18,13 +18,13 @@ description: >-
 
 ## 意图 → 工具
 
-| 意图 | 工具 |
-|------|------|
-| 编到某页看效果 | `simulator_open_page` |
-| 刷新/等同工具栏编译 | `simulator_refresh`（成功只表示已触发，≠编译通过） |
-| 校验 WXML（仅小程序） | `compile_wxml` |
-| 校验 WXSS（仅小程序） | `compile_wxss` |
-| 构建 npm | `build_npm`（**主归属本 scene**） |
+| 意图                  | 工具                                               |
+| --------------------- | -------------------------------------------------- |
+| 编到某页看效果        | `simulator_open_page`                              |
+| 刷新/等同工具栏编译   | `simulator_refresh`（成功只表示已触发，≠编译通过） |
+| 校验 WXML（仅小程序） | `compile_wxml`                                     |
+| 校验 WXSS（仅小程序） | `compile_wxss`                                     |
+| 构建 npm              | `build_npm`（**主归属本 scene**）                  |
 
 ```bash
 wechatide -c <clientName> simulator_open_page --project <project> --page pages/index/index [--query id=1]
@@ -42,17 +42,17 @@ wechatide -c <clientName> build_npm --project <project> [--compile-type miniprog
 
 ## 失败快表
 
-| 情况 | 处理 |
-|------|------|
-| 窗口未开 / 开窗类错误 | 经 initializer `open_project_window`；`PROJECT_*` 见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
-| `simulator_refresh` 成功但仍异常 | 用 debugger 取 console/截图；勿连续无差别刷新 |
-| 对小游戏调用 `compile_wxml`/`compile_wxss` | 停止并改用 `simulator_refresh` / `build_npm` |
-| `build_npm` 失败 | 原样报告依赖/产物错误；勿在未要求时反复构建 |
+| 情况                                       | 处理                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 窗口未开 / 开窗类错误                      | 经 initializer `open_project_window`；`PROJECT_*` 见 [project-tool-error-guide.md](../../wechatide-tools/references/project-tool-error-guide.md) |
+| `simulator_refresh` 成功但仍异常           | 用 debugger 取 console/截图；勿连续无差别刷新                                                                                                    |
+| 对小游戏调用 `compile_wxml`/`compile_wxss` | 停止并改用 `simulator_refresh` / `build_npm`                                                                                                     |
+| `build_npm` 失败                           | 原样报告依赖/产物错误；勿在未要求时反复构建                                                                                                      |
 
 ## 移交
 
-| 目标 | 还需 |
-|------|------|
-| automator | 已打开的页面路径、待验证点 |
-| debugger | 编译后现象、目标页、是否已 refresh |
-| previewer | `project`；可不经模拟器直接预览 |
+| 目标      | 还需                               |
+| --------- | ---------------------------------- |
+| automator | 已打开的页面路径、待验证点         |
+| debugger  | 编译后现象、目标页、是否已 refresh |
+| previewer | `project`；可不经模拟器直接预览    |
