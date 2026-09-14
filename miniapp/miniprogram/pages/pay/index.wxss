@@ -125,4 +125,3 @@
 .radio.is-checked .radio__dot {
   background: var(--c-primary);
 }
-

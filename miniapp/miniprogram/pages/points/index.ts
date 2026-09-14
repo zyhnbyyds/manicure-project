@@ -15,7 +15,11 @@ const PAGE_ICONS: IconName[] = ['gift'];
  * 门店可以在后台给兑换品上传图片；没上传时用本地作品素材轮转保留视觉，
  * **不伪造图片地址**。
  */
-const PLACEHOLDER_IMAGES = ['/assets/svc-a.png', '/assets/svc-b.png', '/assets/svc-c.png'];
+const PLACEHOLDER_IMAGES = [
+  '/assets/svc-a.png',
+  '/assets/svc-b.png',
+  '/assets/svc-c.png',
+];
 
 interface GoodsRow extends PointsGoods {
   /** 已解析成可直接绑定到 `<image src>` 的地址（DB 图或本地占位图） */
@@ -62,7 +66,11 @@ definePage({
       this,
       async () => {
         const [list, me] = await Promise.all([
-          pointsApi.listGoods(1, 50, category === '全部' ? undefined : category),
+          pointsApi.listGoods(
+            1,
+            50,
+            category === '全部' ? undefined : category,
+          ),
           this.data.bound
             ? memberApi.getMe().catch(() => null)
             : Promise.resolve(null),

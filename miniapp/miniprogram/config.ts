@@ -44,7 +44,6 @@ export const API_BASE = 'http://192.168.0.100:3000/api/v1';
 /** 请求超时（毫秒） */
 export const REQUEST_TIMEOUT = 10000;
 
-
 /**
  * 门店信息（门店信息页、客服、导航、拨号都用这一份）。
  *

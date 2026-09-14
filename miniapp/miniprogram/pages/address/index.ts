@@ -81,7 +81,11 @@ definePage({
     this.setData({ errorText: '' });
     try {
       const result = await addressApi.list();
-      this.setData({ loading: false, needBind: false, addresses: result.items });
+      this.setData({
+        loading: false,
+        needBind: false,
+        addresses: result.items,
+      });
     } catch (error) {
       if (isApiFailure(error) && error.needBind) {
         this.setData({ loading: false, needBind: true });
@@ -99,7 +103,10 @@ definePage({
   },
 
   async onGuestLogin() {
-    await requireSession({ needBind: true, reason: '管理地址需要先绑定手机号' });
+    await requireSession({
+      needBind: true,
+      reason: '管理地址需要先绑定手机号',
+    });
     if (isBound()) void this.load();
   },
 
@@ -124,7 +131,13 @@ definePage({
     } catch {
       /* 取不到档案就留空，不挡着新增 */
     }
-    this.setData({ sheetOpen: true, mode: 'create', editingId: 0, form, region: [] });
+    this.setData({
+      sheetOpen: true,
+      mode: 'create',
+      editingId: 0,
+      form,
+      region: [],
+    });
   },
 
   onEdit(event: WechatMiniprogram.TouchEvent) {

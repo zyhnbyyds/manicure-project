@@ -134,7 +134,6 @@
   color: var(--c-text-weak);
 }
 
-
 /* 已上传的配图：与空位同尺寸，右上角一个移除按钮 */
 .images__item {
   position: relative;

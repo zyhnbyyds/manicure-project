@@ -1,10 +1,10 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig } from 'vitepress';
 
 /**
  * 对客操作手册站点。
  * 可选的部署子路径，例如 DOCS_BASE=/manicure/docs/ bun run build
  */
-const base = process.env.DOCS_BASE ?? '/'
+const base = process.env.DOCS_BASE ?? '/';
 
 export default defineConfig({
   base,
@@ -85,7 +85,10 @@ export default defineConfig({
           items: [
             { text: '预约模块总览', link: '/booking/' },
             { text: '排班管理', link: '/booking/scheduling' },
-            { text: '开单 · 改期 · 取消 · 结算', link: '/booking/booking-flow' },
+            {
+              text: '开单 · 改期 · 取消 · 结算',
+              link: '/booking/booking-flow',
+            },
             { text: '周期预约', link: '/booking/recurrences' },
             { text: '美甲师工作台', link: '/booking/staff-workbench' },
           ],
@@ -98,7 +101,10 @@ export default defineConfig({
             { text: '会员模块总览', link: '/member/' },
             { text: '顾客档案', link: '/member/customers' },
             { text: '会员等级与折扣', link: '/member/levels' },
-            { text: '储值充值 · 赠送余额 · 次卡', link: '/member/recharge-cards' },
+            {
+              text: '储值充值 · 赠送余额 · 次卡',
+              link: '/member/recharge-cards',
+            },
             { text: '积分与优惠券', link: '/member/points-coupons' },
             { text: '评价管理', link: '/member/reviews' },
           ],
@@ -134,7 +140,10 @@ export default defineConfig({
           items: [
             { text: '后台管理端总览', link: '/admin/' },
             { text: '用户与角色', link: '/admin/users-roles' },
-            { text: '菜单 · 部门 · 岗位 · 字典 · 参数', link: '/admin/menus-depts' },
+            {
+              text: '菜单 · 部门 · 岗位 · 字典 · 参数',
+              link: '/admin/menus-depts',
+            },
             { text: '系统监控与审计', link: '/admin/monitor' },
             { text: '定时任务与文件管理', link: '/admin/jobs-files' },
             { text: 'AI 操作助手', link: '/admin/ai-assistant' },
@@ -147,4 +156,4 @@ export default defineConfig({
       copyright: 'manicure-project',
     },
   },
-})
+});

@@ -28,11 +28,22 @@ import {
 } from '../../utils/nav';
 import { definePage } from '../../utils/page';
 import { dialCustomer } from '../../utils/phone';
-import { formatPeriod, toStaffBookingRow, type StaffBookingRow } from '../../utils/present';
+import {
+  formatPeriod,
+  toStaffBookingRow,
+  type StaffBookingRow,
+} from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { confirm, toast } from '../../utils/ui';
 
-const PAGE_ICONS: IconName[] = ['calendar', 'card', 'star', 'person', 'headset', 'clock'];
+const PAGE_ICONS: IconName[] = [
+  'calendar',
+  'card',
+  'star',
+  'person',
+  'headset',
+  'clock',
+];
 
 const ENTRIES = [
   { key: 'bookings', label: '我的预约', icon: 'calendar' as IconName },
@@ -93,7 +104,10 @@ definePage({
         shiftText: schedule.off
           ? '今天休息'
           : schedule.segments
-              .map((segment) => `${segment.startTime.slice(0, 5)}-${segment.endTime.slice(0, 5)}`)
+              .map(
+                (segment) =>
+                  `${segment.startTime.slice(0, 5)}-${segment.endTime.slice(0, 5)}`,
+              )
               .join('、') || '今天没有排班',
         bookings: list.items.map(toStaffBookingRow),
         completedCount: perf.completedCount,
@@ -110,7 +124,8 @@ definePage({
         this.setData({ loading: false });
         wx.showModal({
           title: '工作台已停用',
-          content: '你的美甲师工作台已被关闭（档案停用或授权被撤），已切回顾客模式。',
+          content:
+            '你的美甲师工作台已被关闭（档案停用或授权被撤），已切回顾客模式。',
           showCancel: false,
           confirmText: '知道啦',
           confirmColor: '#B45F6B',

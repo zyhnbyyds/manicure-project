@@ -1,6 +1,10 @@
 import { bookingApi } from '../../api/index';
 import type { Booking } from '../../api/types';
-import { fenToYuan, formatDateTimeLabel, formatTimeRange } from '../../utils/format';
+import {
+  fenToYuan,
+  formatDateTimeLabel,
+  formatTimeRange,
+} from '../../utils/format';
 import type { IconName } from '../../utils/icons';
 import { goBack, goBookings } from '../../utils/nav';
 import { definePage } from '../../utils/page';
@@ -18,9 +22,21 @@ const PAGE_ICONS: IconName[] = ['clock', 'check', 'headset'];
  * 只有拿不到预览（没有支付、接口失败）时才退回这几条原则性说明。
  */
 const RULES = [
-  { icon: 'clock' as IconName, title: '提前取消', text: '越早取消，越不影响门店安排，通常可全额退还定金' },
-  { icon: 'check' as IconName, title: '临近取消', text: '临近开始时间取消，门店可能按规则扣除部分定金' },
-  { icon: 'headset' as IconName, title: '特殊情况', text: '临时有事请联系门店，我们会尽力帮你协调改期' },
+  {
+    icon: 'clock' as IconName,
+    title: '提前取消',
+    text: '越早取消，越不影响门店安排，通常可全额退还定金',
+  },
+  {
+    icon: 'check' as IconName,
+    title: '临近取消',
+    text: '临近开始时间取消，门店可能按规则扣除部分定金',
+  },
+  {
+    icon: 'headset' as IconName,
+    title: '特殊情况',
+    text: '临时有事请联系门店，我们会尽力帮你协调改期',
+  },
 ];
 
 definePage({

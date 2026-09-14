@@ -12,35 +12,37 @@ title: 后端分层与请求链路
 
 ## 一、目录分层
 
-| 路径 | 职责 | 关键文件 |
-| --- | --- | --- |
-| `src/main.ts` | 进程启动、插件注册、Swagger、全局前缀、优雅关停 | `src/main.ts` |
-| `src/app.module.ts` | 根模块：装配全部子模块 + 注册**全局守卫 / 全局拦截器** | `src/app.module.ts` |
-| `src/config/` | 环境变量 Zod 校验与类型化读取 | `app-config.service.ts` / `app-config.module.ts` |
-| `src/common/` | 跨模块横切能力：鉴权、异常过滤、审计、数据权限、缓存、工具 | `auth/` `filters/` `logging/` `data-scope/` |
-| `src/database/` | 连接、唯一 schema 文件、迁移、seed | `database.service.ts` / `schema/index.ts` / `seed/` |
-| `src/modules/biz/` | 美甲业务域（B1~B7） | `base-data/` `scheduling/` `booking/` … |
-| `src/modules/app/` | 小程序 `app_` 域（独立 token 域，不接 RBAC） | `auth/` `catalog/` `member/` `payments/` `staff/` |
-| `src/modules/` 其余 | 系统管理 / 监控 / 定时任务 / 文件 / 代码生成 / 兼容层 | `system/` `monitor/` `jobs/` `files/` |
-| `src/ai/` | AI 操作助手（Agent / Tool / Policy / Approval / Task） | 见 [AI 操作助手](/backend/ai-agent) |
+| 路径                | 职责                                                       | 关键文件                                            |
+| ------------------- | ---------------------------------------------------------- | --------------------------------------------------- |
+| `src/main.ts`       | 进程启动、插件注册、Swagger、全局前缀、优雅关停            | `src/main.ts`                                       |
+| `src/app.module.ts` | 根模块：装配全部子模块 + 注册**全局守卫 / 全局拦截器**     | `src/app.module.ts`                                 |
+| `src/config/`       | 环境变量 Zod 校验与类型化读取                              | `app-config.service.ts` / `app-config.module.ts`    |
+| `src/common/`       | 跨模块横切能力：鉴权、异常过滤、审计、数据权限、缓存、工具 | `auth/` `filters/` `logging/` `data-scope/`         |
+| `src/database/`     | 连接、唯一 schema 文件、迁移、seed                         | `database.service.ts` / `schema/index.ts` / `seed/` |
+| `src/modules/biz/`  | 美甲业务域（B1~B7）                                        | `base-data/` `scheduling/` `booking/` …             |
+| `src/modules/app/`  | 小程序 `app_` 域（独立 token 域，不接 RBAC）               | `auth/` `catalog/` `member/` `payments/` `staff/`   |
+| `src/modules/` 其余 | 系统管理 / 监控 / 定时任务 / 文件 / 代码生成 / 兼容层      | `system/` `monitor/` `jobs/` `files/`               |
+| `src/ai/`           | AI 操作助手（Agent / Tool / Policy / Approval / Task）     | 见 [AI 操作助手](/backend/ai-agent)                 |
 
 ### `src/main.ts` 做了什么（顺序即语义）
 
 ```ts
 // src/main.ts（精简）
-z.config(zhCN());                                    // 全局中文 Zod 提示，必须在任何 parse 之前
+z.config(zhCN()); // 全局中文 Zod 提示，必须在任何 parse 之前
 const app = await NestFactory.create<NestFastifyApplication>(
   AppModule,
   new FastifyAdapter({ logger: true, trustProxy: true }),
-  { rawBody: true },                                 // 微信支付 V3 回调验签必须用原样报文
+  { rawBody: true }, // 微信支付 V3 回调验签必须用原样报文
 );
 app.useGlobalFilters(new GlobalExceptionFilter());
 await app.register(helmet);
 await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
-await app.register(multipart, { limits: { files: 1, fileSize: 10 * 1024 * 1024 } });
+await app.register(multipart, {
+  limits: { files: 1, fileSize: 10 * 1024 * 1024 },
+});
 app.enableCors({ origin: config.corsOrigins, credentials: true });
-app.setGlobalPrefix(config.apiPrefix);               // 默认 api/v1
-app.enableShutdownHooks();                           // 配合 DatabaseService.onApplicationShutdown 关连接池
+app.setGlobalPrefix(config.apiPrefix); // 默认 api/v1
+app.enableShutdownHooks(); // 配合 DatabaseService.onApplicationShutdown 关连接池
 ```
 
 三个容易被忽略的点：
@@ -65,12 +67,12 @@ providers: [
 
 全站**没有 Repository 层**——Service 直接用 Drizzle。以真实模块 `src/modules/biz/base-data/service-items/` 为样板：
 
-| 层 | 文件 | 说明 |
-| --- | --- | --- |
-| 路由 + 校验 | `service-items.controller.ts` | `@Controller('biz/service-items')`；**DTO 就是文件顶部的 Zod schema**（`createSchema` / `updateSchema`），并 `registerComponent()` 给 Swagger 用 |
-| 业务 | `service-items.service.ts` | `extends ServiceItemPort`，构造注入 `DatabaseService`，所有 DB 操作走 `this.database.db` |
-| 契约 | `src/modules/biz/common/ports.ts` | `ServiceItemPort` 抽象类，既是 DI token 也是**跨模块唯一允许的依赖面** |
-| 装配 | `base-data.module.ts` | `imports: [BizCommonModule]`，导出 Service；**端口到实现的绑定在根 `BizModule` 统一做** |
+| 层          | 文件                              | 说明                                                                                                                                             |
+| ----------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 路由 + 校验 | `service-items.controller.ts`     | `@Controller('biz/service-items')`；**DTO 就是文件顶部的 Zod schema**（`createSchema` / `updateSchema`），并 `registerComponent()` 给 Swagger 用 |
+| 业务        | `service-items.service.ts`        | `extends ServiceItemPort`，构造注入 `DatabaseService`，所有 DB 操作走 `this.database.db`                                                         |
+| 契约        | `src/modules/biz/common/ports.ts` | `ServiceItemPort` 抽象类，既是 DI token 也是**跨模块唯一允许的依赖面**                                                                           |
+| 装配        | `base-data.module.ts`             | `imports: [BizCommonModule]`，导出 Service；**端口到实现的绑定在根 `BizModule` 统一做**                                                          |
 
 Controller 的真实形态：
 
@@ -78,9 +80,9 @@ Controller 的真实形态：
 // src/modules/biz/base-data/service-items/service-items.controller.ts（精简）
 const createSchema = z.object({
   name: z.string().min(1).max(50),
-  durationMinutes: z.number().int().min(1).max(1440),   // 决定占用时段
+  durationMinutes: z.number().int().min(1).max(1440), // 决定占用时段
   bufferMinutes: z.number().int().min(0).max(240).optional(), // 参与冲突判定
-  price: z.number().int().min(0).optional(),            // 单位「分」
+  price: z.number().int().min(0).optional(), // 单位「分」
   images: z.array(z.string().max(500)).max(9).nullish(),
 });
 registerComponent('CreateServiceItemRequest', createSchema);
@@ -155,9 +157,15 @@ if (exception instanceof ZodError) {
   const messages = exception.issues.map(
     (issue) => `${fieldLabel(issue)}：${friendlyIssue(issue)}`,
   );
-  reply.status(HttpStatus.BAD_REQUEST).send(
-    withRequestId({ statusCode: 400, message: messages, error: 'Bad Request' }),
-  );
+  reply
+    .status(HttpStatus.BAD_REQUEST)
+    .send(
+      withRequestId({
+        statusCode: 400,
+        message: messages,
+        error: 'Bad Request',
+      }),
+    );
   return;
 }
 ```
@@ -192,19 +200,20 @@ throw new ConflictException({ message: '…', conflicts: [...] }); // 409 + 结�
 
 ### HTTP 状态码映射（真实例子）
 
-| 场景 | 状态码 | 真实出处 |
-| --- | --- | --- |
-| `startAt` 不在 `stepMinutes` 网格 / 超出班次 | **400** | `src/modules/biz/booking/slots.service.ts` 的 `assertGridAligned()` / `assertWithinShift()` |
-| 排班变更会让既有预约越界 | **409 + `conflicts` 清单** | `src/modules/biz/scheduling/scheduling.service.ts` 的 `conflictException()` |
-| 收款金额超过下单应收 / 超过待收尾款 | **400** | `bookings.service.ts` 的「收款金额超过下单应收金额」 |
-| 储值余额不足 / 积分不足 / 应收超额销账 | **409** | `member-accounts.service.ts` 的 `affectedRows=0 → ConflictException('储值余额不足')` |
-| 服务项目被未完成预约引用时删除 | **409** | `service-items.service.ts`（Controller 上 `@ApiResponse({ status: 409 })`） |
-| 限流超限 | **429** | `@fastify/rate-limit` 抛的带 `statusCode` 的普通 Error，过滤器专门识别 4xx 透传 |
+| 场景                                         | 状态码                     | 真实出处                                                                                    |
+| -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `startAt` 不在 `stepMinutes` 网格 / 超出班次 | **400**                    | `src/modules/biz/booking/slots.service.ts` 的 `assertGridAligned()` / `assertWithinShift()` |
+| 排班变更会让既有预约越界                     | **409 + `conflicts` 清单** | `src/modules/biz/scheduling/scheduling.service.ts` 的 `conflictException()`                 |
+| 收款金额超过下单应收 / 超过待收尾款          | **400**                    | `bookings.service.ts` 的「收款金额超过下单应收金额」                                        |
+| 储值余额不足 / 积分不足 / 应收超额销账       | **409**                    | `member-accounts.service.ts` 的 `affectedRows=0 → ConflictException('储值余额不足')`        |
+| 服务项目被未完成预约引用时删除               | **409**                    | `service-items.service.ts`（Controller 上 `@ApiResponse({ status: 409 })`）                 |
+| 限流超限                                     | **429**                    | `@fastify/rate-limit` 抛的带 `statusCode` 的普通 Error，过滤器专门识别 4xx 透传             |
 
 ::: tip 两个刻意的设计
+
 - **权限不足返回 401 而不是 403**：`AccessTokenGuard` 里 `throw new UnauthorizedException('权限不足')`。前端看到 401 会走「刷新 token → 重试 → 仍失败则跳登录」的通用流程。
 - **第三方插件的 `statusCode` 只放行 4xx**：`fastifyClientErrorStatus()` 明确拒绝让 5xx 由插件状态码决定语义，避免限流被静默降级成 500。
-:::
+  :::
 
 ### 兜底 500
 
@@ -236,11 +245,11 @@ export function parsePagination(rawPage?, rawPageSize?) {
 
 ## 七、日志：三本账
 
-| 账本 | 写入者 | 表 | 时机 |
-| --- | --- | --- | --- |
-| 应用日志 | Fastify 内置 logger（`pino`，`new FastifyAdapter({ logger: true })`） | stdout | 每请求 |
-| 操作审计 | `OperationLogInterceptor` | `sys_oper_log` | 写操作**响应后**异步落库（成功/失败都写） |
-| 登录日志 | `AuthService.recordLogin()` | `sys_login_log` | 登录成功/失败时 |
+| 账本     | 写入者                                                                | 表              | 时机                                      |
+| -------- | --------------------------------------------------------------------- | --------------- | ----------------------------------------- |
+| 应用日志 | Fastify 内置 logger（`pino`，`new FastifyAdapter({ logger: true })`） | stdout          | 每请求                                    |
+| 操作审计 | `OperationLogInterceptor`                                             | `sys_oper_log`  | 写操作**响应后**异步落库（成功/失败都写） |
+| 登录日志 | `AuthService.recordLogin()`                                           | `sys_login_log` | 登录成功/失败时                           |
 
 审计字段（`operation-log.interceptor.ts`）：`userId` / `title = Controller.handler` / `businessType`（`insert|update|delete|other`）/ `requestMethod` / `url`（截断 500）/ `ip` / `requestBody` / `responseBody` / `status` / `errorMessage`（截断 2000）/ `durationMs`。
 

@@ -30,18 +30,23 @@ miniapp/
   "componentFramework": "glass-easel",
   "lazyCodeLoading": "requiredComponents",
   "style": "v2",
-  "window": { "navigationStyle": "default", "navigationBarTextStyle": "black", "navigationBarTitleText": "美甲小铺",
-              "navigationBarBackgroundColor": "#FBF5F0", "backgroundColor": "#FBF5F0" },
-  "tabBar": { "custom": true, "list": [ /* 5 项，两种模式全部注册 */ ] }
+  "window": {
+    "navigationStyle": "default",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "美甲小铺",
+    "navigationBarBackgroundColor": "#FBF5F0",
+    "backgroundColor": "#FBF5F0"
+  },
+  "tabBar": { "custom": true, "list": [/* 5 项，两种模式全部注册 */] }
 }
 ```
 
-| 配置 | 作用 |
-| --- | --- |
-| `componentFramework: "glass-easel"` | 新版组件框架 |
+| 配置                                    | 作用                                   |
+| --------------------------------------- | -------------------------------------- |
+| `componentFramework: "glass-easel"`     | 新版组件框架                           |
 | `lazyCodeLoading: "requiredComponents"` | **按需注入**，只加载当前页面用到的组件 |
-| `tabBar.custom: true` | 自定义 TabBar（见「双模式 TabBar」） |
-| `style: "v2"` | 新版组件样式 |
+| `tabBar.custom: true`                   | 自定义 TabBar（见「双模式 TabBar」）   |
+| `style: "v2"`                           | 新版组件样式                           |
 
 ### 编译与类型检查
 
@@ -59,6 +64,7 @@ miniapp/
 ```bash
 bun scripts/verify-wxml-tags.mjs      # 离线、秒级、无依赖；退出码非 0 即有问题
 ```
+
 :::
 
 ## 请求层
@@ -81,6 +87,7 @@ export const REQUEST_TIMEOUT = 10000;
 Get-NetIPAddress -AddressFamily IPv4 |
   Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -eq 'Dhcp' }
 ```
+
 想一劳永逸：在路由器上给这台机做 **DHCP 保留**。
 :::
 
@@ -99,22 +106,26 @@ New-NetFirewallRule -DisplayName "manicure dev API 3000 (LAN)" -Direction Inboun
 > 快速自检：用**手机浏览器**打开 `http://<局域网IP>:3000/api/v1/health`，能看到 JSON 就说明网络通了
 > （在本机浏览器自测是**测不出防火墙**的）。
 
-
 取本机局域网 IP：`Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' }`
 
 ### `utils/request.ts`
 
 ```ts
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';   // 注意：wx.request 没有 PATCH
-export interface RequestOptions { path: string; method?: HttpMethod; data?: Record<string, unknown>; auth?: boolean }
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'; // 注意：wx.request 没有 PATCH
+export interface RequestOptions {
+  path: string;
+  method?: HttpMethod;
+  data?: Record<string, unknown>;
+  auth?: boolean;
+}
 ```
 
-| # | 行为 | 实现 |
-| --- | --- | --- |
-| 1 | 注入 `Authorization: Bearer <token>` + `request-id` | `newRequestId()`（小程序无 `crypto.randomUUID`，用时间戳 + 随机串） |
-| 2 | **401 + `needBind` 不清 token** | `needBind` 是「已登录但未绑定手机号」，不是登录态失效 |
-| 3 | **其它 401 自动重登 + 重试一次** | 见下 |
-| 4 | `501` 统一转「这个功能马上就来啦～」 | JSAPI 支付等骨架被点到时优雅落地 |
+| #   | 行为                                                | 实现                                                                |
+| --- | --------------------------------------------------- | ------------------------------------------------------------------- |
+| 1   | 注入 `Authorization: Bearer <token>` + `request-id` | `newRequestId()`（小程序无 `crypto.randomUUID`，用时间戳 + 随机串） |
+| 2   | **401 + `needBind` 不清 token**                     | `needBind` 是「已登录但未绑定手机号」，不是登录态失效               |
+| 3   | **其它 401 自动重登 + 重试一次**                    | 见下                                                                |
+| 4   | `501` 统一转「这个功能马上就来啦～」                | JSAPI 支付等骨架被点到时优雅落地                                    |
 
 ```ts
 /**
@@ -175,7 +186,8 @@ onLaunch() {
  * - **已登录** = 有 app token。可浏览项目/美甲师/时段；
  * - **已绑定** = 授权过手机号，`customer_id` 非空。可下单、看会员与订单。
  */
-if (!(await requireSession({ needBind: true, reason: '预约需要绑定手机号' }))) return;
+if (!(await requireSession({ needBind: true, reason: '预约需要绑定手机号' })))
+  return;
 ```
 
 顺序刻意如此：**先试一次静默登录**（`ensureLogin` 有并发去重，很便宜）→ 仍不满足才 `goLogin({ reason })`。返回 `false` 时门面**已经做过引导**，调用方直接 return。
@@ -199,12 +211,12 @@ definePage({
 
 `runLoad` 的四条语义：
 
-| 时机 | loading | refreshing | 内容 |
-| --- | --- | --- | --- |
-| 首屏 | true | false | 骨架屏 |
-| 已有数据再刷新 | false | true | **保留旧内容** |
-| 首屏失败 | false | false | errorText → 错误态 + 可重试 |
-| 刷新失败 | false | false | **保留旧内容** + toast |
+| 时机           | loading | refreshing | 内容                        |
+| -------------- | ------- | ---------- | --------------------------- |
+| 首屏           | true    | false      | 骨架屏                      |
+| 已有数据再刷新 | false   | true       | **保留旧内容**              |
+| 首屏失败       | false   | false      | errorText → 错误态 + 可重试 |
+| 刷新失败       | false   | false      | **保留旧内容** + toast      |
 
 数据源**整体换了**（如时段页换日期）要传 `force: true` 回骨架屏；`onPullDownRefresh` 一律用 `runPullDownLoad`（`finally` 保证下拉圈会停）。
 
@@ -228,15 +240,15 @@ definePage({
 
 当前状态（2026-09 排查过一遍）：
 
-| 页面 | 工具栏 | 状态 |
-| --- | --- | --- |
-| `services` 款式库 | 搜索 + 分类/排序 | ✅ 吸顶（用户反馈「筛选框滚走了」） |
-| `bookings` 我的预约 | 搜索 + 状态筛选 | ✅ 吸顶 |
-| `staff-bookings` 我的预约（工作台） | 日期条 + 状态筛选 | ✅ 吸顶 |
-| `coupons` 优惠券 | 可用/已用/过期页签 | ✅ 吸顶 |
-| `notices` 消息 | 页签 + 全部已读 | ✅ 吸顶 |
-| `staffs` 选美甲师 | 已选款式摘要 | ✅ 早就吸顶（`.summary`，本次未动） |
-| `favorites` 收藏 / `points` 积分 | 分类胶囊 | ⚠️ **故意不吸顶** —— 这两个页面的分类**还没接上筛选**（点了只 toast「待接口接入」），先别给死控件做吸顶 |
+| 页面                                | 工具栏             | 状态                                                                                                    |
+| ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `services` 款式库                   | 搜索 + 分类/排序   | ✅ 吸顶（用户反馈「筛选框滚走了」）                                                                     |
+| `bookings` 我的预约                 | 搜索 + 状态筛选    | ✅ 吸顶                                                                                                 |
+| `staff-bookings` 我的预约（工作台） | 日期条 + 状态筛选  | ✅ 吸顶                                                                                                 |
+| `coupons` 优惠券                    | 可用/已用/过期页签 | ✅ 吸顶                                                                                                 |
+| `notices` 消息                      | 页签 + 全部已读    | ✅ 吸顶                                                                                                 |
+| `staffs` 选美甲师                   | 已选款式摘要       | ✅ 早就吸顶（`.summary`，本次未动）                                                                     |
+| `favorites` 收藏 / `points` 积分    | 分类胶囊           | ⚠️ **故意不吸顶** —— 这两个页面的分类**还没接上筛选**（点了只 toast「待接口接入」），先别给死控件做吸顶 |
 
 另外一条同源的可用性问题：**固定底栏会盖住列表最后一屏**。带 `.action-bar` 的 13 个页面里，只有款式库漏了给列表补 `padding-bottom: 200rpx`（它是有条件出现的，所以跟着 `selectedCount` 走，没选款式时不留空白）。
 
@@ -246,15 +258,15 @@ definePage({
 
 `theme/presets.ts`（每套只给 5 个值，其余全部派生）：
 
-| id | name | emoji | primary | accent | bg | text |
-| --- | --- | --- | --- | --- | --- | --- |
-| `softlight`（默认 `DEFAULT_PRESET_ID`） | 柔光玫瑰 | 🌹 | `#B45F6B` | `#D8B4A6` | `#FBF5F0` | `#2D221E` |
-| `strawberry` | 草莓奶昔 | 🍓 | `#FF8BA7` | `#FFC2D1` | `#FFF5F8` | `#4A2C36` |
-| `peach` | 蜜桃气泡 | 🍑 | `#FF9E7D` | `#FFD3A5` | `#FFF7F2` | `#4A3328` |
-| `taro` | 紫芋波波 | 🍠 | `#A98BF5` | `#D9C8FF` | `#F8F5FF` | `#362B4A` |
-| `mint` | 薄荷奶绿 | 🌿 | `#4FC9A0` | `#B7EBD8` | `#F2FBF7` | `#23443A` |
-| `sky` | 天空棉花糖 | ☁️ | `#6FB6FF` | `#BBDCFF` | `#F3F8FF` | `#24384F` |
-| `lemon` | 柠檬芝士 | 🍋 | `#F5C242` | `#FFE79A` | `#FFFBF0` | `#4A3C1E` |
+| id                                      | name       | emoji | primary   | accent    | bg        | text      |
+| --------------------------------------- | ---------- | ----- | --------- | --------- | --------- | --------- |
+| `softlight`（默认 `DEFAULT_PRESET_ID`） | 柔光玫瑰   | 🌹    | `#B45F6B` | `#D8B4A6` | `#FBF5F0` | `#2D221E` |
+| `strawberry`                            | 草莓奶昔   | 🍓    | `#FF8BA7` | `#FFC2D1` | `#FFF5F8` | `#4A2C36` |
+| `peach`                                 | 蜜桃气泡   | 🍑    | `#FF9E7D` | `#FFD3A5` | `#FFF7F2` | `#4A3328` |
+| `taro`                                  | 紫芋波波   | 🍠    | `#A98BF5` | `#D9C8FF` | `#F8F5FF` | `#362B4A` |
+| `mint`                                  | 薄荷奶绿   | 🌿    | `#4FC9A0` | `#B7EBD8` | `#F2FBF7` | `#23443A` |
+| `sky`                                   | 天空棉花糖 | ☁️    | `#6FB6FF` | `#BBDCFF` | `#F3F8FF` | `#24384F` |
+| `lemon`                                 | 柠檬芝士   | 🍋    | `#F5C242` | `#FFE79A` | `#FFFBF0` | `#4A3C1E` |
 
 `softlight` 是设计稿配色（`docs/design.png` 像素采样）。10 色自定义色板 `CUSTOM_PALETTE`：樱花粉 / 珊瑚橘 / 蜂蜜黄 / 抹茶绿 / 海盐青 / 宝石蓝 / 鸢尾紫 / 莓果紫红 / 奶茶棕 / 雾感灰。
 
@@ -267,23 +279,28 @@ definePage({
 ```ts
 // theme/theme.ts
 export function toStyleString(input: ThemeTokens): string {
-  return Object.entries(input).map(([key, value]) => {
-    const kebab = key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
-    return `--c-${kebab}:${value}`;
-  }).join(';');
+  return Object.entries(input)
+    .map(([key, value]) => {
+      const kebab = key.replace(
+        /[A-Z]/g,
+        (letter) => `-${letter.toLowerCase()}`,
+      );
+      return `--c-${kebab}:${value}`;
+    })
+    .join(';');
 }
 ```
 
-| 令牌 | 派生规则 |
-| --- | --- |
-| `--c-primary` / `--c-primary-soft` / `--c-primary-deep` | 主色 / `mix(primary, card, 0.14)` / `darken(primary, 0.2)` |
-| `--c-on-primary` | `readableOn(primary)` → `#FFFFFF` 或 `#000000`（WCAG 相对亮度 > 0.62 用黑） |
-| `--c-accent` / `--c-accent-soft` / `--c-chip-bg` | 强调色 / `mix(accent, card, 0.35)` / `mix(accent, card, 0.22)` |
-| `--c-bg` / `--c-bg-soft` / `--c-card` | 预设背景 / `mix(primary, card, 0.04)` / 预设卡片色（预设均为 `#FFFFFF`） |
-| `--c-text` / `--c-text-sub` / `--c-text-weak` | 正文 / `mix(text, card, 0.56)` / `mix(text, card, 0.34)` |
-| `--c-border` | `mix(text, card, 0.09)`（中性暖色，避免整页泛粉） |
-| `--c-shadow` / `--c-shadow-strong` | `withAlpha(text, 0.06)` / `withAlpha(text, 0.1)` |
-| `--c-gradient` | `linear-gradient(135deg, lighten(accent,0.45) 0%, lighten(primary,0.78) 100%)` |
+| 令牌                                                    | 派生规则                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `--c-primary` / `--c-primary-soft` / `--c-primary-deep` | 主色 / `mix(primary, card, 0.14)` / `darken(primary, 0.2)`                     |
+| `--c-on-primary`                                        | `readableOn(primary)` → `#FFFFFF` 或 `#000000`（WCAG 相对亮度 > 0.62 用黑）    |
+| `--c-accent` / `--c-accent-soft` / `--c-chip-bg`        | 强调色 / `mix(accent, card, 0.35)` / `mix(accent, card, 0.22)`                 |
+| `--c-bg` / `--c-bg-soft` / `--c-card`                   | 预设背景 / `mix(primary, card, 0.04)` / 预设卡片色（预设均为 `#FFFFFF`）       |
+| `--c-text` / `--c-text-sub` / `--c-text-weak`           | 正文 / `mix(text, card, 0.56)` / `mix(text, card, 0.34)`                       |
+| `--c-border`                                            | `mix(text, card, 0.09)`（中性暖色，避免整页泛粉）                              |
+| `--c-shadow` / `--c-shadow-strong`                      | `withAlpha(text, 0.06)` / `withAlpha(text, 0.1)`                               |
+| `--c-gradient`                                          | `linear-gradient(135deg, lighten(accent,0.45) 0%, lighten(primary,0.78) 100%)` |
 
 派生全走 `utils/color.ts`：`normalizeHex` / `mix` / `lighten` / `darken` / `withAlpha` / `luminance` / `readableOn`。**自定义主色走同一套规则**（`buildTokensFromCustom`：`accent = lighten(primary, 0.42)`、`bg = mix(primary, '#FFFFFF', 0.07)`、`text = mix(primary, '#2B2B2B', 0.24)`），避免「预设好看、自定义翻车」。
 
@@ -294,8 +311,14 @@ function syncChrome(input: ThemeTokens): void {
   try {
     // 设计稿的导航栏是**奶油底色 + 深色标题**（不是主色底白字），
     // 所以这里用 bg 作底色、黑色作前景；主色只留给按钮与价格。
-    wx.setNavigationBarColor({ frontColor: '#000000', backgroundColor: input.bg, fail: () => {} });
-  } catch { /* 忽略：导航栏不是关键路径 */ }
+    wx.setNavigationBarColor({
+      frontColor: '#000000',
+      backgroundColor: input.bg,
+      fail: () => {},
+    });
+  } catch {
+    /* 忽略：导航栏不是关键路径 */
+  }
 }
 ```
 
@@ -329,20 +352,28 @@ const STAFF_TABS    = [ {pages/staff-workbench/index,工作台}, {pages/staff-bo
  * （授权还是 pending / 已经被停用）。这样店长撤权后，小程序下一次 `onShow`
  * 就自动落回顾客模式，不需要额外的同步逻辑，也不会让人卡在空白页。
  */
-export function getMode(): AppMode { return wx.getStorageSync(MODE_KEY) === 'staff' ? 'staff' : 'customer'; }
-export function isGranted(): boolean { return getStaffStatus() === 'active'; }
-export function isStaffMode(): boolean { return getMode() === 'staff' && isGranted(); }
-export function demoteToCustomer(): void { if (getMode() === 'staff') setMode('customer'); }
+export function getMode(): AppMode {
+  return wx.getStorageSync(MODE_KEY) === 'staff' ? 'staff' : 'customer';
+}
+export function isGranted(): boolean {
+  return getStaffStatus() === 'active';
+}
+export function isStaffMode(): boolean {
+  return getMode() === 'staff' && isGranted();
+}
+export function demoteToCustomer(): void {
+  if (getMode() === 'staff') setMode('customer');
+}
 ```
 
 授权状态只从**登录响应**（`staffStatus`）与**手机号绑定响应**来；每次进工作台页面时再用 `GET /app/staff/me` 复查（401/403 即失效）。服务端的表达方式见 [小程序 app 域实现](/backend/app-domain)。
 
-| 判断时机 | 谁来判断 |
-| --- | --- |
-| 应用启动 | `app.onLaunch` → `initTheme()` + `ensureLogin()`（登录响应回填 `staffStatus`） |
-| 每次页面 `onShow` | `definePage` → `syncTabBar(this)` → TabBar 的 `refresh()` |
-| TabBar 点击 | `onTap()`：乐观更新高亮 → 在途保护 → `switchTab` |
-| 进工作台页面 | `GET /app/staff/me` 复查；403 → `demoteToCustomer()` |
+| 判断时机          | 谁来判断                                                                       |
+| ----------------- | ------------------------------------------------------------------------------ |
+| 应用启动          | `app.onLaunch` → `initTheme()` + `ensureLogin()`（登录响应回填 `staffStatus`） |
+| 每次页面 `onShow` | `definePage` → `syncTabBar(this)` → TabBar 的 `refresh()`                      |
+| TabBar 点击       | `onTap()`：乐观更新高亮 → 在途保护 → `switchTab`                               |
+| 进工作台页面      | `GET /app/staff/me` 复查；403 → `demoteToCustomer()`                           |
 
 ::: danger TabBar 的两个真实 bug（改动前必读）
 `custom-tab-bar/index.ts` 的注释：
@@ -364,6 +395,7 @@ export function demoteToCustomer(): void { if (getMode() === 'staff') setMode('c
 6. **接口调用只走 `api/index.ts`**：页面不直接碰 `request()`；`api/types.ts` 是返回类型契约。
 
 ::: danger 门店信息目前是**前端常量**
+
 ```ts
 // config.ts
 /**
@@ -372,6 +404,7 @@ export function demoteToCustomer(): void { if (getMode() === 'staff') setMode('c
  */
 export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:00 - 20:00', phone: '13800000000', ... };
 ```
+
 门店名 / 电话 / 地址 / 营业时间改动需要重新发版。
 :::
 
@@ -379,20 +412,20 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 
 出处：代码注释与 `project-design/HANDOVER-miniapp.md`。
 
-| 项 | 状态 | 出处 |
-| --- | --- | --- |
-| **JSAPI 支付** | 后端 `POST /app/payments/wxpay/jsapi` 仍 **501**（P2 接通道）；支付页保留完整调用位 | `api/index.ts`、§11.4 |
-| **微信真凭据** | `.env` 未配 `WX_MINIAPP_APPID/SECRET`，开发期用 `WX_MINIAPP_FAKE=true`（**生产强制失效**）；上线前必须配真凭据 | §11.4 |
-| **真实微信链路** | `code2Session` / `getPhoneNumber` **完全没跑过真接口**（缺 AppSecret） | §2.2 |
-| **订阅消息模板** | 未申请（H10）；台账能记、发不出去 | §5、表注释 |
-| **优惠券建单接线** | `redeemForBooking()` 与 `quoteBooking` 的券支持已实现，**只差建单事务接线**；已勘察未实施 | §10 |
-| **核销二维码** | 不伪造（动态码必须服务端签名，否则客户端可离线造码）；现用卡号作凭据 | §9.4 |
-| **取消扣费金额** | app 域读不到判责规则（在 `RefundPort.preview`），取消页只写原则 | §9.4 |
-| **用户协议 / 隐私政策正文** | 需门店主体信息与手机号用途声明，**提审前必须替换** | §9.4 |
-| **真机验证** | 需人工扫码/操作；本轮以 `miniprogram-automator` 自动化为主 | §9.4 / §13.5 |
-| **会员卡页促销区 `.catch`** | 接口失败会被静默降级成「暂无可领的券」；下次应把「加载失败」与「确实没有」区分开 | §11.4 |
-| **`biz_booking.coupon_id` 外键** | 未加（与 `biz_customer_coupon.used_booking_id` 会形成互相 SET NULL 的环） | §11.4 |
-| **AppID** | `project.config.json` 是 `wx3d640f2645cb5dea`；`HANDOVER` §5 记录的是接口测试号 —— **上线前需人工确认** | 两处不一致 |
+| 项                               | 状态                                                                                                           | 出处                  |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **JSAPI 支付**                   | 后端 `POST /app/payments/wxpay/jsapi` 仍 **501**（P2 接通道）；支付页保留完整调用位                            | `api/index.ts`、§11.4 |
+| **微信真凭据**                   | `.env` 未配 `WX_MINIAPP_APPID/SECRET`，开发期用 `WX_MINIAPP_FAKE=true`（**生产强制失效**）；上线前必须配真凭据 | §11.4                 |
+| **真实微信链路**                 | `code2Session` / `getPhoneNumber` **完全没跑过真接口**（缺 AppSecret）                                         | §2.2                  |
+| **订阅消息模板**                 | 未申请（H10）；台账能记、发不出去                                                                              | §5、表注释            |
+| **优惠券建单接线**               | `redeemForBooking()` 与 `quoteBooking` 的券支持已实现，**只差建单事务接线**；已勘察未实施                      | §10                   |
+| **核销二维码**                   | 不伪造（动态码必须服务端签名，否则客户端可离线造码）；现用卡号作凭据                                           | §9.4                  |
+| **取消扣费金额**                 | app 域读不到判责规则（在 `RefundPort.preview`），取消页只写原则                                                | §9.4                  |
+| **用户协议 / 隐私政策正文**      | 需门店主体信息与手机号用途声明，**提审前必须替换**                                                             | §9.4                  |
+| **真机验证**                     | 需人工扫码/操作；本轮以 `miniprogram-automator` 自动化为主                                                     | §9.4 / §13.5          |
+| **会员卡页促销区 `.catch`**      | 接口失败会被静默降级成「暂无可领的券」；下次应把「加载失败」与「确实没有」区分开                               | §11.4                 |
+| **`biz_booking.coupon_id` 外键** | 未加（与 `biz_customer_coupon.used_booking_id` 会形成互相 SET NULL 的环）                                      | §11.4                 |
+| **AppID**                        | `project.config.json` 是 `wx3d640f2645cb5dea`；`HANDOVER` §5 记录的是接口测试号 —— **上线前需人工确认**        | 两处不一致            |
 
 ## 未完成清单（2026-09 盘点）
 
@@ -402,48 +435,48 @@ export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:0
 
 ### A. 已实现
 
-| 项 | 做了什么 |
-| --- | --- |
-| **顾客自助改资料** | 新增 `POST /app/member/profile`（白名单 name/gender/birthday，`.strict()` 拒白名单外字段）+ 新页 `pages/profile-edit` + 「我的」入口。**用 POST 而不是 PATCH**：`wx.request` 没有 PATCH |
+| 项                         | 做了什么                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **顾客自助改资料**         | 新增 `POST /app/member/profile`（白名单 name/gender/birthday，`.strict()` 拒白名单外字段）+ 新页 `pages/profile-edit` + 「我的」入口。**用 POST 而不是 PATCH**：`wx.request` 没有 PATCH                                                                                                                                                                                                                                                                                                                                                                                   |
 | **个人资料页（新设计稿）** | 头像（`/app/upload` 先传后存）+ 昵称 + 会员卡条（等级材质徽章 + 会员号 + 累计消费 + **服务端算的**升级进度「距 X 还差 ¥N」）+ 基本信息（昵称/姓名/性别/生日/**美甲偏好**）+ 账号与安全（手机号掩码 + 已验证 + 微信绑定）。`me` 新增 `nickname`/`avatar`/`preference`/`totalSpent`/`nextLevel`；迁移给 `biz_customer` 加 `preference`。**三类字段三条写路径**：昵称/头像写 `app_wx_user`，姓名/性别/生日/偏好走 `CustomerPort`，手机号只能走换绑链路。⚠️ **没做设计稿的「微信号」那一行**：我们只有 openid，微信也不提供读微信号的接口，编一个 `wxid_xxx` 就是伪造身份信息 |
-| **会员卡号** | `GET /app/member/me` 暴露真 `memberNo`；会员卡页不再拿 customerId 补零编一个假号 |
-| **会员卡分等级皮肤** | `me` 新增 `levelRank`（0 = 最低等级，与等级命名无关）；卡面按名次换四档皮肤（银/金/钻/曜石黑金）+ 金属描边 + 箔光 + 等级徽章 |
-| **收货地址** | 新表 `biz_customer_address` + `/app/member/addresses` 五个端点（列表/新增/编辑/删除/设默认）+ `pages/address` 真实 CRUD（列表 + 新增编辑弹层 + 默认徽标）。设计稿 batch4 第 6 屏 |
-| **款式收藏** | `biz_customer_favorite` + `/app/member/favorites` 三端点（列表/收藏/取消，**幂等**且返回目标状态）+ 款式详情的两态心形 + `pages/favorites` 两列宫格（**分类胶囊这次真能筛**，选项来自收藏里真实出现过的分类）。设计稿 batch4 第 4 屏 |
-| **积分兑换分类与配图** | `biz_points_goods` 加 `image`/`category` 并接到接口；`GET /app/points-goods?category=` 精确筛选 + 响应带 `categories` 清单；兑换页胶囊选项**来自数据**、切分类下推服务端；配图优先用门店上传的图。设计稿 batch4 第 3 屏 |
-| **次卡详情** | `GET /app/member/cards/:id`（**服务端算**剩余次数与可用性 + 不可用原因）+ `.../logs`（核销/撤销记录，带项目与美甲师）+ `pages/card-detail` 接真数据、分页「加载更多」。**核销码用卡号**：不伪造动态二维码（要服务端签名 + 工作台扫码端才有意义）。设计稿 batch4 第 2 屏 |
-| **充值中心** | `me` 新增 `totalRecharged`（充值流水**毛额**合计）；余额卡补上设计稿的「累计充值」，档位/自定义金额/合计实付均已就位。**「立即充值」仍如实提示**：余额充值属虚拟支付，受合规闸门与 JSAPI 501 契约位限制。设计稿 batch4 第 1 屏 |
-| **消息中心** | 迁移给 `sys_notice_template` 加 `category`；`NoticePort.customerInbox` + `markCustomerInboxRead`（只出 `channel='site'`）；`GET /app/notices`（分类 + 未读 + 分类清单）、单条已读、全部已读（可只清当前分类）。页签来自数据、点开乐观标已读。batch5 第 2 屏 |
-| **门店档案** | 7 个门店配置键进 `sys_config`（默认值与小程序原常量一致）+ `GET /app/shop`；门店改完最多 10 秒生效、不用发版；小程序首屏用常量、请求回来覆盖、**失败继续用常量**。 |
-| **取消页费用预览** | `GET /app/bookings/:id/refund-preview` 复用 `RefundPort.preview`，取消页显示**真实可退 / 扣除金额**（以前只能写「可能扣除部分定金」）。 |
-| **会员卡促销区降级** | 优惠券接口失败不再静默显示「暂无可领的券」，改为「加载失败 / 点这里重新加载」。 |
-| **意见反馈（文字通道）** | 新表 `biz_feedback` + `POST /app/feedback`：**不要求绑定手机号**（访客也有意见要说），**匿名提交一律落 `customer_id = null`**（记了身份再标匿名等于骗人）。batch5 第 4 屏 |
-| **C 端图片上传** | `POST /app/upload`（app token 域；后台 `/files/upload` 是后台 token，小程序打过去只会 401）+ `utils/upload.ts`（`wx.chooseMedia` → `wx.uploadFile`）。意见反馈三格图位、评价九格配图都接上了；反馈表加 `images` 列。**注意 `sys_file.created_by` 是 `sys_user` 外键**，C 端上传必须传 `undefined`，否则撞外键（实测 500），更糟的是可能记到别人名下 |
+| **会员卡号**               | `GET /app/member/me` 暴露真 `memberNo`；会员卡页不再拿 customerId 补零编一个假号                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **会员卡分等级皮肤**       | `me` 新增 `levelRank`（0 = 最低等级，与等级命名无关）；卡面按名次换四档皮肤（银/金/钻/曜石黑金）+ 金属描边 + 箔光 + 等级徽章                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **收货地址**               | 新表 `biz_customer_address` + `/app/member/addresses` 五个端点（列表/新增/编辑/删除/设默认）+ `pages/address` 真实 CRUD（列表 + 新增编辑弹层 + 默认徽标）。设计稿 batch4 第 6 屏                                                                                                                                                                                                                                                                                                                                                                                          |
+| **款式收藏**               | `biz_customer_favorite` + `/app/member/favorites` 三端点（列表/收藏/取消，**幂等**且返回目标状态）+ 款式详情的两态心形 + `pages/favorites` 两列宫格（**分类胶囊这次真能筛**，选项来自收藏里真实出现过的分类）。设计稿 batch4 第 4 屏                                                                                                                                                                                                                                                                                                                                      |
+| **积分兑换分类与配图**     | `biz_points_goods` 加 `image`/`category` 并接到接口；`GET /app/points-goods?category=` 精确筛选 + 响应带 `categories` 清单；兑换页胶囊选项**来自数据**、切分类下推服务端；配图优先用门店上传的图。设计稿 batch4 第 3 屏                                                                                                                                                                                                                                                                                                                                                   |
+| **次卡详情**               | `GET /app/member/cards/:id`（**服务端算**剩余次数与可用性 + 不可用原因）+ `.../logs`（核销/撤销记录，带项目与美甲师）+ `pages/card-detail` 接真数据、分页「加载更多」。**核销码用卡号**：不伪造动态二维码（要服务端签名 + 工作台扫码端才有意义）。设计稿 batch4 第 2 屏                                                                                                                                                                                                                                                                                                   |
+| **充值中心**               | `me` 新增 `totalRecharged`（充值流水**毛额**合计）；余额卡补上设计稿的「累计充值」，档位/自定义金额/合计实付均已就位。**「立即充值」仍如实提示**：余额充值属虚拟支付，受合规闸门与 JSAPI 501 契约位限制。设计稿 batch4 第 1 屏                                                                                                                                                                                                                                                                                                                                            |
+| **消息中心**               | 迁移给 `sys_notice_template` 加 `category`；`NoticePort.customerInbox` + `markCustomerInboxRead`（只出 `channel='site'`）；`GET /app/notices`（分类 + 未读 + 分类清单）、单条已读、全部已读（可只清当前分类）。页签来自数据、点开乐观标已读。batch5 第 2 屏                                                                                                                                                                                                                                                                                                               |
+| **门店档案**               | 7 个门店配置键进 `sys_config`（默认值与小程序原常量一致）+ `GET /app/shop`；门店改完最多 10 秒生效、不用发版；小程序首屏用常量、请求回来覆盖、**失败继续用常量**。                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **取消页费用预览**         | `GET /app/bookings/:id/refund-preview` 复用 `RefundPort.preview`，取消页显示**真实可退 / 扣除金额**（以前只能写「可能扣除部分定金」）。                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **会员卡促销区降级**       | 优惠券接口失败不再静默显示「暂无可领的券」，改为「加载失败 / 点这里重新加载」。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **意见反馈（文字通道）**   | 新表 `biz_feedback` + `POST /app/feedback`：**不要求绑定手机号**（访客也有意见要说），**匿名提交一律落 `customer_id = null`**（记了身份再标匿名等于骗人）。batch5 第 4 屏                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **C 端图片上传**           | `POST /app/upload`（app token 域；后台 `/files/upload` 是后台 token，小程序打过去只会 401）+ `utils/upload.ts`（`wx.chooseMedia` → `wx.uploadFile`）。意见反馈三格图位、评价九格配图都接上了；反馈表加 `images` 列。**注意 `sys_file.created_by` 是 `sys_user` 外键**，C 端上传必须传 `undefined`，否则撞外键（实测 500），更糟的是可能记到别人名下                                                                                                                                                                                                                       |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 
-| 项 | 现状 | 缺什么 | 量级 |
-| --- | --- | --- | --- |
-| **消息中心**（`pages/notices`） | 五个页签、卡片、空态按设计稿还原好了，但列表**恒为空** | `sys_notice_log` **已有** `recipient_type/recipient_id/read_at`；缺 `GET /app/notices`（分类 + 分页 + 未读数）与「标已读 / 全部已读」两个动作端点 | 中 |
-| **门店档案**（`pages/shop`、`config.ts` 的 `SHOP`） | 门店名/电话/地址/营业时间/经纬度都是**前端常量**，改一次要重新发版 | 缺 `GET /app/shop`；值可读 `sys_config`（门店名、电话、地址、营业时间），缺省回落现在的常量 | 小 |
-| **取消页扣费说明**（`pages/cancel`） | 只写原则，不显示具体扣多少 | app 域拿不到判责规则（在 `RefundPort.preview`）→ 加只读的 `GET /app/bookings/:id/refund-preview` | 小 |
-| **会员卡页促销区** | 接口失败被 `.catch` 降级成「暂无可领的券」 | 把「加载失败」与「确实没有」分开（前端改一处） | 小 |
+| 项                                                  | 现状                                                               | 缺什么                                                                                                                                            | 量级 |
+| --------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| **消息中心**（`pages/notices`）                     | 五个页签、卡片、空态按设计稿还原好了，但列表**恒为空**             | `sys_notice_log` **已有** `recipient_type/recipient_id/read_at`；缺 `GET /app/notices`（分类 + 分页 + 未读数）与「标已读 / 全部已读」两个动作端点 | 中   |
+| **门店档案**（`pages/shop`、`config.ts` 的 `SHOP`） | 门店名/电话/地址/营业时间/经纬度都是**前端常量**，改一次要重新发版 | 缺 `GET /app/shop`；值可读 `sys_config`（门店名、电话、地址、营业时间），缺省回落现在的常量                                                       | 小   |
+| **取消页扣费说明**（`pages/cancel`）                | 只写原则，不显示具体扣多少                                         | app 域拿不到判责规则（在 `RefundPort.preview`）→ 加只读的 `GET /app/bookings/:id/refund-preview`                                                  | 小   |
+| **会员卡页促销区**                                  | 接口失败被 `.catch` 降级成「暂无可领的券」                         | 把「加载失败」与「确实没有」分开（前端改一处）                                                                                                    | 小   |
 
 ### C. 仍需新表 / 新接口
 
-| 项 | 现状 | 需要 |
-| --- | --- | --- |
-| **意见反馈的门店处理页** | 反馈已能落库、带图、`status`/`reply` 字段都在，但**后台还没有页面**去看/回复 | web 后台加一个「意见反馈」列表页（`GET/POST /biz/feedbacks`），与其它后台页面同构 |
-| **充值下单** | 档位展示已有，点充值如实提示 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
+| 项                       | 现状                                                                         | 需要                                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **意见反馈的门店处理页** | 反馈已能落库、带图、`status`/`reply` 字段都在，但**后台还没有页面**去看/回复 | web 后台加一个「意见反馈」列表页（`GET/POST /biz/feedbacks`），与其它后台页面同构                                         |
+| **充值下单**             | 档位展示已有，点充值如实提示                                                 | app 域没有充值下单接口；且**要先过合规闸门**（`APP_SELF_PAY_ENABLED`）——余额充值走虚拟支付，是产品/法务决策，不只是写代码 |
 
 ### D. 做不了 / 不该做（不是缺陷）
 
-| 项 | 为什么 |
-| --- | --- |
-| **微信 JSAPI 支付** | 后端 `POST /app/payments/wxpay/jsapi` 是 **501 契约位**：要商户号 + 证书 + openid，等支付通道对接（P2）。支付页保留完整调用位 |
-| **自助支付（余额/次卡/积分）未放量** | 服务端合规闸门 + 灰度旋钮（管理端「参数配置」可改）；小程序**如实地**置灰并说明，这是设计行为 |
-| **门店照 / 美甲师头像 / 兑换品配图** | 目前是本地占位素材，等设计出图；不是逻辑缺陷 |
-| **隐私政策 / 用户协议正文** | 需门店主体信息与手机号用途声明，**提审前必须替换**（`pages/login` 里是占位文本） |
+| 项                                   | 为什么                                                                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| **微信 JSAPI 支付**                  | 后端 `POST /app/payments/wxpay/jsapi` 是 **501 契约位**：要商户号 + 证书 + openid，等支付通道对接（P2）。支付页保留完整调用位 |
+| **自助支付（余额/次卡/积分）未放量** | 服务端合规闸门 + 灰度旋钮（管理端「参数配置」可改）；小程序**如实地**置灰并说明，这是设计行为                                 |
+| **门店照 / 美甲师头像 / 兑换品配图** | 目前是本地占位素材，等设计出图；不是逻辑缺陷                                                                                  |
+| **隐私政策 / 用户协议正文**          | 需门店主体信息与手机号用途声明，**提审前必须替换**（`pages/login` 里是占位文本）                                              |
 
 ## 相关页面
 

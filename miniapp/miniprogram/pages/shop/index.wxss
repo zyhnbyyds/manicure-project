@@ -92,7 +92,6 @@
   color: var(--c-text-sub);
 }
 
-
 /* ── 门店公告（来源：后台参数配置 `biz.shop.notice`） ─────── */
 
 .notice-bar {

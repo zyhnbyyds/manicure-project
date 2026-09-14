@@ -19,10 +19,10 @@ title: 测试策略与验收标准
 
 ### 1.1 两类测试
 
-| 类型 | 路径约定 | 命名 | 运行方式 | 是否连真库 |
-| --- | --- | --- | --- | --- |
-| 单元测试 | 与源码**同目录** | `*.spec.ts` | `bun test` | ❌ 不连（mock db / 纯函数） |
-| 集成测试 | `tests/integration/` | `*.int.spec.ts` | `bun test` | ✅ 真实 MySQL + 真 HTTP |
+| 类型     | 路径约定             | 命名            | 运行方式   | 是否连真库                  |
+| -------- | -------------------- | --------------- | ---------- | --------------------------- |
+| 单元测试 | 与源码**同目录**     | `*.spec.ts`     | `bun test` | ❌ 不连（mock db / 纯函数） |
+| 集成测试 | `tests/integration/` | `*.int.spec.ts` | `bun test` | ✅ 真实 MySQL + 真 HTTP     |
 
 单元测试与源码同目录的例子：`src/modules/biz/common/money.spec.ts`、
 `src/modules/biz/booking/bookings.service.spec.ts`、`web/src/utils/upload-images.spec.ts`、
@@ -33,14 +33,14 @@ validation / guard / 事务 / 过滤器全是真的（见 `tests/integration/har
 
 ### 1.2 真实文件数（用 glob 数出来的）
 
-| 范围 | 模式 | 文件数 |
-| --- | --- | --- |
-| 后端单测 | `src/**/*.spec.ts` | 85 |
-| 后台前端单测 | `web/src/**/*.spec.ts` | 4 |
-| 小程序单测 | `miniapp/miniprogram/**/*.spec.ts` | 1 |
-| **单元测试小计** | — | **90** |
-| 集成测试 | `tests/integration/*.int.spec.ts` | 20 |
-| **合计测试文件** | — | **110** |
+| 范围             | 模式                               | 文件数  |
+| ---------------- | ---------------------------------- | ------- |
+| 后端单测         | `src/**/*.spec.ts`                 | 85      |
+| 后台前端单测     | `web/src/**/*.spec.ts`             | 4       |
+| 小程序单测       | `miniapp/miniprogram/**/*.spec.ts` | 1       |
+| **单元测试小计** | —                                  | **90**  |
+| 集成测试         | `tests/integration/*.int.spec.ts`  | 20      |
+| **合计测试文件** | —                                  | **110** |
 
 复现命令：
 
@@ -65,29 +65,30 @@ find tests/integration -name '*.int.spec.ts' | wc -l
 ```bash
 bun run test
 ```
+
 :::
 
 ### 1.3 集成测试文件与覆盖范围
 
-| 文件 | 覆盖（对应批次） |
-| --- | --- |
-| `b1-booking.int.spec.ts` | 可约时段 / 缓冲对称性 / 时区 / 格子与班次校验 / **并发恰好 1 成功** / 单号唯一 / 排班冲突保护 / 定时任务幂等（B1） |
-| `b2-b3-money.int.spec.ts` | 算价与等级折扣 / 账务不变量 / 充值 / **并发余额支付不为负** / 次卡 / 积分兑换 / 定金尾款 / 混合支付 / 退款判责审批 / 对账差异（B2、B3） |
-| `b3-online-settle.int.spec.ts` | 在线渠道结算：pending 单 + 渠道下单 + `code_url`；**渠道未配置 → 409 且不留 pending 单** |
-| `b3-refund-reserve.int.spec.ts` | 退款额度预留：渠道失败必须释放、成功占用、第二笔不过额 |
-| `b4-b6.int.spec.ts` | 挂账额度与 used_amount / 销账 / 提成计提与结算 / 净营收可复核 / 评价一单一评 / 周期预约 / 美甲师可做项目 / 通知未配置降级 / app 域双向拒绝（B4、B5、B6） |
-| `b6-app-identity.int.spec.ts` | 登录换 token、openid 唯一、手机号绑定与软删 409、换绑留痕、工作台申请/审批/只读面/写操作（B6） |
-| `b6-app-contract.int.spec.ts` | 501 骨架清单与不落库断言、`/app/member/me` 字段集合与越权、我的次卡、评价、订阅授权、未配置凭据 503、自助下单/取消、充值档位（B6） |
-| `b6-app-ratelimit-swagger.int.spec.ts` | 登录限流 429 + `retry-after`、限流按路由收紧、Swagger app 分组（B6） |
-| `b6-app-wxpay-notify.int.spec.ts` | **真验签 + 真 AES-GCM 解密**的回调发货/幂等/金额不一致/签名篡改/缺头/迟到回调（B6） |
-| `b7-coupon-template.int.spec.ts` | 券模板 CRUD、同名 409、停用不影响已发券（B7） |
-| `b7-coupon-issue.int.spec.ts` | 后台发券、重复发放允许、并发单号唯一（B7） |
-| `b7-coupon-claim.int.spec.ts` | 顾客自助领券、重复领 409、**并发领恰好一次**（B7） |
-| `b7-coupon-redeem.int.spec.ts` | 券核销：门槛、过期、归属、**并发核销恰好一次**（B7） |
-| `b7-coupon-booking.int.spec.ts` | 券接入建单：应付金额、券积分二选一 400、未达门槛不消耗券、**并发用同一张券恰好一单成功**（B7） |
-| `b7-app-coupons.int.spec.ts` | app 我的优惠券：字段白名单、过期现算、数据隔离（B7） |
-| `b7-app-booking-detail.int.spec.ts` | 订单详情：他人单统一 404、积分换算与上限以后端为准（B7） |
-| `e2e-full-flow.int.spec.ts` | **全流程 E2E**（唯一一条不是按模块切片的）：真登录 → 建基础数据 → 顾客入会充值 → 定金下单 → 到店 → 积分+余额+现金混合结清 → 次卡核销第二单 → 完成计提成 → 评价 → 报表复核 → 退款冲减。有状态、必须顺序跑 |
+| 文件                                   | 覆盖（对应批次）                                                                                                                                                                                         |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `b1-booking.int.spec.ts`               | 可约时段 / 缓冲对称性 / 时区 / 格子与班次校验 / **并发恰好 1 成功** / 单号唯一 / 排班冲突保护 / 定时任务幂等（B1）                                                                                       |
+| `b2-b3-money.int.spec.ts`              | 算价与等级折扣 / 账务不变量 / 充值 / **并发余额支付不为负** / 次卡 / 积分兑换 / 定金尾款 / 混合支付 / 退款判责审批 / 对账差异（B2、B3）                                                                  |
+| `b3-online-settle.int.spec.ts`         | 在线渠道结算：pending 单 + 渠道下单 + `code_url`；**渠道未配置 → 409 且不留 pending 单**                                                                                                                 |
+| `b3-refund-reserve.int.spec.ts`        | 退款额度预留：渠道失败必须释放、成功占用、第二笔不过额                                                                                                                                                   |
+| `b4-b6.int.spec.ts`                    | 挂账额度与 used_amount / 销账 / 提成计提与结算 / 净营收可复核 / 评价一单一评 / 周期预约 / 美甲师可做项目 / 通知未配置降级 / app 域双向拒绝（B4、B5、B6）                                                 |
+| `b6-app-identity.int.spec.ts`          | 登录换 token、openid 唯一、手机号绑定与软删 409、换绑留痕、工作台申请/审批/只读面/写操作（B6）                                                                                                           |
+| `b6-app-contract.int.spec.ts`          | 501 骨架清单与不落库断言、`/app/member/me` 字段集合与越权、我的次卡、评价、订阅授权、未配置凭据 503、自助下单/取消、充值档位（B6）                                                                       |
+| `b6-app-ratelimit-swagger.int.spec.ts` | 登录限流 429 + `retry-after`、限流按路由收紧、Swagger app 分组（B6）                                                                                                                                     |
+| `b6-app-wxpay-notify.int.spec.ts`      | **真验签 + 真 AES-GCM 解密**的回调发货/幂等/金额不一致/签名篡改/缺头/迟到回调（B6）                                                                                                                      |
+| `b7-coupon-template.int.spec.ts`       | 券模板 CRUD、同名 409、停用不影响已发券（B7）                                                                                                                                                            |
+| `b7-coupon-issue.int.spec.ts`          | 后台发券、重复发放允许、并发单号唯一（B7）                                                                                                                                                               |
+| `b7-coupon-claim.int.spec.ts`          | 顾客自助领券、重复领 409、**并发领恰好一次**（B7）                                                                                                                                                       |
+| `b7-coupon-redeem.int.spec.ts`         | 券核销：门槛、过期、归属、**并发核销恰好一次**（B7）                                                                                                                                                     |
+| `b7-coupon-booking.int.spec.ts`        | 券接入建单：应付金额、券积分二选一 400、未达门槛不消耗券、**并发用同一张券恰好一单成功**（B7）                                                                                                           |
+| `b7-app-coupons.int.spec.ts`           | app 我的优惠券：字段白名单、过期现算、数据隔离（B7）                                                                                                                                                     |
+| `b7-app-booking-detail.int.spec.ts`    | 订单详情：他人单统一 404、积分换算与上限以后端为准（B7）                                                                                                                                                 |
+| `e2e-full-flow.int.spec.ts`            | **全流程 E2E**（唯一一条不是按模块切片的）：真登录 → 建基础数据 → 顾客入会充值 → 定金下单 → 到店 → 积分+余额+现金混合结清 → 次卡核销第二单 → 完成计提成 → 评价 → 报表复核 → 退款冲减。有状态、必须顺序跑 |
 
 ### 1.4 全流程 E2E（`e2e-full-flow.int.spec.ts`）
 
@@ -110,17 +111,17 @@ bun test tests/integration/e2e-full-flow.int.spec.ts   # 11 步 / 约 2.5s
 
 顺带被这条用例钉住的几个**实际语义**（与直觉不同、容易写错断言的那种）：
 
-| 行为 | 真实语义 |
-| --- | --- |
-| `arrive` 重复调用 | **409**（`transition()` 的 WHERE 带 `status IN (allowed)`）；「幂等」指条件更新不会二次生效，不是重复调用也回 200 |
-| `POST /biz/*/preview` 类只读接口 | 走 POST 默认 **201**，不是 200 |
-| 报表 `/reports/services` | 返回**裸数组**，不是 `{ items }` 分页壳；字段是 `times` / `cardTimes`，不是 `count` |
-| 重复审批退款 | 不报错，回 `{ handled: true, message: '该退款单已处理' }`，且不二次退款 |
-| 余额支付扣减顺序 | 默认先扣**赠送**（`biz.member.bonusDeductMode`），本金不动 |
-| 结算时消费 | **会返积分**（`points_earn`），所以断言积分余额要连带抵扣一起算，或直接断言「积分 = 流水累计」 |
-| 建单响应 | 只回 id 之类的壳，价格等字段要**回读详情** |
-| `b7-app-points-goods.int.spec.ts` | 积分兑换品目录：401、未绑定可读、上下架、字段白名单（B7） |
-| `b7-app-points-redeem.int.spec.ts` | 积分兑换：积分不足、扣积分与发卡同事务、**并发恰好一次**、每人限兑（B7） |
+| 行为                               | 真实语义                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `arrive` 重复调用                  | **409**（`transition()` 的 WHERE 带 `status IN (allowed)`）；「幂等」指条件更新不会二次生效，不是重复调用也回 200 |
+| `POST /biz/*/preview` 类只读接口   | 走 POST 默认 **201**，不是 200                                                                                    |
+| 报表 `/reports/services`           | 返回**裸数组**，不是 `{ items }` 分页壳；字段是 `times` / `cardTimes`，不是 `count`                               |
+| 重复审批退款                       | 不报错，回 `{ handled: true, message: '该退款单已处理' }`，且不二次退款                                           |
+| 余额支付扣减顺序                   | 默认先扣**赠送**（`biz.member.bonusDeductMode`），本金不动                                                        |
+| 结算时消费                         | **会返积分**（`points_earn`），所以断言积分余额要连带抵扣一起算，或直接断言「积分 = 流水累计」                    |
+| 建单响应                           | 只回 id 之类的壳，价格等字段要**回读详情**                                                                        |
+| `b7-app-points-goods.int.spec.ts`  | 积分兑换品目录：401、未绑定可读、上下架、字段白名单（B7）                                                         |
+| `b7-app-points-redeem.int.spec.ts` | 积分兑换：积分不足、扣积分与发卡同事务、**并发恰好一次**、每人限兑（B7）                                          |
 
 辅助文件（不是用例）：`tests/integration/harness.ts`（环境与上下文）、
 `tests/integration/wxpay-notify.helper.ts`（造微信支付回调签名与密文）。
@@ -178,16 +179,16 @@ SMS_PROVIDER=none
 `DATABASE_URL` / `JWT_*` **且不还原**。集成测试如果直接吃 `process.env`，整套用例会连到错误的库、
 或因密钥太短启动失败。所以 harness 从 env 文件**重铺一遍**，保证与文件执行顺序无关：
 
-| 变量 | 值 | 原因 |
-| --- | --- | --- |
-| `NODE_ENV` | `test` | 走测试分支 |
-| `DATABASE_URL` | 推导出的测试库 | 隔离 |
-| `SWAGGER_ENABLED` | `false` | 不建文档 |
-| `AI_ENABLED` | `false` | 不外呼 LLM |
-| `SMS_PROVIDER` | `none` | 不发短信 |
-| `WX_MINIAPP_FAKE` | `true` | 集成测试不可能连微信域名 |
-| `WXPAY_*` | **每次进程现造一对 RSA 密钥** | 回调要跑真验签 + 真 AES-GCM，不是假 provider |
-| `REDIS_URL` | **`delete`** | 空串会让 `z.url()` 校验失败；Redis 是可选依赖 |
+| 变量              | 值                            | 原因                                          |
+| ----------------- | ----------------------------- | --------------------------------------------- |
+| `NODE_ENV`        | `test`                        | 走测试分支                                    |
+| `DATABASE_URL`    | 推导出的测试库                | 隔离                                          |
+| `SWAGGER_ENABLED` | `false`                       | 不建文档                                      |
+| `AI_ENABLED`      | `false`                       | 不外呼 LLM                                    |
+| `SMS_PROVIDER`    | `none`                        | 不发短信                                      |
+| `WX_MINIAPP_FAKE` | `true`                        | 集成测试不可能连微信域名                      |
+| `WXPAY_*`         | **每次进程现造一对 RSA 密钥** | 回调要跑真验签 + 真 AES-GCM，不是假 provider  |
+| `REDIS_URL`       | **`delete`**                  | 空串会让 `z.url()` 校验失败；Redis 是可选依赖 |
 
 ::: warning 测试专用开关要写进 `applyTestEnv`
 `.env.test` **未入库**，所以任何"只在测试里生效"的开关都必须写进 `harness.ts` 的 `applyTestEnv`，
@@ -198,14 +199,14 @@ SMS_PROVIDER=none
 
 `beforeEach` 里逐用例调用（例：`b1-booking.int.spec.ts` 的 `beforeEach`），真实实现要点：
 
-| 要点 | 说明 |
-| --- | --- |
-| **用 `DELETE` 而不是 `TRUNCATE`** | 本机实测 37 张表：`TRUNCATE` 合计 **4067ms**、`DELETE` 合计 **56ms**，**差 73 倍**。`TRUNCATE` 是 DDL（DROP + CREATE 重建表）。整套回归因此 **~530 秒 → ~18 秒** |
-| **代价：不重置 `AUTO_INCREMENT`** | 用例一律用 `insertId`，**不要断言固定 id** |
+| 要点                                  | 说明                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **用 `DELETE` 而不是 `TRUNCATE`**     | 本机实测 37 张表：`TRUNCATE` 合计 **4067ms**、`DELETE` 合计 **56ms**，**差 73 倍**。`TRUNCATE` 是 DDL（DROP + CREATE 重建表）。整套回归因此 **~530 秒 → ~18 秒**   |
+| **代价：不重置 `AUTO_INCREMENT`**     | 用例一律用 `insertId`，**不要断言固定 id**                                                                                                                         |
 | **整个 reset 必须在同一条连接上跑完** | `SET FOREIGN_KEY_CHECKS` 是**会话级**的，而连接池有 10 条连接；`pool.query` 可能换连接，那句 SET 形同虚设。实现用 `pool.getConnection()` + `try/finally release()` |
-| 清理范围 | `information_schema.tables` 里 `biz\_%` / `app\_%` / `sys\_notice\_%` / `sys\_job\_log` |
-| 顺带停用定时任务 | `UPDATE sys_job SET status = 'disabled'`，否则 CronJob 会在用例中途改数据 |
-| 外键顺序 | 关掉 `FOREIGN_KEY_CHECKS` 后逐表 `DELETE`，**因此不依赖删除顺序**；但顺序在"开着外键约束"的脚本里必须按依赖倒序 |
+| 清理范围                              | `information_schema.tables` 里 `biz\_%` / `app\_%` / `sys\_notice\_%` / `sys\_job\_log`                                                                            |
+| 顺带停用定时任务                      | `UPDATE sys_job SET status = 'disabled'`，否则 CronJob 会在用例中途改数据                                                                                          |
+| 外键顺序                              | 关掉 `FOREIGN_KEY_CHECKS` 后逐表 `DELETE`，**因此不依赖删除顺序**；但顺序在"开着外键约束"的脚本里必须按依赖倒序                                                    |
 
 ### 2.4 运行方式与注意事项
 
@@ -240,46 +241,46 @@ bun run test:coverage
 
 ### 3.1 并发抢单（`FOR UPDATE` 行锁）
 
-| 项 | 内容 |
-| --- | --- |
-| **为什么单测测不出来** | 单测里的 db 是 mock，`FOR UPDATE` 没有任何语义；「10 个请求并发」在单进程 mock 里根本不存在真实的锁等待 |
-| **集成测试怎么构造** | 真库 + `Promise.all` 打 10 个同美甲师同时段创建请求，断言**恰好 1 个 201、9 个 409**；单号并发唯一用同一手法断言 `B{yyyyMMdd}{id}` 不重复 |
-| **测试文件** | `tests/integration/b1-booking.int.spec.ts`（`并发 10 个同一美甲师同时段创建 → 恰好 1 个成功`、`并发创建的单号唯一`） |
+| 项                     | 内容                                                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **为什么单测测不出来** | 单测里的 db 是 mock，`FOR UPDATE` 没有任何语义；「10 个请求并发」在单进程 mock 里根本不存在真实的锁等待                                   |
+| **集成测试怎么构造**   | 真库 + `Promise.all` 打 10 个同美甲师同时段创建请求，断言**恰好 1 个 201、9 个 409**；单号并发唯一用同一手法断言 `B{yyyyMMdd}{id}` 不重复 |
+| **测试文件**           | `tests/integration/b1-booking.int.spec.ts`（`并发 10 个同一美甲师同时段创建 → 恰好 1 个成功`、`并发创建的单号唯一`）                      |
 
 同类并发闸门还有：同一张券并发核销 / 并发用券下单、并发领券、并发发券单号、并发积分兑换 ——
 分别见 `b7-coupon-redeem` / `b7-coupon-booking` / `b7-coupon-claim` / `b7-coupon-issue` / `b7-app-points-redeem`。
 
 ### 3.2 幂等重放（回调重复、请求重放）
 
-| 项 | 内容 |
-| --- | --- |
+| 项                     | 内容                                                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **为什么单测测不出来** | 幂等靠**条件更新的 `affectedRows`**实现。单测能用 `affectedRows: 0` 队列覆盖分支，但"同一行被真的更新过两次"这件事只有真库能证明；渠道回调还带真验签 |
-| **集成测试怎么构造** | ① 同一支付回调**连发 3 次**，断言只有 1 次发货、`paid_amount` 不变；② 重复完成预约 `changed:false` 且提成记录仍为 1 条；③ 定时任务连跑两次无副作用 |
-| **测试文件** | `b6-app-wxpay-notify.int.spec.ts`（重复通知幂等）、`b6-app-identity.int.spec.ts`（重复到店/完成）、`b1-booking.int.spec.ts`（定时任务重复执行） |
+| **集成测试怎么构造**   | ① 同一支付回调**连发 3 次**，断言只有 1 次发货、`paid_amount` 不变；② 重复完成预约 `changed:false` 且提成记录仍为 1 条；③ 定时任务连跑两次无副作用   |
+| **测试文件**           | `b6-app-wxpay-notify.int.spec.ts`（重复通知幂等）、`b6-app-identity.int.spec.ts`（重复到店/完成）、`b1-booking.int.spec.ts`（定时任务重复执行）      |
 
 ### 3.3 时区与营业日边界
 
-| 项 | 内容 |
-| --- | --- |
-| **为什么单测测不出来** | 纯函数单测（`shop-time.spec.ts`）只能测函数本身；"进程 `TZ` 变化后整条 HTTP 链路结果不变" 依赖真实日期运算 + DB 存储 + 序列化三层 |
-| **集成测试怎么构造** | 断言店内本地日 `2026-09-11` 的时段落在 `[2026-09-10T16:00Z, 2026-09-11T16:00Z)`，且返回的是**带 `+08:00` 偏移的 ISO8601**；用例日期用 `addLocalDays(shopToday(), 3)` 相对偏移，**不依赖"现在几点"**；`startAt` 无时区偏移 → 400（禁止 `new Date('YYYY-MM-DD')` 类误用） |
-| **测试文件** | `tests/integration/b1-booking.int.spec.ts`（`时段落在店内本地日区间内，且是带 +08:00 偏移的 ISO8601` 等） |
+| 项                     | 内容                                                                                                                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **为什么单测测不出来** | 纯函数单测（`shop-time.spec.ts`）只能测函数本身；"进程 `TZ` 变化后整条 HTTP 链路结果不变" 依赖真实日期运算 + DB 存储 + 序列化三层                                                                                                                                       |
+| **集成测试怎么构造**   | 断言店内本地日 `2026-09-11` 的时段落在 `[2026-09-10T16:00Z, 2026-09-11T16:00Z)`，且返回的是**带 `+08:00` 偏移的 ISO8601**；用例日期用 `addLocalDays(shopToday(), 3)` 相对偏移，**不依赖"现在几点"**；`startAt` 无时区偏移 → 400（禁止 `new Date('YYYY-MM-DD')` 类误用） |
+| **测试文件**           | `tests/integration/b1-booking.int.spec.ts`（`时段落在店内本地日区间内，且是带 +08:00 偏移的 ISO8601` 等）                                                                                                                                                               |
 
 ### 3.4 资金不变量（余额 / 积分 / 次卡 / 销账不得越界）
 
-| 项 | 内容 |
-| --- | --- |
-| **为什么单测测不出来** | mock 的 `affectedRows` 队列只能证明"代码走了哪条分支"，不能证明"库里余额真的没被扣成负数"。不变量是**对表数据的断言**，不是对调用序列的断言 |
-| **集成测试怎么构造** | ① 流水与余额对账等式：`SUM(balance_delta_principal) = balance_principal`、`SUM(points_delta) = points`；② **并发 10 笔余额支付**，只成功到余额用尽，余额永不为负；③ 次卡用完 10 次 → `used_up`、第 11 次被拒、撤销回补；④ 退款额度预留：渠道失败必须释放、第二笔在打渠道前就被拒 |
-| **测试文件** | `b2-b3-money.int.spec.ts`、`b3-refund-reserve.int.spec.ts`、`b4-b6.int.spec.ts`（挂账额度与销账不超额） |
+| 项                     | 内容                                                                                                                                                                                                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **为什么单测测不出来** | mock 的 `affectedRows` 队列只能证明"代码走了哪条分支"，不能证明"库里余额真的没被扣成负数"。不变量是**对表数据的断言**，不是对调用序列的断言                                                                                                                                      |
+| **集成测试怎么构造**   | ① 流水与余额对账等式：`SUM(balance_delta_principal) = balance_principal`、`SUM(points_delta) = points`；② **并发 10 笔余额支付**，只成功到余额用尽，余额永不为负；③ 次卡用完 10 次 → `used_up`、第 11 次被拒、撤销回补；④ 退款额度预留：渠道失败必须释放、第二笔在打渠道前就被拒 |
+| **测试文件**           | `b2-b3-money.int.spec.ts`、`b3-refund-reserve.int.spec.ts`、`b4-b6.int.spec.ts`（挂账额度与销账不超额）                                                                                                                                                                          |
 
 ### 3.5 渠道回调验签
 
-| 项 | 内容 |
-| --- | --- |
-| **为什么单测测不出来** | 单测用的是 **mock provider**，与真实 provider 的应答状态码会分叉（本项目真踩过：mock 的 `failureReply` 返回 500、真实实现返回 200，导致"失败必须回 4xx"这条红线测试全绿而实现是错的） |
-| **集成测试怎么构造** | harness **每次进程现造一对 RSA 密钥**：公钥通过 `WXPAY_PLATFORM_PUBLIC_KEY` 注入 provider（免联网拉平台证书），私钥留给测试造签名 → 跑**真验签 + 真 AES-GCM 解密**。覆盖：验签通过发货、金额不一致拒绝并写 `callback_invalid`、签名篡改一毛不动、缺验签头必须 4xx、本地已关单的迟到回调仍要落地 |
-| **测试文件** | `tests/integration/b6-app-wxpay-notify.int.spec.ts`（含后台 `/biz/payments/notify/wxpay` 补测）、`src/modules/biz/payment/channels/channel-reply.spec.ts`（契约直接测真实实现） |
+| 项                     | 内容                                                                                                                                                                                                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **为什么单测测不出来** | 单测用的是 **mock provider**，与真实 provider 的应答状态码会分叉（本项目真踩过：mock 的 `failureReply` 返回 500、真实实现返回 200，导致"失败必须回 4xx"这条红线测试全绿而实现是错的）                                                                                                           |
+| **集成测试怎么构造**   | harness **每次进程现造一对 RSA 密钥**：公钥通过 `WXPAY_PLATFORM_PUBLIC_KEY` 注入 provider（免联网拉平台证书），私钥留给测试造签名 → 跑**真验签 + 真 AES-GCM 解密**。覆盖：验签通过发货、金额不一致拒绝并写 `callback_invalid`、签名篡改一毛不动、缺验签头必须 4xx、本地已关单的迟到回调仍要落地 |
+| **测试文件**           | `tests/integration/b6-app-wxpay-notify.int.spec.ts`（含后台 `/biz/payments/notify/wxpay` 补测）、`src/modules/biz/payment/channels/channel-reply.spec.ts`（契约直接测真实实现）                                                                                                                 |
 
 **Context 的两处已知差异**（`TestContextOptions`）：默认 context **不注册**
 `@fastify/rate-limit`、helmet / multipart（G9 限流"代码写了但没验过"的根因由此而来）。
@@ -370,13 +371,13 @@ spec §12 只写到 B6，但仓库里 **`tests/integration/b7-*.int.spec.ts` 有
 
 ### 5.1 五件套
 
-| 件 | 要求 | 怎么验 |
-| --- | --- | --- |
-| **代码** | 分层正确、事务内用 `tx`、全部资金写入走条件更新 | 代码评审 + `bun run typecheck` |
-| **迁移** | 新表/新列必须 `bun run db:generate` 生成，**不手写 SQL** | `src/database/migrations/` 出现新目录；生成后**肉眼扫一遍 SQL** |
-| **Seed** | 权限点写进 `src/database/seed/menus.ts`；业务默认值进 `seed/biz.ts` / `seed/nail.ts` | 重跑 `bun run db:seed:menus`，前端路由能自动生成 |
-| **测试** | 本次改动对应的验收条目**逐条跑过**；并发/幂等/时区必须有集成用例 | `bun run test` + 记录（集成输出或手测截图） |
-| **文档** | 页面/接口/口径变化同步到 `dev-docs/`；踩到新坑追加进 `project-design/pitfalls/` | 评审时对照 |
+| 件       | 要求                                                                                 | 怎么验                                                          |
+| -------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| **代码** | 分层正确、事务内用 `tx`、全部资金写入走条件更新                                      | 代码评审 + `bun run typecheck`                                  |
+| **迁移** | 新表/新列必须 `bun run db:generate` 生成，**不手写 SQL**                             | `src/database/migrations/` 出现新目录；生成后**肉眼扫一遍 SQL** |
+| **Seed** | 权限点写进 `src/database/seed/menus.ts`；业务默认值进 `seed/biz.ts` / `seed/nail.ts` | 重跑 `bun run db:seed:menus`，前端路由能自动生成                |
+| **测试** | 本次改动对应的验收条目**逐条跑过**；并发/幂等/时区必须有集成用例                     | `bun run test` + 记录（集成输出或手测截图）                     |
+| **文档** | 页面/接口/口径变化同步到 `dev-docs/`；踩到新坑追加进 `project-design/pitfalls/`      | 评审时对照                                                      |
 
 改了主链路（下单 / 结算 / 会员账务 / 退款 / 报表口径）时，上面那条「测试」再加一步：
 **跑一遍全流程 E2E**，确认串起来还能走通。
@@ -405,15 +406,15 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 
 ### 5.3 回归清单：改了这些就必须重跑
 
-| 改动面 | 必须重跑 |
-| --- | --- |
-| 算价 / 折扣 / 积分 / 券 | `b2-b3-money.int.spec.ts`、`b7-coupon-booking.int.spec.ts`、`b7-app-booking-detail.int.spec.ts`、`src/modules/biz/common/money.spec.ts` |
-| 余额 / 积分 / 次卡 / 应收的任何写入 | `b2-b3-money.int.spec.ts`、`b4-b6.int.spec.ts`、`b7-app-points-redeem.int.spec.ts` |
-| 可约时段 / 冲突 / 锁 | `b1-booking.int.spec.ts`、`b4-b6.int.spec.ts`（美甲师项目限制） |
-| 排班 / 请假 / 主数据 | `b1-booking.int.spec.ts`（冲突保护段） |
-| 支付 / 退款 / 回调 / 对账 | `b3-online-settle.int.spec.ts`、`b3-refund-reserve.int.spec.ts`、`b6-app-wxpay-notify.int.spec.ts`、`src/modules/biz/payment/channels/channel-reply.spec.ts` |
-| 权限点 / 守卫 / app 域边界 | `b4-b6.int.spec.ts`、`b6-app-identity.int.spec.ts`、`b6-app-contract.int.spec.ts`、`src/common/auth/access-token.guard.spec.ts` |
-| `ports.ts` / `biz.module.ts` 的端口绑定 | **必须真启动一次服务**（`typecheck` 是绿的，漏 `exports` 只有启动才暴露） |
+| 改动面                                  | 必须重跑                                                                                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 算价 / 折扣 / 积分 / 券                 | `b2-b3-money.int.spec.ts`、`b7-coupon-booking.int.spec.ts`、`b7-app-booking-detail.int.spec.ts`、`src/modules/biz/common/money.spec.ts`                      |
+| 余额 / 积分 / 次卡 / 应收的任何写入     | `b2-b3-money.int.spec.ts`、`b4-b6.int.spec.ts`、`b7-app-points-redeem.int.spec.ts`                                                                           |
+| 可约时段 / 冲突 / 锁                    | `b1-booking.int.spec.ts`、`b4-b6.int.spec.ts`（美甲师项目限制）                                                                                              |
+| 排班 / 请假 / 主数据                    | `b1-booking.int.spec.ts`（冲突保护段）                                                                                                                       |
+| 支付 / 退款 / 回调 / 对账               | `b3-online-settle.int.spec.ts`、`b3-refund-reserve.int.spec.ts`、`b6-app-wxpay-notify.int.spec.ts`、`src/modules/biz/payment/channels/channel-reply.spec.ts` |
+| 权限点 / 守卫 / app 域边界              | `b4-b6.int.spec.ts`、`b6-app-identity.int.spec.ts`、`b6-app-contract.int.spec.ts`、`src/common/auth/access-token.guard.spec.ts`                              |
+| `ports.ts` / `biz.module.ts` 的端口绑定 | **必须真启动一次服务**（`typecheck` 是绿的，漏 `exports` 只有启动才暴露）                                                                                    |
 
 ## 六、新增测试的写法约定
 
@@ -434,6 +435,7 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 ### 6.3 禁止事项
 
 ::: danger 红线
+
 - ❌ **用 mock db 测并发** —— 永远测不出超订，必须真库。
 - ❌ **用"当前时间 + 1 小时"构造用例** —— CI 换时区/换时段就飘；用 `addLocalDays(shopToday(), n)` 这类相对偏移。
 - ❌ **只测正常路径** —— 每个资金/并发用例至少覆盖：正常路径、幂等重放、并发竞争、边界（0 值 / 上限 / 跨时区）。
@@ -441,7 +443,7 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 - ❌ **手测过就算通过** —— 没沉淀成集成用例，下次重构立刻退化。
 - ❌ **契约类断言只测 mock** —— mock 与真实实现分叉时没人会发现（`channel-reply.spec.ts` 就是为此而生）。
 - ❌ **在 spec 里 `vi.mock('node:crypto', ...)`** —— `bun test` 不做文件级隔离，会**全局生效**污染其它文件（症状：单文件绿、全量红）。源码要唯一值用 `globalThis.crypto.randomUUID()`。
-:::
+  :::
 
 ### 6.4 每个用例前问自己三句
 

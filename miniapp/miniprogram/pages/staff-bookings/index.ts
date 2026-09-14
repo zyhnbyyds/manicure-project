@@ -71,10 +71,15 @@ definePage({
     try {
       const list = await staffApi.listBookings({
         date: activeDate,
-        status: (this.data.activeFilter || undefined) as BookingStatus | undefined,
+        status: (this.data.activeFilter || undefined) as
+          | BookingStatus
+          | undefined,
         pageSize: 50,
       });
-      this.setData({ loading: false, bookings: list.items.map(toStaffBookingRow) });
+      this.setData({
+        loading: false,
+        bookings: list.items.map(toStaffBookingRow),
+      });
     } catch (error) {
       if (isApiFailure(error) && error.statusCode === 403) {
         demoteToCustomer();

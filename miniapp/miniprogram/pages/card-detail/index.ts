@@ -157,7 +157,9 @@ definePage({
     if (!reset) this.setData({ loadingMore: true });
     try {
       const result = await memberApi.cardLogs(card.id, page, LOG_PAGE_SIZE);
-      const mapped = result.items.map((item: MemberCardLog) => toRecordVM(item));
+      const mapped = result.items.map((item: MemberCardLog) =>
+        toRecordVM(item),
+      );
       this.recordPage = page;
       this.setData({
         records: reset ? mapped : [...this.data.records, ...mapped],

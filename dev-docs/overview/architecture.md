@@ -31,14 +31,14 @@ flowchart LR
 
 后端不是"一套 JWT 管所有客户端"，而是**两个独立 token 域**：
 
-| 维度 | 后台域 | app 域 |
-| --- | --- | --- |
-| 路由前缀 | `/api/v1/**`（`biz/` `system/` `monitor/` `ai/` …） | `/api/v1/app/**` |
-| 守卫 | `src/common/auth/access-token.guard.ts` 的 `AccessTokenGuard` | `src/modules/app/auth/app-access-token.guard.ts` 的 `AppAccessTokenGuard` |
-| payload 特征 | 含 `username` / `permissions` / `roles`，**不含 `scope`** | 含 `scope: 'app'` / `openid`，**故意不含 `username`** |
-| 授权模型 | RBAC：`@RequirePermissions('biz:serviceitem:list')` | **不接 RBAC**，只有"本人数据"（强制 `customer_id = 当前绑定顾客`） |
-| 额外守卫 | — | `AppStaffScopeGuard`（美甲师工作台作用域） |
-| Swagger 方案 | `@ApiBearerAuth('access-token')` | `@ApiBearerAuth('app-token')` |
+| 维度         | 后台域                                                        | app 域                                                                    |
+| ------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 路由前缀     | `/api/v1/**`（`biz/` `system/` `monitor/` `ai/` …）           | `/api/v1/app/**`                                                          |
+| 守卫         | `src/common/auth/access-token.guard.ts` 的 `AccessTokenGuard` | `src/modules/app/auth/app-access-token.guard.ts` 的 `AppAccessTokenGuard` |
+| payload 特征 | 含 `username` / `permissions` / `roles`，**不含 `scope`**     | 含 `scope: 'app'` / `openid`，**故意不含 `username`**                     |
+| 授权模型     | RBAC：`@RequirePermissions('biz:serviceitem:list')`           | **不接 RBAC**，只有"本人数据"（强制 `customer_id = 当前绑定顾客`）        |
+| 额外守卫     | —                                                             | `AppStaffScopeGuard`（美甲师工作台作用域）                                |
+| Swagger 方案 | `@ApiBearerAuth('access-token')`                              | `@ApiBearerAuth('app-token')`                                             |
 
 ### 双向拒绝是怎么实现的
 
@@ -74,15 +74,15 @@ export class AppAuthController {
 
 ### app 域的接口地图（33 个端点）
 
-| Controller | 文件 | 路由前缀 |
-| --- | --- | --- |
-| `AppAuthController` | `src/modules/app/auth/app-auth.controller.ts` | `app/auth` |
-| `AppCatalogController` | `src/modules/app/catalog/app-catalog.controller.ts` | `app` |
-| `AppMemberController` | `src/modules/app/member/app-member.controller.ts` | `app` |
-| `AppPaymentsController` | `src/modules/app/payments/app-payments.controller.ts` | `app/payments/wxpay` |
-| `AppStaffController` | `src/modules/app/staff/app-staff.controller.ts` | `app/staff` |
-| `AppStaffWorkbenchController` | `src/modules/app/staff/app-staff-workbench.controller.ts` | `app/staff` |
-| `AppStaffGrantsController` | `src/modules/app/staff/app-staff-grants.controller.ts` | **`biz/app-staff-grants`**（后台域，复用 RBAC） |
+| Controller                    | 文件                                                      | 路由前缀                                        |
+| ----------------------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| `AppAuthController`           | `src/modules/app/auth/app-auth.controller.ts`             | `app/auth`                                      |
+| `AppCatalogController`        | `src/modules/app/catalog/app-catalog.controller.ts`       | `app`                                           |
+| `AppMemberController`         | `src/modules/app/member/app-member.controller.ts`         | `app`                                           |
+| `AppPaymentsController`       | `src/modules/app/payments/app-payments.controller.ts`     | `app/payments/wxpay`                            |
+| `AppStaffController`          | `src/modules/app/staff/app-staff.controller.ts`           | `app/staff`                                     |
+| `AppStaffWorkbenchController` | `src/modules/app/staff/app-staff-workbench.controller.ts` | `app/staff`                                     |
+| `AppStaffGrantsController`    | `src/modules/app/staff/app-staff-grants.controller.ts`    | **`biz/app-staff-grants`**（后台域，复用 RBAC） |
 
 ::: tip app 模块不 import 任何业务模块
 `src/modules/app/app.module.ts` 只依赖 `src/modules/biz/common/ports.ts` 的抽象类（`ServiceItemPort` / `StaffPort` / `SlotPort` / `MemberAccountPort` …），由根模块的 `BizModule`（`@Global`）用 `useExisting` 绑定实现。这样 app 域与业务模块之间**没有编译期耦合**，也不会循环依赖。新增跨模块调用时请走 `ports.ts`，别直接 import 别人的 service。
@@ -92,13 +92,13 @@ export class AppAuthController {
 
 实际分层是 **Controller → Service → Drizzle**，没有独立的 Repository 层：
 
-| 层 | 位置 | 职责 |
-| --- | --- | --- |
-| Controller | `src/modules/**/*.controller.ts`（53 个） | 路由、`@RequirePermissions`、**Zod schema 定义 + `parse`**、`@ApiOperation` 文档 |
-| Service | `src/modules/**/*.service.ts`（61 个） | 业务规则、事务、条件更新、锁顺序 |
-| 数据访问 | 直接注入 `DatabaseService.db`（`src/database/database.service.ts`） | Drizzle 查询构建，`tx` 是本事务句柄 |
-| 端口抽象 | `src/modules/biz/common/ports.ts`（1168 行） | 跨模块调用的冻结契约（抽象类） |
-| 公共工具 | `src/modules/biz/common/` | `money.ts` · `shop-time.ts` · `query.ts` · `tx.ts` · `doc-no.ts` · `biz-config.service.ts` |
+| 层         | 位置                                                                | 职责                                                                                       |
+| ---------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Controller | `src/modules/**/*.controller.ts`（53 个）                           | 路由、`@RequirePermissions`、**Zod schema 定义 + `parse`**、`@ApiOperation` 文档           |
+| Service    | `src/modules/**/*.service.ts`（61 个）                              | 业务规则、事务、条件更新、锁顺序                                                           |
+| 数据访问   | 直接注入 `DatabaseService.db`（`src/database/database.service.ts`） | Drizzle 查询构建，`tx` 是本事务句柄                                                        |
+| 端口抽象   | `src/modules/biz/common/ports.ts`（1168 行）                        | 跨模块调用的冻结契约（抽象类）                                                             |
+| 公共工具   | `src/modules/biz/common/`                                           | `money.ts` · `shop-time.ts` · `query.ts` · `tx.ts` · `doc-no.ts` · `biz-config.service.ts` |
 
 ### 校验在哪一层做
 
@@ -179,31 +179,31 @@ sequenceDiagram
 
 ### 各环节的真实代码位置
 
-| 环节 | 位置 | 关键细节 |
-| --- | --- | --- |
-| 应用创建 | `src/main.ts` | `NestFactory.create(AppModule, new FastifyAdapter({ logger: true, trustProxy: true }), { rawBody: true })` |
-| `rawBody: true` | `src/main.ts` | **微信支付 V3 回调验签必须用原样报文**（键顺序敏感），退化到 `JSON.stringify(body)` 在真实环境会验签失败 |
-| `trustProxy: true` | `src/main.ts` | 反向代理下让 `request.ip` 解析 `x-forwarded-for`，配合 nginx 的 `X-Forwarded-For` |
-| 全局异常过滤器 | `src/main.ts` → `new GlobalExceptionFilter()` | 见下 |
-| helmet | `src/main.ts` | `await app.register(helmet)` |
-| 限流 | `src/main.ts` | `{ max: 100, timeWindow: '1 minute' }` |
-| multipart | `src/main.ts` | `{ limits: { files: 1, fileSize: 10 * 1024 * 1024 } }` |
-| CORS | `src/main.ts` | `config.corsOrigins`（`CORS_ORIGINS` 逗号分隔），`credentials: true` |
-| 全局前缀 | `src/main.ts` | `app.setGlobalPrefix(config.apiPrefix)`，默认 `api/v1` |
-| 优雅关停 | `src/main.ts` | `app.enableShutdownHooks()`（配合 PM2 的 `kill_timeout: 10000`） |
-| 全局守卫 | `src/app.module.ts` | `{ provide: APP_GUARD, useClass: AccessTokenGuard }` |
-| 全局拦截器 | `src/app.module.ts` | `{ provide: APP_INTERCEPTOR, useClass: OperationLogInterceptor }` |
+| 环节               | 位置                                          | 关键细节                                                                                                   |
+| ------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 应用创建           | `src/main.ts`                                 | `NestFactory.create(AppModule, new FastifyAdapter({ logger: true, trustProxy: true }), { rawBody: true })` |
+| `rawBody: true`    | `src/main.ts`                                 | **微信支付 V3 回调验签必须用原样报文**（键顺序敏感），退化到 `JSON.stringify(body)` 在真实环境会验签失败   |
+| `trustProxy: true` | `src/main.ts`                                 | 反向代理下让 `request.ip` 解析 `x-forwarded-for`，配合 nginx 的 `X-Forwarded-For`                          |
+| 全局异常过滤器     | `src/main.ts` → `new GlobalExceptionFilter()` | 见下                                                                                                       |
+| helmet             | `src/main.ts`                                 | `await app.register(helmet)`                                                                               |
+| 限流               | `src/main.ts`                                 | `{ max: 100, timeWindow: '1 minute' }`                                                                     |
+| multipart          | `src/main.ts`                                 | `{ limits: { files: 1, fileSize: 10 * 1024 * 1024 } }`                                                     |
+| CORS               | `src/main.ts`                                 | `config.corsOrigins`（`CORS_ORIGINS` 逗号分隔），`credentials: true`                                       |
+| 全局前缀           | `src/main.ts`                                 | `app.setGlobalPrefix(config.apiPrefix)`，默认 `api/v1`                                                     |
+| 优雅关停           | `src/main.ts`                                 | `app.enableShutdownHooks()`（配合 PM2 的 `kill_timeout: 10000`）                                           |
+| 全局守卫           | `src/app.module.ts`                           | `{ provide: APP_GUARD, useClass: AccessTokenGuard }`                                                       |
+| 全局拦截器         | `src/app.module.ts`                           | `{ provide: APP_INTERCEPTOR, useClass: OperationLogInterceptor }`                                          |
 
 ### 异常与错误响应
 
 `src/common/filters/global-exception.filter.ts` 按四种情况分派：
 
-| 异常 | 状态码 | 响应 |
-| --- | --- | --- |
-| `ZodError` | 400 | `message` 是中文数组，如 `["项目名称：不能为空"]`，由 `FIELD_LABELS` 映射字段中文名 |
-| `HttpException` | 原样 | 透传 `getStatus()` 与 `getResponse()` |
-| **带 `statusCode` 的普通 `Error`**（Fastify 插件抛的） | 4xx 原样 | 只 `logger.warn`，不打堆栈 |
-| 其它未知异常 | 500 | `服务器内部错误，请稍后重试`，并 `logger.error` 打堆栈 |
+| 异常                                                   | 状态码   | 响应                                                                                |
+| ------------------------------------------------------ | -------- | ----------------------------------------------------------------------------------- |
+| `ZodError`                                             | 400      | `message` 是中文数组，如 `["项目名称：不能为空"]`，由 `FIELD_LABELS` 映射字段中文名 |
+| `HttpException`                                        | 原样     | 透传 `getStatus()` 与 `getResponse()`                                               |
+| **带 `statusCode` 的普通 `Error`**（Fastify 插件抛的） | 4xx 原样 | 只 `logger.warn`，不打堆栈                                                          |
+| 其它未知异常                                           | 500      | `服务器内部错误，请稍后重试`，并 `logger.error` 打堆栈                              |
 
 ::: warning 为什么必须单列"带 statusCode 的普通 Error"
 `@fastify/rate-limit` 超限时抛的是 `new Error()` 上挂 `statusCode = 429`，**不是** `HttpException`。不认这个约定，限流就会静默降级成 **500**：请求确实被拦了，但客户端以为服务器挂了，还会诱导重试 —— 正好是限流要防的。过滤器只放行 **4xx**，5xx 一律仍按未知异常处理，绝不让第三方插件的 `statusCode` 决定成败语义。
@@ -245,12 +245,12 @@ sequenceDiagram
 
 `src/common/data-scope/data-scope.ts` 的 `resolveDataScope(db, actor)` 返回 `{ kind: 'all' | 'self' | 'deptIds' }`，规则对齐若依：
 
-| 条件 | 结果 |
-| --- | --- |
-| 权限含 `*:*:*`（超管）**或未分配任何角色** | `all` |
-| 任一角色 `data_scope = 'all'` | `all` |
+| 条件                                                                                                                | 结果      |
+| ------------------------------------------------------------------------------------------------------------------- | --------- |
+| 权限含 `*:*:*`（超管）**或未分配任何角色**                                                                          | `all`     |
+| 任一角色 `data_scope = 'all'`                                                                                       | `all`     |
 | 否则按角色**并集**（宽松优先）：`custom` 的角色勾选部门 ∪ 本人部门（`dept`）∪ 本人部门及以下（`dept_and_children`） | `deptIds` |
-| 没有任何部门范围的角色 | `self` |
+| 没有任何部门范围的角色                                                                                              | `self`    |
 
 `dept_and_children` 靠 `sys_dept.ancestors` 祖先路径字符串匹配（`descendantIds()`），不是递归查询。
 
@@ -262,14 +262,14 @@ data-scope 只回答"这个操作员能看到哪些**部门的人**"。业务上
 
 **`src/modules/biz/common/money.ts`**（注意：不在 `src/common/`）：
 
-| 函数 | 用途 |
-| --- | --- |
-| `permilleOf(amount, permille)` | 千分比取整（向下） |
-| `quoteBooking(input)` | 完整算价：等级折扣 → 券 → 积分 → 改价 → 应付 |
+| 函数                                                                  | 用途                                                               |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `permilleOf(amount, permille)`                                        | 千分比取整（向下）                                                 |
+| `quoteBooking(input)`                                                 | 完整算价：等级折扣 → 券 → 积分 → 改价 → 应付                       |
 | `calcDepositAmount(payable, payMode, depositAmount, depositPermille)` | 定金：`full` 全款 / `deposit` 取 `min(定金值, 应付)`，未传则按比例 |
-| `splitBalanceDeduction(amount, principal, bonus, mode)` | 储值扣减拆分：`bonus_first` 先赠送后本金 / `proportional` 按比例 |
-| `commissionOf(base, permille, fixedAmount)` | 提成 = 比例 + 固定额 |
-| `pointsToCents` / `centsToPoints` | 积分 ↔ 金额（不足 1 元的零头不抵） |
+| `splitBalanceDeduction(amount, principal, bonus, mode)`               | 储值扣减拆分：`bonus_first` 先赠送后本金 / `proportional` 按比例   |
+| `commissionOf(base, permille, fixedAmount)`                           | 提成 = 比例 + 固定额                                               |
+| `pointsToCents` / `centsToPoints`                                     | 积分 ↔ 金额（不足 1 元的零头不抵）                                 |
 
 `CENTS_PER_YUAN = 100`；折后金额永不为负（`Math.max(..., 0)`）。
 
@@ -314,12 +314,13 @@ flowchart TB
 ## 改动注意事项
 
 ::: danger 五条最容易踩的
+
 1. **不要在 `AccessTokenGuard` 里兼容 app token** —— 那会打开后台越权口子（见上文双向拒绝）；
 2. **不要在事务里用 `this.database.db`** —— 绕开行锁，防超订直接失效，一律用 `tx`；
 3. **不要新增 `total` 字段** —— 列表口径是 `{ items, page, pageSize }`；
 4. **不要在应用层"读-算-写"改钱** —— 条件更新 + `affectedRows` 是唯一闸门；
 5. **不要在 app 域复用后台 DTO / 挂 RBAC** —— app 域只有"本人数据"。
-:::
+   :::
 
 - 新增 controller 前先想清楚属于哪个域：后台域放 `src/modules/biz/**` 或 `src/modules/system/**`，app 域放 `src/modules/app/**`；
 - app 域新增 controller 别忘了 `@Public()`（否则全局 `AccessTokenGuard` 先拦），再按需 `@UseGuards(AppAccessTokenGuard)`；

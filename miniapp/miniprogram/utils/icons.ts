@@ -58,7 +58,8 @@ const PATHS: Record<IconName, string> = {
   chevron: "<path d='M9.4 4.8 16.6 12l-7.2 7.2'/>",
   share:
     "<path d='M12 3.6v10.2'/><path d='M8.2 7.2 12 3.6l3.8 3.6'/><path d='M6 13.4v6.4h12v-6.4'/>",
-  heart:    "<path d='M12 19.4c-1.2-.9-7-5-7-9.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7 3c0 4.2-5.8 8.3-7 9.2z'/>",
+  heart:
+    "<path d='M12 19.4c-1.2-.9-7-5-7-9.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7 3c0 4.2-5.8 8.3-7 9.2z'/>",
   headset:
     "<path d='M5 13.4v-1.2a7 7 0 0 1 14 0v1.2'/><rect x='4.2' y='12.6' width='3.2' height='5.4' rx='1.6'/><rect x='16.6' y='12.6' width='3.2' height='5.4' rx='1.6'/>",
   location:
@@ -85,8 +86,7 @@ const PATHS: Record<IconName, string> = {
  * 这里手写一个只处理 ASCII 的 base64：我们的 SVG 只含 ASCII（路径数据 + 十六进制色值），
  * 因此不需要处理 UTF-8 多字节，避免为一个编码函数引入额外依赖。
  */
-const B64 =
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 function base64Ascii(input: string): string {
   let out = '';

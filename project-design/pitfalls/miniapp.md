@@ -89,13 +89,13 @@
 
 - **现象**：`simulator_open_page` 到不了三类页面，截图会**截到上一个页面**（看起来像「没生效」）。
 - **正确做法**：
-  | 场景 | 手段 |
-  | ---- | ---- |
-  | tabBar 页 | `automation_navigate --action switchTab --url /pages/xxx/index` |
-  | 草稿依赖页（预约/确认） | **真走一遍**：款式库 → 点 `.list-card__add` → 点 `.action-bar .btn` |
-  | 需切模式的页（工作台） | 我的 → 点 `.staff-block__btn` |
-  | 读页面数据 | `automation_evaluate` + `getCurrentPages()` → `p.data`（比截图确定） |
-  | 读元素文本 | `automation_element_action --action text --selector ...` |
+  | 场景                    | 手段                                                                 |
+  | ----------------------- | -------------------------------------------------------------------- |
+  | tabBar 页               | `automation_navigate --action switchTab --url /pages/xxx/index`      |
+  | 草稿依赖页（预约/确认） | **真走一遍**：款式库 → 点 `.list-card__add` → 点 `.action-bar .btn`  |
+  | 需切模式的页（工作台）  | 我的 → 点 `.staff-block__btn`                                        |
+  | 读页面数据              | `automation_evaluate` + `getCurrentPages()` → `p.data`（比截图确定） |
+  | 读元素文本              | `automation_element_action --action text --selector ...`             |
 - **注意**：`automation_evaluate` 传**长 JS 会被 cmd 的引号处理截断**
   （报 `missing ) after argument list`）→ 拆成「curl 打真接口 + 极短 JS 回填」两步。
 
@@ -122,6 +122,7 @@
   2. `project.config.json` 的 `es6: false` + `enhance: false` → 开发者工具**不做** Babel 降级。
 
   于是产物 JS 里带着 `??`，小程序编译/运行时直接语法报错。
+
 - **正确做法（两层，缺一不可）**：
   1. **`project.config.json` 里打开 `"enhance": true`（增强编译）** ——
      这才是**真正解决问题的那一层**：开发者工具的 TS 插件**不会**按 tsconfig 的
@@ -135,11 +136,12 @@
   > 因为模拟器那次编译基于 `tsc` 的降级结果。真实预览仍然报错。
   > **教训：只在我自己的模拟器里验证「语法兼容性」是不够的，预览/真机走的是同一套
   > 编译配置，但缓存与工具链状态可能不同；声称修好前要按用户的实际路径复验。**
+
 - **区分两件事（很容易混）**：
   - `??` / `?.` 是**语法** → tsc **会**降级；
   - `Array.prototype.flatMap` / `Object.fromEntries` 等是**运行时 API** → tsc **只降级语法、
     不替换 API**，老基础库上会 `undefined`。
-  本项目原有一处 `flatMap`（`pages/slots/index.ts`），已改成显式循环。
+    本项目原有一处 `flatMap`（`pages/slots/index.ts`），已改成显式循环。
 - **验证方式**（两条都要）：
   1. 编译到临时目录再 grep 产物：
      `tsc -p miniapp/tsconfig.json --outDir <tmp> --rootDir miniapp/miniprogram`，
@@ -187,6 +189,7 @@
      所以「带着过期 token 启动」时它也会直接跳过。
 
   于是 token 一过期就进入死状态：清掉 → 不再登录 → 每次请求都 401。
+
 - **正确做法**：非 `needBind` 的 401 → 清 token → **重新登录 → 原请求重试一次**
   （**只重试一次**，否则后端撤权会变成 401 死循环）。
   - **不能在 `request.ts` 里 import `store/auth`**：`auth → api → request` 会成环

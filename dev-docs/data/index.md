@@ -8,15 +8,15 @@ title: 数据模型总览
 
 ## 唯一事实来源
 
-| 项目 | 位置 |
-| --- | --- |
+| 项目               | 位置                                                                  |
+| ------------------ | --------------------------------------------------------------------- |
 | 表结构（唯一权威） | `src/database/schema/index.ts`（单文件，61 张表 + `defineRelations`） |
-| 迁移文件 | `src/database/migrations/<时间戳>_<随机名>/migration.sql` |
-| drizzle-kit 配置 | `drizzle.config.ts` |
-| 种子数据 | `src/database/seed/{index,menus,biz,nail,demo}.ts` |
-| 金额与算价口径 | `src/modules/biz/common/money.ts` |
-| 店内时间口径 | `src/modules/biz/common/shop-time.ts` |
-| 单号生成口径 | `src/modules/biz/common/doc-no.ts` |
+| 迁移文件           | `src/database/migrations/<时间戳>_<随机名>/migration.sql`             |
+| drizzle-kit 配置   | `drizzle.config.ts`                                                   |
+| 种子数据           | `src/database/seed/{index,menus,biz,nail,demo}.ts`                    |
+| 金额与算价口径     | `src/modules/biz/common/money.ts`                                     |
+| 店内时间口径       | `src/modules/biz/common/shop-time.ts`                                 |
+| 单号生成口径       | `src/modules/biz/common/doc-no.ts`                                    |
 
 ::: danger 不要以设计文档为准
 `project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md` 与
@@ -27,12 +27,12 @@ title: 数据模型总览
 
 ## 表分组总览
 
-| 前缀 | 含义 | 表数 | 说明 |
-| --- | --- | --- | --- |
-| `sys_` | 系统 / 权限 / 审计 / 通知 | 20 | 后台账号体系、RBAC、字典参数、日志、定时任务、文件、通知模板与日志 |
-| `biz_` | 美甲业务 | 31 | 基础数据、预约、会员资产、收银资金、挂账应收、运营 |
-| `ai_` | AI 助手 | 7 | 会话、消息、任务、任务步骤、审批意图、审批记录、审计日志 |
-| `app_` | 小程序身份 | 3 | 微信身份、订阅消息授权台账、绑定留痕 |
+| 前缀   | 含义                      | 表数 | 说明                                                               |
+| ------ | ------------------------- | ---- | ------------------------------------------------------------------ |
+| `sys_` | 系统 / 权限 / 审计 / 通知 | 20   | 后台账号体系、RBAC、字典参数、日志、定时任务、文件、通知模板与日志 |
+| `biz_` | 美甲业务                  | 31   | 基础数据、预约、会员资产、收银资金、挂账应收、运营                 |
+| `ai_`  | AI 助手                   | 7    | 会话、消息、任务、任务步骤、审批意图、审批记录、审计日志           |
+| `app_` | 小程序身份                | 3    | 微信身份、订阅消息授权台账、绑定留痕                               |
 
 **共 61 张表（业务 31 / 系统 20 / AI 7 / 小程序身份 3）。**
 
@@ -41,80 +41,80 @@ title: 数据模型总览
 
 ## 全部表清单
 
-| 表名 | 代码变量名 | 中文含义 | 所属模块 | 关键唯一约束 |
-| --- | --- | --- | --- | --- |
-| `sys_dept` | `departments` | 部门 | 系统 / 权限 | —（仅 `idx_dept_parent`） |
-| `sys_user` | `users` | 后台用户 | 系统 / 权限 | `uq_user_username(username)` |
-| `sys_role` | `roles` | 角色 | 系统 / 权限 | `uq_role_key(role_key)` |
-| `sys_menu` | `menus` | 菜单与权限点（M/C/F） | 系统 / 权限 | `uq_menu_permission(permission)` |
-| `sys_user_role` | `userRoles` | 用户 ↔ 角色 | 系统 / 权限 | `uq_user_role(user_id, role_id)` |
-| `sys_role_menu` | `roleMenus` | 角色 ↔ 菜单 | 系统 / 权限 | `uq_role_menu(role_id, menu_id)` |
-| `sys_role_dept` | `roleDepts` | 角色 ↔ 部门（自定义数据范围） | 系统 / 权限 | `uq_role_dept(role_id, dept_id)` |
-| `sys_post` | `posts` | 岗位 | 系统 / 权限 | `uq_post_key(post_key)` |
-| `sys_user_post` | `userPosts` | 用户 ↔ 岗位 | 系统 / 权限 | `uq_user_post(user_id, post_id)` |
-| `sys_refresh_token` | `refreshTokens` | 刷新令牌 | 系统 / 权限 | `uq_refresh_token_hash(token_hash)` |
-| `sys_dict_type` | `dictTypes` | 字典类型 | 系统 / 配置 | `uq_dict_type(type)` |
-| `sys_dict_data` | `dictionaries` | 字典数据 | 系统 / 配置 | `uq_dict_type_value(dict_type, value)` |
-| `sys_config` | `configs` | 参数配置 | 系统 / 配置 | `uq_config_key(config_key)` |
-| `sys_login_log` | `loginLogs` | 登录日志 | 审计 | — |
-| `sys_operation_log` | `operationLogs` | 操作日志 | 审计 | — |
-| `sys_job` | `jobs` | 定时任务 | 任务 | `uq_job_handler(handler)` |
-| `sys_job_log` | `jobLogs` | 任务执行日志 | 任务 | — |
-| `sys_file` | `files` | 上传文件 | 系统 | — |
-| `sys_notice_template` | `sysNoticeTemplates` | 通知模板 | 通知 | `uq_notice_template_code(code)` |
-| `sys_notice_log` | `sysNoticeLogs` | 通知发送日志（含站内信） | 通知 | — |
-| `biz_service_item` | `bizServiceItems` | 服务项目 | 基础数据 | —（仅 `idx_service_item_status`） |
-| `biz_staff` | `bizStaffs` | 美甲师档案 | 基础数据 | —（仅 `idx_staff_user` / `idx_staff_status`） |
-| `biz_staff_service_item` | `bizStaffServiceItems` | 美甲师可做项目 | 基础数据 | `uq_staff_service_item(staff_id, service_item_id)` |
-| `biz_customer` | `bizCustomers` | 顾客档案（兼会员档案） | 基础数据 | `uq_customer_phone(phone)`、`uq_customer_member_no(member_no)` |
-| `biz_staff_weekly_shift` | `bizStaffWeeklyShifts` | 周模板班次 | 排班 | —（仅 `idx_shift_staff_weekday`） |
-| `biz_staff_schedule_override` | `bizStaffScheduleOverrides` | 日期例外（请假 / 自定义） | 排班 | —（仅 `idx_override_staff_date`） |
-| `biz_booking` | `bizBookings` | 预约单 | 预约 | `uq_booking_no(booking_no)`、`uq_booking_recurrence_start(recurrence_id, start_at)` |
-| `biz_booking_item` | `bizBookingItems` | 预约项目明细 | 预约 | — |
-| `biz_booking_recurrence` | `bizBookingRecurrences` | 周期预约规则 | 预约 | —（幂等靠 `generated_until` 游标 + 上表唯一键） |
-| `biz_member_level` | `bizMemberLevels` | 会员等级 | 会员 | `uq_level_name(name)` |
-| `biz_recharge_plan` | `bizRechargePlans` | 充值方案 | 会员 | `uq_recharge_plan_name(name)` |
-| `biz_member_card_type` | `bizMemberCardTypes` | 次卡卡种 | 会员 | `uq_card_type_name(name)` |
-| `biz_member_card_type_item` | `bizMemberCardTypeItems` | 卡种适用项目 | 会员 | `uq_card_type_item(card_type_id, service_item_id)` |
-| `biz_member_card` | `bizMemberCards` | 会员次卡实例 | 会员 | `uq_member_card_no(card_no)` |
-| `biz_member_card_log` | `bizMemberCardLogs` | 次卡核销流水 | 会员 | — |
-| `biz_member_transaction` | `bizMemberTransactions` | 会员账务流水（储值 / 积分 / 卡） | 会员 | — |
-| `biz_points_goods` | `bizPointsGoods` | 积分兑换品 | 会员 | `uq_points_goods_name(name)` |
-| `biz_points_redeem` | `bizPointsRedeems` | 积分兑换记录 | 会员 | `uq_points_redeem_no(redeem_no)` |
-| `biz_coupon_template` | `bizCouponTemplates` | 优惠券模板 | 会员 | `uq_coupon_template_name(name)` |
-| `biz_customer_coupon` | `bizCustomerCoupons` | 顾客持有券 | 会员 | `uq_customer_coupon_no(coupon_no)`、`uq_customer_coupon_booking(used_booking_id)` |
-| `biz_payment` | `bizPayments` | 支付单 | 收银 | `uq_payment_no(payment_no)`、`uq_payment_out_trade_no(out_trade_no)` |
-| `biz_payment_log` | `bizPaymentLogs` | 支付过程日志 | 收银 | — |
-| `biz_payment_diff` | `bizPaymentDiffs` | 渠道对账差异 | 收银 | `uq_payment_diff(bill_date, channel, transaction_id, diff_type)` |
-| `biz_refund` | `bizRefunds` | 退款单 | 收银 | `uq_refund_no(refund_no)` |
-| `biz_refund_policy` | `bizRefundPolicies` | 退款判责规则 | 收银 | `uq_refund_policy_name(name)` |
-| `biz_credit_account` | `bizCreditAccounts` | 挂账主体 | 应收 | `uq_credit_account_name(name)` |
-| `biz_receivable` | `bizReceivables` | 应收单 | 应收 | `uq_receivable_no(receivable_no)` |
-| `biz_receivable_payment` | `bizReceivablePayments` | 销账记录 | 应收 | — |
-| `biz_review` | `bizReviews` | 服务评价 | 运营 | `uq_review_booking(booking_id)`（一单一评） |
-| `biz_commission_rule` | `bizCommissionRules` | 提成规则 | 运营 | —（优先级靠 `scope` + `sort` 应用层裁决） |
-| `biz_commission_record` | `bizCommissionRecords` | 提成计提记录 | 运营 | — |
-| `ai_session` | `aiSessions` | AI 会话 | AI | — |
-| `ai_message` | `aiMessages` | AI 消息（含 tool 调用与结果） | AI | — |
-| `ai_task` | `aiTasks` | AI 多步任务 | AI | — |
-| `ai_task_step` | `aiTaskSteps` | AI 任务步骤（含 undo 快照） | AI | — |
-| `ai_action_intent` | `aiActionIntents` | 待审批操作意图 | AI | —（`confirm_token` 只有普通索引） |
-| `ai_approval` | `aiApprovals` | 审批记录 | AI | — |
-| `ai_audit_log` | `aiAuditLogs` | AI 操作审计日志 | AI | — |
-| `app_wx_user` | `appWxUsers` | 小程序微信身份 | 小程序身份 | `uq_wx_openid(openid)` |
-| `app_wx_subscribe_grant` | `appWxSubscribeGrants` | 订阅消息授权台账 | 小程序身份 | `uq_wx_subscribe_grant(app_wx_user_id, template_id)` |
-| `app_wx_user_bind_log` | `appWxUserBindLogs` | 身份 ↔ 顾客绑定留痕 | 小程序身份 | —（只追加） |
+| 表名                          | 代码变量名                  | 中文含义                         | 所属模块    | 关键唯一约束                                                                        |
+| ----------------------------- | --------------------------- | -------------------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| `sys_dept`                    | `departments`               | 部门                             | 系统 / 权限 | —（仅 `idx_dept_parent`）                                                           |
+| `sys_user`                    | `users`                     | 后台用户                         | 系统 / 权限 | `uq_user_username(username)`                                                        |
+| `sys_role`                    | `roles`                     | 角色                             | 系统 / 权限 | `uq_role_key(role_key)`                                                             |
+| `sys_menu`                    | `menus`                     | 菜单与权限点（M/C/F）            | 系统 / 权限 | `uq_menu_permission(permission)`                                                    |
+| `sys_user_role`               | `userRoles`                 | 用户 ↔ 角色                      | 系统 / 权限 | `uq_user_role(user_id, role_id)`                                                    |
+| `sys_role_menu`               | `roleMenus`                 | 角色 ↔ 菜单                      | 系统 / 权限 | `uq_role_menu(role_id, menu_id)`                                                    |
+| `sys_role_dept`               | `roleDepts`                 | 角色 ↔ 部门（自定义数据范围）    | 系统 / 权限 | `uq_role_dept(role_id, dept_id)`                                                    |
+| `sys_post`                    | `posts`                     | 岗位                             | 系统 / 权限 | `uq_post_key(post_key)`                                                             |
+| `sys_user_post`               | `userPosts`                 | 用户 ↔ 岗位                      | 系统 / 权限 | `uq_user_post(user_id, post_id)`                                                    |
+| `sys_refresh_token`           | `refreshTokens`             | 刷新令牌                         | 系统 / 权限 | `uq_refresh_token_hash(token_hash)`                                                 |
+| `sys_dict_type`               | `dictTypes`                 | 字典类型                         | 系统 / 配置 | `uq_dict_type(type)`                                                                |
+| `sys_dict_data`               | `dictionaries`              | 字典数据                         | 系统 / 配置 | `uq_dict_type_value(dict_type, value)`                                              |
+| `sys_config`                  | `configs`                   | 参数配置                         | 系统 / 配置 | `uq_config_key(config_key)`                                                         |
+| `sys_login_log`               | `loginLogs`                 | 登录日志                         | 审计        | —                                                                                   |
+| `sys_operation_log`           | `operationLogs`             | 操作日志                         | 审计        | —                                                                                   |
+| `sys_job`                     | `jobs`                      | 定时任务                         | 任务        | `uq_job_handler(handler)`                                                           |
+| `sys_job_log`                 | `jobLogs`                   | 任务执行日志                     | 任务        | —                                                                                   |
+| `sys_file`                    | `files`                     | 上传文件                         | 系统        | —                                                                                   |
+| `sys_notice_template`         | `sysNoticeTemplates`        | 通知模板                         | 通知        | `uq_notice_template_code(code)`                                                     |
+| `sys_notice_log`              | `sysNoticeLogs`             | 通知发送日志（含站内信）         | 通知        | —                                                                                   |
+| `biz_service_item`            | `bizServiceItems`           | 服务项目                         | 基础数据    | —（仅 `idx_service_item_status`）                                                   |
+| `biz_staff`                   | `bizStaffs`                 | 美甲师档案                       | 基础数据    | —（仅 `idx_staff_user` / `idx_staff_status`）                                       |
+| `biz_staff_service_item`      | `bizStaffServiceItems`      | 美甲师可做项目                   | 基础数据    | `uq_staff_service_item(staff_id, service_item_id)`                                  |
+| `biz_customer`                | `bizCustomers`              | 顾客档案（兼会员档案）           | 基础数据    | `uq_customer_phone(phone)`、`uq_customer_member_no(member_no)`                      |
+| `biz_staff_weekly_shift`      | `bizStaffWeeklyShifts`      | 周模板班次                       | 排班        | —（仅 `idx_shift_staff_weekday`）                                                   |
+| `biz_staff_schedule_override` | `bizStaffScheduleOverrides` | 日期例外（请假 / 自定义）        | 排班        | —（仅 `idx_override_staff_date`）                                                   |
+| `biz_booking`                 | `bizBookings`               | 预约单                           | 预约        | `uq_booking_no(booking_no)`、`uq_booking_recurrence_start(recurrence_id, start_at)` |
+| `biz_booking_item`            | `bizBookingItems`           | 预约项目明细                     | 预约        | —                                                                                   |
+| `biz_booking_recurrence`      | `bizBookingRecurrences`     | 周期预约规则                     | 预约        | —（幂等靠 `generated_until` 游标 + 上表唯一键）                                     |
+| `biz_member_level`            | `bizMemberLevels`           | 会员等级                         | 会员        | `uq_level_name(name)`                                                               |
+| `biz_recharge_plan`           | `bizRechargePlans`          | 充值方案                         | 会员        | `uq_recharge_plan_name(name)`                                                       |
+| `biz_member_card_type`        | `bizMemberCardTypes`        | 次卡卡种                         | 会员        | `uq_card_type_name(name)`                                                           |
+| `biz_member_card_type_item`   | `bizMemberCardTypeItems`    | 卡种适用项目                     | 会员        | `uq_card_type_item(card_type_id, service_item_id)`                                  |
+| `biz_member_card`             | `bizMemberCards`            | 会员次卡实例                     | 会员        | `uq_member_card_no(card_no)`                                                        |
+| `biz_member_card_log`         | `bizMemberCardLogs`         | 次卡核销流水                     | 会员        | —                                                                                   |
+| `biz_member_transaction`      | `bizMemberTransactions`     | 会员账务流水（储值 / 积分 / 卡） | 会员        | —                                                                                   |
+| `biz_points_goods`            | `bizPointsGoods`            | 积分兑换品                       | 会员        | `uq_points_goods_name(name)`                                                        |
+| `biz_points_redeem`           | `bizPointsRedeems`          | 积分兑换记录                     | 会员        | `uq_points_redeem_no(redeem_no)`                                                    |
+| `biz_coupon_template`         | `bizCouponTemplates`        | 优惠券模板                       | 会员        | `uq_coupon_template_name(name)`                                                     |
+| `biz_customer_coupon`         | `bizCustomerCoupons`        | 顾客持有券                       | 会员        | `uq_customer_coupon_no(coupon_no)`、`uq_customer_coupon_booking(used_booking_id)`   |
+| `biz_payment`                 | `bizPayments`               | 支付单                           | 收银        | `uq_payment_no(payment_no)`、`uq_payment_out_trade_no(out_trade_no)`                |
+| `biz_payment_log`             | `bizPaymentLogs`            | 支付过程日志                     | 收银        | —                                                                                   |
+| `biz_payment_diff`            | `bizPaymentDiffs`           | 渠道对账差异                     | 收银        | `uq_payment_diff(bill_date, channel, transaction_id, diff_type)`                    |
+| `biz_refund`                  | `bizRefunds`                | 退款单                           | 收银        | `uq_refund_no(refund_no)`                                                           |
+| `biz_refund_policy`           | `bizRefundPolicies`         | 退款判责规则                     | 收银        | `uq_refund_policy_name(name)`                                                       |
+| `biz_credit_account`          | `bizCreditAccounts`         | 挂账主体                         | 应收        | `uq_credit_account_name(name)`                                                      |
+| `biz_receivable`              | `bizReceivables`            | 应收单                           | 应收        | `uq_receivable_no(receivable_no)`                                                   |
+| `biz_receivable_payment`      | `bizReceivablePayments`     | 销账记录                         | 应收        | —                                                                                   |
+| `biz_review`                  | `bizReviews`                | 服务评价                         | 运营        | `uq_review_booking(booking_id)`（一单一评）                                         |
+| `biz_commission_rule`         | `bizCommissionRules`        | 提成规则                         | 运营        | —（优先级靠 `scope` + `sort` 应用层裁决）                                           |
+| `biz_commission_record`       | `bizCommissionRecords`      | 提成计提记录                     | 运营        | —                                                                                   |
+| `ai_session`                  | `aiSessions`                | AI 会话                          | AI          | —                                                                                   |
+| `ai_message`                  | `aiMessages`                | AI 消息（含 tool 调用与结果）    | AI          | —                                                                                   |
+| `ai_task`                     | `aiTasks`                   | AI 多步任务                      | AI          | —                                                                                   |
+| `ai_task_step`                | `aiTaskSteps`               | AI 任务步骤（含 undo 快照）      | AI          | —                                                                                   |
+| `ai_action_intent`            | `aiActionIntents`           | 待审批操作意图                   | AI          | —（`confirm_token` 只有普通索引）                                                   |
+| `ai_approval`                 | `aiApprovals`               | 审批记录                         | AI          | —                                                                                   |
+| `ai_audit_log`                | `aiAuditLogs`               | AI 操作审计日志                  | AI          | —                                                                                   |
+| `app_wx_user`                 | `appWxUsers`                | 小程序微信身份                   | 小程序身份  | `uq_wx_openid(openid)`                                                              |
+| `app_wx_subscribe_grant`      | `appWxSubscribeGrants`      | 订阅消息授权台账                 | 小程序身份  | `uq_wx_subscribe_grant(app_wx_user_id, template_id)`                                |
+| `app_wx_user_bind_log`        | `appWxUserBindLogs`         | 身份 ↔ 顾客绑定留痕              | 小程序身份  | —（只追加）                                                                         |
 
 ## 命名与设计约定
 
 ### 前缀含义
 
-| 前缀 | 归属 | 判断标准 |
-| --- | --- | --- |
+| 前缀   | 归属                                                 | 判断标准                                            |
+| ------ | ---------------------------------------------------- | --------------------------------------------------- |
 | `sys_` | 平台能力（账号、权限、日志、任务、通知、文件、配置） | 「把美甲业务整体删掉，这张表还要不要？」要 → `sys_` |
-| `biz_` | 美甲业务事实 | 只有美甲门店的业务语义 |
-| `ai_` | AI 助手运行时 | 会话、任务、审批、审计 |
-| `app_` | 小程序身份域 | 与微信 / 顾客绑定相关，**不复用** `sys_user` |
+| `biz_` | 美甲业务事实                                         | 只有美甲门店的业务语义                              |
+| `ai_`  | AI 助手运行时                                        | 会话、任务、审批、审计                              |
+| `app_` | 小程序身份域                                         | 与微信 / 顾客绑定相关，**不复用** `sys_user`        |
 
 - 表名 `snake_case`；Drizzle 导出变量 `camelCase`（`biz_staff` → `bizStaffs`，**复数**）。
 - 索引 `idx_*`；唯一索引 `uq_*`；外键 `fk_<来源简称>_<目标简称>`，如 `fk_booking_item_booking`。
@@ -124,13 +124,13 @@ title: 数据模型总览
 
 `biz_*` / `sys_*` 中的「主数据表」一律展开 `auditColumns`（schema 第 28~39 行）：
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| `created_at` | `timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP` | 创建时刻（UTC） |
-| `updated_at` | `timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | 最后修改时刻（UTC） |
-| `deleted_at` | `datetime NULL` | **软删标记**，非空即视为已删除 |
-| `created_by` | `int unsigned NULL` | 操作者 `sys_user.id`；小程序 / 系统代建写 `0` |
-| `updated_by` | `int unsigned NULL` | 同上 |
+| 列           | 类型                                                                       | 说明                                          |
+| ------------ | -------------------------------------------------------------------------- | --------------------------------------------- |
+| `created_at` | `timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP`                             | 创建时刻（UTC）                               |
+| `updated_at` | `timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | 最后修改时刻（UTC）                           |
+| `deleted_at` | `datetime NULL`                                                            | **软删标记**，非空即视为已删除                |
+| `created_by` | `int unsigned NULL`                                                        | 操作者 `sys_user.id`；小程序 / 系统代建写 `0` |
+| `updated_by` | `int unsigned NULL`                                                        | 同上                                          |
 
 ::: warning `created_by` 不是 bigint
 schema 里有个 helper 叫 `bigintId()`，但它实际返回 `int(name, { unsigned: true })`。
@@ -181,18 +181,18 @@ schema 里有个 helper 叫 `bigintId()`，但它实际返回 `int(name, { unsig
 
 ### 建了唯一索引的业务键
 
-| 业务键 | 表 / 索引 | 为什么必须唯一 |
-| --- | --- | --- |
-| 顾客手机号 | `biz_customer.uq_customer_phone` | 手机号是「顾客 ↔ 微信」的绑定锚点，重号会导致随机命中 |
-| 会员号 | `biz_customer.uq_customer_member_no` | 对外展示的会员标识 |
-| 预约 / 支付 / 退款 / 应收 / 卡 / 兑换 / 券单号 | `uq_booking_no`、`uq_payment_no`、`uq_refund_no`、`uq_receivable_no`、`uq_member_card_no`、`uq_points_redeem_no`、`uq_customer_coupon_no` | 主键回填生成，唯一索引是并发的最后一道闸门 |
-| 渠道交易号 | `biz_payment.uq_payment_out_trade_no` | 渠道回调按它找回支付单，重号 = 串单 |
-| 周期预约生成的幂等游标 | `biz_booking.uq_booking_recurrence_start(recurrence_id, start_at)` | 同一条规则的同一起始时刻只能有一单，重复跑生成任务不会插重 |
-| 一单一评 | `biz_review.uq_review_booking` | 评价只能有一条 |
-| 一券一单 | `biz_customer_coupon.uq_customer_coupon_booking(used_booking_id)` | 「一张券只核销一单、一单只用一张券」的兜底 |
-| 对账可重入 | `biz_payment_diff.uq_payment_diff(bill_date, channel, transaction_id, diff_type)` | 对账任务可重复执行而不产生重复差异行 |
-| 微信身份 | `app_wx_user.uq_wx_openid` | 同一微信号只能有一行身份 |
-| 订阅授权台账 | `app_wx_subscribe_grant.uq_wx_subscribe_grant(app_wx_user_id, template_id)` | 按 `(用户, 模板)` 聚合计数，而不是 append-only |
+| 业务键                                         | 表 / 索引                                                                                                                                 | 为什么必须唯一                                             |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 顾客手机号                                     | `biz_customer.uq_customer_phone`                                                                                                          | 手机号是「顾客 ↔ 微信」的绑定锚点，重号会导致随机命中      |
+| 会员号                                         | `biz_customer.uq_customer_member_no`                                                                                                      | 对外展示的会员标识                                         |
+| 预约 / 支付 / 退款 / 应收 / 卡 / 兑换 / 券单号 | `uq_booking_no`、`uq_payment_no`、`uq_refund_no`、`uq_receivable_no`、`uq_member_card_no`、`uq_points_redeem_no`、`uq_customer_coupon_no` | 主键回填生成，唯一索引是并发的最后一道闸门                 |
+| 渠道交易号                                     | `biz_payment.uq_payment_out_trade_no`                                                                                                     | 渠道回调按它找回支付单，重号 = 串单                        |
+| 周期预约生成的幂等游标                         | `biz_booking.uq_booking_recurrence_start(recurrence_id, start_at)`                                                                        | 同一条规则的同一起始时刻只能有一单，重复跑生成任务不会插重 |
+| 一单一评                                       | `biz_review.uq_review_booking`                                                                                                            | 评价只能有一条                                             |
+| 一券一单                                       | `biz_customer_coupon.uq_customer_coupon_booking(used_booking_id)`                                                                         | 「一张券只核销一单、一单只用一张券」的兜底                 |
+| 对账可重入                                     | `biz_payment_diff.uq_payment_diff(bill_date, channel, transaction_id, diff_type)`                                                         | 对账任务可重复执行而不产生重复差异行                       |
+| 微信身份                                       | `app_wx_user.uq_wx_openid`                                                                                                                | 同一微信号只能有一行身份                                   |
+| 订阅授权台账                                   | `app_wx_subscribe_grant.uq_wx_subscribe_grant(app_wx_user_id, template_id)`                                                               | 按 `(用户, 模板)` 聚合计数，而不是 append-only             |
 
 ### 唯一索引允许 NULL 重复（有意利用）
 
@@ -212,15 +212,15 @@ MySQL 把多个 NULL 视为互不相同，加了 `deleted_at` 的组合索引等
 
 金额与资产类字段在业务表上冗余了一份，是为了列表页与报表**不必每次聚合流水**：
 
-| 派生字段 | 唯一写入方 |
-| --- | --- |
-| `biz_booking.paid_amount` / `refund_amount` / `due_amount` / `pay_status` / `pay_channel_summary` / `settled_at` | `BookingSettlementService.recalc()` |
-| `biz_customer.total_spent` / `points` / `points_total` / `balance_principal` / `balance_bonus` / `level_id` / `visit_count` / `last_visit_at` | 会员账务与到店统计 service（同事务写流水） |
-| `biz_member_card.used_times` / `status` | 次卡核销 service（条件更新） |
-| `biz_credit_account.used_amount` | 挂账 / 销账 service |
-| `biz_receivable.settled_amount` / `status` | 销账 service（条件更新） |
-| `biz_service_item.image` | `ServiceItemsService` 的 `imagesPatch()`（恒等于 `images[0] ?? null`） |
-| `ai_action_intent.status` | `ActionIntentService.updateStatus()` |
+| 派生字段                                                                                                                                      | 唯一写入方                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `biz_booking.paid_amount` / `refund_amount` / `due_amount` / `pay_status` / `pay_channel_summary` / `settled_at`                              | `BookingSettlementService.recalc()`                                    |
+| `biz_customer.total_spent` / `points` / `points_total` / `balance_principal` / `balance_bonus` / `level_id` / `visit_count` / `last_visit_at` | 会员账务与到店统计 service（同事务写流水）                             |
+| `biz_member_card.used_times` / `status`                                                                                                       | 次卡核销 service（条件更新）                                           |
+| `biz_credit_account.used_amount`                                                                                                              | 挂账 / 销账 service                                                    |
+| `biz_receivable.settled_amount` / `status`                                                                                                    | 销账 service（条件更新）                                               |
+| `biz_service_item.image`                                                                                                                      | `ServiceItemsService` 的 `imagesPatch()`（恒等于 `images[0] ?? null`） |
+| `ai_action_intent.status`                                                                                                                     | `ActionIntentService.updateStatus()`                                   |
 
 代码评审红线：**任何 controller / 定时任务都不准直接 UPDATE 这些列**，
 对账修复走 `recount` 接口。详见 [/backend/reports](/backend/reports) 与
@@ -232,15 +232,15 @@ MySQL 把多个 NULL 视为互不相同，加了 `deleted_at` 的组合索引等
 
 ### 物理删（或从属子表）豁免清单
 
-| 表 | 行为 | 理由 |
-| --- | --- | --- |
-| `biz_staff_weekly_shift` | 物理删 | 周模板 `PUT` 是**整体替换**：先删后插 |
-| `biz_staff_schedule_override` | 物理删 | 单条日期例外 `DELETE` 语义明确 |
-| `biz_member_card_type_item` | 物理删 | 随卡种适用项目整体替换 |
-| `biz_staff_service_item` | 物理删 | 随「可做项目」整体替换 |
-| `biz_booking_item` | 不套 `auditColumns` | 从属子表：随主表 CASCADE 删除，生命周期等于主表 |
-| `sys_user_role` / `sys_role_menu` / `sys_role_dept` / `sys_user_post` | 不套 `auditColumns` | 纯关联行，外键 `ON DELETE CASCADE` |
-| `sys_login_log` / `sys_operation_log` / `sys_job_log` / `sys_file` | 只追加，无 `updated_at` / `deleted_at` | 日志与文件不做软删 |
+| 表                                                                    | 行为                                   | 理由                                            |
+| --------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------- |
+| `biz_staff_weekly_shift`                                              | 物理删                                 | 周模板 `PUT` 是**整体替换**：先删后插           |
+| `biz_staff_schedule_override`                                         | 物理删                                 | 单条日期例外 `DELETE` 语义明确                  |
+| `biz_member_card_type_item`                                           | 物理删                                 | 随卡种适用项目整体替换                          |
+| `biz_staff_service_item`                                              | 物理删                                 | 随「可做项目」整体替换                          |
+| `biz_booking_item`                                                    | 不套 `auditColumns`                    | 从属子表：随主表 CASCADE 删除，生命周期等于主表 |
+| `sys_user_role` / `sys_role_menu` / `sys_role_dept` / `sys_user_post` | 不套 `auditColumns`                    | 纯关联行，外键 `ON DELETE CASCADE`              |
+| `sys_login_log` / `sys_operation_log` / `sys_job_log` / `sys_file`    | 只追加，无 `updated_at` / `deleted_at` | 日志与文件不做软删                              |
 
 ### 只追加表（只有 `created_at` / `created_by`）
 

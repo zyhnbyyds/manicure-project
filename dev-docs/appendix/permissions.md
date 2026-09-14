@@ -5,12 +5,13 @@ title: 权限点与菜单清单
 本页是菜单与权限点的**权威清单**，全部由 `src/database/seed/menus.ts`（756 行）逐条还原而来：`MENU_SEEDS` 静态声明 + `buildBizMenus()` 依据 `BIZ_PAGES` 动态展开。后端守卫读取的是 JWT 里的 `permissions`，而 JWT 的 `permissions` 来自「用户 → 角色 → `sys_role_menu` → `sys_menu.permission`」这条链路，因此**改权限先改 seed**是唯一正确的入口。
 
 ::: tip 口径说明
+
 - 菜单行总数 **113**：目录 `M` **3**、菜单 `C` **42**、按钮 `F` **68**。
 - 权限点字符串总数 **106**（`sys_menu.permission` 去重后仍是 106，无重复）：
   页面级 `C` 行 **38** 个 + 按钮级 `F` 行 **68** 个。
 - 后端 Controller 装饰器里实际出现的权限点 **134** 个，与 seed 的差额见「[seed 与代码的交叉核对](#seed-与代码的交叉核对)」小节。
 - 鉴权实现细节见 [鉴权 · RBAC · 数据权限](/backend/auth-rbac)，表结构见 [系统 · 监控 · AI · 小程序身份表](/data/system-tables)，接口细节见 [接口契约索引](/appendix/api)。
-:::
+  :::
 
 ::: warning seed 是唯一权威来源
 `sys_menu.permission` 上有唯一索引 `uq_menu_permission`，同一个权限点**只能落在数据库的一行菜单上**。手工在「菜单管理」页面加一个按钮权限点，而不改 `src/database/seed/menus.ts`，下一次 `bun run db:seed:menus` 不会删除它（seed 按 `name` 查，不认识的 `name` 不处理），但它也**永远不会**被 seed 补回：换库、重置环境后这枚权限点会静默消失，角色授权随之失效。任何权限点的新增/重命名，都必须先落进 seed。
@@ -144,12 +145,12 @@ title: 权限点与菜单清单
 
 按代码顺序推演，最终页面 `permission` 为空的有 4 行：
 
-| 菜单 `name` | 页面标题 | 页面声明的 `permission` | 该权限点实际落在哪一行 | 让位原因 |
-| --- | --- | --- | --- | --- |
-| `dashboard` | 首页 | 无（seed 未声明） | — | 首页不设权限点，登录即可见 |
-| `biz_cashier` | 收银台 | 无（**故意留空**） | — | 收银台的资金动作由 4 个 `F` 按钮控制；`biz:payment:list` 归「支付流水」页面所有 |
-| `biz_payment_diffs` | 支付对账 | `biz:payment:reconcile` | `F` 行 `biz_payment_reconcile`（挂在「支付流水」下，sort 13 → 15 之前） | `biz_payments`（下标 12）先遍历：页面先占 `biz:payment:list`，按钮再抢走 `biz:payment:reconcile` |
-| `biz_commission_rules` | 提成规则 | 无（代码注释：唯一索引下不能与下方按钮重复） | `F` 行 `biz_commission_rule` | 页面权限点与按钮权限点是同一个字符串，只能存在一行 |
+| 菜单 `name`            | 页面标题 | 页面声明的 `permission`                      | 该权限点实际落在哪一行                                                  | 让位原因                                                                                         |
+| ---------------------- | -------- | -------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `dashboard`            | 首页     | 无（seed 未声明）                            | —                                                                       | 首页不设权限点，登录即可见                                                                       |
+| `biz_cashier`          | 收银台   | 无（**故意留空**）                           | —                                                                       | 收银台的资金动作由 4 个 `F` 按钮控制；`biz:payment:list` 归「支付流水」页面所有                  |
+| `biz_payment_diffs`    | 支付对账 | `biz:payment:reconcile`                      | `F` 行 `biz_payment_reconcile`（挂在「支付流水」下，sort 13 → 15 之前） | `biz_payments`（下标 12）先遍历：页面先占 `biz:payment:list`，按钮再抢走 `biz:payment:reconcile` |
+| `biz_commission_rules` | 提成规则 | 无（代码注释：唯一索引下不能与下方按钮重复） | `F` 行 `biz_commission_rule`                                            | 页面权限点与按钮权限点是同一个字符串，只能存在一行                                               |
 
 另外两处容易误判、但**实际未发生让位**的例子：
 
@@ -160,114 +161,114 @@ title: 权限点与菜单清单
 
 `所属菜单`列对页面级权限点填页面自身，对按钮级权限点填它挂载的页面。类型中「菜单」=落在 `C` 行，「按钮」=落在 `F` 行。共 **106** 行，穷举无抽样。
 
-| 权限点字符串 | 中文名称 | 所属菜单 | 类型 | 典型用途 |
-| --- | --- | --- | --- | --- |
-| `system:user:list` | 用户管理 | 用户管理 | 菜单 | 进入用户管理页、查询用户列表 |
-| `system:role:list` | 角色管理 | 角色管理 | 菜单 | 进入角色管理页、查看角色与已授权菜单 |
-| `system:menu:list` | 菜单管理 | 菜单管理 | 菜单 | 进入菜单管理页、读取菜单树 |
-| `system:dept:list` | 部门管理 | 部门管理 | 菜单 | 进入部门管理页、读取部门树 |
-| `system:post:list` | 岗位管理 | 岗位管理 | 菜单 | 进入岗位管理页 |
-| `system:dict:list` | 字典管理 | 字典管理 | 菜单 | 进入字典管理页、读取字典类型与字典数据 |
-| `system:config:list` | 参数配置 | 参数配置 | 菜单 | 进入参数配置页、按 key 读取参数 |
-| `monitor:loginlog:list` | 登录日志 | 登录日志 | 菜单 | 进入登录日志页 |
-| `monitor:operlog:list` | 操作日志 | 操作日志 | 菜单 | 进入操作日志页 |
-| `monitor:online:list` | 在线用户 | 在线用户 | 菜单 | 进入在线用户页 |
-| `monitor:cache:list` | 缓存监控 | 缓存监控 | 菜单 | 进入缓存监控页 |
-| `system:job:list` | 定时任务 | 定时任务 | 菜单 | 进入定时任务页、查看任务与执行日志 |
-| `system:file:list` | 文件管理 | 文件管理 | 菜单 | 进入文件管理页、下载文件 |
-| `system:generator:list` | 代码生成器 | 代码生成器 | 菜单 | 进入代码生成器页、预览生成结果 |
-| `ai:chat` | AI 操作 | AI 操作 | 菜单 | 进入 AI 页，会话 / 消息 / 操作意图 / 任务的全部读写 |
-| `biz:serviceitem:list` | 服务项目 | 服务项目 | 菜单 | 进入页面、读取服务项目列表与详情 |
-| `biz:staff:list` | 美甲师 | 美甲师 | 菜单 | 进入页面、读取美甲师列表、详情与其可做项目 |
-| `biz:staff:grant` | 工作台授权 | 工作台授权 | 菜单 | 一个点管住整页：工作台开通申请的列表、通过、驳回 |
-| `biz:schedule:list` | 排班管理 | 排班管理 | 菜单 | 进入页面、读取周模板与日期例外 |
-| `biz:customer:list` | 顾客档案 | 顾客档案 | 菜单 | 进入页面、读取顾客列表/详情/其预约 |
-| `biz:booking:list` | 预约管理 | 预约管理 | 菜单 | 进入页面、预约列表、可约时段、预约详情、顾客简要信息 |
-| `biz:memberlevel:list` | 会员等级 | 会员等级 | 菜单 | 进入页面、读取会员等级列表与详情 |
-| `biz:rechargeplan:list` | 充值方案 | 充值方案 | 菜单 | 进入页面、读取充值方案 |
-| `biz:cardtype:list` | 次卡卡种 | 次卡卡种 | 菜单 | 进入页面、读取卡种列表与详情 |
-| `biz:member:list` | 会员管理 | 会员管理 | 菜单 | 进入页面、会员列表/详情/流水/已发券、积分试算 |
-| `biz:card:list` | 会员次卡 | 会员次卡 | 菜单 | 进入页面、读取会员持卡列表与详情 |
-| `biz:payment:list` | 支付流水 | 支付流水 | 菜单 | 进入页面、支付单列表/详情/渠道状态查询 |
-| `biz:refund:list` | 退款审批 | 退款审批 | 菜单 | 进入页面、退款申请列表 |
-| `biz:credit:list` | 挂账主体 | 挂账主体 | 菜单 | 进入页面、读取挂账主体（顾客/公司/员工） |
-| `biz:receivable:list` | 应收台账 | 应收台账 | 菜单 | 进入页面、应收台账列表与账龄汇总 |
-| `biz:pointsgoods:list` | 积分兑换品 | 积分兑换品 | 菜单 | 进入页面、读取兑换品列表与详情 |
-| `biz:coupon:list` | 优惠券模板 | 优惠券模板 | 菜单 | 进入页面、读取券模板列表与详情 |
-| `biz:review:list` | 评价管理 | 评价管理 | 菜单 | 进入页面、评价列表（美甲师身份再被二次收窄） |
-| `biz:report:view` | 报表中心 | 报表中心 | 菜单 | 营收/服务/美甲师/会员/应收 5 类报表的查看 |
-| `biz:commission:list` | 提成结算 | 提成结算 | 菜单 | 进入页面、读取提成明细 |
-| `biz:recurrence:list` | 周期预约 | 周期预约 | 菜单 | 进入页面、读取规则列表与已生成单据 |
-| `biz:notice:template` | 通知模板 | 通知模板 | 菜单 | 进入页面、模板的增删改查 |
-| `biz:notice:log` | 通知记录 | 通知记录 | 菜单 | 进入页面、读取发送记录与详情 |
-| `biz:serviceitem:create` | 服务项目-create | 服务项目 | 按钮 | 新建服务项目 |
-| `biz:serviceitem:update` | 服务项目-update | 服务项目 | 按钮 | 修改服务项目 |
-| `biz:serviceitem:delete` | 服务项目-delete | 服务项目 | 按钮 | 删除服务项目（有引用则被拒） |
-| `biz:staff:create` | 美甲师-create | 美甲师 | 按钮 | 新建美甲师档案 |
-| `biz:staff:update` | 美甲师-update | 美甲师 | 按钮 | 修改美甲师档案 |
-| `biz:staff:delete` | 美甲师-delete | 美甲师 | 按钮 | 删除美甲师 |
-| `biz:staff:items` | 美甲师-items | 美甲师 | 按钮 | 维护「某美甲师可做哪些项目」 |
-| `biz:schedule:update` | 排班管理-update | 排班管理 | 按钮 | 整体替换周模板、增删日期例外（请假/自定义） |
-| `biz:customer:create` | 顾客档案-create | 顾客档案 | 按钮 | 新建顾客（手机号唯一 + 软删策略） |
-| `biz:customer:update` | 顾客档案-update | 顾客档案 | 按钮 | 修改顾客、重算派生字段、恢复软删顾客 |
-| `biz:customer:delete` | 顾客档案-delete | 顾客档案 | 按钮 | 软删顾客 |
-| `biz:booking:create` | 预约管理-create | 预约管理 | 按钮 | 创建预约 |
-| `biz:booking:update` | 预约管理-update | 预约管理 | 按钮 | 改期、确认、重算（recount） |
-| `biz:booking:cancel` | 预约管理-cancel | 预约管理 | 按钮 | 取消预约 |
-| `biz:booking:arrive` | 预约管理-arrive | 预约管理 | 按钮 | 标记到店 |
-| `biz:booking:complete` | 预约管理-complete | 预约管理 | 按钮 | 标记完工 |
-| `biz:booking:noshow` | 预约管理-noshow | 预约管理 | 按钮 | 标记未到店 |
-| `biz:booking:delete` | 预约管理-delete | 预约管理 | 按钮 | 删除预约单据 |
-| `biz:booking:manageall` | 预约管理-manageall | 预约管理 | 按钮 | **不做接口门禁**：服务层判定「美甲师是否只看自己」，持有则解锁全部预约 |
-| `biz:booking:adjust` | 预约管理-adjust | 预约管理 | 按钮 | **不做接口门禁**：服务层判定手动改价，缺失时抛 403，必须填原因 |
-| `biz:memberlevel:create` | 会员等级-create | 会员等级 | 按钮 | 新建会员等级（含折扣率千分比） |
-| `biz:memberlevel:update` | 会员等级-update | 会员等级 | 按钮 | 修改会员等级 |
-| `biz:memberlevel:delete` | 会员等级-delete | 会员等级 | 按钮 | 删除会员等级 |
-| `biz:rechargeplan:create` | 充值方案-create | 充值方案 | 按钮 | 新建充值方案 |
-| `biz:rechargeplan:update` | 充值方案-update | 充值方案 | 按钮 | 修改充值方案 |
-| `biz:rechargeplan:delete` | 充值方案-delete | 充值方案 | 按钮 | 删除充值方案 |
-| `biz:cardtype:create` | 次卡卡种-create | 次卡卡种 | 按钮 | 新建次卡卡种 |
-| `biz:cardtype:update` | 次卡卡种-update | 次卡卡种 | 按钮 | 修改次卡卡种 |
-| `biz:cardtype:delete` | 次卡卡种-delete | 次卡卡种 | 按钮 | 删除次卡卡种 |
-| `biz:member:update` | 会员管理-update | 会员管理 | 按钮 | 修改会员资料（建档），钱的字段不在这里 |
-| `biz:member:adjust` | 会员管理-adjust | 会员管理 | 按钮 | 手工调账（余额/积分），需填原因 |
-| `biz:member:recount` | 会员管理-recount | 会员管理 | 按钮 | 重算会员派生字段（累计消费、等级等） |
-| `biz:member:recharge` | 会员管理-recharge | 会员管理 | 按钮 | 储值充值（本金 + 赠送，**默认只给店长**） |
-| `biz:member:refund` | 会员管理-refund | 会员管理 | 按钮 | 储值退款/冲正（走审批，**默认只给店长**） |
-| `biz:member:coupon` | 会员管理-coupon | 会员管理 | 按钮 | 给顾客发券（复用券模板） |
-| `biz:card:issue` | 会员管理-issue | 会员管理 | 按钮 | 从会员详情发次卡 |
-| `biz:card:use` | 会员管理-use | 会员管理 | 按钮 | 从会员详情核销次卡 |
-| `biz:card:revoke` | 会员次卡-revoke | 会员次卡 | 按钮 | 撤销核销（回退次数） |
-| `biz:card:refund` | 会员次卡-refund | 会员次卡 | 按钮 | 次卡退款 |
-| `biz:payment:create` | 收银台-create | 收银台 | 按钮 | 创建支付单（扫码/线下记账）、主动查单、预约结算 |
-| `biz:payment:close` | 收银台-close | 收银台 | 按钮 | 关单 |
-| `biz:refund:apply` | 收银台-apply | 收银台 | 按钮 | 申请退款（申请与审批分离，前台可申请） |
-| `biz:receivable:settle` | 收银台-settle | 收银台 | 按钮 | 销账（从收银台发起） |
-| `biz:payment:reconcile` | 支付流水-reconcile | 支付流水 | 按钮 | 渠道对账：差异列表、触发对账、处理差异 |
-| `biz:refund:approve` | 退款审批-approve | 退款审批 | 按钮 | 通过 / 驳回退款（**只给店长**） |
-| `biz:credit:create` | 挂账主体-create | 挂账主体 | 按钮 | 新建挂账主体与额度/账期 |
-| `biz:credit:update` | 挂账主体-update | 挂账主体 | 按钮 | 修改挂账主体 |
-| `biz:credit:delete` | 挂账主体-delete | 挂账主体 | 按钮 | 删除挂账主体 |
-| `biz:receivable:cancel` | 应收台账-cancel | 应收台账 | 按钮 | 作废应收单 |
-| `biz:pointsgoods:create` | 积分兑换品-create | 积分兑换品 | 按钮 | 新建积分兑换品 |
-| `biz:pointsgoods:update` | 积分兑换品-update | 积分兑换品 | 按钮 | 修改积分兑换品 |
-| `biz:pointsgoods:delete` | 积分兑换品-delete | 积分兑换品 | 按钮 | 删除积分兑换品 |
-| `biz:points:redeem` | 积分兑换品-redeem | 积分兑换品 | 按钮 | 积分兑换下单、兑换记录列表 |
-| `biz:points:revert` | 积分兑换品-revert | 积分兑换品 | 按钮 | 撤销兑换（积分回退） |
-| `biz:coupon:create` | 优惠券模板-create | 优惠券模板 | 按钮 | 新建券模板 |
-| `biz:coupon:update` | 优惠券模板-update | 优惠券模板 | 按钮 | 修改券模板 |
-| `biz:coupon:delete` | 优惠券模板-delete | 优惠券模板 | 按钮 | 删除券模板 |
-| `biz:review:create` | 评价管理-create | 评价管理 | 按钮 | 代录评价 |
-| `biz:review:reply` | 评价管理-reply | 评价管理 | 按钮 | 回复评价 |
-| `biz:review:hide` | 评价管理-hide | 评价管理 | 按钮 | 隐藏/显示评价 |
-| `biz:review:delete` | 评价管理-delete | 评价管理 | 按钮 | 删除评价 |
-| `biz:report:export` | 报表中心-export | 报表中心 | 按钮 | 导出报表文件 |
-| `biz:commission:rule` | 提成规则-rule | 提成规则 | 按钮 | 提成规则的增删改查（页面与按钮共用这一个点） |
-| `biz:commission:settle` | 提成结算-settle | 提成结算 | 按钮 | 结算冻结、冲销 |
-| `biz:recurrence:create` | 周期预约-create | 周期预约 | 按钮 | 新建周期预约规则 |
-| `biz:recurrence:update` | 周期预约-update | 周期预约 | 按钮 | 修改规则、暂停/恢复/停止、撤销窗口 |
-| `biz:recurrence:delete` | 周期预约-delete | 周期预约 | 按钮 | 删除规则 |
-| `biz:notice:send` | 通知模板-send | 通知模板 | 按钮 | 手工发通知、重发失败记录 |
+| 权限点字符串              | 中文名称           | 所属菜单   | 类型 | 典型用途                                                               |
+| ------------------------- | ------------------ | ---------- | ---- | ---------------------------------------------------------------------- |
+| `system:user:list`        | 用户管理           | 用户管理   | 菜单 | 进入用户管理页、查询用户列表                                           |
+| `system:role:list`        | 角色管理           | 角色管理   | 菜单 | 进入角色管理页、查看角色与已授权菜单                                   |
+| `system:menu:list`        | 菜单管理           | 菜单管理   | 菜单 | 进入菜单管理页、读取菜单树                                             |
+| `system:dept:list`        | 部门管理           | 部门管理   | 菜单 | 进入部门管理页、读取部门树                                             |
+| `system:post:list`        | 岗位管理           | 岗位管理   | 菜单 | 进入岗位管理页                                                         |
+| `system:dict:list`        | 字典管理           | 字典管理   | 菜单 | 进入字典管理页、读取字典类型与字典数据                                 |
+| `system:config:list`      | 参数配置           | 参数配置   | 菜单 | 进入参数配置页、按 key 读取参数                                        |
+| `monitor:loginlog:list`   | 登录日志           | 登录日志   | 菜单 | 进入登录日志页                                                         |
+| `monitor:operlog:list`    | 操作日志           | 操作日志   | 菜单 | 进入操作日志页                                                         |
+| `monitor:online:list`     | 在线用户           | 在线用户   | 菜单 | 进入在线用户页                                                         |
+| `monitor:cache:list`      | 缓存监控           | 缓存监控   | 菜单 | 进入缓存监控页                                                         |
+| `system:job:list`         | 定时任务           | 定时任务   | 菜单 | 进入定时任务页、查看任务与执行日志                                     |
+| `system:file:list`        | 文件管理           | 文件管理   | 菜单 | 进入文件管理页、下载文件                                               |
+| `system:generator:list`   | 代码生成器         | 代码生成器 | 菜单 | 进入代码生成器页、预览生成结果                                         |
+| `ai:chat`                 | AI 操作            | AI 操作    | 菜单 | 进入 AI 页，会话 / 消息 / 操作意图 / 任务的全部读写                    |
+| `biz:serviceitem:list`    | 服务项目           | 服务项目   | 菜单 | 进入页面、读取服务项目列表与详情                                       |
+| `biz:staff:list`          | 美甲师             | 美甲师     | 菜单 | 进入页面、读取美甲师列表、详情与其可做项目                             |
+| `biz:staff:grant`         | 工作台授权         | 工作台授权 | 菜单 | 一个点管住整页：工作台开通申请的列表、通过、驳回                       |
+| `biz:schedule:list`       | 排班管理           | 排班管理   | 菜单 | 进入页面、读取周模板与日期例外                                         |
+| `biz:customer:list`       | 顾客档案           | 顾客档案   | 菜单 | 进入页面、读取顾客列表/详情/其预约                                     |
+| `biz:booking:list`        | 预约管理           | 预约管理   | 菜单 | 进入页面、预约列表、可约时段、预约详情、顾客简要信息                   |
+| `biz:memberlevel:list`    | 会员等级           | 会员等级   | 菜单 | 进入页面、读取会员等级列表与详情                                       |
+| `biz:rechargeplan:list`   | 充值方案           | 充值方案   | 菜单 | 进入页面、读取充值方案                                                 |
+| `biz:cardtype:list`       | 次卡卡种           | 次卡卡种   | 菜单 | 进入页面、读取卡种列表与详情                                           |
+| `biz:member:list`         | 会员管理           | 会员管理   | 菜单 | 进入页面、会员列表/详情/流水/已发券、积分试算                          |
+| `biz:card:list`           | 会员次卡           | 会员次卡   | 菜单 | 进入页面、读取会员持卡列表与详情                                       |
+| `biz:payment:list`        | 支付流水           | 支付流水   | 菜单 | 进入页面、支付单列表/详情/渠道状态查询                                 |
+| `biz:refund:list`         | 退款审批           | 退款审批   | 菜单 | 进入页面、退款申请列表                                                 |
+| `biz:credit:list`         | 挂账主体           | 挂账主体   | 菜单 | 进入页面、读取挂账主体（顾客/公司/员工）                               |
+| `biz:receivable:list`     | 应收台账           | 应收台账   | 菜单 | 进入页面、应收台账列表与账龄汇总                                       |
+| `biz:pointsgoods:list`    | 积分兑换品         | 积分兑换品 | 菜单 | 进入页面、读取兑换品列表与详情                                         |
+| `biz:coupon:list`         | 优惠券模板         | 优惠券模板 | 菜单 | 进入页面、读取券模板列表与详情                                         |
+| `biz:review:list`         | 评价管理           | 评价管理   | 菜单 | 进入页面、评价列表（美甲师身份再被二次收窄）                           |
+| `biz:report:view`         | 报表中心           | 报表中心   | 菜单 | 营收/服务/美甲师/会员/应收 5 类报表的查看                              |
+| `biz:commission:list`     | 提成结算           | 提成结算   | 菜单 | 进入页面、读取提成明细                                                 |
+| `biz:recurrence:list`     | 周期预约           | 周期预约   | 菜单 | 进入页面、读取规则列表与已生成单据                                     |
+| `biz:notice:template`     | 通知模板           | 通知模板   | 菜单 | 进入页面、模板的增删改查                                               |
+| `biz:notice:log`          | 通知记录           | 通知记录   | 菜单 | 进入页面、读取发送记录与详情                                           |
+| `biz:serviceitem:create`  | 服务项目-create    | 服务项目   | 按钮 | 新建服务项目                                                           |
+| `biz:serviceitem:update`  | 服务项目-update    | 服务项目   | 按钮 | 修改服务项目                                                           |
+| `biz:serviceitem:delete`  | 服务项目-delete    | 服务项目   | 按钮 | 删除服务项目（有引用则被拒）                                           |
+| `biz:staff:create`        | 美甲师-create      | 美甲师     | 按钮 | 新建美甲师档案                                                         |
+| `biz:staff:update`        | 美甲师-update      | 美甲师     | 按钮 | 修改美甲师档案                                                         |
+| `biz:staff:delete`        | 美甲师-delete      | 美甲师     | 按钮 | 删除美甲师                                                             |
+| `biz:staff:items`         | 美甲师-items       | 美甲师     | 按钮 | 维护「某美甲师可做哪些项目」                                           |
+| `biz:schedule:update`     | 排班管理-update    | 排班管理   | 按钮 | 整体替换周模板、增删日期例外（请假/自定义）                            |
+| `biz:customer:create`     | 顾客档案-create    | 顾客档案   | 按钮 | 新建顾客（手机号唯一 + 软删策略）                                      |
+| `biz:customer:update`     | 顾客档案-update    | 顾客档案   | 按钮 | 修改顾客、重算派生字段、恢复软删顾客                                   |
+| `biz:customer:delete`     | 顾客档案-delete    | 顾客档案   | 按钮 | 软删顾客                                                               |
+| `biz:booking:create`      | 预约管理-create    | 预约管理   | 按钮 | 创建预约                                                               |
+| `biz:booking:update`      | 预约管理-update    | 预约管理   | 按钮 | 改期、确认、重算（recount）                                            |
+| `biz:booking:cancel`      | 预约管理-cancel    | 预约管理   | 按钮 | 取消预约                                                               |
+| `biz:booking:arrive`      | 预约管理-arrive    | 预约管理   | 按钮 | 标记到店                                                               |
+| `biz:booking:complete`    | 预约管理-complete  | 预约管理   | 按钮 | 标记完工                                                               |
+| `biz:booking:noshow`      | 预约管理-noshow    | 预约管理   | 按钮 | 标记未到店                                                             |
+| `biz:booking:delete`      | 预约管理-delete    | 预约管理   | 按钮 | 删除预约单据                                                           |
+| `biz:booking:manageall`   | 预约管理-manageall | 预约管理   | 按钮 | **不做接口门禁**：服务层判定「美甲师是否只看自己」，持有则解锁全部预约 |
+| `biz:booking:adjust`      | 预约管理-adjust    | 预约管理   | 按钮 | **不做接口门禁**：服务层判定手动改价，缺失时抛 403，必须填原因         |
+| `biz:memberlevel:create`  | 会员等级-create    | 会员等级   | 按钮 | 新建会员等级（含折扣率千分比）                                         |
+| `biz:memberlevel:update`  | 会员等级-update    | 会员等级   | 按钮 | 修改会员等级                                                           |
+| `biz:memberlevel:delete`  | 会员等级-delete    | 会员等级   | 按钮 | 删除会员等级                                                           |
+| `biz:rechargeplan:create` | 充值方案-create    | 充值方案   | 按钮 | 新建充值方案                                                           |
+| `biz:rechargeplan:update` | 充值方案-update    | 充值方案   | 按钮 | 修改充值方案                                                           |
+| `biz:rechargeplan:delete` | 充值方案-delete    | 充值方案   | 按钮 | 删除充值方案                                                           |
+| `biz:cardtype:create`     | 次卡卡种-create    | 次卡卡种   | 按钮 | 新建次卡卡种                                                           |
+| `biz:cardtype:update`     | 次卡卡种-update    | 次卡卡种   | 按钮 | 修改次卡卡种                                                           |
+| `biz:cardtype:delete`     | 次卡卡种-delete    | 次卡卡种   | 按钮 | 删除次卡卡种                                                           |
+| `biz:member:update`       | 会员管理-update    | 会员管理   | 按钮 | 修改会员资料（建档），钱的字段不在这里                                 |
+| `biz:member:adjust`       | 会员管理-adjust    | 会员管理   | 按钮 | 手工调账（余额/积分），需填原因                                        |
+| `biz:member:recount`      | 会员管理-recount   | 会员管理   | 按钮 | 重算会员派生字段（累计消费、等级等）                                   |
+| `biz:member:recharge`     | 会员管理-recharge  | 会员管理   | 按钮 | 储值充值（本金 + 赠送，**默认只给店长**）                              |
+| `biz:member:refund`       | 会员管理-refund    | 会员管理   | 按钮 | 储值退款/冲正（走审批，**默认只给店长**）                              |
+| `biz:member:coupon`       | 会员管理-coupon    | 会员管理   | 按钮 | 给顾客发券（复用券模板）                                               |
+| `biz:card:issue`          | 会员管理-issue     | 会员管理   | 按钮 | 从会员详情发次卡                                                       |
+| `biz:card:use`            | 会员管理-use       | 会员管理   | 按钮 | 从会员详情核销次卡                                                     |
+| `biz:card:revoke`         | 会员次卡-revoke    | 会员次卡   | 按钮 | 撤销核销（回退次数）                                                   |
+| `biz:card:refund`         | 会员次卡-refund    | 会员次卡   | 按钮 | 次卡退款                                                               |
+| `biz:payment:create`      | 收银台-create      | 收银台     | 按钮 | 创建支付单（扫码/线下记账）、主动查单、预约结算                        |
+| `biz:payment:close`       | 收银台-close       | 收银台     | 按钮 | 关单                                                                   |
+| `biz:refund:apply`        | 收银台-apply       | 收银台     | 按钮 | 申请退款（申请与审批分离，前台可申请）                                 |
+| `biz:receivable:settle`   | 收银台-settle      | 收银台     | 按钮 | 销账（从收银台发起）                                                   |
+| `biz:payment:reconcile`   | 支付流水-reconcile | 支付流水   | 按钮 | 渠道对账：差异列表、触发对账、处理差异                                 |
+| `biz:refund:approve`      | 退款审批-approve   | 退款审批   | 按钮 | 通过 / 驳回退款（**只给店长**）                                        |
+| `biz:credit:create`       | 挂账主体-create    | 挂账主体   | 按钮 | 新建挂账主体与额度/账期                                                |
+| `biz:credit:update`       | 挂账主体-update    | 挂账主体   | 按钮 | 修改挂账主体                                                           |
+| `biz:credit:delete`       | 挂账主体-delete    | 挂账主体   | 按钮 | 删除挂账主体                                                           |
+| `biz:receivable:cancel`   | 应收台账-cancel    | 应收台账   | 按钮 | 作废应收单                                                             |
+| `biz:pointsgoods:create`  | 积分兑换品-create  | 积分兑换品 | 按钮 | 新建积分兑换品                                                         |
+| `biz:pointsgoods:update`  | 积分兑换品-update  | 积分兑换品 | 按钮 | 修改积分兑换品                                                         |
+| `biz:pointsgoods:delete`  | 积分兑换品-delete  | 积分兑换品 | 按钮 | 删除积分兑换品                                                         |
+| `biz:points:redeem`       | 积分兑换品-redeem  | 积分兑换品 | 按钮 | 积分兑换下单、兑换记录列表                                             |
+| `biz:points:revert`       | 积分兑换品-revert  | 积分兑换品 | 按钮 | 撤销兑换（积分回退）                                                   |
+| `biz:coupon:create`       | 优惠券模板-create  | 优惠券模板 | 按钮 | 新建券模板                                                             |
+| `biz:coupon:update`       | 优惠券模板-update  | 优惠券模板 | 按钮 | 修改券模板                                                             |
+| `biz:coupon:delete`       | 优惠券模板-delete  | 优惠券模板 | 按钮 | 删除券模板                                                             |
+| `biz:review:create`       | 评价管理-create    | 评价管理   | 按钮 | 代录评价                                                               |
+| `biz:review:reply`        | 评价管理-reply     | 评价管理   | 按钮 | 回复评价                                                               |
+| `biz:review:hide`         | 评价管理-hide      | 评价管理   | 按钮 | 隐藏/显示评价                                                          |
+| `biz:review:delete`       | 评价管理-delete    | 评价管理   | 按钮 | 删除评价                                                               |
+| `biz:report:export`       | 报表中心-export    | 报表中心   | 按钮 | 导出报表文件                                                           |
+| `biz:commission:rule`     | 提成规则-rule      | 提成规则   | 按钮 | 提成规则的增删改查（页面与按钮共用这一个点）                           |
+| `biz:commission:settle`   | 提成结算-settle    | 提成结算   | 按钮 | 结算冻结、冲销                                                         |
+| `biz:recurrence:create`   | 周期预约-create    | 周期预约   | 按钮 | 新建周期预约规则                                                       |
+| `biz:recurrence:update`   | 周期预约-update    | 周期预约   | 按钮 | 修改规则、暂停/恢复/停止、撤销窗口                                     |
+| `biz:recurrence:delete`   | 周期预约-delete    | 周期预约   | 按钮 | 删除规则                                                               |
+| `biz:notice:send`         | 通知模板-send      | 通知模板   | 按钮 | 手工发通知、重发失败记录                                               |
 
 ### seed 与代码的交叉核对
 
@@ -320,9 +321,9 @@ title: 权限点与菜单清单
 
 ### `sys_role_menu`（角色 ↔ 菜单）
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| `role_id` | `int unsigned` | 外键 → `sys_role.id`，`ON DELETE CASCADE` | 角色 id |
+| 字段      | 类型           | 约束                                      | 说明                              |
+| --------- | -------------- | ----------------------------------------- | --------------------------------- |
+| `role_id` | `int unsigned` | 外键 → `sys_role.id`，`ON DELETE CASCADE` | 角色 id                           |
 | `menu_id` | `int unsigned` | 外键 → `sys_menu.id`，`ON DELETE CASCADE` | 菜单 id（`M`/`C`/`F` 都可以授权） |
 
 索引：唯一索引 `uq_role_menu(role_id, menu_id)`、普通索引 `idx_role_menu_menu(menu_id)`。表名 `sys_role_menu`，Drizzle 导出名 `roleMenus`。
@@ -333,9 +334,9 @@ title: 权限点与菜单清单
 
 ### `sys_role_dept` 与数据权限（与菜单权限是两件事）
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| `role_id` | `int unsigned` | 外键 → `sys_role.id`，`ON DELETE CASCADE` | 角色 id |
+| 字段      | 类型           | 约束                                      | 说明        |
+| --------- | -------------- | ----------------------------------------- | ----------- |
+| `role_id` | `int unsigned` | 外键 → `sys_role.id`，`ON DELETE CASCADE` | 角色 id     |
 | `dept_id` | `int unsigned` | 外键 → `sys_dept.id`，`ON DELETE CASCADE` | 可见部门 id |
 
 索引：唯一索引 `uq_role_dept(role_id, dept_id)`、普通索引 `idx_role_dept_dept(dept_id)`。表名 `sys_role_dept`，Drizzle 导出名 `roleDepts`。
@@ -349,13 +350,13 @@ title: 权限点与菜单清单
 3. 否则取并集（宽松优先）：`custom` 角色的 `sys_role_dept` 部门 ∪ 本人部门（`dept`）∪ 本人部门及全部下级（`dept_and_children`，靠 `sys_department.ancestors` 祖先路径求子孙）；
 4. 有部门范围 → `deptIds`；否则 → `self`。
 
-| 维度 | 菜单权限 | 数据权限 |
-| --- | --- | --- |
-| 存什么 | `sys_role_menu`（角色能看哪些菜单/按钮） | `sys_role.data_scope` + `sys_role_dept` |
-| 粒度 | 功能级：能不能调这个接口 / 看不看得到这个按钮 | 行级：同一条接口里能看见哪些行 |
-| 生效点 | `AccessTokenGuard`（全局守卫，接口入口） | Service 层显式调用 `resolveDataScope()` 后拼查询条件 |
-| 超管特例 | `permissions` 含 `*:*:*`，全部放行 | 同样因 `*:*:*` 直接返回 `all` |
-| 典型组合 | 「有 `biz:booking:list` 才能进预约管理页」 | 「有 list 权限，但只看得到本部门或本人创建的预约」 |
+| 维度     | 菜单权限                                      | 数据权限                                             |
+| -------- | --------------------------------------------- | ---------------------------------------------------- |
+| 存什么   | `sys_role_menu`（角色能看哪些菜单/按钮）      | `sys_role.data_scope` + `sys_role_dept`              |
+| 粒度     | 功能级：能不能调这个接口 / 看不看得到这个按钮 | 行级：同一条接口里能看见哪些行                       |
+| 生效点   | `AccessTokenGuard`（全局守卫，接口入口）      | Service 层显式调用 `resolveDataScope()` 后拼查询条件 |
+| 超管特例 | `permissions` 含 `*:*:*`，全部放行            | 同样因 `*:*:*` 直接返回 `all`                        |
+| 典型组合 | 「有 `biz:booking:list` 才能进预约管理页」    | 「有 list 权限，但只看得到本部门或本人创建的预约」   |
 
 数据权限不是自动施加的：一个 Service 若没主动调用 `resolveDataScope()`，就完全不按角色收窄。业务侧最典型的是预约——`bookings.service.ts` 先判「该账号是否绑定美甲师身份」，绑定且无 `biz:booking:manageall` 时收窄到只看自己，否则回落到通用 `resolveDataScope()`。
 
@@ -365,121 +366,121 @@ title: 权限点与菜单清单
 
 完整路径 = `/{API_PREFIX}` + `@Controller(...)` + 方法路径。`API_PREFIX` 默认 `api/v1`（`src/config/app-config.service.ts` 的 `API_PREFIX`，`src/main.ts` 里 `app.setGlobalPrefix(config.apiPrefix)`），下文一律按默认值书写。装饰器出现在方法上时，同一个权限点会覆盖该 Controller 的多个路径（下表用「、」合并）。
 
-| 权限点 | 方法与完整路径 | Controller |
-| --- | --- | --- |
-| `system:user:list` | `GET /api/v1/system/users` | `system/users/users.controller.ts` |
-| `system:user:create` | `POST /api/v1/system/users` | 同上 |
-| `system:user:update` | `PATCH /api/v1/system/users/:id` | 同上 |
-| `system:user:delete` | `DELETE /api/v1/system/users/:id` | 同上 |
-| `system:role:list` | `GET /api/v1/system/roles` | `system/roles/roles.controller.ts` |
-| `system:role:update` | `PATCH /api/v1/system/roles/:id`、`POST /api/v1/system/roles/:id/menus` | 同上（菜单授权用同一个点） |
-| `system:menu:list` | `GET /api/v1/system/menus`、`GET /api/v1/system/menus/:id` | `system/menus/menus.controller.ts` |
-| `system:menu:create` | `POST /api/v1/system/menus` | 同上 |
-| `system:dept:list` | `GET /api/v1/system/depts`、`GET /api/v1/system/depts/:id` | `system/depts/depts.controller.ts` |
-| `system:dict:list` | `GET /api/v1/system/dict-types`、`GET /api/v1/system/dict-types/:id`、`GET /api/v1/system/dict-data`、`GET /api/v1/system/dict-data/type/:type`、`GET /api/v1/system/dict-data/:id` | `dict-types` + `dict-data` 两个 Controller 共用 |
-| `system:config:list` | `GET /api/v1/system/configs`、`GET /api/v1/system/configs/key/:key`、`GET /api/v1/system/configs/:id` | `system/configs/configs.controller.ts` |
-| `system:job:list` | `GET /api/v1/system/jobs`、`GET /api/v1/system/jobs/:id`、`GET /api/v1/system/jobs/:id/logs` | `jobs/jobs.controller.ts` |
-| `system:job:run` | `POST /api/v1/system/jobs/:id/run` | 同上 |
-| `system:file:list` | `GET /api/v1/files`、`GET /api/v1/files/:id` | `files/files.controller.ts` |
-| `system:file:delete` | `DELETE /api/v1/files/:id` | 同上 |
-| `system:generator:list` | `GET /api/v1/generator/tables`、`GET /api/v1/generator/tables/:table/columns`、`POST /api/v1/generator/preview` | `generator/generator.controller.ts` |
-| `system:generator:generate` | `POST /api/v1/generator/generate` | 同上 |
-| `monitor:loginlog:list` | `GET /api/v1/monitor/login-logs`、`GET /api/v1/monitor/login-logs/:id` | `monitor/login-logs/` |
-| `monitor:loginlog:delete` | `DELETE /api/v1/monitor/login-logs/:id`、`DELETE /api/v1/monitor/login-logs` | 同上 |
-| `monitor:operlog:list` | `GET /api/v1/monitor/operation-logs`、`GET /api/v1/monitor/operation-logs/:id` | `monitor/operation-logs/` |
-| `monitor:online:list` | `GET /api/v1/monitor/online` | `monitor/online/online.controller.ts` |
-| `monitor:online:delete` | `DELETE /api/v1/monitor/online/:userId` | 同上（强制下线） |
-| `monitor:cache:list` | `GET /api/v1/monitor/cache` | `monitor/cache/cache.controller.ts` |
-| `ai:chat` | `POST /api/v1/ai/sessions`、`GET /api/v1/ai/sessions`、`GET/PATCH /api/v1/ai/sessions/:id`、`GET/POST /api/v1/ai/sessions/:id/messages`、`POST /api/v1/ai/action-intents/:id/approve`、`/reject`、`/confirm`、`GET /api/v1/ai/tasks`、`GET /api/v1/ai/tasks/:id`、`POST /api/v1/ai/tasks/:id/rollback` | `ai/gateway/ai.gateway.controller.ts`（一个点管整个 AI 域） |
-| `biz:serviceitem:list` | `GET /api/v1/biz/service-items`、`GET /api/v1/biz/service-items/:id` | `biz/base-data/service-items/` |
-| `biz:serviceitem:create` | `POST /api/v1/biz/service-items` | 同上 |
-| `biz:serviceitem:update` | `PATCH /api/v1/biz/service-items/:id` | 同上 |
-| `biz:serviceitem:delete` | `DELETE /api/v1/biz/service-items/:id` | 同上 |
-| `biz:staff:list` | `GET /api/v1/biz/staffs`、`GET /api/v1/biz/staffs/:id`、`GET /api/v1/biz/staffs/:id/service-items` | `biz/base-data/staffs/` |
-| `biz:staff:items` | `PUT /api/v1/biz/staffs/:id/service-items` | 同上（维护可做项目） |
-| `biz:staff:grant` | `GET /api/v1/biz/app-staff-grants`、`POST /api/v1/biz/app-staff-grants/:id/approve`、`POST /api/v1/biz/app-staff-grants/:id/reject` | `app/staff/app-staff-grants.controller.ts`（后台域，非 app 域） |
-| `biz:schedule:list` | `GET /api/v1/biz/staffs/:id/weekly-shifts`、`GET /api/v1/biz/staffs/:id/overrides` | `biz/scheduling/scheduling.controller.ts` |
-| `biz:schedule:update` | `PUT /api/v1/biz/staffs/:id/weekly-shifts`、`POST /api/v1/biz/staffs/:id/overrides`、`DELETE /api/v1/biz/staffs/:id/overrides/:overrideId` | 同上 |
-| `biz:customer:list` | `GET /api/v1/biz/customers`、`GET /api/v1/biz/customers/:id`、`GET /api/v1/biz/customers/:id/bookings` | `biz/base-data/customers/` |
-| `biz:customer:update` | `PATCH /api/v1/biz/customers/:id`、`POST /api/v1/biz/customers/:id/recount`、`POST /api/v1/biz/customers/:id/restore` | 同上 |
-| `biz:booking:list` | `GET /api/v1/biz/bookings`、`GET /api/v1/biz/bookings/available-slots`、`GET /api/v1/biz/bookings/:id`、`GET /api/v1/biz/bookings/customers/:customerId/brief` | `biz/booking/bookings.controller.ts` |
-| `biz:booking:create` | `POST /api/v1/biz/bookings` | 同上 |
-| `biz:booking:update` | `PATCH /api/v1/biz/bookings/:id`、`POST /api/v1/biz/bookings/:id/confirm`、`POST /api/v1/biz/bookings/:id/recount` | 同上 |
-| `biz:booking:arrive` | `POST /api/v1/biz/bookings/:id/arrive` | 同上 |
-| `biz:booking:complete` | `POST /api/v1/biz/bookings/:id/complete` | 同上 |
-| `biz:booking:noshow` | `POST /api/v1/biz/bookings/:id/no-show` | 同上 |
-| `biz:booking:cancel` | `POST /api/v1/biz/bookings/:id/cancel` | 同上 |
-| `biz:booking:delete` | `DELETE /api/v1/biz/bookings/:id` | 同上 |
-| `biz:booking:adjust` | 无装饰器；`POST /api/v1/biz/bookings/:id/settle` 链路内由 Service 判定，缺失抛 403 | `bookings.service.ts` |
-| `biz:booking:manageall` | 无装饰器；`GET /api/v1/biz/bookings*` 的行级范围判定 | 同上 |
-| `biz:member:list` | `GET /api/v1/biz/members`、`GET /api/v1/biz/members/:id`、`GET /api/v1/biz/members/:id/transactions`、`GET /api/v1/biz/members/:id/coupons`、`POST /api/v1/biz/points/preview` | `biz/membership/members/` + `membership/points/` |
-| `biz:member:update` | `POST /api/v1/biz/members` | `biz/membership/members/` |
-| `biz:member:recharge` | `POST /api/v1/biz/members/:id/recharge` | 同上 |
-| `biz:member:refund` | `POST /api/v1/biz/members/:id/refund` | 同上 |
-| `biz:member:adjust` | `POST /api/v1/biz/members/:id/adjust` | 同上 |
-| `biz:member:recount` | `POST /api/v1/biz/members/:id/recount` | 同上 |
-| `biz:member:coupon` | `POST /api/v1/biz/members/:id/coupons` | 同上 |
-| `biz:card:list` | `GET /api/v1/biz/member-cards`、`GET /api/v1/biz/member-cards/:id` | `biz/membership/member-cards/` |
-| `biz:card:issue` | `POST /api/v1/biz/member-cards` | 同上 |
-| `biz:card:use` | `POST /api/v1/biz/member-cards/:id/use` | 同上（核销） |
-| `biz:card:revoke` | `POST /api/v1/biz/member-cards/:id/revert` | 同上（撤销核销） |
-| `biz:card:refund` | `POST /api/v1/biz/member-cards/:id/refund` | 同上 |
-| `biz:points:redeem` | `POST /api/v1/biz/members/:id/redeem`、`GET /api/v1/biz/points-redeems` | `biz/membership/points/points.controller.ts` |
-| `biz:points:revert` | `POST /api/v1/biz/points-redeems/:id/revert` | 同上 |
-| `biz:payment:create` | `POST /api/v1/biz/payments`、`POST /api/v1/biz/payments/:id/query`、`POST /api/v1/biz/bookings/:id/settle` | `biz/payment/payments/` + `biz/booking/` |
-| `biz:payment:list` | `GET /api/v1/biz/payments`、`GET /api/v1/biz/payments/:id`、`GET /api/v1/biz/payments/:id/status` | `biz/payment/payments/` |
-| `biz:payment:close` | `POST /api/v1/biz/payments/:id/close` | 同上 |
-| `biz:payment:reconcile` | `GET /api/v1/biz/payment-diffs`、`POST /api/v1/biz/payment-diffs/reconcile`、`PATCH /api/v1/biz/payment-diffs/:id` | `biz/payment/diffs/` |
-| `biz:refund:apply` | `POST /api/v1/biz/refunds`、`POST /api/v1/biz/refunds/preview`、`POST /api/v1/biz/bookings/:id/refund`、`GET /api/v1/biz/bookings/:id/refund-preview` | `biz/payment/refunds/` + `biz/booking/` |
-| `biz:refund:list` | `GET /api/v1/biz/refunds` | `biz/payment/refunds/` |
-| `biz:refund:approve` | `POST /api/v1/biz/refunds/:id/approve`、`POST /api/v1/biz/refunds/:id/reject` | 同上 |
-| `biz:credit:list` | `GET /api/v1/biz/credit-accounts` | `biz/credit/credit-accounts/` |
-| `biz:credit:create` | `POST /api/v1/biz/credit-accounts` | 同上 |
-| `biz:credit:update` | `PATCH /api/v1/biz/credit-accounts/:id` | 同上 |
-| `biz:credit:delete` | `DELETE /api/v1/biz/credit-accounts/:id` | 同上 |
-| `biz:receivable:list` | `GET /api/v1/biz/receivables`、`GET /api/v1/biz/receivables/summary`、`GET /api/v1/biz/receivables/:id` | `biz/credit/receivables/` |
-| `biz:receivable:settle` | `POST /api/v1/biz/receivables/:id/settle` | 同上 |
-| `biz:receivable:cancel` | `POST /api/v1/biz/receivables/:id/cancel` | 同上 |
-| `biz:pointsgoods:list` | `GET /api/v1/biz/points-goods`、`GET /api/v1/biz/points-goods/:id` | `biz/membership/points-goods/` |
-| `biz:coupon:list` | `GET /api/v1/biz/coupon-templates`、`GET /api/v1/biz/coupon-templates/:id` | `biz/membership/coupons/`（注意 Controller 前缀是 `biz/coupon-templates`，与菜单 path `/biz/coupons` 不同） |
-| `biz:review:list` | `GET /api/v1/biz/reviews` | `biz/operations/reviews/` |
-| `biz:review:reply` | `POST /api/v1/biz/reviews/:id/reply` | 同上 |
-| `biz:review:hide` | `PATCH /api/v1/biz/reviews/:id` | 同上 |
-| `biz:review:delete` | `DELETE /api/v1/biz/reviews/:id` | 同上 |
-| `biz:report:view` | `GET /api/v1/biz/reports/overview`、`/revenue`、`/services`、`/staffs`、`/members`、`/receivables` | `biz/reports/analytics/` |
-| `biz:report:export` | `GET /api/v1/biz/reports/export` | 同上 |
-| `biz:commission:rule` | `GET/POST /api/v1/biz/commission-rules`、`PATCH/DELETE /api/v1/biz/commission-rules/:id` | `biz/reports/commission/` |
-| `biz:commission:list` | `GET /api/v1/biz/commission-records` | 同上 |
-| `biz:commission:settle` | `POST /api/v1/biz/commission-settle`、`POST /api/v1/biz/commission-records/:id/reverse` | 同上 |
-| `biz:recurrence:list` | `GET /api/v1/biz/recurrences`、`GET /api/v1/biz/recurrences/:id/bookings` | `biz/operations/recurrences/` |
-| `biz:recurrence:create` | `POST /api/v1/biz/recurrences` | 同上 |
-| `biz:recurrence:update` | `PATCH /api/v1/biz/recurrences/:id`、`POST /api/v1/biz/recurrences/:id/pause`、`/resume`、`/stop`、`/revoke-window` | 同上 |
-| `biz:recurrence:delete` | `DELETE /api/v1/biz/recurrences/:id` | 同上 |
-| `biz:notice:template` | `GET/POST /api/v1/biz/notice-templates`、`PATCH/DELETE /api/v1/biz/notice-templates/:id` | `biz/operations/notices/` |
-| `biz:notice:log` | `GET /api/v1/biz/notice-logs`、`GET /api/v1/biz/notice-logs/:id` | 同上 |
-| `biz:notice:send` | `POST /api/v1/biz/notice/send`、`POST /api/v1/biz/notice-logs/:id/resend` | 同上 |
-| `biz:memberlevel:*` | `GET/POST /api/v1/biz/member-levels`、`GET/PATCH/DELETE /api/v1/biz/member-levels/:id` | `biz/membership/member-levels/` |
-| `biz:rechargeplan:*` | `GET/POST /api/v1/biz/recharge-plans`、`GET/PATCH/DELETE /api/v1/biz/recharge-plans/:id` | `biz/membership/recharge-plans/` |
-| `biz:cardtype:*` | `GET/POST /api/v1/biz/card-types`、`GET/PATCH/DELETE /api/v1/biz/card-types/:id` | `biz/membership/card-types/` |
-| `biz:pointsgoods:create/update/delete` | `POST /api/v1/biz/points-goods`、`PATCH/DELETE /api/v1/biz/points-goods/:id` | `biz/membership/points-goods/` |
+| 权限点                                 | 方法与完整路径                                                                                                                                                                                                                                                                                         | Controller                                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `system:user:list`                     | `GET /api/v1/system/users`                                                                                                                                                                                                                                                                             | `system/users/users.controller.ts`                                                                          |
+| `system:user:create`                   | `POST /api/v1/system/users`                                                                                                                                                                                                                                                                            | 同上                                                                                                        |
+| `system:user:update`                   | `PATCH /api/v1/system/users/:id`                                                                                                                                                                                                                                                                       | 同上                                                                                                        |
+| `system:user:delete`                   | `DELETE /api/v1/system/users/:id`                                                                                                                                                                                                                                                                      | 同上                                                                                                        |
+| `system:role:list`                     | `GET /api/v1/system/roles`                                                                                                                                                                                                                                                                             | `system/roles/roles.controller.ts`                                                                          |
+| `system:role:update`                   | `PATCH /api/v1/system/roles/:id`、`POST /api/v1/system/roles/:id/menus`                                                                                                                                                                                                                                | 同上（菜单授权用同一个点）                                                                                  |
+| `system:menu:list`                     | `GET /api/v1/system/menus`、`GET /api/v1/system/menus/:id`                                                                                                                                                                                                                                             | `system/menus/menus.controller.ts`                                                                          |
+| `system:menu:create`                   | `POST /api/v1/system/menus`                                                                                                                                                                                                                                                                            | 同上                                                                                                        |
+| `system:dept:list`                     | `GET /api/v1/system/depts`、`GET /api/v1/system/depts/:id`                                                                                                                                                                                                                                             | `system/depts/depts.controller.ts`                                                                          |
+| `system:dict:list`                     | `GET /api/v1/system/dict-types`、`GET /api/v1/system/dict-types/:id`、`GET /api/v1/system/dict-data`、`GET /api/v1/system/dict-data/type/:type`、`GET /api/v1/system/dict-data/:id`                                                                                                                    | `dict-types` + `dict-data` 两个 Controller 共用                                                             |
+| `system:config:list`                   | `GET /api/v1/system/configs`、`GET /api/v1/system/configs/key/:key`、`GET /api/v1/system/configs/:id`                                                                                                                                                                                                  | `system/configs/configs.controller.ts`                                                                      |
+| `system:job:list`                      | `GET /api/v1/system/jobs`、`GET /api/v1/system/jobs/:id`、`GET /api/v1/system/jobs/:id/logs`                                                                                                                                                                                                           | `jobs/jobs.controller.ts`                                                                                   |
+| `system:job:run`                       | `POST /api/v1/system/jobs/:id/run`                                                                                                                                                                                                                                                                     | 同上                                                                                                        |
+| `system:file:list`                     | `GET /api/v1/files`、`GET /api/v1/files/:id`                                                                                                                                                                                                                                                           | `files/files.controller.ts`                                                                                 |
+| `system:file:delete`                   | `DELETE /api/v1/files/:id`                                                                                                                                                                                                                                                                             | 同上                                                                                                        |
+| `system:generator:list`                | `GET /api/v1/generator/tables`、`GET /api/v1/generator/tables/:table/columns`、`POST /api/v1/generator/preview`                                                                                                                                                                                        | `generator/generator.controller.ts`                                                                         |
+| `system:generator:generate`            | `POST /api/v1/generator/generate`                                                                                                                                                                                                                                                                      | 同上                                                                                                        |
+| `monitor:loginlog:list`                | `GET /api/v1/monitor/login-logs`、`GET /api/v1/monitor/login-logs/:id`                                                                                                                                                                                                                                 | `monitor/login-logs/`                                                                                       |
+| `monitor:loginlog:delete`              | `DELETE /api/v1/monitor/login-logs/:id`、`DELETE /api/v1/monitor/login-logs`                                                                                                                                                                                                                           | 同上                                                                                                        |
+| `monitor:operlog:list`                 | `GET /api/v1/monitor/operation-logs`、`GET /api/v1/monitor/operation-logs/:id`                                                                                                                                                                                                                         | `monitor/operation-logs/`                                                                                   |
+| `monitor:online:list`                  | `GET /api/v1/monitor/online`                                                                                                                                                                                                                                                                           | `monitor/online/online.controller.ts`                                                                       |
+| `monitor:online:delete`                | `DELETE /api/v1/monitor/online/:userId`                                                                                                                                                                                                                                                                | 同上（强制下线）                                                                                            |
+| `monitor:cache:list`                   | `GET /api/v1/monitor/cache`                                                                                                                                                                                                                                                                            | `monitor/cache/cache.controller.ts`                                                                         |
+| `ai:chat`                              | `POST /api/v1/ai/sessions`、`GET /api/v1/ai/sessions`、`GET/PATCH /api/v1/ai/sessions/:id`、`GET/POST /api/v1/ai/sessions/:id/messages`、`POST /api/v1/ai/action-intents/:id/approve`、`/reject`、`/confirm`、`GET /api/v1/ai/tasks`、`GET /api/v1/ai/tasks/:id`、`POST /api/v1/ai/tasks/:id/rollback` | `ai/gateway/ai.gateway.controller.ts`（一个点管整个 AI 域）                                                 |
+| `biz:serviceitem:list`                 | `GET /api/v1/biz/service-items`、`GET /api/v1/biz/service-items/:id`                                                                                                                                                                                                                                   | `biz/base-data/service-items/`                                                                              |
+| `biz:serviceitem:create`               | `POST /api/v1/biz/service-items`                                                                                                                                                                                                                                                                       | 同上                                                                                                        |
+| `biz:serviceitem:update`               | `PATCH /api/v1/biz/service-items/:id`                                                                                                                                                                                                                                                                  | 同上                                                                                                        |
+| `biz:serviceitem:delete`               | `DELETE /api/v1/biz/service-items/:id`                                                                                                                                                                                                                                                                 | 同上                                                                                                        |
+| `biz:staff:list`                       | `GET /api/v1/biz/staffs`、`GET /api/v1/biz/staffs/:id`、`GET /api/v1/biz/staffs/:id/service-items`                                                                                                                                                                                                     | `biz/base-data/staffs/`                                                                                     |
+| `biz:staff:items`                      | `PUT /api/v1/biz/staffs/:id/service-items`                                                                                                                                                                                                                                                             | 同上（维护可做项目）                                                                                        |
+| `biz:staff:grant`                      | `GET /api/v1/biz/app-staff-grants`、`POST /api/v1/biz/app-staff-grants/:id/approve`、`POST /api/v1/biz/app-staff-grants/:id/reject`                                                                                                                                                                    | `app/staff/app-staff-grants.controller.ts`（后台域，非 app 域）                                             |
+| `biz:schedule:list`                    | `GET /api/v1/biz/staffs/:id/weekly-shifts`、`GET /api/v1/biz/staffs/:id/overrides`                                                                                                                                                                                                                     | `biz/scheduling/scheduling.controller.ts`                                                                   |
+| `biz:schedule:update`                  | `PUT /api/v1/biz/staffs/:id/weekly-shifts`、`POST /api/v1/biz/staffs/:id/overrides`、`DELETE /api/v1/biz/staffs/:id/overrides/:overrideId`                                                                                                                                                             | 同上                                                                                                        |
+| `biz:customer:list`                    | `GET /api/v1/biz/customers`、`GET /api/v1/biz/customers/:id`、`GET /api/v1/biz/customers/:id/bookings`                                                                                                                                                                                                 | `biz/base-data/customers/`                                                                                  |
+| `biz:customer:update`                  | `PATCH /api/v1/biz/customers/:id`、`POST /api/v1/biz/customers/:id/recount`、`POST /api/v1/biz/customers/:id/restore`                                                                                                                                                                                  | 同上                                                                                                        |
+| `biz:booking:list`                     | `GET /api/v1/biz/bookings`、`GET /api/v1/biz/bookings/available-slots`、`GET /api/v1/biz/bookings/:id`、`GET /api/v1/biz/bookings/customers/:customerId/brief`                                                                                                                                         | `biz/booking/bookings.controller.ts`                                                                        |
+| `biz:booking:create`                   | `POST /api/v1/biz/bookings`                                                                                                                                                                                                                                                                            | 同上                                                                                                        |
+| `biz:booking:update`                   | `PATCH /api/v1/biz/bookings/:id`、`POST /api/v1/biz/bookings/:id/confirm`、`POST /api/v1/biz/bookings/:id/recount`                                                                                                                                                                                     | 同上                                                                                                        |
+| `biz:booking:arrive`                   | `POST /api/v1/biz/bookings/:id/arrive`                                                                                                                                                                                                                                                                 | 同上                                                                                                        |
+| `biz:booking:complete`                 | `POST /api/v1/biz/bookings/:id/complete`                                                                                                                                                                                                                                                               | 同上                                                                                                        |
+| `biz:booking:noshow`                   | `POST /api/v1/biz/bookings/:id/no-show`                                                                                                                                                                                                                                                                | 同上                                                                                                        |
+| `biz:booking:cancel`                   | `POST /api/v1/biz/bookings/:id/cancel`                                                                                                                                                                                                                                                                 | 同上                                                                                                        |
+| `biz:booking:delete`                   | `DELETE /api/v1/biz/bookings/:id`                                                                                                                                                                                                                                                                      | 同上                                                                                                        |
+| `biz:booking:adjust`                   | 无装饰器；`POST /api/v1/biz/bookings/:id/settle` 链路内由 Service 判定，缺失抛 403                                                                                                                                                                                                                     | `bookings.service.ts`                                                                                       |
+| `biz:booking:manageall`                | 无装饰器；`GET /api/v1/biz/bookings*` 的行级范围判定                                                                                                                                                                                                                                                   | 同上                                                                                                        |
+| `biz:member:list`                      | `GET /api/v1/biz/members`、`GET /api/v1/biz/members/:id`、`GET /api/v1/biz/members/:id/transactions`、`GET /api/v1/biz/members/:id/coupons`、`POST /api/v1/biz/points/preview`                                                                                                                         | `biz/membership/members/` + `membership/points/`                                                            |
+| `biz:member:update`                    | `POST /api/v1/biz/members`                                                                                                                                                                                                                                                                             | `biz/membership/members/`                                                                                   |
+| `biz:member:recharge`                  | `POST /api/v1/biz/members/:id/recharge`                                                                                                                                                                                                                                                                | 同上                                                                                                        |
+| `biz:member:refund`                    | `POST /api/v1/biz/members/:id/refund`                                                                                                                                                                                                                                                                  | 同上                                                                                                        |
+| `biz:member:adjust`                    | `POST /api/v1/biz/members/:id/adjust`                                                                                                                                                                                                                                                                  | 同上                                                                                                        |
+| `biz:member:recount`                   | `POST /api/v1/biz/members/:id/recount`                                                                                                                                                                                                                                                                 | 同上                                                                                                        |
+| `biz:member:coupon`                    | `POST /api/v1/biz/members/:id/coupons`                                                                                                                                                                                                                                                                 | 同上                                                                                                        |
+| `biz:card:list`                        | `GET /api/v1/biz/member-cards`、`GET /api/v1/biz/member-cards/:id`                                                                                                                                                                                                                                     | `biz/membership/member-cards/`                                                                              |
+| `biz:card:issue`                       | `POST /api/v1/biz/member-cards`                                                                                                                                                                                                                                                                        | 同上                                                                                                        |
+| `biz:card:use`                         | `POST /api/v1/biz/member-cards/:id/use`                                                                                                                                                                                                                                                                | 同上（核销）                                                                                                |
+| `biz:card:revoke`                      | `POST /api/v1/biz/member-cards/:id/revert`                                                                                                                                                                                                                                                             | 同上（撤销核销）                                                                                            |
+| `biz:card:refund`                      | `POST /api/v1/biz/member-cards/:id/refund`                                                                                                                                                                                                                                                             | 同上                                                                                                        |
+| `biz:points:redeem`                    | `POST /api/v1/biz/members/:id/redeem`、`GET /api/v1/biz/points-redeems`                                                                                                                                                                                                                                | `biz/membership/points/points.controller.ts`                                                                |
+| `biz:points:revert`                    | `POST /api/v1/biz/points-redeems/:id/revert`                                                                                                                                                                                                                                                           | 同上                                                                                                        |
+| `biz:payment:create`                   | `POST /api/v1/biz/payments`、`POST /api/v1/biz/payments/:id/query`、`POST /api/v1/biz/bookings/:id/settle`                                                                                                                                                                                             | `biz/payment/payments/` + `biz/booking/`                                                                    |
+| `biz:payment:list`                     | `GET /api/v1/biz/payments`、`GET /api/v1/biz/payments/:id`、`GET /api/v1/biz/payments/:id/status`                                                                                                                                                                                                      | `biz/payment/payments/`                                                                                     |
+| `biz:payment:close`                    | `POST /api/v1/biz/payments/:id/close`                                                                                                                                                                                                                                                                  | 同上                                                                                                        |
+| `biz:payment:reconcile`                | `GET /api/v1/biz/payment-diffs`、`POST /api/v1/biz/payment-diffs/reconcile`、`PATCH /api/v1/biz/payment-diffs/:id`                                                                                                                                                                                     | `biz/payment/diffs/`                                                                                        |
+| `biz:refund:apply`                     | `POST /api/v1/biz/refunds`、`POST /api/v1/biz/refunds/preview`、`POST /api/v1/biz/bookings/:id/refund`、`GET /api/v1/biz/bookings/:id/refund-preview`                                                                                                                                                  | `biz/payment/refunds/` + `biz/booking/`                                                                     |
+| `biz:refund:list`                      | `GET /api/v1/biz/refunds`                                                                                                                                                                                                                                                                              | `biz/payment/refunds/`                                                                                      |
+| `biz:refund:approve`                   | `POST /api/v1/biz/refunds/:id/approve`、`POST /api/v1/biz/refunds/:id/reject`                                                                                                                                                                                                                          | 同上                                                                                                        |
+| `biz:credit:list`                      | `GET /api/v1/biz/credit-accounts`                                                                                                                                                                                                                                                                      | `biz/credit/credit-accounts/`                                                                               |
+| `biz:credit:create`                    | `POST /api/v1/biz/credit-accounts`                                                                                                                                                                                                                                                                     | 同上                                                                                                        |
+| `biz:credit:update`                    | `PATCH /api/v1/biz/credit-accounts/:id`                                                                                                                                                                                                                                                                | 同上                                                                                                        |
+| `biz:credit:delete`                    | `DELETE /api/v1/biz/credit-accounts/:id`                                                                                                                                                                                                                                                               | 同上                                                                                                        |
+| `biz:receivable:list`                  | `GET /api/v1/biz/receivables`、`GET /api/v1/biz/receivables/summary`、`GET /api/v1/biz/receivables/:id`                                                                                                                                                                                                | `biz/credit/receivables/`                                                                                   |
+| `biz:receivable:settle`                | `POST /api/v1/biz/receivables/:id/settle`                                                                                                                                                                                                                                                              | 同上                                                                                                        |
+| `biz:receivable:cancel`                | `POST /api/v1/biz/receivables/:id/cancel`                                                                                                                                                                                                                                                              | 同上                                                                                                        |
+| `biz:pointsgoods:list`                 | `GET /api/v1/biz/points-goods`、`GET /api/v1/biz/points-goods/:id`                                                                                                                                                                                                                                     | `biz/membership/points-goods/`                                                                              |
+| `biz:coupon:list`                      | `GET /api/v1/biz/coupon-templates`、`GET /api/v1/biz/coupon-templates/:id`                                                                                                                                                                                                                             | `biz/membership/coupons/`（注意 Controller 前缀是 `biz/coupon-templates`，与菜单 path `/biz/coupons` 不同） |
+| `biz:review:list`                      | `GET /api/v1/biz/reviews`                                                                                                                                                                                                                                                                              | `biz/operations/reviews/`                                                                                   |
+| `biz:review:reply`                     | `POST /api/v1/biz/reviews/:id/reply`                                                                                                                                                                                                                                                                   | 同上                                                                                                        |
+| `biz:review:hide`                      | `PATCH /api/v1/biz/reviews/:id`                                                                                                                                                                                                                                                                        | 同上                                                                                                        |
+| `biz:review:delete`                    | `DELETE /api/v1/biz/reviews/:id`                                                                                                                                                                                                                                                                       | 同上                                                                                                        |
+| `biz:report:view`                      | `GET /api/v1/biz/reports/overview`、`/revenue`、`/services`、`/staffs`、`/members`、`/receivables`                                                                                                                                                                                                     | `biz/reports/analytics/`                                                                                    |
+| `biz:report:export`                    | `GET /api/v1/biz/reports/export`                                                                                                                                                                                                                                                                       | 同上                                                                                                        |
+| `biz:commission:rule`                  | `GET/POST /api/v1/biz/commission-rules`、`PATCH/DELETE /api/v1/biz/commission-rules/:id`                                                                                                                                                                                                               | `biz/reports/commission/`                                                                                   |
+| `biz:commission:list`                  | `GET /api/v1/biz/commission-records`                                                                                                                                                                                                                                                                   | 同上                                                                                                        |
+| `biz:commission:settle`                | `POST /api/v1/biz/commission-settle`、`POST /api/v1/biz/commission-records/:id/reverse`                                                                                                                                                                                                                | 同上                                                                                                        |
+| `biz:recurrence:list`                  | `GET /api/v1/biz/recurrences`、`GET /api/v1/biz/recurrences/:id/bookings`                                                                                                                                                                                                                              | `biz/operations/recurrences/`                                                                               |
+| `biz:recurrence:create`                | `POST /api/v1/biz/recurrences`                                                                                                                                                                                                                                                                         | 同上                                                                                                        |
+| `biz:recurrence:update`                | `PATCH /api/v1/biz/recurrences/:id`、`POST /api/v1/biz/recurrences/:id/pause`、`/resume`、`/stop`、`/revoke-window`                                                                                                                                                                                    | 同上                                                                                                        |
+| `biz:recurrence:delete`                | `DELETE /api/v1/biz/recurrences/:id`                                                                                                                                                                                                                                                                   | 同上                                                                                                        |
+| `biz:notice:template`                  | `GET/POST /api/v1/biz/notice-templates`、`PATCH/DELETE /api/v1/biz/notice-templates/:id`                                                                                                                                                                                                               | `biz/operations/notices/`                                                                                   |
+| `biz:notice:log`                       | `GET /api/v1/biz/notice-logs`、`GET /api/v1/biz/notice-logs/:id`                                                                                                                                                                                                                                       | 同上                                                                                                        |
+| `biz:notice:send`                      | `POST /api/v1/biz/notice/send`、`POST /api/v1/biz/notice-logs/:id/resend`                                                                                                                                                                                                                              | 同上                                                                                                        |
+| `biz:memberlevel:*`                    | `GET/POST /api/v1/biz/member-levels`、`GET/PATCH/DELETE /api/v1/biz/member-levels/:id`                                                                                                                                                                                                                 | `biz/membership/member-levels/`                                                                             |
+| `biz:rechargeplan:*`                   | `GET/POST /api/v1/biz/recharge-plans`、`GET/PATCH/DELETE /api/v1/biz/recharge-plans/:id`                                                                                                                                                                                                               | `biz/membership/recharge-plans/`                                                                            |
+| `biz:cardtype:*`                       | `GET/POST /api/v1/biz/card-types`、`GET/PATCH/DELETE /api/v1/biz/card-types/:id`                                                                                                                                                                                                                       | `biz/membership/card-types/`                                                                                |
+| `biz:pointsgoods:create/update/delete` | `POST /api/v1/biz/points-goods`、`PATCH/DELETE /api/v1/biz/points-goods/:id`                                                                                                                                                                                                                           | `biz/membership/points-goods/`                                                                              |
 
 ### 无权限点保护的接口
 
 以下几类接口**只校验登录态、不校验权限点**（没有 `@RequirePermissions`）：
 
-| 接口 | 说明 |
-| --- | --- |
-| `POST /api/v1/auth/login`、`POST /api/v1/auth/register`、`POST /api/v1/auth/refresh` | `@Public()`：完全匿名 |
-| `GET /api/v1/health` | `@Public()`：健康检查 |
-| `GET /api/v1/files/:id/download` | `@Public()`：头像 `<img>` 无法携带 `Authorization`，文件名是随机 UUID 不可枚举 |
-| `POST /api/v1/files/upload` | 仅需登录，**故意不限权限**（普通用户也要能传头像） |
-| `POST /api/v1/biz/payments/notify/wxpay`、`POST /api/v1/biz/payments/notify/alipay` | `@Public()`：渠道回调，真伪由**验签 + 幂等**保证，不由 token 保证 |
-| `POST /api/v1/app/payments/wxpay/notify` | `@Public()` 且不挂 `AppAccessTokenGuard`，同样靠验签 |
-| `GET/PATCH /api/v1/auth/profile`、`PATCH /api/v1/auth/password`、`POST /api/v1/auth/logout` | 仅需登录：操作对象恒为 token 里的自己 |
-| `GET /api/v1/system/menus/routes` | 仅需登录：返回当前用户的动态路由（超管全部 `M`/`C`，普通账号按 `sys_role_menu`） |
-| `GET /api/v1/dashboard/users`、`/depts`、`/roles`、`/menus`、`/posts` | **有**权限点：分别要求 `system:user:list`、`system:dept:list`、`system:role:list`、`system:menu:list`、`system:post:list`（首页统计卡按模块权限分别门禁） |
-| `src/modules/compat/legacy-*`（`/api/v1/user`、`/api/v1/role`、`/api/v1/menu`） | **有**权限点：复用 `system:user:*` / `system:role:*` / `system:menu:*`，是前端旧接口的兼容层 |
-| `src/modules/generated/test/user.controller.ts`（`/api/v1/sys_user`） | 代码生成器的产物，`system:user:*` 门禁，与业务无关 |
+| 接口                                                                                        | 说明                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/auth/login`、`POST /api/v1/auth/register`、`POST /api/v1/auth/refresh`        | `@Public()`：完全匿名                                                                                                                                     |
+| `GET /api/v1/health`                                                                        | `@Public()`：健康检查                                                                                                                                     |
+| `GET /api/v1/files/:id/download`                                                            | `@Public()`：头像 `<img>` 无法携带 `Authorization`，文件名是随机 UUID 不可枚举                                                                            |
+| `POST /api/v1/files/upload`                                                                 | 仅需登录，**故意不限权限**（普通用户也要能传头像）                                                                                                        |
+| `POST /api/v1/biz/payments/notify/wxpay`、`POST /api/v1/biz/payments/notify/alipay`         | `@Public()`：渠道回调，真伪由**验签 + 幂等**保证，不由 token 保证                                                                                         |
+| `POST /api/v1/app/payments/wxpay/notify`                                                    | `@Public()` 且不挂 `AppAccessTokenGuard`，同样靠验签                                                                                                      |
+| `GET/PATCH /api/v1/auth/profile`、`PATCH /api/v1/auth/password`、`POST /api/v1/auth/logout` | 仅需登录：操作对象恒为 token 里的自己                                                                                                                     |
+| `GET /api/v1/system/menus/routes`                                                           | 仅需登录：返回当前用户的动态路由（超管全部 `M`/`C`，普通账号按 `sys_role_menu`）                                                                          |
+| `GET /api/v1/dashboard/users`、`/depts`、`/roles`、`/menus`、`/posts`                       | **有**权限点：分别要求 `system:user:list`、`system:dept:list`、`system:role:list`、`system:menu:list`、`system:post:list`（首页统计卡按模块权限分别门禁） |
+| `src/modules/compat/legacy-*`（`/api/v1/user`、`/api/v1/role`、`/api/v1/menu`）             | **有**权限点：复用 `system:user:*` / `system:role:*` / `system:menu:*`，是前端旧接口的兼容层                                                              |
+| `src/modules/generated/test/user.controller.ts`（`/api/v1/sys_user`）                       | 代码生成器的产物，`system:user:*` 门禁，与业务无关                                                                                                        |
 
 ### `app` 域：不接 RBAC、没有权限点
 
@@ -496,12 +497,12 @@ title: 权限点与菜单清单
 
 ## 鉴权实现细节
 
-| 组件 | 位置 | 作用 |
-| --- | --- | --- |
-| `REQUIRED_PERMISSIONS` / `RequirePermissions(...)` | `src/common/auth/permissions.decorator.ts` | `SetMetadata` 写入所需权限点数组，可用于方法或类 |
-| `IS_PUBLIC` / `Public()` | `src/common/auth/public.decorator.ts` | `SetMetadata(IS_PUBLIC, true)`，跳过鉴权 |
-| `AccessTokenGuard` | `src/common/auth/access-token.guard.ts` | 全局守卫，验 JWT（`jose.jwtVerify`，校验 `JWT_ISSUER`/`JWT_AUDIENCE`）、装配 `request.user`、比对权限点 |
-| 全局注册 | `src/app.module.ts` | `{ provide: APP_GUARD, useClass: AccessTokenGuard }`，对全部路由生效 |
+| 组件                                               | 位置                                       | 作用                                                                                                    |
+| -------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `REQUIRED_PERMISSIONS` / `RequirePermissions(...)` | `src/common/auth/permissions.decorator.ts` | `SetMetadata` 写入所需权限点数组，可用于方法或类                                                        |
+| `IS_PUBLIC` / `Public()`                           | `src/common/auth/public.decorator.ts`      | `SetMetadata(IS_PUBLIC, true)`，跳过鉴权                                                                |
+| `AccessTokenGuard`                                 | `src/common/auth/access-token.guard.ts`    | 全局守卫，验 JWT（`jose.jwtVerify`，校验 `JWT_ISSUER`/`JWT_AUDIENCE`）、装配 `request.user`、比对权限点 |
+| 全局注册                                           | `src/app.module.ts`                        | `{ provide: APP_GUARD, useClass: AccessTokenGuard }`，对全部路由生效                                    |
 
 判定流程：先看 `IS_PUBLIC`（`getAllAndOverride`，方法级优先于类级）→ 为真直接放行；否则从 `Authorization: Bearer <token>` 取 token，没有就抛 401；验签通过后把 `sub`/`username`/`permissions`/`roles` 写进 `request.user`；最后取 `REQUIRED_PERMISSIONS`，只有 `required.length > 0` 才做权限判断：
 
@@ -510,7 +511,7 @@ title: 权限点与菜单清单
   (permission) =>
     request.user?.permissions.includes(permission) ||
     request.user?.permissions.includes('*:*:*'),
-)
+);
 ```
 
 要点：
@@ -522,11 +523,11 @@ title: 权限点与菜单清单
 
 ### 401 与 403 的区别
 
-| 场景 | 抛出者 | HTTP 状态 |
-| --- | --- | --- |
-| 没带 `Authorization`、token 无效/过期/签发者不匹配 | `AccessTokenGuard` → `UnauthorizedException` | `401` |
-| 登录了但**权限点不足** | `AccessTokenGuard` → `UnauthorizedException('权限不足')` | **`401`**（注意：不是 403） |
-| 业务层拒绝（如无 `biz:booking:adjust` 改价、数据范围外操作） | Service → `ForbiddenException` | `403` |
+| 场景                                                         | 抛出者                                                   | HTTP 状态                   |
+| ------------------------------------------------------------ | -------------------------------------------------------- | --------------------------- |
+| 没带 `Authorization`、token 无效/过期/签发者不匹配           | `AccessTokenGuard` → `UnauthorizedException`             | `401`                       |
+| 登录了但**权限点不足**                                       | `AccessTokenGuard` → `UnauthorizedException('权限不足')` | **`401`**（注意：不是 403） |
+| 业务层拒绝（如无 `biz:booking:adjust` 改价、数据范围外操作） | Service → `ForbiddenException`                           | `403`                       |
 
 ::: warning 权限不足返回的是 401
 `AccessTokenGuard` 对「缺权限」抛的是 `UnauthorizedException('权限不足')`，因此前端如果按「401 = 去登录页」处理，权限不足会被误判成登录失效。`GlobalExceptionFilter` 对 `HttpException` 原样透传状态码与响应体，不会改写。区分方式只能看响应体里的 `message`（401 且 `message === '权限不足'` 才是权限问题）。

@@ -17,7 +17,12 @@ function toRows(shop: {
 }): { key: string; label: string; value: string; icon: IconName }[] {
   return [
     { key: 'hours', label: '营业时间', value: shop.hours, icon: 'clock' },
-    { key: 'address', label: '门店地址', value: shop.address, icon: 'location' },
+    {
+      key: 'address',
+      label: '门店地址',
+      value: shop.address,
+      icon: 'location',
+    },
     { key: 'phone', label: '联系电话', value: shop.phone, icon: 'headset' },
     { key: 'wechat', label: '客服微信', value: shop.wechat, icon: 'chat' },
   ];

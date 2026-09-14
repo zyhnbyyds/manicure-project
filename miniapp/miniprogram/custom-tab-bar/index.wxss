@@ -31,7 +31,8 @@
   align-items: center;
   justify-content: center;
   /* 只在 transform/opacity 上做动效，避免触发布局重排 */
-  transition: transform var(--dur-fast, 0.16s) var(--ease-out, ease),
+  transition:
+    transform var(--dur-fast, 0.16s) var(--ease-out, ease),
     opacity var(--dur-fast, 0.16s) var(--ease-out, ease);
 }
 

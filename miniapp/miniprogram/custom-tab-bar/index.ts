@@ -23,7 +23,11 @@ const CUSTOMER_TABS: TabItem[] = [
 
 const STAFF_TABS: TabItem[] = [
   { pagePath: 'pages/staff-workbench/index', text: '工作台', icon: 'grid' },
-  { pagePath: 'pages/staff-bookings/index', text: '我的预约', icon: 'calendar' },
+  {
+    pagePath: 'pages/staff-bookings/index',
+    text: '我的预约',
+    icon: 'calendar',
+  },
   { pagePath: 'pages/mine/index', text: '我的', icon: 'person' },
 ];
 

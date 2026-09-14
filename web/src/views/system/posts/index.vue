@@ -221,35 +221,37 @@ function handleDelete(row: Post) {
           ref="formRef"
           v-model="form"
           label-width="72px"
-          :options="withPassThroughRule([
-            {
-              field: 'name',
-              label: '岗位名称',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '请输入岗位名称', clearable: true },
-            },
-            {
-              field: 'key',
-              label: '岗位标识',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '小写字母/数字/:-_', clearable: true },
-            },
-            {
-              field: 'sort',
-              label: '排序',
-              as: 'input-number',
-              props: { min: 0 },
-            },
-            { field: 'status', label: '状态', as: 'switch' },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              props: { placeholder: '选填', rows: 2 },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'name',
+                label: '岗位名称',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '请输入岗位名称', clearable: true },
+              },
+              {
+                field: 'key',
+                label: '岗位标识',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '小写字母/数字/:-_', clearable: true },
+              },
+              {
+                field: 'sort',
+                label: '排序',
+                as: 'input-number',
+                props: { min: 0 },
+              },
+              { field: 'status', label: '状态', as: 'switch' },
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                props: { placeholder: '选填', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>

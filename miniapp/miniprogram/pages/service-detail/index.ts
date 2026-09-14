@@ -150,7 +150,12 @@ definePage({
   async toggleFavorite() {
     const { item, favorited } = this.data;
     if (!item || this.data.favoriting) return;
-    if (!(await requireSession({ needBind: true, reason: '收藏需要先绑定手机号' }))) {
+    if (
+      !(await requireSession({
+        needBind: true,
+        reason: '收藏需要先绑定手机号',
+      }))
+    ) {
       return;
     }
     this.setData({ favoriting: true });

@@ -14,11 +14,7 @@ import type { LewFormOption } from 'lew-ui';
 import { withPassThroughRule } from '~/utils/form';
 import type { LewTableColumn } from 'lew-ui';
 import { createUser, deleteUser, updateUser } from '~/api/system/users';
-import {
-  getUserStores,
-  listStores,
-  setUserStores,
-} from '~/api/system/stores';
+import { getUserStores, listStores, setUserStores } from '~/api/system/stores';
 import { listDepts } from '~/api/system/depts';
 import { listRoles } from '~/api/system/roles';
 import { useTable } from '~/composables/useTable';
@@ -437,7 +433,8 @@ async function submitStores() {
 
 <template>
   <div class="page-container">
-    <!-- 页头 -->    <div class="flex items-center justify-between">
+    <!-- 页头 -->
+    <div class="flex items-center justify-between">
       <div>
         <h2 class="page-title m-0">用户管理</h2>
         <p class="page-subtitle mt-1 mb-0">管理系统用户账号</p>
@@ -590,7 +587,8 @@ async function submitStores() {
     >
       <div class="p-5">
         <p class="hint mb-3 mt-0">
-          绑定几家门店，该账号就只看得到这几家的单据（预约 / 收款 / 退款 / 应收）。
+          绑定几家门店，该账号就只看得到这几家的单据（预约 / 收款 / 退款 /
+          应收）。
           <b>不选 = 看不到任何业务数据</b>；超管不受此限制。
         </p>
         <LewSelect

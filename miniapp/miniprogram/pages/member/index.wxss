@@ -291,4 +291,3 @@
 .bind__btn::after {
   border: none;
 }
-

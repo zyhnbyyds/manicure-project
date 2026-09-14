@@ -221,36 +221,38 @@ function handleDelete(row: Config) {
           ref="formRef"
           v-model="form"
           label-width="72px"
-          :options="withPassThroughRule([
-            {
-              field: 'name',
-              label: '参数名称',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 系统名称', clearable: true },
-            },
-            {
-              field: 'key',
-              label: '参数键名',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 sys.name', clearable: true },
-            },
-            {
-              field: 'value',
-              label: '参数值',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '请输入参数值', clearable: true },
-            },
-            { field: 'builtin', label: '是否内置', as: 'switch' },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              props: { placeholder: '选填', rows: 2 },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'name',
+                label: '参数名称',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 系统名称', clearable: true },
+              },
+              {
+                field: 'key',
+                label: '参数键名',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 sys.name', clearable: true },
+              },
+              {
+                field: 'value',
+                label: '参数值',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '请输入参数值', clearable: true },
+              },
+              { field: 'builtin', label: '是否内置', as: 'switch' },
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                props: { placeholder: '选填', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>

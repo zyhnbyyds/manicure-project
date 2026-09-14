@@ -1,5 +1,11 @@
 import { getNavMetrics } from '../../utils/metrics';
-import { bookingApi, couponApi, favoriteApi, memberApi, staffApi } from '../../api/index';
+import {
+  bookingApi,
+  couponApi,
+  favoriteApi,
+  memberApi,
+  staffApi,
+} from '../../api/index';
 import { ensureLogin, isBound, logout } from '../../store/auth';
 import { getStaffStatus, isGranted, setMode } from '../../store/mode';
 import { requireSession } from '../../store/session';
@@ -114,7 +120,8 @@ definePage({
       const rect = wx.getMenuButtonBoundingClientRect();
       this.setData({
         statusBarHeight,
-        navRightGap: rect && rect.height > 0 ? metrics.windowWidth - rect.left + 8 : 28,
+        navRightGap:
+          rect && rect.height > 0 ? metrics.windowWidth - rect.left + 8 : 28,
       });
     } catch {
       /* 取不到就沿用默认值 */

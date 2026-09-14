@@ -12,9 +12,9 @@
   `ERROR 1067 (42000): Invalid default value for 'created_at'`；
   而且**重跑也过不去**，因为第一次已经把表建出来了，卡在后面的 `CREATE INDEX`。
 - **根因**：当前 drizzle 版本把 `auditColumns` 里的 `sql\`CURRENT_TIMESTAMP\`` 渲染成
-  **带括号的表达式默认值**（`DEFAULT (CURRENT_TIMESTAMP)`），而历史迁移是无括号的
-  `DEFAULT CURRENT_TIMESTAMP`。MySQL 8 在 `CREATE TABLE` 时**接受**带括号的写法，
-  但随后 `CREATE INDEX` 触发表的**重建**时会严格校验并拒绝 TIMESTAMP 用表达式默认值
+**带括号的表达式默认值**（`DEFAULT (CURRENT_TIMESTAMP)`），而历史迁移是无括号的
+`DEFAULT CURRENT_TIMESTAMP`。MySQL 8 在 `CREATE TABLE`时**接受**带括号的写法，
+但随后`CREATE INDEX` 触发表的**重建**时会严格校验并拒绝 TIMESTAMP 用表达式默认值
   —— 属于**延迟爆炸**：建表时不报，建索引时才炸。
 - **正确做法**：新建迁移后检查 SQL，把 `DEFAULT (CURRENT_TIMESTAMP)` 改成
   `DEFAULT CURRENT_TIMESTAMP`（迁移尚未成功执行前改文件是安全的，因为 drizzle
@@ -49,7 +49,7 @@
 ## 4. `exactOptionalPropertyTypes: true`：可选属性要显式写 `| undefined`
 
 - **现象**：`Argument of type '{ status?: "a" | "b" | undefined }' is not assignable to
-  parameter of type '{ status?: "a" | "b" }'`。
+parameter of type '{ status?: "a" | "b" }'`。
 - **根因**：tsconfig 开了 `exactOptionalPropertyTypes`，`?:` 与 `?: T | undefined` 不等价。
 - **正确做法**：被传入的可选属性一律写全 `status?: 'a' | 'b' | undefined;`。
 - **怎么发现的**：改 controller 传 filter 对象时 tsc 直接报。
@@ -101,7 +101,7 @@
 - **根因**：「先查再判断再写」在并发下必然失效。
 - **正确做法**：
   - 闸门是**条件更新** `WHERE id=? AND customer_id=? AND status='usable'
-    AND used_booking_id IS NULL`，`affectedRows=0` → 409；
+AND used_booking_id IS NULL`，`affectedRows=0` → 409；
   - **与建单同事务**（否则会出现「券核销了单没建成」或「单建成了券还能再用」）；
   - `previewForBooking`（算价用）**只读、不是闸门**；
   - MySQL 没有部分唯一索引 → 「同一顾客同一模板只能有一张**未使用**的券」

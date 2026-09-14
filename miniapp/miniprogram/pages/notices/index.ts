@@ -79,7 +79,8 @@ definePage({
     this.setData({ errorText: '' });
     try {
       const result = await noticeApi.list({
-        category: this.data.activeTab === '全部' ? undefined : this.data.activeTab,
+        category:
+          this.data.activeTab === '全部' ? undefined : this.data.activeTab,
         page: 1,
         pageSize: 50,
       });
@@ -88,7 +89,9 @@ definePage({
         loading: false,
         needBind: false,
         // 选中的分类若已消失（那条消息被删），回落「全部」
-        activeTab: tabs.includes(this.data.activeTab) ? this.data.activeTab : '全部',
+        activeTab: tabs.includes(this.data.activeTab)
+          ? this.data.activeTab
+          : '全部',
         tabs,
         unread: result.unread,
         notices: result.items.map(toNoticeVM),
@@ -110,7 +113,10 @@ definePage({
   },
 
   async onGuestLogin() {
-    await requireSession({ needBind: true, reason: '查看消息需要先绑定手机号' });
+    await requireSession({
+      needBind: true,
+      reason: '查看消息需要先绑定手机号',
+    });
     if (isBound()) void this.load();
   },
 
@@ -198,5 +204,7 @@ function formatTime(iso: string): string {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
   const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  return sameDay ? `今天 ${time}` : `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${time}`;
+  return sameDay
+    ? `今天 ${time}`
+    : `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${time}`;
 }

@@ -77,7 +77,9 @@ export function resolveServiceImage(
   return SERVICE_IMAGE_FALLBACK[item.id % SERVICE_IMAGE_FALLBACK.length];
 }
 
-export function resolveStaffAvatar(staff: Pick<Staff, 'id' | 'avatar'>): string {
+export function resolveStaffAvatar(
+  staff: Pick<Staff, 'id' | 'avatar'>,
+): string {
   const avatar = absoluteAssetUrl(staff.avatar);
   if (avatar) return avatar;
   return STAFF_AVATAR_FALLBACK[
@@ -86,7 +88,9 @@ export function resolveStaffAvatar(staff: Pick<Staff, 'id' | 'avatar'>): string 
 }
 
 /** 没有展示图时用「分类 emoji + 主题渐变底」代替，不引入位图素材依赖 */
-export function serviceEmoji(item: Pick<ServiceItem, 'id' | 'category'>): string {
+export function serviceEmoji(
+  item: Pick<ServiceItem, 'id' | 'category'>,
+): string {
   const byCategory = item.category ? CATEGORY_EMOJI[item.category] : undefined;
   if (byCategory) return byCategory;
   return SERVICE_EMOJI[item.id % SERVICE_EMOJI.length];
@@ -186,7 +190,10 @@ export interface AvailableSlotsVM {
   durationText: string;
 }
 
-export function toAvailableSlotsVM(input: AvailableSlots, reasonText: string): AvailableSlotsVM {
+export function toAvailableSlotsVM(
+  input: AvailableSlots,
+  reasonText: string,
+): AvailableSlotsVM {
   return {
     slots: input.slots.map(toSlotVM),
     reason: reasonText,
@@ -221,7 +228,9 @@ const CARD_STATUS_TEXT: Record<MemberCard['status'], string> = {
 export function toMemberCardVM(card: MemberCard): MemberCardVM {
   const remain = Math.max(0, card.totalTimes - card.usedTimes);
   const percent =
-    card.totalTimes > 0 ? Math.min(100, Math.round((card.usedTimes / card.totalTimes) * 100)) : 0;
+    card.totalTimes > 0
+      ? Math.min(100, Math.round((card.usedTimes / card.totalTimes) * 100))
+      : 0;
   return {
     id: card.id,
     cardNo: card.cardNo,
@@ -314,7 +323,10 @@ const TONE_BY_STATUS: Record<Booking['status'], BookingTone> = {
 
 export function toBookingVM(booking: Booking): BookingVM {
   const tone = TONE_BY_STATUS[booking.status];
-  const durationMinutes = booking.items.reduce((sum, item) => sum + item.durationMinutes, 0);
+  const durationMinutes = booking.items.reduce(
+    (sum, item) => sum + item.durationMinutes,
+    0,
+  );
   return {
     id: booking.id,
     bookingNo: booking.bookingNo,
@@ -327,7 +339,10 @@ export function toBookingVM(booking: Booking): BookingVM {
     status: booking.status,
     payStatus: booking.payStatus,
     startAt: booking.startAt,
-    dateText: formatDateTimeLabel(booking.startAt).replace(/\s\d{2}:\d{2}$/, ''),
+    dateText: formatDateTimeLabel(booking.startAt).replace(
+      /\s\d{2}:\d{2}$/,
+      '',
+    ),
     timeText: formatTimeRange(booking.startAt, booking.endAt),
     statusText: formatBookingStatus(booking.status),
     payStatusText: formatPayStatus(booking.payStatus),
@@ -384,7 +399,10 @@ export function toStaffBookingRow(booking: StaffBooking): StaffBookingRow {
     bookingNo: booking.bookingNo,
     customerName: booking.customerName,
     customerPhoneMasked: booking.customerPhoneMasked,
-    dateText: formatDateTimeLabel(booking.startAt).replace(/\s\d{2}:\d{2}$/, ''),
+    dateText: formatDateTimeLabel(booking.startAt).replace(
+      /\s\d{2}:\d{2}$/,
+      '',
+    ),
     timeText: formatTimeRange(booking.startAt, booking.endAt),
     durationText: formatDuration(durationMinutes),
     itemNames: booking.items.map((item) => item.name).join(' + '),

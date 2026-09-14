@@ -1,4 +1,4 @@
-import type MarkdownIt from 'markdown-it'
+import type MarkdownIt from 'markdown-it';
 
 /**
  * 把 ```mermaid 代码块渲染成 `<pre class="mermaid">源码</pre>`。
@@ -16,16 +16,16 @@ import type MarkdownIt from 'markdown-it'
  * 这样图的源码在 HTML 里是**可见可搜索**的（对技术文档反而是优点），渲染时机也完全在客户端。
  */
 export function mermaidMarkdown(md: MarkdownIt): void {
-  const defaultFence = md.renderer.rules.fence!.bind(md.renderer.rules)
+  const defaultFence = md.renderer.rules.fence!.bind(md.renderer.rules);
 
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-    const token = tokens[idx]
-    const info = token.info.trim()
+    const token = tokens[idx];
+    const info = token.info.trim();
 
     if (info === 'mermaid' || info === 'mmd') {
-      return `<pre class="mermaid">${md.utils.escapeHtml(token.content)}</pre>\n`
+      return `<pre class="mermaid">${md.utils.escapeHtml(token.content)}</pre>\n`;
     }
 
-    return defaultFence(tokens, idx, options, env, self)
-  }
+    return defaultFence(tokens, idx, options, env, self);
+  };
 }

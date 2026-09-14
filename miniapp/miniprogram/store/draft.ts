@@ -22,12 +22,18 @@ export function setDraftItems(next: ServiceItem[]): void {
   slot = null;
 }
 
-export function setDraftStaff(next: Pick<Staff, 'id' | 'nickname' | 'avatar'>): void {
+export function setDraftStaff(
+  next: Pick<Staff, 'id' | 'nickname' | 'avatar'>,
+): void {
   staff = { ...next };
   slot = null;
 }
 
-export function setDraftSlot(next: { date: string; startAt: string; endAt: string }): void {
+export function setDraftSlot(next: {
+  date: string;
+  startAt: string;
+  endAt: string;
+}): void {
   slot = { ...next };
 }
 
@@ -39,11 +45,18 @@ export function getDraftItems(): ServiceItem[] {
   return items;
 }
 
-export function getDraftStaff(): Pick<Staff, 'id' | 'nickname' | 'avatar'> | null {
+export function getDraftStaff(): Pick<
+  Staff,
+  'id' | 'nickname' | 'avatar'
+> | null {
   return staff;
 }
 
-export function getDraftSlot(): { date: string; startAt: string; endAt: string } | null {
+export function getDraftSlot(): {
+  date: string;
+  startAt: string;
+  endAt: string;
+} | null {
   return slot;
 }
 

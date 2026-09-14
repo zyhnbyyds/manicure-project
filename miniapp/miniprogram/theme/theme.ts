@@ -11,7 +11,14 @@
  * 4. 页面刷新走 `onShow` 重新取一次（主题页返回时恰好触发），
  *    自定义 TabBar 则是常驻组件，用订阅。
  */
-import { darken, lighten, mix, normalizeHex, readableOn, withAlpha } from '../utils/color';
+import {
+  darken,
+  lighten,
+  mix,
+  normalizeHex,
+  readableOn,
+  withAlpha,
+} from '../utils/color';
 import {
   CUSTOM_PALETTE,
   DEFAULT_PRESET_ID,
@@ -152,7 +159,8 @@ function restore(): void {
     | { presetId?: string; customPrimary?: string | null }
     | '';
   if (!raw || typeof raw !== 'object') return;
-  const presetId = typeof raw.presetId === 'string' ? raw.presetId : DEFAULT_PRESET_ID;
+  const presetId =
+    typeof raw.presetId === 'string' ? raw.presetId : DEFAULT_PRESET_ID;
   const customPrimary =
     typeof raw.customPrimary === 'string' && raw.customPrimary.length > 0
       ? normalizeHex(raw.customPrimary)
@@ -169,7 +177,10 @@ function restore(): void {
 export function toStyleString(input: ThemeTokens): string {
   return Object.entries(input)
     .map(([key, value]) => {
-      const kebab = key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+      const kebab = key.replace(
+        /[A-Z]/g,
+        (letter) => `-${letter.toLowerCase()}`,
+      );
       return `--c-${kebab}:${value}`;
     })
     .join(';');

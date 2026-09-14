@@ -15,7 +15,7 @@ metadata:
 > ⚠️ **数量与分组以 schema 文件为准**：历史上这里的清单是 32 张（spec §4.1 的早期设计），
 > 现状是 **66 张 = 业务 `biz_*` 34 / 系统 `sys_*` 22 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
 > 逐张字段表见开发者文档 `dev-docs/data/business-tables.md` 与 `dev-docs/data/system-tables.md`。
-> 下面按功能分组列出 **biz_* 业务表 34 张**（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
+> 下面按功能分组列出 _*biz_* 业务表 34 张_*（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
 
 **A. 基础数据（6）**
 `biz_service_item`、`biz_staff`、`biz_staff_service_item`、`biz_customer`（兼会员档案）、
@@ -76,13 +76,13 @@ metadata:
 
 ## 派生字段（禁止手工 UPDATE，只能由服务重算）
 
-| 字段                                                                                       | 唯一写入方                                   |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| `biz_booking.paid_amount` / `due_amount` / `pay_status` / `pay_channel_summary`            | `BookingSettlementService.recalc(bookingId)` |
-| `biz_customer.total_spent` / `points` / `balance_principal` / `balance_bonus` / `level_id` | 会员账务 service（同事务写流水）             |
-| `biz_member_card.used_times` / `status`                                                    | 核销 service（条件更新）                     |
-| `biz_credit_account.used_amount`                                                           | 挂账 / 销账 service                          |
-| `biz_receivable.settled_amount` / `status`                                                 | 销账 service（条件更新）                     |
+| 字段                                                                                       | 唯一写入方                                         |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `biz_booking.paid_amount` / `due_amount` / `pay_status` / `pay_channel_summary`            | `BookingSettlementService.recalc(bookingId)`       |
+| `biz_customer.total_spent` / `points` / `balance_principal` / `balance_bonus` / `level_id` | 会员账务 service（同事务写流水）                   |
+| `biz_member_card.used_times` / `status`                                                    | 核销 service（条件更新）                           |
+| `biz_credit_account.used_amount`                                                           | 挂账 / 销账 service                                |
+| `biz_receivable.settled_amount` / `status`                                                 | 销账 service（条件更新）                           |
 | `biz_service_item.image`（封面）                                                           | `ServiceItemsService.imagesPatch`（= `images[0]`） |
 
 > `biz_service_item` 是「图集 + 派生封面」两个字段：`images` json 是唯一事实来源，

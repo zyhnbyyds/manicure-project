@@ -42,18 +42,19 @@ export async function chooseAndUploadImage(
     if (!file) return null;
 
     const token = getToken();
-    const result = await new Promise<WechatMiniprogram.UploadFileSuccessCallbackResult>(
-      (resolve, reject) => {
-        wx.uploadFile({
-          url: `${API_BASE}${UPLOAD_PATH}`,
-          filePath: file.tempFilePath,
-          name: 'file',
-          header: token ? { Authorization: `Bearer ${token}` } : {},
-          success: resolve,
-          fail: reject,
-        });
-      },
-    );
+    const result =
+      await new Promise<WechatMiniprogram.UploadFileSuccessCallbackResult>(
+        (resolve, reject) => {
+          wx.uploadFile({
+            url: `${API_BASE}${UPLOAD_PATH}`,
+            filePath: file.tempFilePath,
+            name: 'file',
+            header: token ? { Authorization: `Bearer ${token}` } : {},
+            success: resolve,
+            fail: reject,
+          });
+        },
+      );
 
     const body = parseUploadBody(result.data);
     if (result.statusCode !== 200 || !body) {

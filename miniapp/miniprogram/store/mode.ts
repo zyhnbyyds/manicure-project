@@ -37,7 +37,9 @@ export function getStaffStatus(): StaffGrantStatus | null {
   const raw = wx.getStorageSync(STAFF_STATUS_KEY);
   if (raw === '' || raw === null || raw === undefined) return null;
   const known: StaffGrantStatus[] = ['none', 'pending', 'active', 'rejected'];
-  return known.includes(raw as StaffGrantStatus) ? (raw as StaffGrantStatus) : null;
+  return known.includes(raw as StaffGrantStatus)
+    ? (raw as StaffGrantStatus)
+    : null;
 }
 
 /** 登录 / 绑定手机号后回填授权状态 */

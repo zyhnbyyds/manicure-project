@@ -6,13 +6,13 @@ title: 本地开发与命令手册
 
 ## 环境要求
 
-| 依赖 | 版本 / 说明 | 是否必须 |
-| --- | --- | --- |
-| **Bun** | `>= 1.4`（`package.json` 的 `engines.bun`，`packageManager: bun@1.4.0`） | **必须**。后端与前端都用它当运行时 + 包管理器 |
-| **MySQL** | 8.x，需要一个能建库的账号 | **必须**（应用启动要 `DATABASE_URL`，集成测试要额外建测试库） |
-| **Redis** | 任意版本 | 可选。不配置则缓存 / 在线用户 / 部分任务自动降级 |
-| 微信开发者工具 | 稳定版，`libVersion` 用 trial | 可选，只有跑小程序时用 |
-| Node.js | — | **不需要**。项目不引入 tsx / Node 启动方式 |
+| 依赖           | 版本 / 说明                                                              | 是否必须                                                      |
+| -------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| **Bun**        | `>= 1.4`（`package.json` 的 `engines.bun`，`packageManager: bun@1.4.0`） | **必须**。后端与前端都用它当运行时 + 包管理器                 |
+| **MySQL**      | 8.x，需要一个能建库的账号                                                | **必须**（应用启动要 `DATABASE_URL`，集成测试要额外建测试库） |
+| **Redis**      | 任意版本                                                                 | 可选。不配置则缓存 / 在线用户 / 部分任务自动降级              |
+| 微信开发者工具 | 稳定版，`libVersion` 用 trial                                            | 可选，只有跑小程序时用                                        |
+| Node.js        | —                                                                        | **不需要**。项目不引入 tsx / Node 启动方式                    |
 
 ::: warning Bun 版本低于 1.4 会直接坏
 `src/common/cache/redis.service.ts` 用的是 **Bun 内置的 `Bun.RedisClient`**（不是 ioredis），`src/common/password/password.service.ts` 用的是 `Bun.password`。旧版 Bun 没有这些 API。
@@ -28,18 +28,19 @@ cp .env.example .env
 
 `.env.example` 只有 45 行，**必填项是这 5 个**（缺任何一个进程都起不来）：
 
-| 变量 | 说明 |
-| --- | --- |
-| `DATABASE_URL` | `mysql://user:pass@host:port/db`，`z.url()` 校验 |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | 非空字符串 |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | **至少 32 字符**（`z.string().min(32)`） |
+| 变量                                       | 说明                                             |
+| ------------------------------------------ | ------------------------------------------------ |
+| `DATABASE_URL`                             | `mysql://user:pass@host:port/db`，`z.url()` 校验 |
+| `JWT_ISSUER` / `JWT_AUDIENCE`              | 非空字符串                                       |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | **至少 32 字符**（`z.string().min(32)`）         |
 
 ::: danger `.env.example` 里没有 `SEED_ADMIN_PASSWORD`
 `src/database/seed/index.ts` 第 12-14 行要求它存在：
 
 ```ts
 const password = Bun.env.SEED_ADMIN_PASSWORD;
-if (!url || !password) throw new Error('DATABASE_URL and SEED_ADMIN_PASSWORD are required');
+if (!url || !password)
+  throw new Error('DATABASE_URL and SEED_ADMIN_PASSWORD are required');
 ```
 
 照抄 `.env.example` 后 `bun run db:seed` 会**直接抛错**。请自己在 `.env` 里补一行 `SEED_ADMIN_PASSWORD=<你的管理员密码>`（仓库当前工作区的 `.env` 里就有这一项，但模板里没有 —— 这是模板的缺口）。
@@ -70,14 +71,14 @@ bun run dev             # http://localhost:3000
 
 逐条说明：
 
-| 命令 | 入口 | 做什么 |
-| --- | --- | --- |
-| `bun run db:migrate` | `src/database/migrate.ts` | 读 `process.env.DATABASE_URL`，用 `drizzle-orm/mysql2/migrator` 跑 `./src/database/migrations`，失败 `process.exit(1)` |
-| `bun run db:seed` | `src/database/seed/index.ts` | 建 `admin` / `user` 两个角色 → 建 `admin` 用户（`Bun.password` argon2id）→ 绑角色 → **然后依次调用 `seedMenus` / `seedBiz` / `seedNail`** |
-| `bun run db:seed:menus` | `src/database/seed/menus.ts` | 菜单与按钮权限点，按 `name` upsert（值没变不发 UPDATE），角色授权只补缺失项 |
-| `bun run db:seed:biz` | `src/database/seed/biz.ts` | 会员等级 / 退款判责规则 / 8 个通知模板 / 11 个定时任务 / `biz.*` 业务参数 + 中文名 |
-| `bun run db:seed:nail` | `src/database/seed/nail.ts` | 服务项目 / 美甲师 / 周排班 / 卡种 / 充值方案 / 积分兑换品 / 提成规则 / 挂账主体 |
-| `bun run db:seed:demo` | `src/database/seed/demo.ts` | **演示用**顾客与会员数据 |
+| 命令                    | 入口                         | 做什么                                                                                                                                    |
+| ----------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run db:migrate`    | `src/database/migrate.ts`    | 读 `process.env.DATABASE_URL`，用 `drizzle-orm/mysql2/migrator` 跑 `./src/database/migrations`，失败 `process.exit(1)`                    |
+| `bun run db:seed`       | `src/database/seed/index.ts` | 建 `admin` / `user` 两个角色 → 建 `admin` 用户（`Bun.password` argon2id）→ 绑角色 → **然后依次调用 `seedMenus` / `seedBiz` / `seedNail`** |
+| `bun run db:seed:menus` | `src/database/seed/menus.ts` | 菜单与按钮权限点，按 `name` upsert（值没变不发 UPDATE），角色授权只补缺失项                                                               |
+| `bun run db:seed:biz`   | `src/database/seed/biz.ts`   | 会员等级 / 退款判责规则 / 8 个通知模板 / 11 个定时任务 / `biz.*` 业务参数 + 中文名                                                        |
+| `bun run db:seed:nail`  | `src/database/seed/nail.ts`  | 服务项目 / 美甲师 / 周排班 / 卡种 / 充值方案 / 积分兑换品 / 提成规则 / 挂账主体                                                           |
+| `bun run db:seed:demo`  | `src/database/seed/demo.ts`  | **演示用**顾客与会员数据                                                                                                                  |
 
 ::: warning `bun run db:seed` 其实已经把 menus / biz / nail 都跑了
 `seed/index.ts` 第 49-53 行显式调用了 `seedMenus(pool)` / `seedBiz(pool)` / `seedNail(pool)`，第 54 行注释还专门说明 demo 不在里面。
@@ -92,20 +93,20 @@ bun run dev             # http://localhost:3000
 
 也就是说仓库里的 `.env.development` / `.env.prod` / `.env.test` **不会被 Nest 应用读取**（`ConfigModule` 默认也不是"按 NODE_ENV 拼文件名"）。真正生效的只有：
 
-| 来源 | 谁读它 |
-| --- | --- |
-| `.env` | Nest（`ConfigModule`）+ Bun 运行时自动加载（`bun run db:migrate` 用的 `process.env` 就靠这个） |
-| `.env.development` / `.env.prod` / `.env.test` | **只有集成测试 harness** 在 `applyTestEnv()` 里手工解析（`.env` → `.env.test` 后者覆盖前者） |
+| 来源                                           | 谁读它                                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `.env`                                         | Nest（`ConfigModule`）+ Bun 运行时自动加载（`bun run db:migrate` 用的 `process.env` 就靠这个） |
+| `.env.development` / `.env.prod` / `.env.test` | **只有集成测试 harness** 在 `applyTestEnv()` 里手工解析（`.env` → `.env.test` 后者覆盖前者）   |
 
 所以切换环境请**改 `.env` 本身**，别指望 `NODE_ENV=production` 会自动切到 `.env.prod`。详见 [配置与环境变量](/overview/config)。
 :::
 
 ### 第 4 步：打开验证
 
-| 地址 | 内容 |
-| --- | --- |
+| 地址                                  | 内容                                                                        |
+| ------------------------------------- | --------------------------------------------------------------------------- |
 | `http://localhost:3000/api/v1/health` | `{ "code": 0, "data": { "status": "ok" }, "message": "ok" }`（`@Public()`） |
-| `http://localhost:3000/api/v1/docs` | Swagger（需 `SWAGGER_ENABLED=true`，默认开） |
+| `http://localhost:3000/api/v1/docs`   | Swagger（需 `SWAGGER_ENABLED=true`，默认开）                                |
 
 默认管理员：用户名 `admin`，密码 = 你填的 `SEED_ADMIN_PASSWORD`。
 
@@ -143,9 +144,11 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 ### 真机 / 模拟器联调的三个前提
 
 1. **`miniapp/miniprogram/config.ts` 的 `API_BASE` 用局域网 IP**，不是 `127.0.0.1`
+
    ```ts
    export const API_BASE = 'http://192.168.0.100:3000/api/v1';
    ```
+
    模拟器里两者都能用，但**真机上 `127.0.0.1` 指向手机自己**，必然连不上。挑**有默认网关**的那张网卡（VMware / Hyper-V / 蓝牙的虚拟网卡也能通，但手机连不上）。
 
    ::: warning 这个 IP 会随 DHCP 变，连不上先查它
@@ -157,8 +160,10 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
    Get-NetIPAddress -AddressFamily IPv4 |
      Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -eq 'Dhcp' }
    ```
+
    想一劳永逸：在路由器上给这台机做 **DHCP 保留**。
    :::
+
 2. **`miniapp/project.private.config.json` 里 `urlCheck: false`**（工作区当前已是 false）—— 项目走 `http + IP`，不是 https 合法域名。
 3. **Windows 防火墙放行入站 3000**：
 
@@ -189,59 +194,59 @@ bunx tsc --noEmit -p miniapp/tsconfig.json
 
 ### 后端（仓库根）
 
-| 命令 | 实际执行 | 一句话说明 |
-| --- | --- | --- |
-| `bun run dev` | `bun --watch src/main.ts` | 开发模式，改文件自动重启 |
-| `bun run start` | `bun src/main.ts` | 直接启动（不 watch） |
-| `bun run build` | `nest build` | SWC 编译到 `output/server`（`deleteOutDir: true`） |
-| `bun run typecheck` | `tsc --noEmit` | 全量类型检查（已排除 `src/modules/generated` 与 `*.spec.ts`） |
-| `bun run lint` | `oxlint .` | 只开 `correctness: error`，配置在 `.oxlintrc.json` |
-| `bun run lint:fix` | `oxlint . --fix` | 同上，自动修 |
-| `bun run format` | `oxfmt --write .` | 格式化 |
-| `bun run format:check` | `oxfmt --check .` | 只检查不写（CI 用） |
-| `bun run test` | `bun test` | 单元 + 集成全量（约 105 个文件） |
-| `bun run test:watch` | `bun test --watch` | 监听模式 |
-| `bun run test:coverage` | `bun test --coverage` | 带覆盖率 |
-| `bun run db:generate` | `drizzle-kit generate` | 由 `src/database/schema/index.ts` 生成迁移 SQL |
-| `bun run db:migrate` | `bun src/database/migrate.ts` | 执行迁移 |
-| `bun run db:seed` | `bun src/database/seed/index.ts` | 管理员 + menus + biz + nail |
-| `bun run db:seed:menus` | `bun src/database/seed/menus.ts` | 仅菜单与权限点 |
-| `bun run db:seed:biz` | `bun src/database/seed/biz.ts` | 仅业务默认值与定时任务 |
-| `bun run db:seed:nail` | `bun src/database/seed/nail.ts` | 仅美甲店基础资料 |
-| `bun run db:seed:demo` | `bun src/database/seed/demo.ts` | 演示数据（**生产禁止**） |
-| `bun run db:studio` | `drizzle-kit studio` | Drizzle Studio 可视化查库 |
+| 命令                    | 实际执行                         | 一句话说明                                                    |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------- |
+| `bun run dev`           | `bun --watch src/main.ts`        | 开发模式，改文件自动重启                                      |
+| `bun run start`         | `bun src/main.ts`                | 直接启动（不 watch）                                          |
+| `bun run build`         | `nest build`                     | SWC 编译到 `output/server`（`deleteOutDir: true`）            |
+| `bun run typecheck`     | `tsc --noEmit`                   | 全量类型检查（已排除 `src/modules/generated` 与 `*.spec.ts`） |
+| `bun run lint`          | `oxlint .`                       | 只开 `correctness: error`，配置在 `.oxlintrc.json`            |
+| `bun run lint:fix`      | `oxlint . --fix`                 | 同上，自动修                                                  |
+| `bun run format`        | `oxfmt --write .`                | 格式化                                                        |
+| `bun run format:check`  | `oxfmt --check .`                | 只检查不写（CI 用）                                           |
+| `bun run test`          | `bun test`                       | 单元 + 集成全量（约 105 个文件）                              |
+| `bun run test:watch`    | `bun test --watch`               | 监听模式                                                      |
+| `bun run test:coverage` | `bun test --coverage`            | 带覆盖率                                                      |
+| `bun run db:generate`   | `drizzle-kit generate`           | 由 `src/database/schema/index.ts` 生成迁移 SQL                |
+| `bun run db:migrate`    | `bun src/database/migrate.ts`    | 执行迁移                                                      |
+| `bun run db:seed`       | `bun src/database/seed/index.ts` | 管理员 + menus + biz + nail                                   |
+| `bun run db:seed:menus` | `bun src/database/seed/menus.ts` | 仅菜单与权限点                                                |
+| `bun run db:seed:biz`   | `bun src/database/seed/biz.ts`   | 仅业务默认值与定时任务                                        |
+| `bun run db:seed:nail`  | `bun src/database/seed/nail.ts`  | 仅美甲店基础资料                                              |
+| `bun run db:seed:demo`  | `bun src/database/seed/demo.ts`  | 演示数据（**生产禁止**）                                      |
+| `bun run db:studio`     | `drizzle-kit studio`             | Drizzle Studio 可视化查库                                     |
 
 ### 后台前端（`web/`）
 
-| 命令 | 实际执行 | 一句话说明 |
-| --- | --- | --- |
-| `bun run dev` | `vite --port 5173 --open` | 开发服务器 + 自动开浏览器 |
-| `bun run build` | `vue-tsc --noEmit && vite build` | **先类型检查再打包**，产物 `../output/web` |
-| `bun run preview` | `vite preview` | 本地预览构建产物 |
-| `bun run typecheck` | `vue-tsc --noEmit` | 单跑类型检查 |
-| `bun run lint` / `lint:fix` | `oxlint` / `oxlint --fix` | 前端 lint |
-| `bun run fmt` / `fmt:check` | `oxfmt` / `oxfmt --check` | 前端格式化 |
+| 命令                        | 实际执行                         | 一句话说明                                 |
+| --------------------------- | -------------------------------- | ------------------------------------------ |
+| `bun run dev`               | `vite --port 5173 --open`        | 开发服务器 + 自动开浏览器                  |
+| `bun run build`             | `vue-tsc --noEmit && vite build` | **先类型检查再打包**，产物 `../output/web` |
+| `bun run preview`           | `vite preview`                   | 本地预览构建产物                           |
+| `bun run typecheck`         | `vue-tsc --noEmit`               | 单跑类型检查                               |
+| `bun run lint` / `lint:fix` | `oxlint` / `oxlint --fix`        | 前端 lint                                  |
+| `bun run fmt` / `fmt:check` | `oxfmt` / `oxfmt --check`        | 前端格式化                                 |
 
 ### 小程序（仓库根）
 
-| 命令 | 一句话说明 |
-| --- | --- |
+| 命令                                         | 一句话说明                                                   |
+| -------------------------------------------- | ------------------------------------------------------------ |
 | `bunx tsc --noEmit -p miniapp/tsconfig.json` | 唯一的自动化入口；`miniapp/package.json` 的 `scripts` 是空的 |
-| 微信开发者工具「导入项目」 | 目录选 `miniapp/`；编译走工具内置 TS 插件 |
+| 微信开发者工具「导入项目」                   | 目录选 `miniapp/`；编译走工具内置 TS 插件                    |
 
 ## 本地没通道能跑吗
 
 **能，而且这是默认状态。** 所有外部通道都是"配置齐全才算启用，缺了就降级"，不影响进程启动。
 
-| 场景 | 行为 | 代码位置 |
-| --- | --- | --- |
-| 不配任何微信支付 / 支付宝变量 | 在线渠道接口返回「通道未启用」（`ConflictException`）；**线下收款（现金 / 微信线下 / 支付宝线下）、储值、次卡、挂账照常可用** | `src/modules/biz/payment/channels/*.provider.ts` 的 `configured` → `payments.service.ts` |
-| 不配 `WX_MINIAPP_APPID/SECRET` | app 域登录返回 **503「小程序端未启用」**（设计内降级） | `AppConfigService.wxMiniapp.configured` → `AppAuthService.login` |
-| 本地要调小程序但仍无凭据 | `.env` 里设 `WX_MINIAPP_FAKE=true` 走假微信实现 | `FakeWxMiniappProvider`（`app/auth/wx-miniapp.provider.ts`） |
-| 不配 `REDIS_URL` | `RedisService.enabled = false`，各方法返回空值；在线用户 / 缓存监控降级 | `src/common/cache/redis.service.ts` |
-| `SMS_PROVIDER=none`（默认）或凭据不全 | 只写站内消息 + failed 日志，**不阻塞业务** | `AppConfigService.sms.configured` → `notices.service.ts` |
-| `AI_ENABLED=false`（默认） | AI 操作助手不可用，其余不受影响 | `AppConfigService.ai` |
-| `SWAGGER_ENABLED=false` | 不挂载 `/api/v1/docs` | `src/main.ts` |
+| 场景                                  | 行为                                                                                                                          | 代码位置                                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 不配任何微信支付 / 支付宝变量         | 在线渠道接口返回「通道未启用」（`ConflictException`）；**线下收款（现金 / 微信线下 / 支付宝线下）、储值、次卡、挂账照常可用** | `src/modules/biz/payment/channels/*.provider.ts` 的 `configured` → `payments.service.ts` |
+| 不配 `WX_MINIAPP_APPID/SECRET`        | app 域登录返回 **503「小程序端未启用」**（设计内降级）                                                                        | `AppConfigService.wxMiniapp.configured` → `AppAuthService.login`                         |
+| 本地要调小程序但仍无凭据              | `.env` 里设 `WX_MINIAPP_FAKE=true` 走假微信实现                                                                               | `FakeWxMiniappProvider`（`app/auth/wx-miniapp.provider.ts`）                             |
+| 不配 `REDIS_URL`                      | `RedisService.enabled = false`，各方法返回空值；在线用户 / 缓存监控降级                                                       | `src/common/cache/redis.service.ts`                                                      |
+| `SMS_PROVIDER=none`（默认）或凭据不全 | 只写站内消息 + failed 日志，**不阻塞业务**                                                                                    | `AppConfigService.sms.configured` → `notices.service.ts`                                 |
+| `AI_ENABLED=false`（默认）            | AI 操作助手不可用，其余不受影响                                                                                               | `AppConfigService.ai`                                                                    |
+| `SWAGGER_ENABLED=false`               | 不挂载 `/api/v1/docs`                                                                                                         | `src/main.ts`                                                                            |
 
 ::: danger `WX_MINIAPP_FAKE=true` 生产强制失效
 这不是"图方便的开关"而是安全底线：假实现下**任意手机号都能登录成任意顾客 / 美甲师**。
@@ -267,13 +272,13 @@ Get-NetTCPConnection -LocalPort 3000 -State Listen |
 
 ### MySQL 连不上
 
-| 现象 | 原因 |
-| --- | --- |
-| 启动即抛 `ZodError`，提到 `DATABASE_URL` | 变量没填或格式不是合法 URL |
-| `connect ECONNREFUSED 127.0.0.1:3306` | MySQL 没起 / 端口不对 / 用了 `localhost` 而 mysqld 只监听 IPv6 |
-| `ER_ACCESS_DENIED_ERROR` | 账号密码错；注意 `.env.example` 里是 `root:root`，很多人本地 root 密码不是 root |
-| `ER_BAD_DB_ERROR: Unknown database` | 库还没建。`db:migrate` **不会建库**，只建表 |
-| 时间差 8 小时 | 连接池已经强制 UTC（`timezone: 'Z'` + `SET time_zone='+00:00'`）。若仍偏，检查自己是不是用了 `new Date('2026-09-11')` —— 见 [项目总览与技术基线](/overview/) 的「代码铁律」一节 |
+| 现象                                     | 原因                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 启动即抛 `ZodError`，提到 `DATABASE_URL` | 变量没填或格式不是合法 URL                                                                                                                                                      |
+| `connect ECONNREFUSED 127.0.0.1:3306`    | MySQL 没起 / 端口不对 / 用了 `localhost` 而 mysqld 只监听 IPv6                                                                                                                  |
+| `ER_ACCESS_DENIED_ERROR`                 | 账号密码错；注意 `.env.example` 里是 `root:root`，很多人本地 root 密码不是 root                                                                                                 |
+| `ER_BAD_DB_ERROR: Unknown database`      | 库还没建。`db:migrate` **不会建库**，只建表                                                                                                                                     |
+| 时间差 8 小时                            | 连接池已经强制 UTC（`timezone: 'Z'` + `SET time_zone='+00:00'`）。若仍偏，检查自己是不是用了 `new Date('2026-09-11')` —— 见 [项目总览与技术基线](/overview/) 的「代码铁律」一节 |
 
 ### 迁移冲突 / 迁移失败
 
@@ -284,13 +289,13 @@ Get-NetTCPConnection -LocalPort 3000 -State Listen |
 
 ### `bun install` 之后 node_modules 不一致
 
-| 现象 | 处理 |
-| --- | --- |
-| `Cannot find module '@nestjs/core'` | 在**仓库根**跑 `bun install`。`web/` 与 `miniapp/` 是各自独立的安装 |
-| 前端报找不到 `vue` / `lew-ui` | 在 `web/` 目录里跑 `bun install` |
-| 类型报 `TS2304: 找不到名称 "h"` | `web/types/auto-imports.d.ts` 缺失。它由 `unplugin-auto-import` 生成，**需要提交**（`web/.gitignore` 注释写明：`vue-tsc` 在 vite 生成它之前先运行，干净环境缺了会报错） |
-| 全局装了 Node 版依赖互相污染 | 删掉 `node_modules/` 与 `bun.lock` 重装；确认 `bun --version` ≥ 1.4 |
-| 换 Bun 版本后 `Bun.RedisClient` 不存在 | 升级到 ≥ 1.4 |
+| 现象                                   | 处理                                                                                                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Cannot find module '@nestjs/core'`    | 在**仓库根**跑 `bun install`。`web/` 与 `miniapp/` 是各自独立的安装                                                                                                     |
+| 前端报找不到 `vue` / `lew-ui`          | 在 `web/` 目录里跑 `bun install`                                                                                                                                        |
+| 类型报 `TS2304: 找不到名称 "h"`        | `web/types/auto-imports.d.ts` 缺失。它由 `unplugin-auto-import` 生成，**需要提交**（`web/.gitignore` 注释写明：`vue-tsc` 在 vite 生成它之前先运行，干净环境缺了会报错） |
+| 全局装了 Node 版依赖互相污染           | 删掉 `node_modules/` 与 `bun.lock` 重装；确认 `bun --version` ≥ 1.4                                                                                                     |
+| 换 Bun 版本后 `Bun.RedisClient` 不存在 | 升级到 ≥ 1.4                                                                                                                                                            |
 
 ### 集成测试相关
 

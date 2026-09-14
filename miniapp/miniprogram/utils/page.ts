@@ -177,10 +177,14 @@ export function whiteIconSet(names: IconName[]): Record<string, string> {
 
 type DataOption = WechatMiniprogram.Page.DataOption;
 type CustomOption = WechatMiniprogram.Page.CustomOption;
-type PageOptions<D extends DataOption, C extends CustomOption> =
-  WechatMiniprogram.Page.Options<D, C>;
-type PageInstance<D extends DataOption, C extends CustomOption> =
-  WechatMiniprogram.Page.Instance<D, C>;
+type PageOptions<
+  D extends DataOption,
+  C extends CustomOption,
+> = WechatMiniprogram.Page.Options<D, C>;
+type PageInstance<
+  D extends DataOption,
+  C extends CustomOption,
+> = WechatMiniprogram.Page.Instance<D, C>;
 
 /**
  * 页面配置。
@@ -199,7 +203,8 @@ type PageInstance<D extends DataOption, C extends CustomOption> =
 export type DefinePageConfig<
   D extends DataOption,
   C extends CustomOption,
-> = ChromeOptions & { data: D } & Partial<WechatMiniprogram.Page.ILifetime> & C &
+> = ChromeOptions & { data: D } & Partial<WechatMiniprogram.Page.ILifetime> &
+  C &
   // ThisType 必须留在最终交叉类型里：它给对象字面量里的每个方法提供 `this`
   ThisType<PageInstance<D & ChromeData, C>>;
 

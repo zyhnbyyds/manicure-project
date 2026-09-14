@@ -18,31 +18,37 @@ title: 退款判责与对账
 
 ```ts
 // src/database/schema/index.ts:1540
-export const bizRefundPolicies = mysqlTable('biz_refund_policy', {
-  id: int('id', { unsigned: true }).autoincrement().primaryKey(),
-  name: varchar('name', { length: 50 }).notNull(),
-  hoursBefore: int('hours_before', { unsigned: true }).notNull(),
-  refundPermille: int('refund_permille', { unsigned: true }).notNull(),
-  minAmount: int('min_amount', { unsigned: true }).default(0).notNull(),
-  status: mysqlEnum('status', ['active', 'disabled']).default('active').notNull(),
-  sort: int('sort').default(0).notNull(),
-  remark: varchar('remark', { length: 200 }),
-  ...auditColumns,
-}, (table) => [
-  uniqueIndex('uq_refund_policy_name').on(table.name),
-  index('idx_refund_policy_status_sort').on(table.status, table.sort),
-]);
+export const bizRefundPolicies = mysqlTable(
+  'biz_refund_policy',
+  {
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 50 }).notNull(),
+    hoursBefore: int('hours_before', { unsigned: true }).notNull(),
+    refundPermille: int('refund_permille', { unsigned: true }).notNull(),
+    minAmount: int('min_amount', { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum('status', ['active', 'disabled'])
+      .default('active')
+      .notNull(),
+    sort: int('sort').default(0).notNull(),
+    remark: varchar('remark', { length: 200 }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex('uq_refund_policy_name').on(table.name),
+    index('idx_refund_policy_status_sort').on(table.status, table.sort),
+  ],
+);
 ```
 
 ### 默认档位（seed）
 
 `src/database/seed/biz.ts` 的 `REFUND_POLICY_SEEDS`（按 `name` 幂等，**已存在的行一律跳过，不覆盖运营改过的值**）：
 
-| name | hours_before | refund_permille | min_amount | sort |
-| --- | --- | --- | --- | --- |
-| `24 小时以上全退` | 24 | 1000 | 0 | 1 |
-| `2-24 小时退一半` | 2 | 500 | 0 | 2 |
-| `2 小时内不退` | 0 | 0 | 0 | 3 |
+| name              | hours_before | refund_permille | min_amount | sort |
+| ----------------- | ------------ | --------------- | ---------- | ---- |
+| `24 小时以上全退` | 24           | 1000            | 0          | 1    |
+| `2-24 小时退一半` | 2            | 500             | 0          | 2    |
+| `2 小时内不退`    | 0            | 0               | 0          | 3    |
 
 ::: tip 爽约不退靠的是 `hours_before = 0` 这一档
 提前小时数取 `Math.max(hoursBetween(startAt, cancelAt), 0)` —— **负值（已过开始时间）被夹到 0**，于是必然命中 `hours_before = 0` 的「不退」档。
@@ -99,17 +105,17 @@ private async matchPolicy(cancelAt: Date, startAt: Date, policyId: number | unde
 
 `POST /api/v1/biz/refunds/preview`（权限 `biz:refund:apply`），入参 `{ bookingId, cancelAt?, liable? }`。返回体（`RefundPreview`）：
 
-| 字段 | 口径 |
-| --- | --- |
-| `startAt` / `cancelAt` / `hoursToStart` | 时间基准；`hoursToStart` 保留 2 位小数，**可为负** |
-| `policyId` / `policyName` / `hoursBefore` | 命中的规则（都不命中为 `null`） |
-| `refundPermille` | 可退比例（千分比） |
-| `paidAmount` | 预约毛实收 = Σ 成功支付单 `received_amount` |
-| `refundedAmount` | Σ 成功退款单 `actual_amount` |
-| `refundableAmount` | `paidAmount − refundedAmount` |
-| `suggestAmount` | 判责建议退款额 |
-| `deductAmount` | `refundableAmount − suggestAmount`（夹到 ≥ 0） |
-| `payments[]` | **逐笔可退明细**（`paymentId` / `paymentNo` / `channel` / `amount` / `refundedAmount` / `refundableAmount`） |
+| 字段                                      | 口径                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `startAt` / `cancelAt` / `hoursToStart`   | 时间基准；`hoursToStart` 保留 2 位小数，**可为负**                                                           |
+| `policyId` / `policyName` / `hoursBefore` | 命中的规则（都不命中为 `null`）                                                                              |
+| `refundPermille`                          | 可退比例（千分比）                                                                                           |
+| `paidAmount`                              | 预约毛实收 = Σ 成功支付单 `received_amount`                                                                  |
+| `refundedAmount`                          | Σ 成功退款单 `actual_amount`                                                                                 |
+| `refundableAmount`                        | `paidAmount − refundedAmount`                                                                                |
+| `suggestAmount`                           | 判责建议退款额                                                                                               |
+| `deductAmount`                            | `refundableAmount − suggestAmount`（夹到 ≥ 0）                                                               |
+| `payments[]`                              | **逐笔可退明细**（`paymentId` / `paymentNo` / `channel` / `amount` / `refundedAmount` / `refundableAmount`） |
 
 ::: warning 退款单必须挂在**具体支付单**上
 `biz_refund.payment_id` 是 NOT NULL。所以混合支付的预约要退完，需要**按支付单分别申请 / 审批** —— `preview` 的 `payments[]` 就是给前端逐笔操作用的。
@@ -117,13 +123,13 @@ private async matchPolicy(cancelAt: Date, startAt: Date, policyId: number | unde
 
 ## 申请 / 审批分离
 
-| 步骤 | 接口 | 权限点 | 说明 |
-| --- | --- | --- | --- |
-| 试算 | `POST /biz/refunds/preview` | `biz:refund:apply` | 只读，不改账 |
-| 申请 | `POST /biz/refunds` | `biz:refund:apply` | 生成 `pending` 退款单 |
-| 列表 | `GET /biz/refunds` | `biz:refund:list` | |
-| 审批并执行 | `POST /biz/refunds/:id/approve` | **`biz:refund:approve`** | 默认只给店长 |
-| 驳回 | `POST /biz/refunds/:id/reject` | **`biz:refund:approve`** | **必填原因** |
+| 步骤       | 接口                            | 权限点                   | 说明                  |
+| ---------- | ------------------------------- | ------------------------ | --------------------- |
+| 试算       | `POST /biz/refunds/preview`     | `biz:refund:apply`       | 只读，不改账          |
+| 申请       | `POST /biz/refunds`             | `biz:refund:apply`       | 生成 `pending` 退款单 |
+| 列表       | `GET /biz/refunds`              | `biz:refund:list`        |                       |
+| 审批并执行 | `POST /biz/refunds/:id/approve` | **`biz:refund:approve`** | 默认只给店长          |
+| 驳回       | `POST /biz/refunds/:id/reject`  | **`biz:refund:approve`** | **必填原因**          |
 
 权限点字符串核实于 `src/database/seed/menus.ts` 的 `BIZ_PAGES`：`biz_refunds` 页面 `permission: 'biz:refund:list'`、按钮 `biz:refund:approve`；收银台页面挂 `biz:refund:apply`。
 
@@ -165,11 +171,11 @@ async apply(input: RefundApplyInput, actorId: number): Promise<RefundRow> {
 
 ### 去向 `mode`
 
-| mode | 含义 | 约束 |
-| --- | --- | --- |
-| `original` | 原路退回 | **只有在线支付（`wxpay_native` / `alipay_qr`）可用**；渠道调用是网络 IO |
-| `cash` | 现金退 | 无渠道调用 |
-| `balance` | 退入储值余额 | 无渠道调用；**只回补实付本金 `principal`**，赠送不退 |
+| mode       | 含义         | 约束                                                                    |
+| ---------- | ------------ | ----------------------------------------------------------------------- |
+| `original` | 原路退回     | **只有在线支付（`wxpay_native` / `alipay_qr`）可用**；渠道调用是网络 IO |
+| `cash`     | 现金退       | 无渠道调用                                                              |
+| `balance`  | 退入储值余额 | 无渠道调用；**只回补实付本金 `principal`**，赠送不退                    |
 
 ::: tip 三条硬约束的位置
 `liable=customer` 按规则扣减、`liable=store` / `force_majeure` 全退、金额可改但必须填原因 —— 分别落实在 `assess()`（`refunds.service.ts:688`）、`apply()` 的 `reason` 校验与 `actualAmount` 覆盖上。规则**只给建议**，没有任何地方用规则值直接改账。
@@ -211,13 +217,20 @@ if (!affected[0].affectedRows) throw new AlreadyHandledError();
 
 ```ts
 // src/modules/biz/payment/refunds/refunds.service.ts:784
-const reserved = await this.database.db.update(bizPayments)
-  .set({ refundedAmount: sql`${bizPayments.refundedAmount} + ${refund.actualAmount}`, updatedBy: actorId })
-  .where(and(
-    eq(bizPayments.id, refund.paymentId),
-    sql`${bizPayments.refundedAmount} + ${refund.actualAmount} <= ${bizPayments.amount}`,
-  ));
-if (!reserved[0].affectedRows) throw new ConflictException('退款金额超出该支付单可退余额');
+const reserved = await this.database.db
+  .update(bizPayments)
+  .set({
+    refundedAmount: sql`${bizPayments.refundedAmount} + ${refund.actualAmount}`,
+    updatedBy: actorId,
+  })
+  .where(
+    and(
+      eq(bizPayments.id, refund.paymentId),
+      sql`${bizPayments.refundedAmount} + ${refund.actualAmount} <= ${bizPayments.amount}`,
+    ),
+  );
+if (!reserved[0].affectedRows)
+  throw new ConflictException('退款金额超出该支付单可退余额');
 ```
 
 于是任何时刻「渠道已退的钱」都不会超过「本地已占的额度」。
@@ -225,12 +238,12 @@ if (!reserved[0].affectedRows) throw new ConflictException('退款金额超出�
 
 **释放预留的规则**（`releaseRefundAmount()`，`refunds.service.ts:810`）：
 
-| 场景 | 是否释放 |
-| --- | --- |
-| 渠道退款返回 `failed` | ✅ 释放 + `markFailed()` |
-| 渠道调用抛异常（含 `providerFor` 抛「通道未启用」） | ✅ 释放 + `markFailed()` |
-| 非原路退款（`cash` / `balance`）落地失败 | ✅ 释放 |
-| **原路退款且渠道已成功**、但本地落地失败 | ❌ **不释放**，`logger.error` 留线索，等人工/对账跟进 |
+| 场景                                                | 是否释放                                              |
+| --------------------------------------------------- | ----------------------------------------------------- |
+| 渠道退款返回 `failed`                               | ✅ 释放 + `markFailed()`                              |
+| 渠道调用抛异常（含 `providerFor` 抛「通道未启用」） | ✅ 释放 + `markFailed()`                              |
+| 非原路退款（`cash` / `balance`）落地失败            | ✅ 释放                                               |
+| **原路退款且渠道已成功**、但本地落地失败            | ❌ **不释放**，`logger.error` 留线索，等人工/对账跟进 |
 
 ```ts
 // src/modules/biz/payment/refunds/refunds.service.ts:390
@@ -251,7 +264,9 @@ if (!reserved[0].affectedRows) throw new ConflictException('退款金额超出�
 
 ```ts
 const fullyRefunded = (after?.refundedAmount ?? 0) >= (after?.amount ?? 0);
-await tx.update(bizPayments).set({ status: fullyRefunded ? 'refunded' : 'partial_refunded' })
+await tx
+  .update(bizPayments)
+  .set({ status: fullyRefunded ? 'refunded' : 'partial_refunded' })
   .where(eq(bizPayments.id, payment.id));
 ```
 
@@ -326,11 +341,19 @@ if (refund.mode === 'balance') {
 ```ts
 // src/modules/biz/payment/diffs/payment-diffs.service.ts:138
 for (const record of records) {
-  const system = byTransaction.get(record.transactionId) ?? byOutTradeNo.get(record.outTradeNo);
-  if (!system) { /* missing_in_system */ continue; }
+  const system =
+    byTransaction.get(record.transactionId) ??
+    byOutTradeNo.get(record.outTradeNo);
+  if (!system) {
+    /* missing_in_system */ continue;
+  }
   matched.add(system.id);
-  if (system.amount !== record.amount) { /* amount_mismatch */ continue; }
-  if (record.status === 'failed' || record.status === 'closed') { /* status_mismatch */ }
+  if (system.amount !== record.amount) {
+    /* amount_mismatch */ continue;
+  }
+  if (record.status === 'failed' || record.status === 'closed') {
+    /* status_mismatch */
+  }
 }
 for (const payment of systemPayments) {
   if (matched.has(payment.id)) continue;
@@ -340,12 +363,12 @@ for (const payment of systemPayments) {
 
 ### 四类差异
 
-| `diff_type` | 含义 | 触发条件 |
-| --- | --- | --- |
-| `missing_in_system` | 系统缺单 | 渠道账单有、`biz_payment` 里按两个键都找不到；`system_amount = 0` |
-| `missing_in_channel` | 渠道缺单 | 系统有成功支付单、渠道账单里没匹配上；`channel_amount = 0` |
-| `amount_mismatch` | 金额不一致 | 匹配上了但 `system.amount !== record.amount` |
-| `status_mismatch` | 状态不一致 | 匹配上了且金额相同，但渠道状态是 `failed` / `closed` |
+| `diff_type`          | 含义       | 触发条件                                                          |
+| -------------------- | ---------- | ----------------------------------------------------------------- |
+| `missing_in_system`  | 系统缺单   | 渠道账单有、`biz_payment` 里按两个键都找不到；`system_amount = 0` |
+| `missing_in_channel` | 渠道缺单   | 系统有成功支付单、渠道账单里没匹配上；`channel_amount = 0`        |
+| `amount_mismatch`    | 金额不一致 | 匹配上了但 `system.amount !== record.amount`                      |
+| `status_mismatch`    | 状态不一致 | 匹配上了且金额相同，但渠道状态是 `failed` / `closed`              |
 
 ### 可重入（唯一键 + upsert）
 
@@ -361,10 +384,15 @@ index('idx_payment_diff_status').on(table.status, table.billDate),
 
 ```ts
 // src/modules/biz/payment/diffs/payment-diffs.service.ts:201
-await this.database.db.insert(bizPaymentDiffs)
+await this.database.db
+  .insert(bizPaymentDiffs)
   .values({ ...input, status: 'pending' })
   .onDuplicateKeyUpdate({
-    set: { outTradeNo: input.outTradeNo, systemAmount: input.systemAmount, channelAmount: input.channelAmount },
+    set: {
+      outTradeNo: input.outTradeNo,
+      systemAmount: input.systemAmount,
+      channelAmount: input.channelAmount,
+    },
   });
 ```
 
@@ -398,18 +426,18 @@ if (!affected[0].affectedRows) throw new ConflictException('该差异已处理�
 
 对账接口与权限：
 
-| 接口 | 权限点 |
-| --- | --- |
-| `GET /biz/payment-diffs` | `biz:payment:reconcile` |
+| 接口                                                    | 权限点                  |
+| ------------------------------------------------------- | ----------------------- |
+| `GET /biz/payment-diffs`                                | `biz:payment:reconcile` |
 | `POST /biz/payment-diffs/reconcile`（手动触发某日对账） | `biz:payment:reconcile` |
-| `PATCH /biz/payment-diffs/:id` | `biz:payment:reconcile` |
+| `PATCH /biz/payment-diffs/:id`                          | `biz:payment:reconcile` |
 
 ### 定时任务
 
 `src/database/seed/biz.ts` 的 `JOB_SEEDS`：
 
-| name | handler | cron |
-| --- | --- | --- |
+| name         | handler             | cron                         |
+| ------------ | ------------------- | ---------------------------- |
 | 支付渠道对账 | `reconcilePayments` | `0 30 6 * * *`（每日 06:30） |
 
 handler 实现（`src/modules/jobs/jobs.service.ts`）直接调 `payments.reconcile()`。注意 `BIZ_CONFIG_DEFAULTS` 里还有一个 `biz.payment.reconcileHour = 6`，**那只是配置展示项**，实际调度由 `sys_job.cron` 决定。

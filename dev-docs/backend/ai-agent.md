@@ -16,21 +16,21 @@ title: AI 操作助手
 
 ## 一、模块职责表
 
-| 目录 / 文件 | 导出的类 | 职责 |
-| --- | --- | --- |
-| `ai.module.ts` | `AiModule` | 装配全部 provider，`onModuleInit()` 把 **66 个 Tool** 注册进 `ToolRegistry` |
-| `agent/agent.service.ts` | `AgentService` | **主循环**：LLM → ToolCall → Policy → 审批/执行 → 回喂 LLM；`confirmAndExecute()`；`summarizeExecution()` |
-| `gateway/ai.gateway.controller.ts` / `.service.ts` | `AiGatewayController` / `AiGatewayService` | HTTP 入口（`@Controller('ai')`）+ SSE 写流；会话与消息持久化、approve / reject / confirm 编排、任务查询与撤销 |
-| `llm/llm.service.ts` | `LlmService` | Provider 选择：`AI_ENABLED && DEEPSEEK_API_KEY` → `DeepSeekProvider`，否则 `MockProvider` |
-| `llm/providers/*.ts` | `DeepSeekProvider` / `MockProvider` | OpenAI 兼容 `chat/completions`，**含真流式 SSE 解析**与 `reasoning_content` 处理；未启用 AI 时的假实现 |
-| `context/context.builder.ts` / `context.sanitizer.ts` | `ContextBuilder` / `ContextSanitizer` | 生成 Trusted 系统提示词 + 按权限过滤的 Tool 定义 + `toolNameMap`；Tool 返回值脱敏 |
-| `tools/tool.registry.ts` / `tool.executor.ts` / `base/base-crud.tool.ts` | `ToolRegistry` / `ToolExecutor` / `BaseCrudTool` | Tool 注册与权限过滤；执行前验证 Capability Token 与批量上限；CRUD Tool 基类 |
-| `policy/*.ts` | `PolicyEngine` / `PermissionService` | RBAC → 动态风险 → 审批策略，任一失败即阻止；`policy.explain.ts` 生成人类可读解释 |
-| `risk/risk.engine.ts` | `RiskEngine` | 动态风险 = 基础风险 + 批量/数量/生产环境加成 |
-| `capability/capability.service.ts` | `CapabilityService` | 能力令牌（HMAC 签名，5 分钟） |
-| `approval/action-intent.service.ts` / `approval.service.ts` | `ActionIntentService` / `ApprovalService` | **ActionIntent 一次性 token + 前后快照 hash（TOCTOU 防护）**；写 `ai_approval`、翻转 intent 状态 |
-| `task/task.service.ts` | `TaskService` | 任务时间线、Saga 补偿、`rollbackTask()` |
-| `audit/audit.service.ts` | `AuditService` | 写 `ai_audit_log`（`tool_evaluate` / `tool_execute`） |
+| 目录 / 文件                                                              | 导出的类                                         | 职责                                                                                                          |
+| ------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `ai.module.ts`                                                           | `AiModule`                                       | 装配全部 provider，`onModuleInit()` 把 **66 个 Tool** 注册进 `ToolRegistry`                                   |
+| `agent/agent.service.ts`                                                 | `AgentService`                                   | **主循环**：LLM → ToolCall → Policy → 审批/执行 → 回喂 LLM；`confirmAndExecute()`；`summarizeExecution()`     |
+| `gateway/ai.gateway.controller.ts` / `.service.ts`                       | `AiGatewayController` / `AiGatewayService`       | HTTP 入口（`@Controller('ai')`）+ SSE 写流；会话与消息持久化、approve / reject / confirm 编排、任务查询与撤销 |
+| `llm/llm.service.ts`                                                     | `LlmService`                                     | Provider 选择：`AI_ENABLED && DEEPSEEK_API_KEY` → `DeepSeekProvider`，否则 `MockProvider`                     |
+| `llm/providers/*.ts`                                                     | `DeepSeekProvider` / `MockProvider`              | OpenAI 兼容 `chat/completions`，**含真流式 SSE 解析**与 `reasoning_content` 处理；未启用 AI 时的假实现        |
+| `context/context.builder.ts` / `context.sanitizer.ts`                    | `ContextBuilder` / `ContextSanitizer`            | 生成 Trusted 系统提示词 + 按权限过滤的 Tool 定义 + `toolNameMap`；Tool 返回值脱敏                             |
+| `tools/tool.registry.ts` / `tool.executor.ts` / `base/base-crud.tool.ts` | `ToolRegistry` / `ToolExecutor` / `BaseCrudTool` | Tool 注册与权限过滤；执行前验证 Capability Token 与批量上限；CRUD Tool 基类                                   |
+| `policy/*.ts`                                                            | `PolicyEngine` / `PermissionService`             | RBAC → 动态风险 → 审批策略，任一失败即阻止；`policy.explain.ts` 生成人类可读解释                              |
+| `risk/risk.engine.ts`                                                    | `RiskEngine`                                     | 动态风险 = 基础风险 + 批量/数量/生产环境加成                                                                  |
+| `capability/capability.service.ts`                                       | `CapabilityService`                              | 能力令牌（HMAC 签名，5 分钟）                                                                                 |
+| `approval/action-intent.service.ts` / `approval.service.ts`              | `ActionIntentService` / `ApprovalService`        | **ActionIntent 一次性 token + 前后快照 hash（TOCTOU 防护）**；写 `ai_approval`、翻转 intent 状态              |
+| `task/task.service.ts`                                                   | `TaskService`                                    | 任务时间线、Saga 补偿、`rollbackTask()`                                                                       |
+| `audit/audit.service.ts`                                                 | `AuditService`                                   | 写 `ai_audit_log`（`tool_evaluate` / `tool_execute`）                                                         |
 
 ## 二、请求流与主循环
 
@@ -96,16 +96,16 @@ Tool 的权限字符串**就是后台 RBAC 的权限点**（例如 `UserUpdateTo
 
 按风险等级分布：**只读 32 个**（全 `L0` + `ApprovalPolicy.NONE`），**写操作 34 个**（全 `CONFIRM`：`L1×9` 的 `*.create`，`L2×14` 的 `*.update` + `file.remove` + `job.run` + `online.forceLogout`，`L3×11` 的 `*.remove` + `job.clearLogs` + `login-log.clear` + `operation-log.clear`）。**没有 `user.remove` 工具**。
 
-| 领域 | Tool 名 |
-| --- | --- |
-| 用户 | `user.list` / `user.get` / `user.create` / `user.update` |
-| 角色 / 部门 / 菜单 / 岗位 | `{role,dept,menu,post}` 各 5 个：`list` / `get` / `create` / `update` / `remove` |
-| 参数配置 | `config.list` / `config.get` / `config.create` / `config.update` / `config.remove` |
-| 字典 | `dict-type.*`（5 个）、`dict-data.*`（5 个） |
-| 登录日志 / 操作日志 | `login-log.{list,get,remove,clear}`、`operation-log.{list,get,remove,clear}` |
-| 在线用户 / 缓存 | `online.list` / `online.forceLogout` / `cache.info` |
-| 定时任务 | `job.list` / `job.get` / `job.create` / `job.update` / `job.remove` / `job.run` / `job.logs` / `job.clearLogs` |
-| 文件 / 首页统计 | `file.{list,get,remove}`、`dashboard.{users,depts,roles,menus,posts}` |
+| 领域                      | Tool 名                                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 用户                      | `user.list` / `user.get` / `user.create` / `user.update`                                                       |
+| 角色 / 部门 / 菜单 / 岗位 | `{role,dept,menu,post}` 各 5 个：`list` / `get` / `create` / `update` / `remove`                               |
+| 参数配置                  | `config.list` / `config.get` / `config.create` / `config.update` / `config.remove`                             |
+| 字典                      | `dict-type.*`（5 个）、`dict-data.*`（5 个）                                                                   |
+| 登录日志 / 操作日志       | `login-log.{list,get,remove,clear}`、`operation-log.{list,get,remove,clear}`                                   |
+| 在线用户 / 缓存           | `online.list` / `online.forceLogout` / `cache.info`                                                            |
+| 定时任务                  | `job.list` / `job.get` / `job.create` / `job.update` / `job.remove` / `job.run` / `job.logs` / `job.clearLogs` |
+| 文件 / 首页统计           | `file.{list,get,remove}`、`dashboard.{users,depts,roles,menus,posts}`                                          |
 
 ::: warning AI 目前只操作「系统管理」域
 `user` / `role` / `dept` / `menu` / `post` / `config` / `dict` / `job` / `file` / 监控 / 首页统计。**没有任何 `biz.*`（预约 / 会员 / 收银）Tool** —— 想让 AI 改预约要先新增 Tool 并注册。
@@ -115,22 +115,23 @@ Tool 的权限字符串**就是后台 RBAC 的权限点**（例如 `UserUpdateTo
 
 ### 风险分级（`RiskLevel`）
 
-| 等级 | 含义 | 典型 Tool |
-| --- | --- | --- |
-| `L0` | 只读查询 | 所有 `*.list` / `*.get` / `cache.info` / `dashboard.*` |
-| `L1` | 低风险写 | `*.create` |
-| `L2` | 中风险写 | `*.update` / `online.forceLogout` / `job.run` |
+| 等级 | 含义     | 典型 Tool                                                                |
+| ---- | -------- | ------------------------------------------------------------------------ |
+| `L0` | 只读查询 | 所有 `*.list` / `*.get` / `cache.info` / `dashboard.*`                   |
+| `L1` | 低风险写 | `*.create`                                                               |
+| `L2` | 中风险写 | `*.update` / `online.forceLogout` / `job.run`                            |
 | `L3` | 高风险写 | `*.remove` / `login-log.clear` / `operation-log.clear` / `job.clearLogs` |
 
 **动态风险**（`RiskEngine.evaluate()`）在基础风险上加分：
 
 ```ts
-let score = this.riskScore(context.baseRisk);          // L0=0, L1=1, L2=2, L3=3
-if (this.isBatch(context.input)) score += 1;           // ids 或 userId 是数组
+let score = this.riskScore(context.baseRisk); // L0=0, L1=1, L2=2, L3=3
+if (this.isBatch(context.input)) score += 1; // ids 或 userId 是数组
 const count = this.affectedCount(context.input);
-if (count > 1000) score += 1; else if (count > 100) score += 0.5;
-if (process.env.NODE_ENV === 'production') score += 1;  // 生产环境整体提级
-return this.toRiskLevel(score);                        // >=3 L3, >=2 L2, >=1 L1, else L0
+if (count > 1000) score += 1;
+else if (count > 100) score += 0.5;
+if (process.env.NODE_ENV === 'production') score += 1; // 生产环境整体提级
+return this.toRiskLevel(score); // >=3 L3, >=2 L2, >=1 L1, else L0
 ```
 
 ::: warning 本机开发与生产的行为不同
@@ -139,12 +140,12 @@ return this.toRiskLevel(score);                        // >=3 L3, >=2 L2, >=1 L1
 
 ### 审批策略（`ApprovalPolicy`）
 
-| 值 | 语义 |
-| --- | --- |
-| `NONE` | 无需审批，自动执行 |
-| `CONFIRM` | 需要用户确认（前端内嵌确认条） |
-| `APPROVAL` | 需要管理员审批 |
-| `DISABLED` | 默认禁用，不注册给 AI |
+| 值         | 语义                           |
+| ---------- | ------------------------------ |
+| `NONE`     | 无需审批，自动执行             |
+| `CONFIRM`  | 需要用户确认（前端内嵌确认条） |
+| `APPROVAL` | 需要管理员审批                 |
+| `DISABLED` | 默认禁用，不注册给 AI          |
 
 `PolicyEngine.evaluate()` 的判定顺序：
 
@@ -154,7 +155,8 @@ return this.toRiskLevel(score);                        // >=3 L3, >=2 L2, >=1 L1
 
 ```ts
 const requiresApproval =
-  dynamicRisk === RiskLevel.L2 || dynamicRisk === RiskLevel.L3 ||
+  dynamicRisk === RiskLevel.L2 ||
+  dynamicRisk === RiskLevel.L3 ||
   context.approvalPolicy === ApprovalPolicy.CONFIRM ||
   context.approvalPolicy === ApprovalPolicy.APPROVAL;
 ```
@@ -175,11 +177,11 @@ const requiresApproval =
 
 批量限制是真有的，三层：
 
-| 层 | 位置 | 上限 |
-| --- | --- | --- |
-| Capability | `tool.executor.ts` 的 `assertItemCount()` | `limits.maxItems ?? 100` |
-| Task | `task.service.ts` 的 `assertLimits()` | 同上 |
-| Tool 基类 | `base-crud.tool.ts` 的 `resolveTargetIds()` | `this.maxItems`（默认 100） |
+| 层         | 位置                                        | 上限                        |
+| ---------- | ------------------------------------------- | --------------------------- |
+| Capability | `tool.executor.ts` 的 `assertItemCount()`   | `limits.maxItems ?? 100`    |
+| Task       | `task.service.ts` 的 `assertLimits()`       | 同上                        |
+| Tool 基类  | `base-crud.tool.ts` 的 `resolveTargetIds()` | `this.maxItems`（默认 100） |
 
 超限抛 `AiException(RISK_DENIED, '批量操作超过限制（最大 N 条）')`。
 
@@ -213,21 +215,28 @@ Agent 在**任何** Tool 结果进入 SSE、进任务步骤、回喂 LLM 之前�
 ```ts
 // agent.service.ts
 if (intent.beforeHash && tool.preview) {
-  const currentPreview = await tool.preview(intent.input, toolContextForPreview);
+  const currentPreview = await tool.preview(
+    intent.input,
+    toolContextForPreview,
+  );
   const currentHash = currentPreview.before
     ? ActionIntentService.hashValue(currentPreview.before)
     : ActionIntentService.hashValue(undefined);
   if (intent.beforeHash !== currentHash)
-    throw new AiException(AiErrorCode.ACTION_STALE, '数据已变化，请重新预览后再执行');
+    throw new AiException(
+      AiErrorCode.ACTION_STALE,
+      '数据已变化，请重新预览后再执行',
+    );
 }
 ```
 
 ::: danger 四条必须知道的性质与缺口
+
 1. **`beforeHash` 只有在 Tool 实现了 `preview()` 时才存在**。没实现 preview 的 Tool，TOCTOU 校验**直接被跳过**。新增高风险 Tool 必须实现 `doPreview`。
 2. **确认时重新走一遍 Policy**（防确认期间权限被收回）：`confirmAndExecute()` 里第二次 `policy.evaluate()`。
 3. **「一次性」不是靠删 token，而是靠状态闸门**：`validate()` 要求 `status === 'PENDING'`，执行后置 `EXECUTED`。
 4. **但 `updateStatus()` 是无条件 `UPDATE ... WHERE id = ?`，不是 CAS**，且与 `validate()` 的读分离、无事务。`confirm_token` 在 `ai_action_intent` 上只是**普通索引**（非唯一）。因此**并发的两次 `/confirm` 有可能都通过 validate 而双次执行**。缓解手段只有 Tool 自身的幂等；若要彻底封堵，应把状态更新改成 `WHERE id=? AND status='PENDING'` 并检查 `affectedRows`。
-:::
+   :::
 
 另外两处设计未落地：`ActionIntentService.assertUnchanged()` **没有任何调用点**（实际用的是 `confirmAndExecute()` 里内联的快照比对）；`EXPIRED` / `CANCELLED` 两个状态**没有代码写入**（过期靠 `expiresAt` 现算，取消走 `REJECTED`）。
 
@@ -245,12 +254,12 @@ LLM 可能重复调用同一工具。Agent 先按 `(sessionId, toolName, inputHa
 
 ### 审批结果元数据持久化
 
-| 表 | 记录 |
-| --- | --- |
-| `ai_action_intent` | 意图本体：`tool_name` / `input` / `input_hash` / `before_hash` / `confirm_token` / `risk_level` / `status`(PENDING,APPROVED,REJECTED,EXPIRED,EXECUTED,CANCELLED) / `task_id` / `task_step_id` / `expires_at` / `executed_at` |
-| `ai_approval` | 审批流水：`action_intent_id` / `approver_id` / `status`(APPROVED,REJECTED) / `reason` |
-| `ai_message.toolCalls` | 该意图在消息里的原始调用记录（含 `{ status: 'waiting_approval', intentId }`） |
-| `ai_message.toolResults` | **审批结果元数据**：`[{ type: 'approval_result', outcome: 'success' \| 'cancelled', toolName }]` |
+| 表                       | 记录                                                                                                                                                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai_action_intent`       | 意图本体：`tool_name` / `input` / `input_hash` / `before_hash` / `confirm_token` / `risk_level` / `status`(PENDING,APPROVED,REJECTED,EXPIRED,EXECUTED,CANCELLED) / `task_id` / `task_step_id` / `expires_at` / `executed_at` |
+| `ai_approval`            | 审批流水：`action_intent_id` / `approver_id` / `status`(APPROVED,REJECTED) / `reason`                                                                                                                                        |
+| `ai_message.toolCalls`   | 该意图在消息里的原始调用记录（含 `{ status: 'waiting_approval', intentId }`）                                                                                                                                                |
+| `ai_message.toolResults` | **审批结果元数据**：`[{ type: 'approval_result', outcome: 'success' \| 'cancelled', toolName }]`                                                                                                                             |
 
 确认执行后两条动作：
 
@@ -261,17 +270,17 @@ LLM 可能重复调用同一工具。Agent 先按 `(sessionId, toolName, inputHa
 
 ### 接口
 
-| 方法 | 路径（前缀 `/api/v1`） | 权限 |
-| --- | --- | --- |
-| `POST` | `/ai/sessions` | `ai:chat` |
-| `GET` | `/ai/sessions`、`/ai/sessions/:id` | `ai:chat` |
-| `PATCH` | `/ai/sessions/:id` | `ai:chat`（改标题） |
-| `GET` | `/ai/sessions/:id/messages` | `ai:chat` |
-| `POST` | `/ai/sessions/:id/messages` | `ai:chat`（**SSE 流**） |
-| `POST` | `/ai/action-intents/:id/approve`、`/:id/reject` | `ai:chat` |
-| `POST` | `/ai/action-intents/confirm` | `ai:chat`（body: `intentId` + `confirmToken`） |
-| `GET` | `/ai/tasks`、`/ai/tasks/:id` | `ai:chat` |
-| `POST` | `/ai/tasks/:id/rollback` | `ai:chat`（**没有 cancel 端点**，前端取消走 `reject`） |
+| 方法    | 路径（前缀 `/api/v1`）                          | 权限                                                   |
+| ------- | ----------------------------------------------- | ------------------------------------------------------ |
+| `POST`  | `/ai/sessions`                                  | `ai:chat`                                              |
+| `GET`   | `/ai/sessions`、`/ai/sessions/:id`              | `ai:chat`                                              |
+| `PATCH` | `/ai/sessions/:id`                              | `ai:chat`（改标题）                                    |
+| `GET`   | `/ai/sessions/:id/messages`                     | `ai:chat`                                              |
+| `POST`  | `/ai/sessions/:id/messages`                     | `ai:chat`（**SSE 流**）                                |
+| `POST`  | `/ai/action-intents/:id/approve`、`/:id/reject` | `ai:chat`                                              |
+| `POST`  | `/ai/action-intents/confirm`                    | `ai:chat`（body: `intentId` + `confirmToken`）         |
+| `GET`   | `/ai/tasks`、`/ai/tasks/:id`                    | `ai:chat`                                              |
+| `POST`  | `/ai/tasks/:id/rollback`                        | `ai:chat`（**没有 cancel 端点**，前端取消走 `reject`） |
 
 ::: danger 审批是「自助确认」，不是双人复核
 `approve` / `confirm` / `reject` 用的都是 `ai:chat` 权限（`@RequirePermissions('ai:chat')`），`ai_approval` 表里记了 `approver_id`，但：
@@ -294,15 +303,15 @@ Controller 直接拿 Fastify 原生 reply 手写 SSE（`reply.raw.writeHead(200,
 
 ### 事件类型（`AgentEvent`）
 
-| `event:` 名 | data 要点 |
-| --- | --- |
-| `thinking` | `{ message: '正在分析你的请求...' }` |
-| `message` | `{ content: <增量文本> }` —— **真流式，会推很多次** |
-| `tool_call` / `tool_result` | `{ name, arguments }` / `{ name, result }`（已脱敏） |
-| `approval_required` | `{ intentId, confirmToken, toolName, input, riskLevel, preview? }` |
+| `event:` 名                                     | data 要点                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------ |
+| `thinking`                                      | `{ message: '正在分析你的请求...' }`                               |
+| `message`                                       | `{ content: <增量文本> }` —— **真流式，会推很多次**                |
+| `tool_call` / `tool_result`                     | `{ name, arguments }` / `{ name, result }`（已脱敏）               |
+| `approval_required`                             | `{ intentId, confirmToken, toolName, input, riskLevel, preview? }` |
 | `task_created` / `task_step` / `task_completed` | 任务时间线：`task_step` 的 `status` ∈ `RUNNING`/`SUCCESS`/`FAILED` |
-| `task_complete` | Controller 收尾事件，data = `AgentResult` |
-| `error` | `{ message }` |
+| `task_complete`                                 | Controller 收尾事件，data = `AgentResult`                          |
+| `error`                                         | `{ message }`                                                      |
 
 ::: warning `task_completed` 与 `task_complete` 只差一个字母
 前者是 `AgentEvent`（任务终态），后者是 Controller 在 `sendMessage` 正常返回后补写的收尾事件。前端（`web/src/api/ai.ts`）只认 `task_complete`，两者都要处理。
@@ -331,8 +340,14 @@ Controller 直接拿 Fastify 原生 reply 手写 SSE（`reply.raw.writeHead(200,
 Agent 把 assistant 消息压进 `messages` 时也一并带上：
 
 ```ts
-messages.push({ role: 'assistant', content: response.content, toolCalls: [toolCall],
-  ...(response.reasoningContent ? { reasoningContent: response.reasoningContent } : {}) });
+messages.push({
+  role: 'assistant',
+  content: response.content,
+  toolCalls: [toolCall],
+  ...(response.reasoningContent
+    ? { reasoningContent: response.reasoningContent }
+    : {}),
+});
 ```
 
 2. **`reasoning_content` 不推给前端**，只累积后随最终结果返回。前端看到的是纯 `content` 增量。
@@ -345,9 +360,9 @@ messages.push({ role: 'assistant', content: response.content, toolCalls: [toolCa
 
 ### 任务时间线
 
-| 表 | 说明 |
-| --- | --- |
-| `ai_task` | `session_id` / `user_id` / `status`(PENDING,RUNNING,SUCCESS,FAILED,CANCELLED) / `risk_level` / `goal`(≤500) / `error` / `created_at` / `started_at` / `completed_at` |
+| 表             | 说明                                                                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai_task`      | `session_id` / `user_id` / `status`(PENDING,RUNNING,SUCCESS,FAILED,CANCELLED) / `risk_level` / `goal`(≤500) / `error` / `created_at` / `started_at` / `completed_at`                         |
 | `ai_task_step` | `task_id` / `step_index` / `tool_name` / `input` / `output` / `status`(PENDING,RUNNING,SUCCESS,FAILED,SKIPPED,**WAITING_APPROVAL**) / `risk_level` / `error` / `started_at` / `completed_at` |
 
 Agent 在**第一次要执行或要审批的工具调用**时惰性创建任务，并把每一步写进 `ai_task_step`。审批中的步骤状态是 `WAITING_APPROVAL`。
@@ -381,12 +396,12 @@ UI 上的「撤销任务」只有对 `user.update` 的步骤真正有效。删�
 
 ## 七、配置
 
-| 环境变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `AI_ENABLED` | **`false`** | 总开关 |
-| `DEEPSEEK_API_KEY` | 无（optional） | 缺失则用 Mock |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | |
+| 环境变量            | 默认值                     | 说明          |
+| ------------------- | -------------------------- | ------------- |
+| `AI_ENABLED`        | **`false`**                | 总开关        |
+| `DEEPSEEK_API_KEY`  | 无（optional）             | 缺失则用 Mock |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` |               |
+| `DEEPSEEK_MODEL`    | `deepseek-chat`            |               |
 
 Provider 选择（`src/ai/llm/llm.service.ts`）：
 
@@ -402,6 +417,7 @@ constructor(config: AppConfigService) {
 
 ::: warning 未启用 AI 时的真实表现
 **「未启用」不等于「接口 404 / 403」**：
+
 - `AiModule` 仍然加载，`/api/v1/ai/**` 全部可访问（只要用户有 `ai:chat` 权限）；
 - 只是 `LlmService` 注入的是 `MockProvider` —— 对话会走假回复，**不会真的调用任何工具**；
 - 前端入口：顶栏悬浮球（`v-permission="'ai:chat'"`）。菜单 seed 里 AI 整页入口已从侧边栏移除（`web/src/layouts/default.vue` 过滤了 `/ai`），改由悬浮球承载。
@@ -413,18 +429,18 @@ constructor(config: AppConfigService) {
 
 表 `ai_audit_log`（drizzle 变量 `aiAuditLogs`）：
 
-| 列 | 说明 |
-| --- | --- |
-| `user_id` | 操作人 |
-| `session_id` | 会话 |
-| `action` | `tool_evaluate` / `tool_execute` |
-| `tool_name` | 工具名 |
-| `risk_level` | 决策后的动态风险等级 |
-| `permission` | Tool 声明的权限点 |
-| `scope` | 决策的数据范围 |
-| `result` | `allowed` / `denied` / `error` |
-| `metadata` | json：`{ input, reason?, explanation? }`（`tool_execute` 时含 `intentId`） |
-| `created_at` | 时间 |
+| 列           | 说明                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
+| `user_id`    | 操作人                                                                     |
+| `session_id` | 会话                                                                       |
+| `action`     | `tool_evaluate` / `tool_execute`                                           |
+| `tool_name`  | 工具名                                                                     |
+| `risk_level` | 决策后的动态风险等级                                                       |
+| `permission` | Tool 声明的权限点                                                          |
+| `scope`      | 决策的数据范围                                                             |
+| `result`     | `allowed` / `denied` / `error`                                             |
+| `metadata`   | json：`{ input, reason?, explanation? }`（`tool_execute` 时含 `intentId`） |
+| `created_at` | 时间                                                                       |
 
 Agent 在**两个时机**写审计：
 
@@ -432,11 +448,12 @@ Agent 在**两个时机**写审计：
 2. **Tool 执行成功后**（`action: 'tool_execute'`）——`result: 'allowed'`，`metadata: { input, intentId? }`。
 
 ::: warning 审计覆盖的缺口
+
 - **三个写入点都没有传 `sessionId`** → `ai_audit_log.session_id` 实际恒为 `NULL`；定位某次对话只能靠 `user_id` + 时间。
 - **Tool 执行失败不写 `ai_audit_log`**（`result: 'error'` 这个枚举值从未被写入）；失败信息只落在 `ai_task_step.error` 与 SSE 的 `error` 事件里。
 - **审批动作本身（approve / reject）、会话创建、LLM 调用都不写 `ai_audit_log`**；审批记录在 `ai_approval`，对话正文在 `ai_message`。
 - `scope` 恒为 `ALL`（`PolicyEngine.buildDecision()` 里通过分支硬编码 `DataScope.ALL`），审计里的 scope 字段暂时没有区分度。
-:::
+  :::
 
 `ai_*` 表全集（7 张，`src/database/schema/index.ts`）：`ai_session` / `ai_message` / `ai_audit_log` / `ai_action_intent` / `ai_approval` / `ai_task` / `ai_task_step`。
 

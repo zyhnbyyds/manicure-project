@@ -11,10 +11,7 @@ import { staffApi } from '../../api/index';
 import { demoteToCustomer } from '../../store/mode';
 import { fenToYuan } from '../../utils/format';
 import { definePage } from '../../utils/page';
-import {
-  formatCommissionStatus,
-  formatPeriod,
-} from '../../utils/present';
+import { formatCommissionStatus, formatPeriod } from '../../utils/present';
 import { isApiFailure } from '../../utils/request';
 import { toast } from '../../utils/ui';
 

@@ -14,7 +14,10 @@
 import { API_BASE } from '../config';
 
 /** 把 `http://host:3000/api/v1` 之类的前缀去掉，得到 origin */
-const ASSET_ORIGIN = API_BASE.replace(/\/api\/v\d+\/?$/i, '').replace(/\/+$/, '');
+const ASSET_ORIGIN = API_BASE.replace(/\/api\/v\d+\/?$/i, '').replace(
+  /\/+$/,
+  '',
+);
 
 /**
  * 服务端相对路径 → 可直接绑定到 `<image src>` 的绝对地址。

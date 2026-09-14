@@ -121,7 +121,8 @@ definePage({
   recalc() {
     const { payAmount, activeIndex } = this.data;
     // 赠送只随档位走：自定义金额没有赠送（与线下规则一致，避免刷赠送）
-    const bonus = activeIndex >= 0 ? (this.data.plans[activeIndex]?.bonus ?? 0) : 0;
+    const bonus =
+      activeIndex >= 0 ? (this.data.plans[activeIndex]?.bonus ?? 0) : 0;
     this.setData({
       payText: fenToYuan(payAmount),
       gainText: fenToYuan(bonus),

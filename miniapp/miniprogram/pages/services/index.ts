@@ -61,7 +61,8 @@ definePage({
         // 分类从数据里现取：后端没有「分类字典」接口，硬编码分类会与真实数据脱节
         const categories = ['全部'];
         allItems.forEach((item) => {
-          if (!categories.includes(item.category)) categories.push(item.category);
+          if (!categories.includes(item.category))
+            categories.push(item.category);
         });
         return { allItems, categories };
       },
@@ -107,9 +108,12 @@ definePage({
   },
 
   onCategory(event: WechatMiniprogram.TouchEvent) {
-    this.setData({ activeCategory: String(event.currentTarget.dataset.name) }, () => {
-      this.refresh();
-    });
+    this.setData(
+      { activeCategory: String(event.currentTarget.dataset.name) },
+      () => {
+        this.refresh();
+      },
+    );
   },
 
   onSearchInput(event: WechatMiniprogram.Input) {
@@ -148,8 +152,9 @@ definePage({
     const id = Number(event.currentTarget.dataset.id);
     const { selectedIds } = this.data;
     if (selectedIds.includes(id)) {
-      this.setData({ selectedIds: selectedIds.filter((item) => item !== id) }, () =>
-        this.refresh(),
+      this.setData(
+        { selectedIds: selectedIds.filter((item) => item !== id) },
+        () => this.refresh(),
       );
       return;
     }

@@ -15,7 +15,13 @@
 import { authApi } from '../api/index';
 import type { BindPhoneVo } from '../api/types';
 import { clearMode, rememberStaffStatus } from './mode';
-import { setBoundCustomerId, clearAuth, getBoundCustomerId, getToken, setToken } from '../utils/token';
+import {
+  setBoundCustomerId,
+  clearAuth,
+  getBoundCustomerId,
+  getToken,
+  setToken,
+} from '../utils/token';
 import { setReauthHandler } from '../utils/request';
 
 let loginPromise: Promise<void> | null = null;

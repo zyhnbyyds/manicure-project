@@ -53,23 +53,23 @@ Platform scope: RBAC, departments/posts/dictionaries/configs, login & operation 
 
 ### Business (26 admin pages + mini-program `/app` APIs)
 
-| Group                    | Pages                                                                                          | Notes                                                                                     |
-| ------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **Base data**            | `/biz/service-items` `/biz/staffs` `/biz/schedules` `/biz/customers`                            | Service items (duration/buffer drive slot occupancy), technicians + "services they can do", weekly shift templates + date overrides, customer records (also member records; phone is the unique anchor) |
-| **Booking**              | `/biz/bookings` `/biz/recurrences` `/biz/app-staff-grants`                                      | Available slots (shift − bookings − buffer), create/reschedule/cancel/settle, recurring rules with idempotent batch generation, workbench access approval |
-| **Membership & assets**  | `/biz/member-levels` `/biz/members` `/biz/recharge-plans` `/biz/card-types` `/biz/member-cards` `/biz/points-goods` `/biz/coupons` | Level discount (per-mille), principal vs. bonus balance, card types & redemption, points earn/redeem, coupon templates & issuing |
-| **Cashier & money**      | `/biz/cashier` `/biz/payments` `/biz/refunds` `/biz/payment-diffs`                              | WeChat Native QR / Alipay face-to-face, offline payments, deposit & balance, split payments, refund liability with separated apply/approve, channel reconciliation diffs |
-| **Receivables**          | `/biz/credit-accounts` `/biz/receivables`                                                       | Credit subjects (customer/company/staff), limits & terms, write-off cannot exceed the balance, aging |
-| **Operations & reports** | `/biz/reviews` `/biz/reports` `/biz/commission-rules` `/biz/commission-records` `/biz/notice-templates` `/biz/notice-logs` | One review per booking + replies, report definitions (net revenue / business-day cut / card redemptions listed separately), commission rules, settlement & reversal, SMS + in-app notification templates and logs |
+| Group                    | Pages                                                                                                                              | Notes                                                                                                                                                                                                             |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Base data**            | `/biz/service-items` `/biz/staffs` `/biz/schedules` `/biz/customers`                                                               | Service items (duration/buffer drive slot occupancy), technicians + "services they can do", weekly shift templates + date overrides, customer records (also member records; phone is the unique anchor)           |
+| **Booking**              | `/biz/bookings` `/biz/recurrences` `/biz/app-staff-grants`                                                                         | Available slots (shift − bookings − buffer), create/reschedule/cancel/settle, recurring rules with idempotent batch generation, workbench access approval                                                         |
+| **Membership & assets**  | `/biz/member-levels` `/biz/members` `/biz/recharge-plans` `/biz/card-types` `/biz/member-cards` `/biz/points-goods` `/biz/coupons` | Level discount (per-mille), principal vs. bonus balance, card types & redemption, points earn/redeem, coupon templates & issuing                                                                                  |
+| **Cashier & money**      | `/biz/cashier` `/biz/payments` `/biz/refunds` `/biz/payment-diffs`                                                                 | WeChat Native QR / Alipay face-to-face, offline payments, deposit & balance, split payments, refund liability with separated apply/approve, channel reconciliation diffs                                          |
+| **Receivables**          | `/biz/credit-accounts` `/biz/receivables`                                                                                          | Credit subjects (customer/company/staff), limits & terms, write-off cannot exceed the balance, aging                                                                                                              |
+| **Operations & reports** | `/biz/reviews` `/biz/reports` `/biz/commission-rules` `/biz/commission-records` `/biz/notice-templates` `/biz/notice-logs`         | One review per booking + replies, report definitions (net revenue / business-day cut / card redemptions listed separately), commission rules, settlement & reversal, SMS + in-app notification templates and logs |
 
 ### Platform
 
-| Group                 | Pages                                                                              |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| **System**            | users · roles (menu + data scope) · menus (tree + button permissions) · depts · posts · dicts · configs |
-| **Monitoring**        | login logs · operation logs (auto-audited by interceptor) · online users (force logout) · Redis cache |
-| **Ops tooling**       | scheduled jobs (cron + manual run + logs) · files · code generator                  |
-| **Other**             | dashboard · profile · AI assistant · login / error                                  |
+| Group           | Pages                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| **System**      | users · roles (menu + data scope) · menus (tree + button permissions) · depts · posts · dicts · configs |
+| **Monitoring**  | login logs · operation logs (auto-audited by interceptor) · online users (force logout) · Redis cache   |
+| **Ops tooling** | scheduled jobs (cron + manual run + logs) · files · code generator                                      |
+| **Other**       | dashboard · profile · AI assistant · login / error                                                      |
 
 > Menus and button permissions are seeded from `src/database/seed/menus.ts`, and the **admin routes are generated from them** — add a page, update the seed.
 
@@ -78,12 +78,12 @@ Platform scope: RBAC, departments/posts/dictionaries/configs, login & operation 
 `miniapp/` is a **native WeChat Mini Program in TypeScript** (29 pages, custom tab bar, theme system).
 It talks to the backend through a dedicated auth domain `/api/v1/app/**` (its own `AppAccessTokenGuard`; admin tokens and app tokens are mutually rejected; DTOs are not shared with the admin API).
 
-| Group                    | Pages                                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Group                    | Pages                                                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Browse & book**        | home · style list (pick 1–3) · style detail · pick technician · pick time · confirm · my bookings · booking detail · payment · payment result · cancellation info · review |
-| **Membership**           | member center · top-up · my visit cards · points redemption · my coupons · favorites · addresses          |
-| **Other**                | shop info · messages · feedback · login / bind phone · profile · theme settings                            |
-| **Technician workbench** | workbench (today's schedule + performance + arrive/complete) · my bookings · performance detail · my reviews |
+| **Membership**           | member center · top-up · my visit cards · points redemption · my coupons · favorites · addresses                                                                           |
+| **Other**                | shop info · messages · feedback · login / bind phone · profile · theme settings                                                                                            |
+| **Technician workbench** | workbench (today's schedule + performance + arrive/complete) · my bookings · performance detail · my reviews                                                               |
 
 - **Dual-mode tab bar**: customer (home / bookings / profile) ↔ workbench (workbench / bookings / profile). The mode is only a preference — server-side authorization decides whether the workbench is reachable, and revoked access falls back automatically;
 - **Theme system**: 7 presets + 10-color custom palette, derived design tokens, navigation bar sync, persisted; the tab bar uses the same tokens;
@@ -104,12 +104,12 @@ An agent that lets you operate the admin backend in natural language (`src/ai/`,
 
 ## Tech Stack
 
-| Part               | Choices                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Part               | Choices                                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Backend**        | NestJS 12 + Fastify · Drizzle ORM 1.0 (MySQL 8) · Zod 4 · jose (JWT) · Bun.password (argon2id) · @nestjs/schedule + cron · Swagger |
-| **Admin frontend** | Vue 3.5 + Vite 8 + TS 5.9 · Vue Router 5 · Pinia 3 · lew-ui · UnoCSS · ECharts 6 · axios (auto refresh + queued retries) |
-| **Mini Program**   | Native WeChat Mini Program + TypeScript (glass-easel) · hand-rolled design tokens (no third-party UI library) |
-| **Tooling**        | Bun 1.4 as the only runtime (app / migrations / seeds / tests) · oxlint + oxfmt · bun test (vitest-style assertions) |
+| **Admin frontend** | Vue 3.5 + Vite 8 + TS 5.9 · Vue Router 5 · Pinia 3 · lew-ui · UnoCSS · ECharts 6 · axios (auto refresh + queued retries)           |
+| **Mini Program**   | Native WeChat Mini Program + TypeScript (glass-easel) · hand-rolled design tokens (no third-party UI library)                      |
+| **Tooling**        | Bun 1.4 as the only runtime (app / migrations / seeds / tests) · oxlint + oxfmt · bun test (vitest-style assertions)               |
 
 ## Quick Start
 
@@ -201,12 +201,12 @@ For local development you can set `WX_MINIAPP_FAKE=true` to use the fake WeChat 
 | `NODE_ENV`            |    no    | `development`           | Runtime environment               |
 | `PORT`                |    no    | `3000`                  | Server port                       |
 | `API_PREFIX`          |    no    | `api/v1`                | API prefix                        |
-| `DATABASE_URL`        |  **yes** | —                       | MySQL connection string           |
+| `DATABASE_URL`        | **yes**  | —                       | MySQL connection string           |
 | `REDIS_URL`           |    no    | —                       | Redis connection (optional)       |
-| `JWT_ISSUER`          |  **yes** | —                       | JWT issuer                        |
-| `JWT_AUDIENCE`        |  **yes** | —                       | JWT audience                      |
-| `JWT_ACCESS_SECRET`   |  **yes** | —                       | Access token secret (>=32 chars)  |
-| `JWT_REFRESH_SECRET`  |  **yes** | —                       | Refresh token secret (>=32 chars) |
+| `JWT_ISSUER`          | **yes**  | —                       | JWT issuer                        |
+| `JWT_AUDIENCE`        | **yes**  | —                       | JWT audience                      |
+| `JWT_ACCESS_SECRET`   | **yes**  | —                       | Access token secret (>=32 chars)  |
+| `JWT_REFRESH_SECRET`  | **yes**  | —                       | Refresh token secret (>=32 chars) |
 | `JWT_ACCESS_TTL`      |    no    | `15m`                   | Access token TTL                  |
 | `JWT_REFRESH_TTL`     |    no    | `7d`                    | Refresh token TTL                 |
 | `CORS_ORIGINS`        |    no    | `http://localhost:5173` | Allowed origins (comma separated) |
@@ -225,22 +225,22 @@ For local development you can set `WX_MINIAPP_FAKE=true` to use the fake WeChat 
 
 **Payment channels** (an unconfigured channel returns "not enabled" instead of failing startup)
 
-| Variable                                                                                               | Description                           |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `WXPAY_APPID` `WXPAY_MCHID` `WXPAY_SERIAL_NO` `WXPAY_PRIVATE_KEY` `WXPAY_API_V3_KEY` `WXPAY_NOTIFY_URL` | WeChat Pay Native (all six required)  |
+| Variable                                                                                                | Description                                                                                     |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `WXPAY_APPID` `WXPAY_MCHID` `WXPAY_SERIAL_NO` `WXPAY_PRIVATE_KEY` `WXPAY_API_V3_KEY` `WXPAY_NOTIFY_URL` | WeChat Pay Native (all six required)                                                            |
 | `WXPAY_PLATFORM_PUBLIC_KEY`                                                                             | Optional platform public key (skips the online download; does **not** affect the enabled check) |
-| `ALIPAY_APP_ID` `ALIPAY_PRIVATE_KEY` `ALIPAY_PUBLIC_KEY` `ALIPAY_NOTIFY_URL`                            | Alipay face-to-face                   |
+| `ALIPAY_APP_ID` `ALIPAY_PRIVATE_KEY` `ALIPAY_PUBLIC_KEY` `ALIPAY_NOTIFY_URL`                            | Alipay face-to-face                                                                             |
 
 **Notifications & AI**
 
-| Variable                                                    | Default                    | Description                                           |
-| ----------------------------------------------------------- | -------------------------- | ----------------------------------------------------- |
-| `SMS_PROVIDER`                                              | `none`                     | `none` / `aliyun` / `tencent` / `mock`                |
+| Variable                                                    | Default                    | Description                                             |
+| ----------------------------------------------------------- | -------------------------- | ------------------------------------------------------- |
+| `SMS_PROVIDER`                                              | `none`                     | `none` / `aliyun` / `tencent` / `mock`                  |
 | `SMS_ACCESS_KEY_ID` `SMS_ACCESS_KEY_SECRET` `SMS_SIGN_NAME` | —                          | SMS credentials (a missing one degrades to in-app only) |
-| `AI_ENABLED`                                                | `false`                    | Enable the AI assistant                               |
-| `DEEPSEEK_API_KEY`                                          | —                          | Required when AI is enabled                           |
-| `DEEPSEEK_BASE_URL`                                         | `https://api.deepseek.com` | API base URL                                          |
-| `DEEPSEEK_MODEL`                                            | `deepseek-chat`            | Model id                                              |
+| `AI_ENABLED`                                                | `false`                    | Enable the AI assistant                                 |
+| `DEEPSEEK_API_KEY`                                          | —                          | Required when AI is enabled                             |
+| `DEEPSEEK_BASE_URL`                                         | `https://api.deepseek.com` | API base URL                                            |
+| `DEEPSEEK_MODEL`                                            | `deepseek-chat`            | Model id                                                |
 
 ## Commands
 
@@ -296,14 +296,14 @@ The admin frontend builds to `output/web/` — serve it with nginx (or any stati
 
 ## Docs & Conventions
 
-| Location                                                 | Contents                                                                       |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`project-design/superpowers/specs/`](./project-design/superpowers/specs)     | **Single source of truth**: schema, state machines, money/time rules, API contracts |
-| [`project-design/superpowers/plans/`](./project-design/superpowers/plans)     | Delivery plans (batches B1~B6, mini program, rename)                            |
-| [`project-design/pitfalls/`](./project-design/pitfalls)                       | Pitfall logs: `server.md` / `web.md` / `miniapp.md` / `tooling.md`              |
-| [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md)  | Mini program + `/app` identity handover, acceptance ledger, open items          |
-| [`project-design/brand/`](./project-design/brand)                             | Brand logo master + export pipeline                                             |
-| [`.agents/skills/`](./.agents/skills)                     | Per-module skills (overview / money invariants / booking core / scheduling / membership / cashier / credit / reports / notifications / recurring / mini program / admin frontend / testing) |
+| Location                                                                     | Contents                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`project-design/superpowers/specs/`](./project-design/superpowers/specs)    | **Single source of truth**: schema, state machines, money/time rules, API contracts                                                                                                         |
+| [`project-design/superpowers/plans/`](./project-design/superpowers/plans)    | Delivery plans (batches B1~B6, mini program, rename)                                                                                                                                        |
+| [`project-design/pitfalls/`](./project-design/pitfalls)                      | Pitfall logs: `server.md` / `web.md` / `miniapp.md` / `tooling.md`                                                                                                                          |
+| [`project-design/HANDOVER-miniapp.md`](./project-design/HANDOVER-miniapp.md) | Mini program + `/app` identity handover, acceptance ledger, open items                                                                                                                      |
+| [`project-design/brand/`](./project-design/brand)                            | Brand logo master + export pipeline                                                                                                                                                         |
+| [`.agents/skills/`](./.agents/skills)                                        | Per-module skills (overview / money invariants / booking core / scheduling / membership / cashier / credit / reports / notifications / recurring / mini program / admin frontend / testing) |
 
 Project-wide rules worth knowing before changing code:
 

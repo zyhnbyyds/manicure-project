@@ -8,12 +8,7 @@ import {
   Loader2,
   X,
 } from 'lucide-vue-next';
-import {
-  LewCollapse,
-  LewCollapseItem,
-  LewTag,
-  LewTextTrim,
-} from 'lew-ui';
+import { LewCollapse, LewCollapseItem, LewTag, LewTextTrim } from 'lew-ui';
 import {
   USER_TABLE_COLUMNS,
   formatArgs,

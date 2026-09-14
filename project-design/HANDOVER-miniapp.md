@@ -38,14 +38,14 @@ e59e6ae chore(miniapp): 引入原生小程序工程脚手架（TS + glass-easel�
 
 ### 主要文件
 
-| 分类        | 路径                                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 小程序工程  | `miniapp/miniprogram/**`（10 页面 + 主题 + api/utils/store + `custom-tab-bar`）                                           |
-| 小程序配置  | `miniapp/project.config.json`（appid）、`miniapp/.gitignore`、`miniapp/tsconfig.json`                                     |
-| 后端身份域  | `src/modules/app/auth/*`、`src/modules/app/dto/app-vo.ts`                                                                 |
-| 后端端口    | `src/modules/biz/common/ports.ts`、`src/modules/biz/base-data/staffs/staffs.service.ts`                                   |
-| 迁移        | `src/database/migrations/20260911055121_clear_warhawk/`                                                                   |
-| 集成用例    | `tests/integration/b6-app-identity.int.spec.ts`、`tests/integration/harness.ts`                                           |
+| 分类        | 路径                                                                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 小程序工程  | `miniapp/miniprogram/**`（10 页面 + 主题 + api/utils/store + `custom-tab-bar`）                                                               |
+| 小程序配置  | `miniapp/project.config.json`（appid）、`miniapp/.gitignore`、`miniapp/tsconfig.json`                                                         |
+| 后端身份域  | `src/modules/app/auth/*`、`src/modules/app/dto/app-vo.ts`                                                                                     |
+| 后端端口    | `src/modules/biz/common/ports.ts`、`src/modules/biz/base-data/staffs/staffs.service.ts`                                                       |
+| 迁移        | `src/database/migrations/20260911055121_clear_warhawk/`                                                                                       |
+| 集成用例    | `tests/integration/b6-app-identity.int.spec.ts`、`tests/integration/harness.ts`                                                               |
 | 设计/施工单 | `project-design/superpowers/specs/...nail-salon-booking-design.md`、`project-design/superpowers/plans/2026-09-11-miniapp-development-plan.md` |
 
 ---
@@ -240,7 +240,6 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 手工把括号去掉即可，`drizzle-kit generate` 不会因此认为有漂移。已在 `src/database/schema/index.ts`
 的 `auditColumns` 上方写了警示注释。**每次 `db:generate` 之后都要肉眼扫一遍新 SQL。**
 
-
 ---
 
 ## 9. 设计稿还原进度与验证账本（2026-09-12 更新）
@@ -257,24 +256,24 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 
 后来发现 **`automation` client 授权后可以用真实交互驱动**，于是改为：
 
-| 场景 | 做法 |
-| ---- | ---- |
-| 普通页 | `simulator_open_page --page ... --query ...` |
-| 带 ID 的页 | `--query 'bookingId=8801'` 直达（收银台、订单详情、评价、次卡） |
-| tabBar 页 | `automation_navigate --action switchTab --url /pages/bookings/index` |
+| 场景       | 做法                                                                             |
+| ---------- | -------------------------------------------------------------------------------- |
+| 普通页     | `simulator_open_page --page ... --query ...`                                     |
+| 带 ID 的页 | `--query 'bookingId=8801'` 直达（收银台、订单详情、评价、次卡）                  |
+| tabBar 页  | `automation_navigate --action switchTab --url /pages/bookings/index`             |
 | 需草稿的页 | 真实走一遍：`navigateTo services` → 点 `.list-card__add` → 点 `.action-bar .btn` |
-| 需模式的页 | `switchTab mine` → 点 `.staff-block__btn` 进工作台 |
+| 需模式的页 | `switchTab mine` → 点 `.staff-block__btn` 进工作台                               |
 
 判断落点用 `automation_runtime_info --action currentPage`（比截图便宜且确定）。
 
 ### 9.3 验证成果与查出并修掉的问题
 
-| 页面 | 结果 |
-| ---- | ---- |
-| 首页 / 款式库 / 款式详情 / 收银台 / 个人中心 / 会员卡 / 门店信息 / 登录页 | ✅ 截图比对通过 |
-| 订单详情 / 服务评价 / 取消说明 / 确认预约 / 我的预约 / 预约美甲 | ✅ 截图比对通过 |
-| 工作台 / 工作台·我的预约 / 业绩明细 / 我的评价 | ✅ 截图比对通过 |
-| 支付结果 | ✅ 截图已抓取（两态：success / pending） |
+| 页面                                                                      | 结果                                     |
+| ------------------------------------------------------------------------- | ---------------------------------------- |
+| 首页 / 款式库 / 款式详情 / 收银台 / 个人中心 / 会员卡 / 门店信息 / 登录页 | ✅ 截图比对通过                          |
+| 订单详情 / 服务评价 / 取消说明 / 确认预约 / 我的预约 / 预约美甲           | ✅ 截图比对通过                          |
+| 工作台 / 工作台·我的预约 / 业绩明细 / 我的评价                            | ✅ 截图比对通过                          |
+| 支付结果                                                                  | ✅ 截图已抓取（两态：success / pending） |
 
 **验证过程中查出并修掉的真问题**（都是 typecheck 与单页截图抓不到的）：
 
@@ -294,14 +293,13 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 
 ### 9.4 明确未做（以及为什么）
 
-| 项 | 原因 |
-| -- | ---- |
-| 优惠券、收藏、收货地址、意见反馈、消息中心、积分兑换、充值、次卡的**真实数据** | 数据模型不存在或 app 域无接口。**视觉按稿完整还原，交互如实降级**，不塞假数据 |
-| 核销二维码 | 不伪造：动态码必须服务端签名，否则客户端可离线造码。现用卡号作凭据并注明正解 |
-| 取消扣费金额 | app 域读不到判责规则（在 `RefundPort.preview`）。写死数字会给出错误金额预期，故只写原则 |
-| 真机验证 | 需要人扫码/真机操作，AI 无法完成 |
-| 用户协议 / 隐私政策正文 | 需门店主体信息与手机号用途声明，**提审前必须替换**，否则会被驳回 |
-
+| 项                                                                             | 原因                                                                                    |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| 优惠券、收藏、收货地址、意见反馈、消息中心、积分兑换、充值、次卡的**真实数据** | 数据模型不存在或 app 域无接口。**视觉按稿完整还原，交互如实降级**，不塞假数据           |
+| 核销二维码                                                                     | 不伪造：动态码必须服务端签名，否则客户端可离线造码。现用卡号作凭据并注明正解            |
+| 取消扣费金额                                                                   | app 域读不到判责规则（在 `RefundPort.preview`）。写死数字会给出错误金额预期，故只写原则 |
+| 真机验证                                                                       | 需要人扫码/真机操作，AI 无法完成                                                        |
+| 用户协议 / 隐私政策正文                                                        | 需门店主体信息与手机号用途声明，**提审前必须替换**，否则会被驳回                        |
 
 ---
 
@@ -316,12 +314,12 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 
 `buildQuote`（L1590）是**所有路径共用的算价入口**，改一处即可：
 
-| 调用点 | 用途 | 是否要支持券 |
-| ------ | ---- | ------------ |
-| L476 | 后台建单（含 payments / 挂账） | P2 可支持 |
-| **L754** | **app 建单**（`pointsToUse`、`useCard`） | **本目标要做的** |
-| L953 | 改期 | 否（沿用原单的券） |
-| L1210 | 结算 | 否（沿用原单的券） |
+| 调用点   | 用途                                     | 是否要支持券       |
+| -------- | ---------------------------------------- | ------------------ |
+| L476     | 后台建单（含 payments / 挂账）           | P2 可支持          |
+| **L754** | **app 建单**（`pointsToUse`、`useCard`） | **本目标要做的**   |
+| L953     | 改期                                     | 否（沿用原单的券） |
+| L1210    | 结算                                     | 否（沿用原单的券） |
 
 `CreateBookingInput`（biz 层）已有 `pointsUsed`；app 那条路径用的是**另一个**入参类型
 （L692 附近，字段名是 `pointsToUse`）。**注意两者字段名不同**，接参时别混。
@@ -354,12 +352,12 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 
 ### 10.4 还要改的四处
 
-| 位置 | 改动 |
-| ---- | ---- |
-| `buildQuote` 入参与 `useCard` 分支 | 加 `couponDiscountAmount`，并在次卡分支归零 |
-| app 建单入参类型 / `CreateBookingInput` | 加 `couponId?: number` |
-| `BookingPort.create`（`common/ports.ts`） | 透传 `couponId` |
-| app DTO（`AppCreateBookingRequest`） | 加 `couponId: z.number().int().positive().optional()` |
+| 位置                                      | 改动                                                  |
+| ----------------------------------------- | ----------------------------------------------------- |
+| `buildQuote` 入参与 `useCard` 分支        | 加 `couponDiscountAmount`，并在次卡分支归零           |
+| app 建单入参类型 / `CreateBookingInput`   | 加 `couponId?: number`                                |
+| `BookingPort.create`（`common/ports.ts`） | 透传 `couponId`                                       |
+| app DTO（`AppCreateBookingRequest`）      | 加 `couponId: z.number().int().positive().optional()` |
 
 ### 10.5 测试要求（缺一不可）
 
@@ -369,6 +367,7 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 - 券 + 积分同时传 → 400；
 - 券 + 次卡 → 400（或按 10.3 归零，二选一后必须**写测试钉住**）；
 - 不传券的建单**回归不变**（现有集成测试应全绿）。
+
 ### 10.6 精确坐标（2026-09-12 二次勘察补充）
 
 上一版把端口方法名写成了 `BookingPort.create` —— **实际是 `createForCustomer`**
@@ -385,18 +384,18 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 
 `bookings.service.ts` 内要改的四处（行号为当前值）：
 
-| 行 | 现状 | 改法 |
-| -- | ---- | ---- |
-| L687-694 | `createForCustomer` 入参（`memberCardId` / `pointsToUse` / `remark`） | 加 `couponId?: number \| undefined` |
-| L747-761 | `useCard` 判定 + 步骤 3 算价 | 加两个 400 校验（见 10.3），并按 10.2 顺序取券、带券重算 |
-| L776-806 | `insert(bizBookings).values({...})` | 加 `couponId` 与 `couponDiscountAmount: quote.couponDiscountAmount` |
-| L825-834 | 步骤 8a 积分抵扣（`deductPoints` 的既有写法） | 紧邻其后加券核销 `redeemForBooking(tx, {...})` |
+| 行       | 现状                                                                  | 改法                                                                |
+| -------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| L687-694 | `createForCustomer` 入参（`memberCardId` / `pointsToUse` / `remark`） | 加 `couponId?: number \| undefined`                                 |
+| L747-761 | `useCard` 判定 + 步骤 3 算价                                          | 加两个 400 校验（见 10.3），并按 10.2 顺序取券、带券重算            |
+| L776-806 | `insert(bizBookings).values({...})`                                   | 加 `couponId` 与 `couponDiscountAmount: quote.couponDiscountAmount` |
+| L825-834 | 步骤 8a 积分抵扣（`deductPoints` 的既有写法）                         | 紧邻其后加券核销 `redeemForBooking(tx, {...})`                      |
 
 另外两处：
 
-| 位置 | 改动 |
-| ---- | ---- |
-| `bookings.service.ts` 构造器（13 个依赖） | 注入 `CouponsService`（MembershipModule 已 export，BizModule 已 import） |
+| 位置                                           | 改动                                                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `bookings.service.ts` 构造器（13 个依赖）      | 注入 `CouponsService`（MembershipModule 已 export，BizModule 已 import）                    |
 | `app-vo.ts` 的 `appCreateBookingRequestSchema` | 在 `memberCardId` / `pointsToUse` 之后加 `couponId: z.number().int().positive().optional()` |
 
 **算价的既有写法可直接照抄**：L825-834 的积分抵扣就是「先算价 → 建单拿 id → 事务内扣减」
@@ -416,13 +415,13 @@ MySQL 8.0.23 建表时放行，但随后任何**重建表**的语句（`CREATE I
 
 ### 11.1 五条要求的达成证据
 
-| 要求 | 证据 |
-| ---- | ---- |
-| ① 清掉 mock、全部接真接口 | 小程序侧 grep `isMock / MOCK_BADGE / DEMO_CUSTOMER_ID / use-mock` **为 0**；`api/mock.ts`（552 行）已删；实测登录换真 token、11 个项目、4 位美甲师、33 个时段 |
-| ② 优惠券 + 积分 | app 域新增 6 条路由（见 11.2）；**6 个集成测试文件**；券核销与建单**同事务**；`used_booking_id` 唯一索引 + 条件更新防一券多用 |
-| ③ 未登录/已登录区分 | 统一门面 `store/session.ts`；**10 个页面**有 `guest / requireSession / needBind` 分支（bookings, booking-detail, pay, confirm, member, points, coupons, card-detail, recharge, mine）；引导链路端到端验证过 |
-| ④ 补接口 + 测试 | 两侧 `tsc --noEmit` **exit 0**；**1064 通过 / 0 失败**（整套 ~18 秒） |
-| ⑤ 一页/一链路一提交 | 本目标 35 个提交，每页或每条链路一次 |
+| 要求                      | 证据                                                                                                                                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ① 清掉 mock、全部接真接口 | 小程序侧 grep `isMock / MOCK_BADGE / DEMO_CUSTOMER_ID / use-mock` **为 0**；`api/mock.ts`（552 行）已删；实测登录换真 token、11 个项目、4 位美甲师、33 个时段                                               |
+| ② 优惠券 + 积分           | app 域新增 6 条路由（见 11.2）；**6 个集成测试文件**；券核销与建单**同事务**；`used_booking_id` 唯一索引 + 条件更新防一券多用                                                                               |
+| ③ 未登录/已登录区分       | 统一门面 `store/session.ts`；**10 个页面**有 `guest / requireSession / needBind` 分支（bookings, booking-detail, pay, confirm, member, points, coupons, card-detail, recharge, mine）；引导链路端到端验证过 |
+| ④ 补接口 + 测试           | 两侧 `tsc --noEmit` **exit 0**；**1064 通过 / 0 失败**（整套 ~18 秒）                                                                                                                                       |
+| ⑤ 一页/一链路一提交       | 本目标 35 个提交，每页或每条链路一次                                                                                                                                                                        |
 
 ### 11.2 新增的 app 域接口
 
@@ -451,13 +450,13 @@ POST /app/bookings            建单新增 couponId（券核销同事务）
 
 ### 11.4 明确未做 / 已知取舍
 
-| 项 | 说明 |
-| -- | ---- |
-| 确认预约页的选券交互 | **只有手工验证**：用 `wx.showActionSheet`，原生弹层不便自动化断言。逻辑本身（门槛过滤、二选一、金额预估）已读页面 data 验证过 |
-| 会员卡页促销区的 `.catch` | 接口失败会被静默降级成「暂无可领的券」。取舍是「次要区块不该让整页失败」，但**下次应把「加载失败」与「确实没有」区分开** |
-| `biz_booking.coupon_id` 外键 | 未加。与 `biz_customer_coupon.used_booking_id → biz_booking` 会形成互相 SET NULL 的环；两表都软删，外键只剩装饰作用 |
-| JSAPI 支付通道 | 后端仍是 501 契约骨架（**原始范围外**，不是本次引入）。收银台的真实支付走不通，页面已如实提示 |
-| 微信凭据 | `.env` 未配置 `WX_MINIAPP_APPID/SECRET`，开发期用 `WX_MINIAPP_FAKE=true`（**生产强制失效**）。**上线前必须配真凭据** |
+| 项                           | 说明                                                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 确认预约页的选券交互         | **只有手工验证**：用 `wx.showActionSheet`，原生弹层不便自动化断言。逻辑本身（门槛过滤、二选一、金额预估）已读页面 data 验证过 |
+| 会员卡页促销区的 `.catch`    | 接口失败会被静默降级成「暂无可领的券」。取舍是「次要区块不该让整页失败」，但**下次应把「加载失败」与「确实没有」区分开**      |
+| `biz_booking.coupon_id` 外键 | 未加。与 `biz_customer_coupon.used_booking_id → biz_booking` 会形成互相 SET NULL 的环；两表都软删，外键只剩装饰作用           |
+| JSAPI 支付通道               | 后端仍是 501 契约骨架（**原始范围外**，不是本次引入）。收银台的真实支付走不通，页面已如实提示                                 |
+| 微信凭据                     | `.env` 未配置 `WX_MINIAPP_APPID/SECRET`，开发期用 `WX_MINIAPP_FAKE=true`（**生产强制失效**）。**上线前必须配真凭据**          |
 
 ### 11.5 测试基础设施（重要，别踩回去）
 
@@ -473,29 +472,28 @@ POST /app/bookings            建单新增 couponId（券核销同事务）
    本会话为此白排查了 4 次 —— **建议把「重启后端」写进验证脚本的第一步**，
    别靠记性。
 
-
 ---
 
 ## 12. 优惠券后台管理端（2026-09-12 完成）
 
 ### 12.1 能力清单
 
-| 操作 | 接口 | 权限点 |
-| ---- | ---- | ------ |
-| 券模板 列表 / 详情 | `GET /biz/coupon-templates`、`GET /biz/coupon-templates/:id` | `biz:coupon:list` |
-| 券模板 新增 / 修改 / 停用 | `POST`、`PATCH :id`、`DELETE :id` | `biz:coupon:create/update/delete` |
-| **给顾客发券** | `POST /biz/members/:id/coupons` | `biz:member:coupon` |
-| 查某顾客的券 | `GET /biz/members/:id/coupons` | `biz:member:list` |
+| 操作                      | 接口                                                         | 权限点                            |
+| ------------------------- | ------------------------------------------------------------ | --------------------------------- |
+| 券模板 列表 / 详情        | `GET /biz/coupon-templates`、`GET /biz/coupon-templates/:id` | `biz:coupon:list`                 |
+| 券模板 新增 / 修改 / 停用 | `POST`、`PATCH :id`、`DELETE :id`                            | `biz:coupon:create/update/delete` |
+| **给顾客发券**            | `POST /biz/members/:id/coupons`                              | `biz:member:coupon`               |
+| 查某顾客的券              | `GET /biz/members/:id/coupons`                               | `biz:member:list`                 |
 
 页面：`web/src/views/biz/coupons/index.vue`（券模板维护，菜单 `biz_coupons`）+
 会员列表操作列的「发券」入口。菜单 seed 已含 `biz:coupon:*` 与 `biz:member:coupon`。
 
 ### 12.2 两条发放口径**必须不一样**（已被测试固定）
 
-| 场景 | 口径 | 为什么 |
-| ---- | ---- | ------ |
-| 顾客**自助领券** `POST /app/coupons/claim` | **一次一张**，已持有可用券 → 409 | 防薅羊毛；且事务内锁模板行串行化 |
-| 后台**发券** `POST /biz/members/:id/coupons` | **允许重复发放** | 补偿、活动补发是正常诉求，加去重会把合法操作挡掉 |
+| 场景                                         | 口径                             | 为什么                                           |
+| -------------------------------------------- | -------------------------------- | ------------------------------------------------ |
+| 顾客**自助领券** `POST /app/coupons/claim`   | **一次一张**，已持有可用券 → 409 | 防薅羊毛；且事务内锁模板行串行化                 |
+| 后台**发券** `POST /biz/members/:id/coupons` | **允许重复发放**                 | 补偿、活动补发是正常诉求，加去重会把合法操作挡掉 |
 
 **不要「顺手统一」这两条** —— 各自都有测试钉着
 （`b7-coupon-claim` / `b7-coupon-issue`）。
@@ -514,11 +512,11 @@ POST /app/bookings            建单新增 couponId（券核销同事务）
 
 ### 12.4 未做（按需再补，不是缺口）
 
-| 项 | 说明 |
-| -- | ---- |
-| 会员详情加「优惠券」Tab | 接口 `GET /biz/members/:id/coupons` 已就绪，页面还没用 |
-| **手工作废/核销券** | 目前券只能等下单自动核销。运营发错一张券时**没有手工纠正手段** —— 这是最值得补的一项（需要新接口 + 状态流转 + 审计原因） |
-| 发券记录页 | 现在只能按顾客查；没有「某模板发给了谁」的全局视角 |
+| 项                      | 说明                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 会员详情加「优惠券」Tab | 接口 `GET /biz/members/:id/coupons` 已就绪，页面还没用                                                                   |
+| **手工作废/核销券**     | 目前券只能等下单自动核销。运营发错一张券时**没有手工纠正手段** —— 这是最值得补的一项（需要新接口 + 状态流转 + 审计原因） |
+| 发券记录页              | 现在只能按顾客查；没有「某模板发给了谁」的全局视角                                                                       |
 
 ---
 
@@ -534,11 +532,17 @@ import { definePage } from '../../utils/page';
 import { runLoad, runPullDownLoad } from '../../utils/load';
 
 definePage({
-  chromeIcons: PAGE_ICONS,        // 跟随主题色生成 data.icons（whiteIcons / extra 同理）
-  data: { loading: true, items: [] },   // 只写本页自己的字段
-  onLoad() { void this.load(); },
-  onShow() { /* 主题/登录态/图标/TabBar 已由工厂刷新，这里只写业务 */ },
-  onPullDownRefresh() { return runPullDownLoad(() => this.load()); },
+  chromeIcons: PAGE_ICONS, // 跟随主题色生成 data.icons（whiteIcons / extra 同理）
+  data: { loading: true, items: [] }, // 只写本页自己的字段
+  onLoad() {
+    void this.load();
+  },
+  onShow() {
+    /* 主题/登录态/图标/TabBar 已由工厂刷新，这里只写业务 */
+  },
+  onPullDownRefresh() {
+    return runPullDownLoad(() => this.load());
+  },
   async load() {
     await runLoad(this, () => api(), {
       merge: (r) => ({ items: r.items.map(toVM) }),
@@ -549,19 +553,19 @@ definePage({
 ```
 
 - 工厂注入的 data：`themeStyle / themePrimary / onPrimary / themeName / themeEmoji /
-  loggedIn / bound` + `loading / refreshing / errorText / loaded`。
+loggedIn / bound` + `loading / refreshing / errorText / loaded`。
 - **`onShow` 只推「外观/身份」**（`pageAppearance`），**绝不推加载态** ——
   推了会把 `runLoad` 的状态机打回首屏（详见 `project-design/pitfalls/miniapp.md` §17）。
 - 配置项名是 **`chromeIcons`**（不是 `icons`）；拼错会被静默吞掉，工厂有防呆告警（§18）。
 
 ### 13.2 加载：`runLoad` 的四条语义（`utils/load.ts`）
 
-| 时机 | loading | refreshing | 内容 |
-| ---- | ------- | ---------- | ---- |
-| 首屏 | true | false | 骨架屏 |
-| 已有数据再刷新 | false | true | **保留旧内容**（切 Tab 回来不再闪白） |
-| 首屏失败 | false | false | errorText → 错误态 + 可重试 |
-| 刷新失败 | false | false | **保留旧内容** + toast |
+| 时机           | loading | refreshing | 内容                                  |
+| -------------- | ------- | ---------- | ------------------------------------- |
+| 首屏           | true    | false      | 骨架屏                                |
+| 已有数据再刷新 | false   | true       | **保留旧内容**（切 Tab 回来不再闪白） |
+| 首屏失败       | false   | false      | errorText → 错误态 + 可重试           |
+| 刷新失败       | false   | false      | **保留旧内容** + toast                |
 
 数据源**整体换了**（如时段页换日期）要传 `force: true` 回骨架屏，否则旧数据还留在屏幕上且**可点**。
 `onPullDownRefresh` 一律用 `runPullDownLoad`（它的 `finally` 保证下拉圈会停）。

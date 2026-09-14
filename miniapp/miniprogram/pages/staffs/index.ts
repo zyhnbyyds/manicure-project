@@ -67,7 +67,11 @@ definePage({
     const staff = this.data.staffs.find((candidate) => candidate.id === id);
     if (!staff) return;
     // 换美甲师会清掉已选时段（排班与冲突都变了），见 store/draft.ts
-    setDraftStaff({ id: staff.id, nickname: staff.nickname, avatar: staff.avatar });
+    setDraftStaff({
+      id: staff.id,
+      nickname: staff.nickname,
+      avatar: staff.avatar,
+    });
     goSlots();
   },
 });

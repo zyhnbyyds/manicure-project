@@ -8,14 +8,14 @@ title: 鉴权 · RBAC · 数据权限
 
 ## 一、双 JWT 域
 
-| 维度 | 后台域 | app 域（`/api/v1/app/**`） |
-| --- | --- | --- |
-| 身份主体 | `sys_user` | `app_wx_user`（openid 唯一） |
-| 签发 | `AuthService.issueTokens()` | `AppAuthService.login()` |
-| 守卫 | `AccessTokenGuard`（`APP_GUARD`，默认全局） | `AppAccessTokenGuard`（路由级） |
-| payload | `sub` / `username` / `permissions` / `roles` | `sub` / `openid` / `scope: 'app'` |
-| RBAC | 有（权限点字符串） | **无** |
-| 刷新令牌 | 有（`sys_refresh_token`，一次性轮换） | 无（重登即换新 token） |
+| 维度     | 后台域                                       | app 域（`/api/v1/app/**`）        |
+| -------- | -------------------------------------------- | --------------------------------- |
+| 身份主体 | `sys_user`                                   | `app_wx_user`（openid 唯一）      |
+| 签发     | `AuthService.issueTokens()`                  | `AppAuthService.login()`          |
+| 守卫     | `AccessTokenGuard`（`APP_GUARD`，默认全局）  | `AppAccessTokenGuard`（路由级）   |
+| payload  | `sub` / `username` / `permissions` / `roles` | `sub` / `openid` / `scope: 'app'` |
+| RBAC     | 有（权限点字符串）                           | **无**                            |
+| 刷新令牌 | 有（`sys_refresh_token`，一次性轮换）        | 无（重登即换新 token）            |
 
 ### 双向拒绝是怎么实现的
 
@@ -23,11 +23,15 @@ title: 鉴权 · RBAC · 数据权限
 
 ```ts
 // src/modules/app/auth/app-access-token.guard.ts（精简）
-const { payload } = await jwtVerify(token, new TextEncoder().encode(config.jwt.JWT_ACCESS_SECRET), {
-  issuer: config.jwt.JWT_ISSUER,
-  audience: config.jwt.JWT_AUDIENCE,
-});
-if (payload.scope !== 'app') throw new UnauthorizedException();  // 后台 token → 401
+const { payload } = await jwtVerify(
+  token,
+  new TextEncoder().encode(config.jwt.JWT_ACCESS_SECRET),
+  {
+    issuer: config.jwt.JWT_ISSUER,
+    audience: config.jwt.JWT_AUDIENCE,
+  },
+);
+if (payload.scope !== 'app') throw new UnauthorizedException(); // 后台 token → 401
 const id = Number(payload.sub);
 if (!Number.isSafeInteger(id) || typeof payload.openid !== 'string')
   throw new UnauthorizedException();
@@ -56,7 +60,9 @@ request.user = { id, username: payload.username, permissions, roles };
 @Public()
 @Controller('app/catalog')
 @UseGuards(AppAccessTokenGuard)
-export class AppCatalogController { /* … */ }
+export class AppCatalogController {
+  /* … */
+}
 ```
 
 ## 二、登录流程（后台域）
@@ -78,7 +84,10 @@ POST /api/v1/auth/login  { username, password }
 export function hashPassword(password: string): Promise<string> {
   return Bun.password.hash(password, { algorithm: 'argon2id' });
 }
-export function verifyPassword(password: string, hash: string): Promise<boolean> {
+export function verifyPassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
   return Bun.password.verify(password, hash);
 }
 ```
@@ -109,7 +118,10 @@ private async sign(payload, secret, expiresIn) {
 
 ```ts
 // refresh 的轮换：先吊销旧的，再签发新的
-await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, stored.id));
+await db
+  .update(refreshTokens)
+  .set({ revokedAt: new Date() })
+  .where(eq(refreshTokens.id, stored.id));
 return this.issueTokens(user.id, user.username);
 ```
 
@@ -135,9 +147,9 @@ web 侧在 `web/src/request.ts`：401 → 调 `/auth/refresh` → 重放原请�
 
 ### 登出与强制下线
 
-| 动作 | 接口 | 实现 |
-| --- | --- | --- |
-| 登出 | `POST /auth/logout` | `AuthService.logout()`：吊销该 refresh token 行 + `OnlineService.remove(userId)` |
+| 动作     | 接口                                 | 实现                                                                                                   |
+| -------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| 登出     | `POST /auth/logout`                  | `AuthService.logout()`：吊销该 refresh token 行 + `OnlineService.remove(userId)`                       |
 | 强制下线 | `OnlineForceLogoutTool` / 在线用户页 | `OnlineService.forceLogout(userId)`：删在线会话 + 把该用户**全部**未吊销 refresh token 置 `revoked_at` |
 
 ```ts
@@ -165,14 +177,14 @@ sys_user ──< sys_user_role >── sys_role
 sys_role ──< sys_role_dept >── sys_dept（data_scope='custom' 时生效）
 ```
 
-| 表 | drizzle 变量 | 要点 |
-| --- | --- | --- |
-| `sys_user` | `users` | `dept_id`、`status`、`password_hash` |
-| `sys_role` | `roles` | `role_key` 唯一、`data_scope`、`is_system` |
-| `sys_menu` | `menus` | `type` ∈ `M`(目录) / `C`(页面) / `F`(按钮)、`permission` 唯一、`visible` / `cacheable` / `external` |
-| `sys_user_role` | `userRoles` | 联合主键 |
-| `sys_role_menu` | `roleMenus` | 联合主键 |
-| `sys_role_dept` | `roleDepts` | `data_scope='custom'` 时的部门白名单 |
+| 表              | drizzle 变量 | 要点                                                                                                |
+| --------------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| `sys_user`      | `users`      | `dept_id`、`status`、`password_hash`                                                                |
+| `sys_role`      | `roles`      | `role_key` 唯一、`data_scope`、`is_system`                                                          |
+| `sys_menu`      | `menus`      | `type` ∈ `M`(目录) / `C`(页面) / `F`(按钮)、`permission` 唯一、`visible` / `cacheable` / `external` |
+| `sys_user_role` | `userRoles`  | 联合主键                                                                                            |
+| `sys_role_menu` | `roleMenus`  | 联合主键                                                                                            |
+| `sys_role_dept` | `roleDepts`  | `data_scope='custom'` 时的部门白名单                                                                |
 
 ### 权限点命名规范
 
@@ -183,17 +195,22 @@ sys_role ──< sys_role_dept >── sys_dept（data_scope='custom' 时生效�
 
 ```ts
 // src/modules/auth/auth.service.ts（getClaims 精简）
-const isSuperAdmin = assignments.some((item) => item.isSystem || item.key === 'admin');
-const resolved = isSuperAdmin ? ['*:*:*'] : permissions.flatMap((item) => item.permission ? [item.permission] : []);
+const isSuperAdmin = assignments.some(
+  (item) => item.isSystem || item.key === 'admin',
+);
+const resolved = isSuperAdmin
+  ? ['*:*:*']
+  : permissions.flatMap((item) => (item.permission ? [item.permission] : []));
 ```
 
 `AccessTokenGuard` 判定时也认通配：
 
 ```ts
-!required.some((permission) =>
-  request.user?.permissions.includes(permission) ||
-  request.user?.permissions.includes('*:*:*'),
-)
+!required.some(
+  (permission) =>
+    request.user?.permissions.includes(permission) ||
+    request.user?.permissions.includes('*:*:*'),
+);
 ```
 
 ### 菜单 seed 驱动前端路由
@@ -205,7 +222,11 @@ const resolved = isSuperAdmin ? ['*:*:*'] : permissions.flatMap((item) => item.p
 ```ts
 // src/modules/system/menus/menus.service.ts（精简）
 const isSuperAdmin = assignments.some((item) => item.isSystem);
-const conditions = [isNull(menus.deletedAt), eq(menus.status, 'active'), inArray(menus.type, ['M', 'C'])];
+const conditions = [
+  isNull(menus.deletedAt),
+  eq(menus.status, 'active'),
+  inArray(menus.type, ['M', 'C']),
+];
 // 非超管：innerJoin sys_role_menu，只返回被授权的菜单
 return buildTree(dedupeById(rows)).map(toRouteNode);
 ```
@@ -224,14 +245,14 @@ return buildTree(dedupeById(rows)).map(toRouteNode);
 
 在 `src/database/seed/menus.ts` 里补**一条 `BIZ_PAGES` 记录**（它就是那一页的全部 seed）：
 
-| 要填的字段 | 说明 |
-| --- | --- |
-| `name` | 菜单唯一 name，子菜单与按钮的 `parentKey` 都指向它 |
-| `title` | 中文页名 |
-| `path` | 路由 path（如 `/biz/service-items`），**必须与前端路由一致** |
-| `component` | 组件路径（如 `biz/service-items/index`），**必须与 `web/src/views/` 下的实际文件一致** |
-| `icon` | 图标名 |
-| `permission` | 该页 `list` 权限点；**留空则该页对「有菜单授权」的账号直接可见** |
+| 要填的字段      | 说明                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`          | 菜单唯一 name，子菜单与按钮的 `parentKey` 都指向它                                                                                   |
+| `title`         | 中文页名                                                                                                                             |
+| `path`          | 路由 path（如 `/biz/service-items`），**必须与前端路由一致**                                                                         |
+| `component`     | 组件路径（如 `biz/service-items/index`），**必须与 `web/src/views/` 下的实际文件一致**                                               |
+| `icon`          | 图标名                                                                                                                               |
+| `permission`    | 该页 `list` 权限点；**留空则该页对「有菜单授权」的账号直接可见**                                                                     |
 | `permissions[]` | 该页挂的按钮权限：`{ resource: 'biz:xxx', actions: ['create','update',…] }`，每个 action 会展开成 `biz:xxx:action` 的 `F` 类型菜单行 |
 
 然后：
@@ -260,7 +281,9 @@ bun run db:seed:menus      # 幂等：按 name 查已有行 → 有则改、无�
 // src/common/data-scope/data-scope.ts（精简）
 const scopes = roleRows.map((row) => row.dataScope);
 if (scopes.includes('all')) return { kind: 'all' };
-const needDeptScope = scopes.some((s) => s === 'custom' || s === 'dept' || s === 'dept_and_children');
+const needDeptScope = scopes.some(
+  (s) => s === 'custom' || s === 'dept' || s === 'dept_and_children',
+);
 if (!needDeptScope) return { kind: 'self' };
 // …收集 ids 后
 return { kind: 'deptIds', ids: [...new Set(ids)] };
@@ -296,12 +319,12 @@ private async scopeConditions(scope: BookingScope, actor: RequestActor): Promise
 
 ### 绕过方式与禁忌
 
-| 方式 | 说明 | 允许？ |
-| --- | --- | --- |
-| `biz:booking:manageall` | 显式权限点，绕过美甲师自身限制 | 允许，但要审慎授予 |
-| `*:*:*` 超管 | `getClaims()` 下发 | 只给 `admin` 角色 |
-| 不传 `actor` 调 `findOne(id)` | 签名里 `actor?` 可选 | **仅限 app 域**（改用「本人」硬限定） |
-| 在 app 域复用 `resolveDataScope` | app 域没有 `sys_user`，套上去得到错的范围 | **禁止**（代码注释已明确） |
+| 方式                             | 说明                                      | 允许？                                |
+| -------------------------------- | ----------------------------------------- | ------------------------------------- |
+| `biz:booking:manageall`          | 显式权限点，绕过美甲师自身限制            | 允许，但要审慎授予                    |
+| `*:*:*` 超管                     | `getClaims()` 下发                        | 只给 `admin` 角色                     |
+| 不传 `actor` 调 `findOne(id)`    | 签名里 `actor?` 可选                      | **仅限 app 域**（改用「本人」硬限定） |
+| 在 app 域复用 `resolveDataScope` | app 域没有 `sys_user`，套上去得到错的范围 | **禁止**（代码注释已明确）            |
 
 ::: danger app 域的数据边界
 小程序端**不接 RBAC**，所有查询强制 `customer_id = 当前绑定顾客`。`BookingsService.findForCustomer()` 刻意**不区分 403**——查不到就是 404，否则会泄露「这个 id 存在、只是不属于你」。
@@ -311,15 +334,15 @@ private async scopeConditions(scope: BookingScope, actor: RequestActor): Promise
 
 `@Public()` 跳过全局 `AccessTokenGuard` 的位置如下（全量）：
 
-| 端点 | 安全补偿 |
-| --- | --- |
-| `POST /auth/login`、`POST /auth/register`、`POST /auth/refresh` | 密码校验 / refresh token 哈希比对 + jwtVerify |
-| `POST /biz/payments/notify/wxpay` | 微信支付 V3 **验签**（用 `rawBody` 原样报文）+ 幂等 |
-| `POST /biz/payments/notify/alipay` | 支付宝 RSA 验签 + `app_id` 比对 + 幂等 |
-| `GET /api/v1/app/**`（app 域全部） | `AppAccessTokenGuard`（除登录与回调） |
-| `POST /app/payments/wxpay/jsapi` 回调类 | 同微信验签 |
-| `GET /health` | 无状态探针 |
-| `GET /files/:id/download` | 见 `src/modules/files/files.controller.ts` 的路由级校验 |
+| 端点                                                            | 安全补偿                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------- |
+| `POST /auth/login`、`POST /auth/register`、`POST /auth/refresh` | 密码校验 / refresh token 哈希比对 + jwtVerify           |
+| `POST /biz/payments/notify/wxpay`                               | 微信支付 V3 **验签**（用 `rawBody` 原样报文）+ 幂等     |
+| `POST /biz/payments/notify/alipay`                              | 支付宝 RSA 验签 + `app_id` 比对 + 幂等                  |
+| `GET /api/v1/app/**`（app 域全部）                              | `AppAccessTokenGuard`（除登录与回调）                   |
+| `POST /app/payments/wxpay/jsapi` 回调类                         | 同微信验签                                              |
+| `GET /health`                                                   | 无状态探针                                              |
+| `GET /files/:id/download`                                       | 见 `src/modules/files/files.controller.ts` 的路由级校验 |
 
 回调的写法（`src/modules/biz/payment/payments/payments.controller.ts`）：
 
@@ -338,6 +361,7 @@ async notifyWxpay(@Req() request: NotifyRequest, @Res() reply: FastifyReply) {
 ```
 
 ::: danger 公开端点三条铁律
+
 1. **必须有验签**：`@Public()` 只表示「跳过 access token」，不表示「不需要证明身份」。回调的真伪由**渠道签名**保证。
 2. **必须幂等**：回调会重复投递。落地靠条件更新 + 唯一键，重复回调返回渠道要求的应答体而不重复记账。
 3. **不要给公开端点加 RBAC 依赖**：它们跑在 `request.user` 为空的前提下，任何读 `request.user.id` 的代码都会炸。

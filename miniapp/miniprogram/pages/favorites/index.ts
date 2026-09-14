@@ -123,7 +123,10 @@ definePage({
   },
 
   async onGuestLogin() {
-    await requireSession({ needBind: true, reason: '查看收藏需要先绑定手机号' });
+    await requireSession({
+      needBind: true,
+      reason: '查看收藏需要先绑定手机号',
+    });
     if (isBound()) void this.load();
   },
 

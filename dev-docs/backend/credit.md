@@ -39,24 +39,24 @@ export const bizCreditAccounts = mysqlTable('biz_credit_account', {
 ]);
 ```
 
-| 字段 | 口径 |
-| --- | --- |
-| `type` | `customer`（顾客）/ `company`（公司）/ `staff`（员工） |
-| `creditLimit` | 额度（分），**0 = 不限**；`normalizeCreditLimit()` 把非法值回落 0 |
-| `usedAmount` | 已挂未结金额（分），**只由 `ReceivablesService` 在应收单事务内条件更新** |
-| `settleDay` | 月结日 **1..28**；**0 = 不定期**；`normalizeSettleDay()` 夹到 `[0, 28]` |
-| `name` | 全局唯一（`uq_credit_account_name`），**不过滤软删** —— 服务层的 `assertNameUnique()` 也按这个口径校验 |
+| 字段          | 口径                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| `type`        | `customer`（顾客）/ `company`（公司）/ `staff`（员工）                                                 |
+| `creditLimit` | 额度（分），**0 = 不限**；`normalizeCreditLimit()` 把非法值回落 0                                      |
+| `usedAmount`  | 已挂未结金额（分），**只由 `ReceivablesService` 在应收单事务内条件更新**                               |
+| `settleDay`   | 月结日 **1..28**；**0 = 不定期**；`normalizeSettleDay()` 夹到 `[0, 28]`                                |
+| `name`        | 全局唯一（`uq_credit_account_name`），**不过滤软删** —— 服务层的 `assertNameUnique()` 也按这个口径校验 |
 
 默认值来自 `BIZ_CONFIG_DEFAULTS`：`biz.credit.defaultLimit = 0`（不限）、`biz.credit.defaultSettleDay = 5`。
 
 ### 接口与权限
 
-| 接口 | 权限点 | 说明 |
-| --- | --- | --- |
-| `GET /biz/credit-accounts` | `biz:credit:list` | 列表带 `outstandingAmount`（已挂未结） |
-| `POST /biz/credit-accounts` | `biz:credit:create` | |
-| `PATCH /biz/credit-accounts/:id` | `biz:credit:update` | |
-| `DELETE /biz/credit-accounts/:id` | `biz:credit:delete` | 软删；**有未结应收时 409** |
+| 接口                              | 权限点              | 说明                                   |
+| --------------------------------- | ------------------- | -------------------------------------- |
+| `GET /biz/credit-accounts`        | `biz:credit:list`   | 列表带 `outstandingAmount`（已挂未结） |
+| `POST /biz/credit-accounts`       | `biz:credit:create` |                                        |
+| `PATCH /biz/credit-accounts/:id`  | `biz:credit:update` |                                        |
+| `DELETE /biz/credit-accounts/:id` | `biz:credit:delete` | 软删；**有未结应收时 409**             |
 
 两条保护：
 
@@ -65,7 +65,9 @@ export const bizCreditAccounts = mysqlTable('biz_credit_account', {
 if (patch.creditLimit !== undefined) {
   const limit = normalizeCreditLimit(patch.creditLimit);
   if (limit !== 0 && limit < row.usedAmount)
-    throw new ConflictException(`挂账额度不能小于已挂账金额 ¥${formatYuan(row.usedAmount)}`);
+    throw new ConflictException(
+      `挂账额度不能小于已挂账金额 ¥${formatYuan(row.usedAmount)}`,
+    );
   patch.creditLimit = limit;
 }
 ```
@@ -86,7 +88,7 @@ async remove(id: number, actorId: number) {
 
 ```ts
 // src/modules/biz/credit/credit-accounts/credit-accounts.service.ts:238
-sql<string>`COALESCE(SUM(CAST(${bizReceivables.amount} AS SIGNED) - CAST(${bizReceivables.settledAmount} AS SIGNED)), 0)`
+sql<string>`COALESCE(SUM(CAST(${bizReceivables.amount} AS SIGNED) - CAST(${bizReceivables.settledAmount} AS SIGNED)), 0)`;
 ```
 
 ## 下单挂账
@@ -152,11 +154,14 @@ if (row.creditLimit !== 0 && row.usedAmount + requested > row.creditLimit) {
 ```ts
 // src/modules/biz/credit/receivables/receivables.service.ts:737
 /** 账期：`settle_day` 1..28 → 挂账日之后第一个结算日；0 → 不定期（NULL） */
-export function resolveDueDate(settleDay: number, today: string): string | null {
+export function resolveDueDate(
+  settleDay: number,
+  today: string,
+): string | null {
   if (!Number.isFinite(settleDay) || settleDay <= 0) return null;
   const day = Math.min(Math.max(Math.trunc(settleDay), 1), 28);
   const dayOfMonth = Number(today.slice(8, 10));
-  const sameMonth = day > dayOfMonth;      // 「之后第一个」：当月结算日还没到才取当月
+  const sameMonth = day > dayOfMonth; // 「之后第一个」：当月结算日还没到才取当月
   const targetYear = sameMonth || month < 12 ? year : year + 1;
   const targetMonth = sameMonth ? month : (month % 12) + 1;
   return `${targetYear}-${pad2(targetMonth)}-${pad2(day)}`;
@@ -174,7 +179,8 @@ export function resolveDueDate(settleDay: number, today: string): string | null 
 let payStatus: PayStatus;
 if (paidAmount > 0 && refundAmount >= paidAmount) payStatus = 'refunded';
 else if (paidAmount >= booking.payableAmount) payStatus = 'paid';
-else if (booking.creditAccountId !== null) payStatus = 'credit';   // 优先于 partial
+else if (booking.creditAccountId !== null)
+  payStatus = 'credit'; // 优先于 partial
 else if (paidAmount > 0) payStatus = 'partial';
 else payStatus = 'unpaid';
 ```
@@ -202,7 +208,14 @@ else payStatus = 'unpaid';
 销账渠道（`SETTLE_CHANNELS`，与 `biz_receivable_payment.pay_channel` 枚举一致）：
 
 ```ts
-export const SETTLE_CHANNELS = ['cash', 'wechat_offline', 'alipay_offline', 'balance', 'wxpay_native', 'alipay_qr'] as const;
+export const SETTLE_CHANNELS = [
+  'cash',
+  'wechat_offline',
+  'alipay_offline',
+  'balance',
+  'wxpay_native',
+  'alipay_qr',
+] as const;
 ```
 
 注意**不含** `credit`（不能挂账销账）与 `card`（次卡不产生金额）。
@@ -235,20 +248,24 @@ async settle(receivableId: number, input: SettleInput): Promise<SettleResult> {
 
 ```ts
 // src/modules/biz/credit/receivables/receivables.service.ts:410
-const updated = await tx.update(bizReceivables)
+const updated = await tx
+  .update(bizReceivables)
   .set({
     settledAmount: sql`${bizReceivables.settledAmount} + ${total}`,
     status: sql`IF(${bizReceivables.settledAmount} >= ${bizReceivables.amount}, 'settled', 'partial')`,
     settledAt: sql`IF(${bizReceivables.settledAmount} >= ${bizReceivables.amount}, NOW(), ${bizReceivables.settledAt})`,
     updatedBy: input.actorId,
   })
-  .where(and(
-    eq(bizReceivables.id, receivableId),
-    inArray(bizReceivables.status, OUTSTANDING_RECEIVABLE_STATUSES),
-    isNull(bizReceivables.deletedAt),
-    sql`${bizReceivables.settledAmount} + ${total} <= ${bizReceivables.amount}`,
-  ));
-if (!updated[0].affectedRows) throw new ConflictException('应收单已被其它销账操作更新，请刷新后重试');
+  .where(
+    and(
+      eq(bizReceivables.id, receivableId),
+      inArray(bizReceivables.status, OUTSTANDING_RECEIVABLE_STATUSES),
+      isNull(bizReceivables.deletedAt),
+      sql`${bizReceivables.settledAmount} + ${total} <= ${bizReceivables.amount}`,
+    ),
+  );
+if (!updated[0].affectedRows)
+  throw new ConflictException('应收单已被其它销账操作更新，请刷新后重试');
 ```
 
 ::: danger `status` 里为什么写 `settledAmount >= amount` 而不是 `+ ${total}`
@@ -258,8 +275,11 @@ if (!updated[0].affectedRows) throw new ConflictException('应收单已被其它
 **额度回减**（用 `GREATEST` 兜底，无符号列绝不出现负数）：
 
 ```ts
-await tx.update(bizCreditAccounts)
-  .set({ usedAmount: sql`GREATEST(CAST(${bizCreditAccounts.usedAmount} AS SIGNED) - ${total}, 0)` })
+await tx
+  .update(bizCreditAccounts)
+  .set({
+    usedAmount: sql`GREATEST(CAST(${bizCreditAccounts.usedAmount} AS SIGNED) - ${total}, 0)`,
+  })
   .where(eq(bizCreditAccounts.id, receivable.creditAccountId));
 ```
 
@@ -296,7 +316,10 @@ if (receivedNow > 0) {
 // 主体没了：预约不能再挂在它名下；再让唯一重算入口把资金状态从
 // `credit` 拉回真实值（无实收 → unpaid），避免台账与预约资金状态不一致。
 if (receivable.bookingId !== null) {
-  await tx.update(bizBookings).set({ creditAccountId: null }).where(eq(bizBookings.id, receivable.bookingId));
+  await tx
+    .update(bizBookings)
+    .set({ creditAccountId: null })
+    .where(eq(bizBookings.id, receivable.bookingId));
   await this.settlements.recalc(tx, receivable.bookingId);
 }
 ```
@@ -350,7 +373,8 @@ override async markOverdue(): Promise<{ overdue: number }> {
 const agingDays = row.dueDate
   ? Math.max(daysBetween(row.dueDate, asOf), 0)
   : Math.max(daysBetween(createdDay, asOf), 0);
-const isOverdue = row.dueDate !== null && row.dueDate !== undefined && row.dueDate < asOf;
+const isOverdue =
+  row.dueDate !== null && row.dueDate !== undefined && row.dueDate < asOf;
 ```
 
 ## 报表口径：挂账不计营收，销账才计入
@@ -366,7 +390,11 @@ const isOverdue = row.dueDate !== null && row.dueDate !== undefined && row.dueDa
 ```ts
 // src/modules/biz/reports/analytics/reports.service.ts:242
 /** 计入「实收」的支付单状态（§15.7 不变量 4：毛收入不扣退款） */
-const PAID_PAYMENT_STATUSES = ['success', 'partial_refunded', 'refunded'] as const;
+const PAID_PAYMENT_STATUSES = [
+  'success',
+  'partial_refunded',
+  'refunded',
+] as const;
 ```
 
 ```ts
@@ -380,10 +408,11 @@ else if (...) ...
 `RevenueReportRow` 里 `creditSettled` 是**单列**的：既计入 `gross` / `net`，又能单独看出「其中多少来自销账」，方便手工复核。
 
 ::: danger 常见错误：把挂账金额算进营收
+
 - ❌ 用 `SUM(biz_booking.payable_amount)` 当营收 → 应付 ≠ 实收（有定金、挂账、退款）；
 - ❌ 用 `SUM(biz_booking.paid_amount)` 当营收 → `paid_amount` 是**预约维度**的派生冗余，混了充值 / 购卡类无预约的收款；
 - ❌ 挂账时也写一张 `biz_payment` → 会让 `paid_amount` 虚高、营收口径错乱，同时 `pay_status` 也判不出 `credit`。
-:::
+  :::
 
 **应收余额**口径（`OUTSTANDING_RECEIVABLE_STATUSES = ['open', 'partial', 'overdue']`）：
 

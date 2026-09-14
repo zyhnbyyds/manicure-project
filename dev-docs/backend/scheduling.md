@@ -11,13 +11,13 @@ title: 排班与可约时段算法
 
 实现文件：
 
-| 文件 | 职责 |
-| --- | --- |
-| `src/modules/biz/scheduling/scheduling.service.ts` | 周模板替换、日期例外、冲突扫描（680 行） |
-| `src/modules/biz/scheduling/scheduling.controller.ts` | `@Controller('biz/staffs')` 下的 4 个端点 |
-| `src/modules/biz/booking/slots.service.ts` | **消费方**：把班次变成可约时段 |
-| `src/modules/biz/common/shop-time.ts` | `shopDayRange()` / `shopLocalToUtc()` / `shopWeekday()` |
-| `src/database/schema/index.ts` | `biz_staff_weekly_shift` / `biz_staff_schedule_override` |
+| 文件                                                  | 职责                                                     |
+| ----------------------------------------------------- | -------------------------------------------------------- |
+| `src/modules/biz/scheduling/scheduling.service.ts`    | 周模板替换、日期例外、冲突扫描（680 行）                 |
+| `src/modules/biz/scheduling/scheduling.controller.ts` | `@Controller('biz/staffs')` 下的 4 个端点                |
+| `src/modules/biz/booking/slots.service.ts`            | **消费方**：把班次变成可约时段                           |
+| `src/modules/biz/common/shop-time.ts`                 | `shopDayRange()` / `shopLocalToUtc()` / `shopWeekday()`  |
+| `src/database/schema/index.ts`                        | `biz_staff_weekly_shift` / `biz_staff_schedule_override` |
 
 ## 一、数据模型
 
@@ -25,11 +25,11 @@ title: 排班与可约时段算法
 
 drizzle 变量 `bizStaffWeeklyShifts`：
 
-| 列 | 说明 |
-| --- | --- |
-| `staff_id` | 美甲师 |
-| `weekday` | **1 = 周一 … 7 = 周日**（ISO 8601，不是 JS 的 0=周日） |
-| `start_time` / `end_time` | `time` 类型，`HH:MM:SS` |
+| 列                        | 说明                                                   |
+| ------------------------- | ------------------------------------------------------ |
+| `staff_id`                | 美甲师                                                 |
+| `weekday`                 | **1 = 周一 … 7 = 周日**（ISO 8601，不是 JS 的 0=周日） |
+| `start_time` / `end_time` | `time` 类型，`HH:MM:SS`                                |
 
 一天多段就是**多行**（例如上午一段、下午一段）。该表是**物理删表**（§3 声明豁免软删）。
 
@@ -37,12 +37,12 @@ drizzle 变量 `bizStaffWeeklyShifts`：
 
 drizzle 变量 `bizStaffScheduleOverrides`：
 
-| 列 | 说明 |
-| --- | --- |
-| `staff_id` + `date` | 生效日期（店内本地日 `YYYY-MM-DD`） |
-| `type` | `off`（整天休息）/ `custom`（自定义时段） |
-| `start_time` / `end_time` | **仅 `custom` 填**；`off` 必须为空 |
-| `reason` | 原因（如「调休」） |
+| 列                        | 说明                                      |
+| ------------------------- | ----------------------------------------- |
+| `staff_id` + `date`       | 生效日期（店内本地日 `YYYY-MM-DD`）       |
+| `type`                    | `off`（整天休息）/ `custom`（自定义时段） |
+| `start_time` / `end_time` | **仅 `custom` 填**；`off` 必须为空        |
+| `reason`                  | 原因（如「调休」）                        |
 
 同样是**物理删表**。
 
@@ -51,9 +51,14 @@ drizzle 变量 `bizStaffScheduleOverrides`：
 ```ts
 // type='off' 不许带时间 —— 防「既请假又上班」的脏数据
 if (input.startTime || input.endTime)
-  throw new BadRequestException('请假（type=off）不能填写开始/结束时间，否则会出现「既请假又上班」的脏数据');
+  throw new BadRequestException(
+    '请假（type=off）不能填写开始/结束时间，否则会出现「既请假又上班」的脏数据',
+  );
 // 同一天同一美甲师多个 custom 段不许重叠
-this.assertNoOverlap([...customs, { startTime, endTime }], `日期 ${date} 的自定义时段存在重叠`);
+this.assertNoOverlap(
+  [...customs, { startTime, endTime }],
+  `日期 ${date} 的自定义时段存在重叠`,
+);
 // 周模板：start < end；同 weekday 多段不重叠；总段数 <= 70
 if (shifts.length > 70) throw new BadRequestException('班次段数过多');
 this.assertNoOverlap(list, `星期${weekday} 的班次存在重叠`);
@@ -107,17 +112,24 @@ async resolveShifts(staffId: number, date: string, tx?: BizTx) {
 ```ts
 // src/modules/biz/booking/slots.service.ts
 const { start: dayStart, end: dayEnd } = shopDayRange(query.date, timeZone);
-const { off, segments } = await this.schedule.resolveShifts(query.staffId, query.date);
+const { off, segments } = await this.schedule.resolveShifts(
+  query.staffId,
+  query.date,
+);
 if (off) return { slots: [], reason: 'off', durationMinutes, bufferMinutes };
-if (!segments.length) return { slots: [], reason: 'no_shift', durationMinutes, bufferMinutes };
+if (!segments.length)
+  return { slots: [], reason: 'no_shift', durationMinutes, bufferMinutes };
 // …然后对每个 segment 枚举网格起点，做对称 gap 判据
 for (const segment of segments) {
   const segStart = shopLocalToUtc(query.date, segment.startTime, timeZone);
   const segEnd = shopLocalToUtc(query.date, segment.endTime, timeZone);
   // 网格以店内本地日 00:00 为基准
-  const firstGrid = dayStart.getTime() + Math.ceil(Math.max(segStart.getTime() - dayStart.getTime(), 0) / stepMs) * stepMs;
+  const firstGrid =
+    dayStart.getTime() +
+    Math.ceil(Math.max(segStart.getTime() - dayStart.getTime(), 0) / stepMs) *
+      stepMs;
   for (let t = firstGrid; ; t += stepMs) {
-    if (t + durationMs > segEnd.getTime()) break;   // 服务必须完整落在段内
+    if (t + durationMs > segEnd.getTime()) break; // 服务必须完整落在段内
     /* …提前期 / 冲突判据… */
   }
 }
@@ -128,11 +140,13 @@ for (const segment of segments) {
 创建预约时另有一道 `assertWithinShift()`，判定 `[startAt, startAt + D]` 必须完整落在**某个**段内：
 
 ```ts
-const inside = !off && segments.some((segment) => {
-  const segStart = shopLocalToUtc(date, segment.startTime, tz).getTime();
-  const segEnd = shopLocalToUtc(date, segment.endTime, tz).getTime();
-  return start >= segStart && end <= segEnd;
-});
+const inside =
+  !off &&
+  segments.some((segment) => {
+    const segStart = shopLocalToUtc(date, segment.startTime, tz).getTime();
+    const segEnd = shopLocalToUtc(date, segment.endTime, tz).getTime();
+    return start >= segStart && end <= segEnd;
+  });
 if (!inside) throw new BadRequestException('所选时间不在该美甲师的班次内');
 ```
 
@@ -148,15 +162,15 @@ if (!inside) throw new BadRequestException('所选时间不在该美甲师的班
 
 ### 保护矩阵
 
-| 变更 | 判定 | 行为 |
-| --- | --- | --- |
-| 新增 `off` 请假 | 该日存在 `pending`/`confirmed`/`arrived` 的预约 | **默认 409** + 受影响清单；`force=true` 才落库 |
-| `custom` 缩短 / 改时段 | 既有预约超出新时段 | 同上 |
-| 删除日期例外 | 回到周模板后预约越界 | 同上（`?force=true`） |
-| 缩短 / 删除周模板班次 | **未来 30 天**内既有预约越界 | **409，且刻意不提供 `force`** |
-| 停用美甲师 | 存在未完成预约 | 拒绝（`staffs.service.ts`） |
-| 停用 / 删除服务项目 | 存在引用它的未完成预约 | 拒绝（`service-items.service.ts`） |
-| 修改项目时长 / 缓冲 / 价格 | — | **不动历史**，只影响新单（快照已落在 `biz_booking_item`） |
+| 变更                       | 判定                                            | 行为                                                      |
+| -------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| 新增 `off` 请假            | 该日存在 `pending`/`confirmed`/`arrived` 的预约 | **默认 409** + 受影响清单；`force=true` 才落库            |
+| `custom` 缩短 / 改时段     | 既有预约超出新时段                              | 同上                                                      |
+| 删除日期例外               | 回到周模板后预约越界                            | 同上（`?force=true`）                                     |
+| 缩短 / 删除周模板班次      | **未来 30 天**内既有预约越界                    | **409，且刻意不提供 `force`**                             |
+| 停用美甲师                 | 存在未完成预约                                  | 拒绝（`staffs.service.ts`）                               |
+| 停用 / 删除服务项目        | 存在引用它的未完成预约                          | 拒绝（`service-items.service.ts`）                        |
+| 修改项目时长 / 缓冲 / 价格 | —                                               | **不动历史**，只影响新单（快照已落在 `biz_booking_item`） |
 
 ### 实现
 
@@ -168,7 +182,13 @@ const after = await this.resolveSegments(this.database.db, staffId, date, [
   ...existing,
   { type: input.type, startTime, endTime },
 ]);
-const conflicts = await this.findDayConflicts(this.database.db, staffId, date, after.segments, timeZone);
+const conflicts = await this.findDayConflicts(
+  this.database.db,
+  staffId,
+  date,
+  after.segments,
+  timeZone,
+);
 if (conflicts.length && !force)
   throw this.conflictException(
     `该日（${date}）已有 ${conflicts.length} 条预约落在新班次之外，请先改期，或确认后强制保存`,
@@ -206,22 +226,30 @@ private async findDayConflicts(executor, staffId, date, segments, timeZone) {
 - 命中冲突直接 409，**没有 `force`**（注释写明：「刻意不提供 force，避免静默把已约的单甩在班次外」）。
 
 ```ts
-const overrides = await this.database.db.select({ date })
+const overrides = await this.database.db
+  .select({ date })
   .from(bizStaffScheduleOverrides)
   .where(and(eq(staffId), gte(date, today), lte(date, lastDate)));
 const overrideDates = new Set(overrides.map((row) => row.date));
-return this.findRangeConflicts(staffId, shopDayRange(today, tz).start, shopDayRange(addLocalDays(lastDate, 1), tz).start, byWeekday, tz, overrideDates);
+return this.findRangeConflicts(
+  staffId,
+  shopDayRange(today, tz).start,
+  shopDayRange(addLocalDays(lastDate, 1), tz).start,
+  byWeekday,
+  tz,
+  overrideDates,
+);
 ```
 
 ### 真实接口路径与响应结构
 
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/biz/staffs/:id/weekly-shifts` | `biz:schedule:list` | 周模板（7 天全部段） |
-| `PUT` | `/api/v1/biz/staffs/:id/weekly-shifts` | `biz:schedule:update` | **整体替换**；越界预约 → 409 |
-| `GET` | `/api/v1/biz/staffs/:id/overrides?from=&to=` | `biz:schedule:list` | 例外列表 |
-| `POST` | `/api/v1/biz/staffs/:id/overrides` | `biz:schedule:update` | 新增例外；409 + 清单；body 里 `force: true` 才放行 |
-| `DELETE` | `/api/v1/biz/staffs/:id/overrides/:overrideId?force=true` | `biz:schedule:update` | 删除例外；409 + 清单 |
+| 方法     | 路径                                                      | 权限                  | 说明                                               |
+| -------- | --------------------------------------------------------- | --------------------- | -------------------------------------------------- |
+| `GET`    | `/api/v1/biz/staffs/:id/weekly-shifts`                    | `biz:schedule:list`   | 周模板（7 天全部段）                               |
+| `PUT`    | `/api/v1/biz/staffs/:id/weekly-shifts`                    | `biz:schedule:update` | **整体替换**；越界预约 → 409                       |
+| `GET`    | `/api/v1/biz/staffs/:id/overrides?from=&to=`              | `biz:schedule:list`   | 例外列表                                           |
+| `POST`   | `/api/v1/biz/staffs/:id/overrides`                        | `biz:schedule:update` | 新增例外；409 + 清单；body 里 `force: true` 才放行 |
+| `DELETE` | `/api/v1/biz/staffs/:id/overrides/:overrideId?force=true` | `biz:schedule:update` | 删除例外；409 + 清单                               |
 
 409 响应体（`ConflictException({ message, conflicts })`）：
 
@@ -269,7 +297,9 @@ return this.findRangeConflicts(staffId, shopDayRange(today, tz).start, shopDayRa
 
 ```ts
 await this.database.db.transaction(async (tx) => {
-  await tx.delete(bizStaffWeeklyShifts).where(eq(bizStaffWeeklyShifts.staffId, staffId));
+  await tx
+    .delete(bizStaffWeeklyShifts)
+    .where(eq(bizStaffWeeklyShifts.staffId, staffId));
   if (!normalized.length) return;
   await tx.insert(bizStaffWeeklyShifts).values(normalized.map(/* … */));
 });
@@ -287,7 +317,10 @@ await this.database.db.transaction(async (tx) => {
 
 ```ts
 /** 店内本地日 [00:00, 次日 00:00) 对应的绝对时刻区间 */
-export function shopDayRange(date: string, timeZone: string = DEFAULT_SHOP_TIMEZONE): { start: Date; end: Date } {
+export function shopDayRange(
+  date: string,
+  timeZone: string = DEFAULT_SHOP_TIMEZONE,
+): { start: Date; end: Date } {
   assertLocalDate(date);
   return {
     start: shopLocalToUtc(date, '00:00:00', timeZone),
@@ -300,13 +333,13 @@ export function shopDayRange(date: string, timeZone: string = DEFAULT_SHOP_TIMEZ
 
 调用点（全站）：
 
-| 位置 | 用途 |
-| --- | --- |
-| `slots.service.ts` | 枚举当天可约时段的日界、`assertGridAligned()` 的网格基准 |
-| `scheduling.service.ts` | `findDayConflicts()` / `findTemplateConflicts()` 的扫描区间 |
+| 位置                                    | 用途                                                                   |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| `slots.service.ts`                      | 枚举当天可约时段的日界、`assertGridAligned()` 的网格基准               |
+| `scheduling.service.ts`                 | `findDayConflicts()` / `findTemplateConflicts()` 的扫描区间            |
 | `common/query.ts` 的 `localDateRange()` | 所有列表的日期筛选（`from`/`to` 是本地日，右边界取 `to+1` 天的 00:00） |
-| `notices.service.ts` | `sendBookingReminders()` 取「明天」的区间 |
-| `bookings.service.ts` 的 `monthRange()` | 月度业绩按店内时区取月 |
+| `notices.service.ts`                    | `sendBookingReminders()` 取「明天」的区间                              |
+| `bookings.service.ts` 的 `monthRange()` | 月度业绩按店内时区取月                                                 |
 
 ### 跨夜班次怎么处理
 
@@ -321,7 +354,9 @@ if (minutes < 0 || minutes > 24 * 60 - 1) return null;
 
 ```ts
 if (timeToMinutes(startTime) >= timeToMinutes(endTime))
-  throw new BadRequestException(`星期${weekday} 的班次 ${startTime}-${endTime} 开始时间必须早于结束时间`);
+  throw new BadRequestException(
+    `星期${weekday} 的班次 ${startTime}-${endTime} 开始时间必须早于结束时间`,
+  );
 ```
 
 ::: danger 当前不支持跨夜班次

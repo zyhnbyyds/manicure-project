@@ -8,14 +8,14 @@ title: 预约主链路实现
 
 核心文件：
 
-| 文件 | 职责 |
-| --- | --- |
-| `src/modules/biz/booking/bookings.service.ts` | 创建 / 改期 / 状态流转 / 结算（1891 行，主逻辑） |
-| `src/modules/biz/booking/slots.service.ts` | 可约时段、冲突检测、锁、网格与班次校验 |
-| `src/modules/biz/booking/booking-settlement.service.ts` | **资金字段唯一重算入口** `recalc()` |
-| `src/modules/biz/common/ports.ts` | 端口（`BookingPort` / `SlotPort` / `SettlementPort` …）+ 状态枚举 |
-| `src/modules/biz/common/money.ts` | 算价 `quoteBooking()` / 定金 `calcDepositAmount()` / `sumDuration()` / `maxBuffer()` |
-| `src/modules/biz/base-data/service-items/` | 项目时长 `duration_minutes` 与缓冲 `buffer_minutes` 的来源 |
+| 文件                                                    | 职责                                                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `src/modules/biz/booking/bookings.service.ts`           | 创建 / 改期 / 状态流转 / 结算（1891 行，主逻辑）                                     |
+| `src/modules/biz/booking/slots.service.ts`              | 可约时段、冲突检测、锁、网格与班次校验                                               |
+| `src/modules/biz/booking/booking-settlement.service.ts` | **资金字段唯一重算入口** `recalc()`                                                  |
+| `src/modules/biz/common/ports.ts`                       | 端口（`BookingPort` / `SlotPort` / `SettlementPort` …）+ 状态枚举                    |
+| `src/modules/biz/common/money.ts`                       | 算价 `quoteBooking()` / 定金 `calcDepositAmount()` / `sumDuration()` / `maxBuffer()` |
+| `src/modules/biz/base-data/service-items/`              | 项目时长 `duration_minutes` 与缓冲 `buffer_minutes` 的来源                           |
 
 ## 一、可约时段算法
 
@@ -44,7 +44,10 @@ conflict = t < b.end_at + gap  &&  b.start_at < t + D + gap
 ```ts
 const conflict = existing.some((row) => {
   const gap = Math.max(bufferMinutes, row.bufferMinutes) * MINUTE_MS;
-  return t < row.endAt.getTime() + gap && row.startAt.getTime() < t + durationMs + gap;
+  return (
+    t < row.endAt.getTime() + gap &&
+    row.startAt.getTime() < t + durationMs + gap
+  );
 });
 if (conflict) continue;
 slots.push({
@@ -57,13 +60,13 @@ slots.push({
 
 `{ slots: [{ startAt, endAt }], reason?, durationMinutes, bufferMinutes }`，时间是**带偏移的 ISO8601**（如 `2026-09-11T10:00:00+08:00`）。
 
-| `reason` | 含义 |
-| --- | --- |
-| `staff_cannot_do` | 美甲师不能做所选项目 |
-| `out_of_window` | 超出 `biz.booking.maxAdvanceDays`（默认 30 天） |
-| `off` | 当天有 `off` 请假例外 |
-| `no_shift` | 没有任何班次段 |
-| `fully_booked` | 有班次但全部被占 |
+| `reason`          | 含义                                            |
+| ----------------- | ----------------------------------------------- |
+| `staff_cannot_do` | 美甲师不能做所选项目                            |
+| `out_of_window`   | 超出 `biz.booking.maxAdvanceDays`（默认 30 天） |
+| `off`             | 当天有 `off` 请假例外                           |
+| `no_shift`        | 没有任何班次段                                  |
+| `fully_booked`    | 有班次但全部被占                                |
 
 后端**必须返回 `reason`**，否则客服侧无法向顾客解释「为什么这天不能约」。
 
@@ -132,7 +135,9 @@ MySQL 默认 **REPEATABLE READ** 下，一致性读快照在事务里**第一条
 ```ts
 // src/modules/biz/booking/bookings.service.ts 的 update()
 const staffIds = [...new Set([staffId, current.staffId])].sort((a, b) => a - b);
-await tx.select({ id: bizStaffs.id }).from(bizStaffs)
+await tx
+  .select({ id: bizStaffs.id })
+  .from(bizStaffs)
   .where(inArray(bizStaffs.id, staffIds))
   .orderBy(asc(bizStaffs.id))
   .for('update');
@@ -145,12 +150,12 @@ await tx.select({ id: bizStaffs.id }).from(bizStaffs)
 
 `tests/integration/b1-booking.int.spec.ts` 的 `B1 并发与单号（§6.2）`：
 
-| 用例（行号） | 断言 |
-| --- | --- |
-| `并发 10 个同一美甲师同时段创建 → 恰好 1 个成功`（L227） | 10 个并发，恰好 1 个成功 |
-| `并发创建的单号唯一且格式为 B{yyyyMMdd}{id}`（L246） | 单号无重复 |
-| `同一时段已有预约 → 第二次创建 409`（L213） | 第二个请求 **409「该时段已被占用，请重新选择」** |
-| `对称性：先录 A 再录 B 与先录 B 再录 A，可约结果一致`（L183） | 缓冲只计一次且顺序无关 |
+| 用例（行号）                                                  | 断言                                             |
+| ------------------------------------------------------------- | ------------------------------------------------ |
+| `并发 10 个同一美甲师同时段创建 → 恰好 1 个成功`（L227）      | 10 个并发，恰好 1 个成功                         |
+| `并发创建的单号唯一且格式为 B{yyyyMMdd}{id}`（L246）          | 单号无重复                                       |
+| `同一时段已有预约 → 第二次创建 409`（L213）                   | 第二个请求 **409「该时段已被占用，请重新选择」** |
+| `对称性：先录 A 再录 B 与先录 B 再录 A，可约结果一致`（L183） | 缓冲只计一次且顺序无关                           |
 
 行为总结：**谁先拿到 `biz_staff` 行锁谁成功**；后到者等到锁释放后执行第 6 步复检，`findConflicts()` 返回非空 → `assertNoConflict()` 抛 `ConflictException('该时段已被占用，请重新选择')`。
 
@@ -163,10 +168,10 @@ await tx.select({ id: bizStaffs.id }).from(bizStaffs)
 ```ts
 const TRANSITIONS = {
   confirm: ['pending'],
-  arrive:  ['confirmed'],
-  complete:['arrived'],
+  arrive: ['confirmed'],
+  complete: ['arrived'],
   'no-show': ['confirmed'],
-  cancel:  ['pending', 'confirmed'],
+  cancel: ['pending', 'confirmed'],
 } as const satisfies Record<string, readonly BookingStatus[]>;
 ```
 
@@ -180,25 +185,34 @@ const TRANSITIONS = {
                       cancelled                                            (终态)
 ```
 
-| 动作 | 端点 | 权限点 |
-| --- | --- | --- |
-| confirm | `POST /biz/bookings/:id/confirm` | `biz:booking:update` |
-| arrive | `POST /biz/bookings/:id/arrive` | `biz:booking:arrive` |
+| 动作     | 端点                              | 权限点                 |
+| -------- | --------------------------------- | ---------------------- |
+| confirm  | `POST /biz/bookings/:id/confirm`  | `biz:booking:update`   |
+| arrive   | `POST /biz/bookings/:id/arrive`   | `biz:booking:arrive`   |
 | complete | `POST /biz/bookings/:id/complete` | `biz:booking:complete` |
-| no-show | `POST /biz/bookings/:id/no-show` | `biz:booking:noshow` |
-| cancel | `POST /biz/bookings/:id/cancel` | `biz:booking:cancel` |
+| no-show  | `POST /biz/bookings/:id/no-show`  | `biz:booking:noshow`   |
+| cancel   | `POST /biz/bookings/:id/cancel`   | `biz:booking:cancel`   |
 
 **每个动作是独立端点、独立权限点**，不做「一个 PATCH 改 status」。非法流转统一由条件更新兜底：
 
 ```ts
 // transition()：条件更新 + affectedRows 闸门
-const affected = await this.database.db.update(bizBookings)
+const affected = await this.database.db
+  .update(bizBookings)
   .set({ status: target, updatedBy: actorId, ...extra })
-  .where(and(eq(bizBookings.id, id), inArray(bizBookings.status, [...allowed]), isNull(bizBookings.deletedAt)));
+  .where(
+    and(
+      eq(bizBookings.id, id),
+      inArray(bizBookings.status, [...allowed]),
+      isNull(bizBookings.deletedAt),
+    ),
+  );
 if (!affected[0].affectedRows) {
-  const [exists] = await this.database.db.select({ status: bizBookings.status }) /* … */;
-  if (!exists) throw new NotFoundException('预约不存在');       // 404
-  throw new ConflictException(`当前状态（${exists.status}）不允许该操作`);  // 409
+  const [exists] = await this.database.db.select({
+    status: bizBookings.status,
+  }); /* … */
+  if (!exists) throw new NotFoundException('预约不存在'); // 404
+  throw new ConflictException(`当前状态（${exists.status}）不允许该操作`); // 409
 }
 ```
 
@@ -223,10 +237,12 @@ due_amount    = max(payable_amount − paid_amount, 0)
 
 ```ts
 if (paidAmount > 0 && refundAmount >= paidAmount) payStatus = 'refunded';
-else if (paidAmount >= booking.payableAmount)     payStatus = 'paid';    // 应付 0（次卡）也落 paid
-else if (booking.creditAccountId !== null)         payStatus = 'credit';  // 必须优先于 partial
-else if (paidAmount > 0)                           payStatus = 'partial';
-else                                               payStatus = 'unpaid';
+else if (paidAmount >= booking.payableAmount)
+  payStatus = 'paid'; // 应付 0（次卡）也落 paid
+else if (booking.creditAccountId !== null)
+  payStatus = 'credit'; // 必须优先于 partial
+else if (paidAmount > 0) payStatus = 'partial';
+else payStatus = 'unpaid';
 ```
 
 ::: danger 退款后的支付单也要计入 `paid_amount`
@@ -239,19 +255,19 @@ else                                               payStatus = 'unpaid';
 
 `BookingsService.create()` 的注释直接标了 `§9.5 九步`，代码里的分步注释是真实的：
 
-| 步骤 | 做什么 | 事务边界 |
-| --- | --- | --- |
-| **1** | Zod 校验入参（Controller 里的 `createSchema.parse(body)`） | 事务外 |
-| **2** | 前置校验**全部在事务外**：顾客/美甲师存在且启用、`serviceItemIds` 去重且 1~3 个、美甲师可做这些项目、提前期、改价权限与原因 | 事务外 |
-| **3** | 算 `D`/`B` 与全部金额（等级折扣 → 券 → 积分抵扣 → 改价 → 应付 → 定金） | 事务外 |
-| **4** | 校验 `startAt` 落在 `stepMinutes` 网格、在班次内、`startAt + D` 不超班次 | 事务外 |
-| **4.5** | 顾客同时段重叠**软检查**（`findCustomerOverlaps`，`force=true` 可覆盖） | 事务外 |
-| **4.6** | **渠道下单是网络 IO，必须在事务外先做完**（`payments.prepareChannelOrders()`） | 事务外 |
-| **5** | 开事务 → **第一条语句**锁美甲师行 `FOR UPDATE` | 事务 |
-| **6** | 冲突复检（查询带 `FOR UPDATE`） | 事务 |
-| **7** | 写 `biz_booking`（先 `tempDocNo()` 占位）→ 拿 `insertId` → `buildDocNo('B', id, tz)` 回填 `booking_no` → 写 `biz_booking_item` | 事务 |
-| **8** | 收款：扣积分 → 逐笔 `payments.createInTx` → 挂账 `credit.createFromBooking` → `settlement.recalc()` → 记录消费 | 事务 |
-| **9** | 提交事务 → **提交后**才发通知（`notices.send(...).catch(() => undefined)`） | 事务外 |
+| 步骤    | 做什么                                                                                                                         | 事务边界 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| **1**   | Zod 校验入参（Controller 里的 `createSchema.parse(body)`）                                                                     | 事务外   |
+| **2**   | 前置校验**全部在事务外**：顾客/美甲师存在且启用、`serviceItemIds` 去重且 1~3 个、美甲师可做这些项目、提前期、改价权限与原因    | 事务外   |
+| **3**   | 算 `D`/`B` 与全部金额（等级折扣 → 券 → 积分抵扣 → 改价 → 应付 → 定金）                                                         | 事务外   |
+| **4**   | 校验 `startAt` 落在 `stepMinutes` 网格、在班次内、`startAt + D` 不超班次                                                       | 事务外   |
+| **4.5** | 顾客同时段重叠**软检查**（`findCustomerOverlaps`，`force=true` 可覆盖）                                                        | 事务外   |
+| **4.6** | **渠道下单是网络 IO，必须在事务外先做完**（`payments.prepareChannelOrders()`）                                                 | 事务外   |
+| **5**   | 开事务 → **第一条语句**锁美甲师行 `FOR UPDATE`                                                                                 | 事务     |
+| **6**   | 冲突复检（查询带 `FOR UPDATE`）                                                                                                | 事务     |
+| **7**   | 写 `biz_booking`（先 `tempDocNo()` 占位）→ 拿 `insertId` → `buildDocNo('B', id, tz)` 回填 `booking_no` → 写 `biz_booking_item` | 事务     |
+| **8**   | 收款：扣积分 → 逐笔 `payments.createInTx` → 挂账 `credit.createFromBooking` → `settlement.recalc()` → 记录消费                 | 事务     |
+| **9**   | 提交事务 → **提交后**才发通知（`notices.send(...).catch(() => undefined)`）                                                    | 事务外   |
 
 > **步骤 2 为什么必须在事务外**：任何在 `FOR UPDATE` 之前的普通 `SELECT` 都会建立 RR 快照，让第 6 步复检失效。
 
@@ -308,27 +324,35 @@ else                                               payStatus = 'unpaid';
 
 **没有请求级幂等键字段**（`biz_booking` 上没有 `idempotency_key` 之类列）。幂等靠以下四层：
 
-| 层 | 机制 | 真实字段 / 写法 |
-| --- | --- | --- |
+| 层       | 机制                               | 真实字段 / 写法                                                                                    |
+| -------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
 | 状态流转 | **条件更新 + `affectedRows` 闸门** | `UPDATE … WHERE id=? AND status='arrived'`；`affectedRows=0` 视为已处理，直接 `{ changed: false }` |
-| 周期预约 | **唯一索引** | `uq_booking_recurrence_start` on `(recurrence_id, start_at)` —— 重复生成直接撞唯一键 |
-| 支付单 | **唯一索引** | `uq_payment_no`、`uq_payment_out_trade_no`（渠道单号） |
-| 通知提醒 | **业务去重查询** | `sendBookingReminders` 先查当天是否已有同 `(booking_id, template_code='booking_remind')` 的日志 |
+| 周期预约 | **唯一索引**                       | `uq_booking_recurrence_start` on `(recurrence_id, start_at)` —— 重复生成直接撞唯一键               |
+| 支付单   | **唯一索引**                       | `uq_payment_no`、`uq_payment_out_trade_no`（渠道单号）                                             |
+| 通知提醒 | **业务去重查询**                   | `sendBookingReminders` 先查当天是否已有同 `(booking_id, template_code='booking_remind')` 的日志    |
 
 ```ts
 // runComplete 的幂等闸门
-const affected = await tx.update(bizBookings)
+const affected = await tx
+  .update(bizBookings)
   .set({ status: 'completed', finishedAt: new Date(), updatedBy: actorId })
-  .where(and(eq(bizBookings.id, id), eq(bizBookings.status, 'arrived'), isNull(bizBookings.deletedAt)));
-if (!affected[0].affectedRows) return null;      // 别人已经改过，统计不双计
+  .where(
+    and(
+      eq(bizBookings.id, id),
+      eq(bizBookings.status, 'arrived'),
+      isNull(bizBookings.deletedAt),
+    ),
+  );
+if (!affected[0].affectedRows) return null; // 别人已经改过，统计不双计
 ```
 
 ::: warning 创建预约本身**不幂等**
 同一个 `POST /biz/bookings` 连发两次会**建两张单**（一笔是误录）。真正的重复保护是：
+
 - 顾客同时段软检查 → 409「该顾客此时段已有预约，确认重复录入请带 force=true」；
 - 美甲师时段硬冲突 → 409。
-前端提交按钮必须在请求期间禁用；不要指望后端去重。
-:::
+  前端提交按钮必须在请求期间禁用；不要指望后端去重。
+  :::
 
 `visit_count` / `last_visit_at` **只在状态真正变更时累加**，所以定时任务与手动「完成」不会双计。
 
@@ -345,20 +369,21 @@ await tx.update(bizBookings).set({ bookingNo }).where(eq(bizBookings.id, booking
 
 ## 六、改期 / 取消对钱的影响
 
-| 已发生的收款 | 改期（新应付变低） | 取消 |
-| --- | --- | --- |
-| 定金 | **不自动退**；返回 `warning` 提示去退款审批发起退款 | **不自动退**；同样提示 |
-| 尾款 | 同上，差额不退（**不做差额补收**） | 不自动退 |
-| 次卡核销 | `member_card_id` 保留；`useCard` 时 `payable = 0`，改期只改时长/时段。撤销核销走 `member-cards` 的撤销接口 | 不退次数（如需退卡走退卡流程） |
-| 挂账 | `credit_account_id` 保留；`pay_status` 由 `recalc()` 判为 `credit` | 已生成的 `biz_receivable` 需在挂账页作废 |
-| 积分抵扣 | 改期重算 `points_used`；结算时**只能增加**积分抵扣 | 积分回补走冲正流程，不自动回补 |
-| 提成 | — | 状态真变时 `reverseForBooking()` 冲销 |
+| 已发生的收款 | 改期（新应付变低）                                                                                         | 取消                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| 定金         | **不自动退**；返回 `warning` 提示去退款审批发起退款                                                        | **不自动退**；同样提示                   |
+| 尾款         | 同上，差额不退（**不做差额补收**）                                                                         | 不自动退                                 |
+| 次卡核销     | `member_card_id` 保留；`useCard` 时 `payable = 0`，改期只改时长/时段。撤销核销走 `member-cards` 的撤销接口 | 不退次数（如需退卡走退卡流程）           |
+| 挂账         | `credit_account_id` 保留；`pay_status` 由 `recalc()` 判为 `credit`                                         | 已生成的 `biz_receivable` 需在挂账页作废 |
+| 积分抵扣     | 改期重算 `points_used`；结算时**只能增加**积分抵扣                                                         | 积分回补走冲正流程，不自动回补           |
+| 提成         | —                                                                                                          | 状态真变时 `reverseForBooking()` 冲销    |
 
 ::: danger 三条资金红线
+
 1. **任何接口都不许自己写 `paid_amount` / `due_amount` / `pay_status` / `refund_amount` / `settled_at`**，一律 `settlement.recalc(tx, bookingId)`。
 2. **改期不做差额补收**：`paid > 新 payable` 时只返回 `warning`，差额必须走退款审批。理由：补收要走渠道回调，而差额可能来自优惠叠加，语义无法自动判定。
 3. **取消不回滚资金**：取消只改服务状态与冲销提成，退款/积分回补/次卡退回都由独立流程处理。
-:::
+   :::
 
 ### 作废单与收银台队列（`collectable`）
 
@@ -366,10 +391,10 @@ await tx.update(bizBookings).set({ bookingNo }).where(eq(bizBookings.id, booking
 
 所以「还能不能收钱」必须同时看两个状态机，服务端把它收进一个常量 `UNSETTLEABLE_BOOKING_STATUSES = ['cancelled','no_show']`（`bookings.service.ts`），两处共用：
 
-| 用处 | 行为 |
-| --- | --- |
-| `applySettlement` 闸门 | 命中直接 409「已取消 / 爽约的预约不能结算」 |
-| 列表 `GET /biz/bookings?collectable=true` | `notInArray(status, …)`，把这类单排掉 |
+| 用处                                      | 行为                                        |
+| ----------------------------------------- | ------------------------------------------- |
+| `applySettlement` 闸门                    | 命中直接 409「已取消 / 爽约的预约不能结算」 |
+| 列表 `GET /biz/bookings?collectable=true` | `notInArray(status, …)`，把这类单排掉       |
 
 - **收银台队列必须带 `collectable=true`**（三个 `payStatus` 分组各带一次）。不带就会把作废单列进「待收款」，店员点「去收款」只能拿到 409 —— 真实的坑，验收用例在 `tests/integration/b1-booking.int.spec.ts` 的「收银台队列：作废单不进队」。
 - **预约列表页不传**这个参数：它必须能查历史取消单（列表过滤是 opt-in 的，不要改成默认排除）。
@@ -379,22 +404,22 @@ await tx.update(bizBookings).set({ bookingNo }).where(eq(bizBookings.id, booking
 
 定义在 `src/database/schema/index.ts`（drizzle 变量 → 真实表名）：
 
-| drizzle 变量 | 表名 | 与预约主链路相关的关键字段 |
-| --- | --- | --- |
-| `bizBookings` | `biz_booking` | `booking_no`(uq) / `customer_id` / `staff_id` / `start_at` / `end_at`(不含缓冲) / `duration_minutes` / `buffer_minutes` / `original_price` / `level_discount_permille` / `level_discount_amount` / `coupon_id` / `coupon_discount_amount` / `points_discount_amount` / `adjust_amount` / `adjust_reason` / `payable_amount` / `deposit_amount` / `paid_amount` / `due_amount` / `pay_status` / `pay_channel_summary` / `settled_at` / `credit_account_id` / `recurrence_id` / `member_card_id` / `refund_amount` / `refunded_at` / `status` / `channel`(`admin`\|`miniapp`) / `customer_name` / `customer_phone` / `cancel_reason` / `confirmed_at` / `arrived_at` / `finished_at` / `cancelled_at` + `auditColumns` |
-| `bizBookingItems` | `biz_booking_item` | `booking_id` / `service_item_id` / `name`(快照) / `duration_minutes`(快照) / `price`(快照) / `sort`；**不套 `auditColumns`**（从属子表豁免） |
-| `bizStaffs` | `biz_staff` | 冲突锁的对象：`SELECT … FOR UPDATE` 锁这一行 |
-| `bizStaffWeeklyShifts` | `biz_staff_weekly_shift` | 周模板，可约时段取班次用（**物理删表**） |
-| `bizStaffScheduleOverrides` | `biz_staff_schedule_override` | 日期例外 `off`/`custom`（**物理删表**） |
-| `bizServiceItems` | `biz_service_item` | `duration_minutes` → `D`；`buffer_minutes` → `B` |
-| `bizStaffServiceItems` | `biz_staff_service_item` | 美甲师可做项目；空集合 = 可做全部 |
-| `bizPayments` | `biz_payment` | `purpose`(`deposit`\|`final`\|`recharge`\|`card_buy`\|`credit_settle`) / `channel` / `amount` / `received_amount` / `status` / `out_trade_no`(uq) |
-| `bizRefunds` | `biz_refund` | `actual_amount` 计入 `refund_amount` |
-| `bizCustomers` | `biz_customer` | `level_id` / `points` / `balance_principal` / `balance_bonus` / `visit_count` / `last_visit_at` |
-| `bizMemberCards` | `biz_member_card` | 次卡核销（`member_card_id`） |
-| `bizCreditAccounts` / `bizReceivables` | `biz_credit_account` / `biz_receivable` | 挂账主体与应收单（`pay_status='credit'` 的对应物） |
-| `bizBookingRecurrences` | `biz_booking_recurrence` | 周期规则；`uq_booking_recurrence_start` 是生成幂等的关键 |
-| `bizCommissionRecords` | `biz_commission_record` | 完成时计提、取消时冲销 |
+| drizzle 变量                           | 表名                                    | 与预约主链路相关的关键字段                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bizBookings`                          | `biz_booking`                           | `booking_no`(uq) / `customer_id` / `staff_id` / `start_at` / `end_at`(不含缓冲) / `duration_minutes` / `buffer_minutes` / `original_price` / `level_discount_permille` / `level_discount_amount` / `coupon_id` / `coupon_discount_amount` / `points_discount_amount` / `adjust_amount` / `adjust_reason` / `payable_amount` / `deposit_amount` / `paid_amount` / `due_amount` / `pay_status` / `pay_channel_summary` / `settled_at` / `credit_account_id` / `recurrence_id` / `member_card_id` / `refund_amount` / `refunded_at` / `status` / `channel`(`admin`\|`miniapp`) / `customer_name` / `customer_phone` / `cancel_reason` / `confirmed_at` / `arrived_at` / `finished_at` / `cancelled_at` + `auditColumns` |
+| `bizBookingItems`                      | `biz_booking_item`                      | `booking_id` / `service_item_id` / `name`(快照) / `duration_minutes`(快照) / `price`(快照) / `sort`；**不套 `auditColumns`**（从属子表豁免）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `bizStaffs`                            | `biz_staff`                             | 冲突锁的对象：`SELECT … FOR UPDATE` 锁这一行                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `bizStaffWeeklyShifts`                 | `biz_staff_weekly_shift`                | 周模板，可约时段取班次用（**物理删表**）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `bizStaffScheduleOverrides`            | `biz_staff_schedule_override`           | 日期例外 `off`/`custom`（**物理删表**）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `bizServiceItems`                      | `biz_service_item`                      | `duration_minutes` → `D`；`buffer_minutes` → `B`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `bizStaffServiceItems`                 | `biz_staff_service_item`                | 美甲师可做项目；空集合 = 可做全部                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `bizPayments`                          | `biz_payment`                           | `purpose`(`deposit`\|`final`\|`recharge`\|`card_buy`\|`credit_settle`) / `channel` / `amount` / `received_amount` / `status` / `out_trade_no`(uq)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `bizRefunds`                           | `biz_refund`                            | `actual_amount` 计入 `refund_amount`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `bizCustomers`                         | `biz_customer`                          | `level_id` / `points` / `balance_principal` / `balance_bonus` / `visit_count` / `last_visit_at`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `bizMemberCards`                       | `biz_member_card`                       | 次卡核销（`member_card_id`）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `bizCreditAccounts` / `bizReceivables` | `biz_credit_account` / `biz_receivable` | 挂账主体与应收单（`pay_status='credit'` 的对应物）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `bizBookingRecurrences`                | `biz_booking_recurrence`                | 周期规则；`uq_booking_recurrence_start` 是生成幂等的关键                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `bizCommissionRecords`                 | `biz_commission_record`                 | 完成时计提、取消时冲销                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 关键索引：`idx_booking_staff_time(staff_id, start_at, end_at)` 支撑冲突查询与可约时段；`idx_booking_status_start` / `idx_booking_status_end` 支撑定时任务。
 

@@ -83,7 +83,13 @@ definePage({
   onPickStar(event: WechatMiniprogram.TouchEvent) {
     const rating = Number(event.currentTarget.dataset.value);
     const text =
-      rating >= 5 ? '非常满意' : rating === 4 ? '还不错' : rating === 3 ? '一般' : '不太满意';
+      rating >= 5
+        ? '非常满意'
+        : rating === 4
+          ? '还不错'
+          : rating === 3
+            ? '一般'
+            : '不太满意';
     this.setData({ rating, ratingText: text });
   },
 
@@ -131,7 +137,9 @@ definePage({
       return;
     }
     // 快捷标签拼进评价内容：后端 `content` 是自由文本，没有标签字段
-    const pickedTags = this.data.tags.filter((item) => item.checked).map((item) => item.label);
+    const pickedTags = this.data.tags
+      .filter((item) => item.checked)
+      .map((item) => item.label);
     const content = [pickedTags.join('、'), this.data.content.trim()]
       .filter((part) => part.length > 0)
       .join('；');

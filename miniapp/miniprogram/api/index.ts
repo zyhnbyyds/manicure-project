@@ -304,7 +304,9 @@ export const shopApi = {
  * 「匿名」是当着顾客的面做出的承诺，前端不许偷偷带上手机号。
  */
 export const feedbackApi = {
-  submit(payload: CreateFeedbackRequest): Promise<{ id: number; anonymous: boolean }> {
+  submit(
+    payload: CreateFeedbackRequest,
+  ): Promise<{ id: number; anonymous: boolean }> {
     return request<{ id: number; anonymous: boolean }>({
       path: '/app/feedback',
       method: 'POST',

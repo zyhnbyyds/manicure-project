@@ -24,11 +24,7 @@ import {
   LewTable,
   LewTabs,
 } from 'lew-ui';
-import type {
-  LewFormOption,
-  LewTableColumn,
-  LewTabsOption,
-} from 'lew-ui';
+import type { LewFormOption, LewTableColumn, LewTabsOption } from 'lew-ui';
 import { withPassThroughRule } from '~/utils/form';
 import type { PageResult } from '~/types/api';
 import {
@@ -1270,8 +1266,8 @@ const balanceTotal = computed(
               title="充值"
               @click="handleRowRecharge(row as unknown as Member)"
             >
-              <Wallet :size="14" />
-            </IconButton><IconButton
+              <Wallet :size="14" /> </IconButton
+            ><IconButton
               permission="biz:member:coupon"
               title="发券"
               @click="openCoupon(row as unknown as Member)"
@@ -1570,38 +1566,40 @@ const balanceTotal = computed(
           v-model="rechargeForm"
           label-width="110px"
           @change="onRechargeChange"
-          :options="withPassThroughRule([
-            {
-              field: 'planId',
-              label: '充值方案',
-              as: 'select',
-              props: {
-                options: rechargePlanOptions,
-                placeholder: '选择方案，或留空自定义金额',
-                clearable: true,
+          :options="
+            withPassThroughRule([
+              {
+                field: 'planId',
+                label: '充值方案',
+                as: 'select',
+                props: {
+                  options: rechargePlanOptions,
+                  placeholder: '选择方案，或留空自定义金额',
+                  clearable: true,
+                },
               },
-            },
-            {
-              field: 'payAmount',
-              label: '自定义实付(元)',
-              as: 'input-number',
-              props: { min: 0, placeholder: '不走方案时填写' },
-            },
-            {
-              field: 'payChannel',
-              label: '收款方式',
-              as: 'select',
-              rule: `Yup.string().required('不能为空')`,
-              props: { options: rechargeChannelOptions },
-            },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '充值备注（必填）', rows: 2 },
-            },
-          ])"
+              {
+                field: 'payAmount',
+                label: '自定义实付(元)',
+                as: 'input-number',
+                props: { min: 0, placeholder: '不走方案时填写' },
+              },
+              {
+                field: 'payChannel',
+                label: '收款方式',
+                as: 'select',
+                rule: `Yup.string().required('不能为空')`,
+                props: { options: rechargeChannelOptions },
+              },
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '充值备注（必填）', rows: 2 },
+              },
+            ])
+          "
         />
         <div
           class="mt-3 rounded-8px border border-[var(--app-border)] p-3 text-13px"
@@ -1673,29 +1671,31 @@ const balanceTotal = computed(
           ref="refundFormRef"
           v-model="refundForm"
           label-width="110px"
-          :options="withPassThroughRule([
-            {
-              field: 'amount',
-              label: '退款金额(元)',
-              as: 'input-number',
-              rule: `Yup.number().required('不能为空')`,
-              props: { min: 0 },
-            },
-            {
-              field: 'mode',
-              label: '退款去向',
-              as: 'select',
-              rule: `Yup.string().required('不能为空')`,
-              props: { options: refundModeOptions },
-            },
-            {
-              field: 'reason',
-              label: '退款原因',
-              as: 'textarea',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '冲正原因（必填）', rows: 2 },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'amount',
+                label: '退款金额(元)',
+                as: 'input-number',
+                rule: `Yup.number().required('不能为空')`,
+                props: { min: 0 },
+              },
+              {
+                field: 'mode',
+                label: '退款去向',
+                as: 'select',
+                rule: `Yup.string().required('不能为空')`,
+                props: { options: refundModeOptions },
+              },
+              {
+                field: 'reason',
+                label: '退款原因',
+                as: 'textarea',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '冲正原因（必填）', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>
@@ -1739,32 +1739,34 @@ const balanceTotal = computed(
           ref="adjustFormRef"
           v-model="adjustForm"
           label-width="110px"
-          :options="withPassThroughRule([
-            {
-              field: 'levelId',
-              label: '目标等级',
-              as: 'select',
-              rule: 'Yup.string().nullable()',
-              props: {
-                options: levelOptions,
-                placeholder: '不调级则留空',
-                clearable: true,
+          :options="
+            withPassThroughRule([
+              {
+                field: 'levelId',
+                label: '目标等级',
+                as: 'select',
+                rule: 'Yup.string().nullable()',
+                props: {
+                  options: levelOptions,
+                  placeholder: '不调级则留空',
+                  clearable: true,
+                },
               },
-            },
-            {
-              field: 'pointsDelta',
-              label: '积分增减',
-              as: 'input-number',
-              props: { placeholder: '可正可负，如 -100' },
-            },
-            {
-              field: 'reason',
-              label: '调整原因',
-              as: 'textarea',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '手工调整原因（必填）', rows: 2 },
-            },
-          ])"
+              {
+                field: 'pointsDelta',
+                label: '积分增减',
+                as: 'input-number',
+                props: { placeholder: '可正可负，如 -100' },
+              },
+              {
+                field: 'reason',
+                label: '调整原因',
+                as: 'textarea',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '手工调整原因（必填）', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>
@@ -1803,15 +1805,17 @@ const balanceTotal = computed(
           ref="enrollFormRef"
           v-model="enrollForm"
           label-width="90px"
-          :options="withPassThroughRule([
-            {
-              field: 'customerId',
-              label: '顾客 ID',
-              as: 'input-number',
-              rule: `Yup.number().required('不能为空')`,
-              props: { min: 1, placeholder: '已有顾客档案的 ID' },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'customerId',
+                label: '顾客 ID',
+                as: 'input-number',
+                rule: `Yup.number().required('不能为空')`,
+                props: { min: 1, placeholder: '已有顾客档案的 ID' },
+              },
+            ])
+          "
         />
         <p class="page-subtitle mb-0 mt-3">
           顾客必须已有手机号（会员的必填锚点）；入会后等级置为最低启用等级。
@@ -1854,37 +1858,39 @@ const balanceTotal = computed(
           v-model="issueForm"
           label-width="110px"
           @change="onIssueChange"
-          :options="withPassThroughRule([
-            {
-              field: 'cardTypeId',
-              label: '卡种',
-              as: 'select',
-              rule: `Yup.string().required('不能为空')`,
-              props: {
-                options: cardTypeOptions,
-                placeholder: '请选择卡种',
+          :options="
+            withPassThroughRule([
+              {
+                field: 'cardTypeId',
+                label: '卡种',
+                as: 'select',
+                rule: `Yup.string().required('不能为空')`,
+                props: {
+                  options: cardTypeOptions,
+                  placeholder: '请选择卡种',
+                },
               },
-            },
-            {
-              field: 'payChannel',
-              label: '支付方式',
-              as: 'select',
-              rule: `Yup.string().required('不能为空')`,
-              props: { options: cardPayChannelOptions },
-            },
-            {
-              field: 'price',
-              label: '购卡价(元)',
-              as: 'input-number',
-              props: { min: 0, placeholder: '不填取卡种售价' },
-            },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              props: { placeholder: '选填', rows: 2 },
-            },
-          ])"
+              {
+                field: 'payChannel',
+                label: '支付方式',
+                as: 'select',
+                rule: `Yup.string().required('不能为空')`,
+                props: { options: cardPayChannelOptions },
+              },
+              {
+                field: 'price',
+                label: '购卡价(元)',
+                as: 'input-number',
+                props: { min: 0, placeholder: '不填取卡种售价' },
+              },
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                props: { placeholder: '选填', rows: 2 },
+              },
+            ])
+          "
         />
         <p class="page-subtitle mb-0 mt-3">
           卡种默认售价 ¥{{
@@ -1935,24 +1941,26 @@ const balanceTotal = computed(
           v-model="redeemForm"
           label-width="110px"
           @change="onRedeemChange"
-          :options="withPassThroughRule([
-            {
-              field: 'goodsId',
-              label: '兑换品',
-              as: 'select',
-              rule: `Yup.string().required('不能为空')`,
-              props: {
-                options: pointsGoodsOptions,
-                placeholder: '请选择兑换品',
+          :options="
+            withPassThroughRule([
+              {
+                field: 'goodsId',
+                label: '兑换品',
+                as: 'select',
+                rule: `Yup.string().required('不能为空')`,
+                props: {
+                  options: pointsGoodsOptions,
+                  placeholder: '请选择兑换品',
+                },
               },
-            },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              props: { placeholder: '选填', rows: 2 },
-            },
-          ])"
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                props: { placeholder: '选填', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>
@@ -1970,19 +1978,21 @@ const balanceTotal = computed(
           ref="pointsPreviewFormRef"
           v-model="pointsPreviewForm"
           label-width="110px"
-          :options="withPassThroughRule([
-            {
-              field: 'serviceItemIds',
-              label: '服务项目',
-              as: 'select',
-              rule: `Yup.array().min(1, '至少选择 1 个项目').max(3, '最多选择 3 个项目')`,
-              props: {
-                options: serviceItemOptions,
-                multiple: true,
-                placeholder: '选择本单项目（可多选）',
+          :options="
+            withPassThroughRule([
+              {
+                field: 'serviceItemIds',
+                label: '服务项目',
+                as: 'select',
+                rule: `Yup.array().min(1, '至少选择 1 个项目').max(3, '最多选择 3 个项目')`,
+                props: {
+                  options: serviceItemOptions,
+                  multiple: true,
+                  placeholder: '选择本单项目（可多选）',
+                },
               },
-            },
-          ])"
+            ])
+          "
         />
         <div class="mt-3 flex items-center gap-2">
           <LewButton

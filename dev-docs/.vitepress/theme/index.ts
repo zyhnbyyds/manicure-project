@@ -1,10 +1,10 @@
-import { inBrowser, useData } from 'vitepress'
-import DefaultTheme from 'vitepress/theme'
-import { nextTick, onMounted, watch } from 'vue'
-import './custom.css'
+import { inBrowser, useData } from 'vitepress';
+import DefaultTheme from 'vitepress/theme';
+import { nextTick, onMounted, watch } from 'vue';
+import './custom.css';
 
 /** Mermaid 只在浏览器里初始化一次；SSR 阶段完全不加载它 */
-let mermaidLoader: Promise<typeof import('mermaid').default> | null = null
+let mermaidLoader: Promise<typeof import('mermaid').default> | null = null;
 
 function loadMermaid() {
   mermaidLoader ??= import('mermaid').then(({ default: mermaid }) => {
@@ -15,10 +15,10 @@ function loadMermaid() {
       securityLevel: 'strict',
       theme: 'neutral',
       fontFamily: 'inherit',
-    })
-    return mermaid
-  })
-  return mermaidLoader
+    });
+    return mermaid;
+  });
+  return mermaidLoader;
 }
 
 /**
@@ -26,20 +26,22 @@ function loadMermaid() {
  * VitePress 是 SPA，路由切换后新页面的图需要重新跑一次，所以挂在 watch 上。
  */
 async function renderMermaid() {
-  if (!inBrowser) return
-  await nextTick()
-  const pending = document.querySelectorAll('pre.mermaid:not([data-processed])')
-  if (pending.length === 0) return
-  const mermaid = await loadMermaid()
+  if (!inBrowser) return;
+  await nextTick();
+  const pending = document.querySelectorAll(
+    'pre.mermaid:not([data-processed])',
+  );
+  if (pending.length === 0) return;
+  const mermaid = await loadMermaid();
   // mermaid.run 会自行把 pre.mermaid 替换成 <svg>，并打上 data-processed
-  await mermaid.run({ nodes: Array.from(pending) })
+  await mermaid.run({ nodes: Array.from(pending) });
 }
 
 export default {
   extends: DefaultTheme,
   setup() {
-    const { page } = useData()
-    onMounted(renderMermaid)
-    watch(() => page.value.relativePath, renderMermaid)
+    const { page } = useData();
+    onMounted(renderMermaid);
+    watch(() => page.value.relativePath, renderMermaid);
   },
-}
+};

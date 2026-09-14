@@ -222,7 +222,8 @@ function openEdit(row: CouponTemplate) {
 async function handleSubmit() {
   const valid = await formRef.value?.validate();
   if (!valid) return;
-  const values = (formRef.value?.getForm?.() ?? form.value) as typeof form.value;
+  const values = (formRef.value?.getForm?.() ??
+    form.value) as typeof form.value;
 
   const discountAmount = yuanToFen(values.discountYuan);
   const thresholdAmount = yuanToFen(values.thresholdYuan);

@@ -18,34 +18,34 @@ title: 后台页面与权限点清单
 
 顺序 = `BIZ_PAGES` 数组顺序 = 菜单 `sort`。
 
-| # | 菜单名 | 路由路径 | 页面文件 | 中文名称 | 页面权限点 | 按钮权限点 |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | `biz_service_items` | `/biz/service-items` | `web/src/views/biz/service-items/index.vue` | 服务项目 | `biz:serviceitem:list` | `biz:serviceitem:create` / `:update` / `:delete` |
-| 2 | `biz_staffs` | `/biz/staffs` | `web/src/views/biz/staffs/index.vue` | 美甲师 | `biz:staff:list` | `biz:staff:create` / `:update` / `:delete` / `:items` |
-| 3 | `biz_app_staff_grants` | `/biz/app-staff-grants` | `web/src/views/biz/app-staff-grants/index.vue` | 工作台授权 | `biz:staff:grant` | 无（一个权限点管整页：列表 + 通过 + 驳回） |
-| 4 | `biz_schedules` | `/biz/schedules` | `web/src/views/biz/schedules/index.vue` | 排班管理 | `biz:schedule:list` | `biz:schedule:update` |
-| 5 | `biz_customers` | `/biz/customers` | `web/src/views/biz/customers/index.vue` | 顾客档案 | `biz:customer:list` | `biz:customer:create` / `:update` / `:delete` |
-| 6 | `biz_bookings` | `/biz/bookings` | `web/src/views/biz/bookings/index.vue` | 预约管理 | `biz:booking:list` | `biz:booking:create` / `:update` / `:cancel` / `:arrive` / `:complete` / `:noshow` / `:delete` / `:manageall` / `:adjust` |
-| 7 | `biz_member_levels` | `/biz/member-levels` | `web/src/views/biz/member-levels/index.vue` | 会员等级 | `biz:memberlevel:list` | `biz:memberlevel:create` / `:update` / `:delete` |
-| 8 | `biz_recharge_plans` | `/biz/recharge-plans` | `web/src/views/biz/recharge-plans/index.vue` | 充值方案 | `biz:rechargeplan:list` | `biz:rechargeplan:create` / `:update` / `:delete` |
-| 9 | `biz_card_types` | `/biz/card-types` | `web/src/views/biz/card-types/index.vue` | 次卡卡种 | `biz:cardtype:list` | `biz:cardtype:create` / `:update` / `:delete` |
-| 10 | `biz_members` | `/biz/members` | `web/src/views/biz/members/index.vue` | 会员管理 | `biz:member:list` | `biz:member:update` / `:adjust` / `:recount` / `:recharge` / `:refund` / `:coupon`；`biz:card:issue` / `biz:card:use` |
-| 11 | `biz_member_cards` | `/biz/member-cards` | `web/src/views/biz/member-cards/index.vue` | 会员次卡 | `biz:card:list` | `biz:card:revoke` / `:refund` |
-| 12 | `biz_cashier` | `/biz/cashier` | `web/src/views/biz/cashier/index.vue` | 收银台 | **未单独设权限点**（见下） | `biz:payment:create` / `:close`；`biz:refund:apply`；`biz:receivable:settle` |
-| 13 | `biz_payments` | `/biz/payments` | `web/src/views/biz/payments/index.vue` | 支付流水 | `biz:payment:list` | `biz:payment:reconcile` |
-| 14 | `biz_refunds` | `/biz/refunds` | `web/src/views/biz/refunds/index.vue` | 退款审批 | `biz:refund:list` | `biz:refund:approve` |
-| 15 | `biz_payment_diffs` | `/biz/payment-diffs` | `web/src/views/biz/payment-diffs/index.vue` | 支付对账 | **未单独设权限点**（见下） | 无（`biz:payment:reconcile` 已挂在「支付流水」下） |
-| 16 | `biz_credit_accounts` | `/biz/credit-accounts` | `web/src/views/biz/credit-accounts/index.vue` | 挂账主体 | `biz:credit:list` | `biz:credit:create` / `:update` / `:delete` |
-| 17 | `biz_receivables` | `/biz/receivables` | `web/src/views/biz/receivables/index.vue` | 应收台账 | `biz:receivable:list` | `biz:receivable:settle` / `:cancel` |
-| 18 | `biz_points_goods` | `/biz/points-goods` | `web/src/views/biz/points-goods/index.vue` | 积分兑换品 | `biz:pointsgoods:list` | `biz:pointsgoods:create` / `:update` / `:delete`；`biz:points:redeem` / `:revert` |
-| 19 | `biz_coupons` | `/biz/coupons` | `web/src/views/biz/coupons/index.vue` | 优惠券模板 | `biz:coupon:list` | `biz:coupon:create` / `:update` / `:delete` |
-| 20 | `biz_reviews` | `/biz/reviews` | `web/src/views/biz/reviews/index.vue` | 评价管理 | `biz:review:list` | `biz:review:create` / `:reply` / `:hide` / `:delete` |
-| 21 | `biz_reports` | `/biz/reports` | `web/src/views/biz/reports/index.vue` | 报表中心 | `biz:report:view` | `biz:report:export` |
-| 22 | `biz_commission_rules` | `/biz/commission-rules` | `web/src/views/biz/commission-rules/index.vue` | 提成规则 | **未单独设权限点**（见下） | `biz:commission:rule` |
-| 23 | `biz_commission_records` | `/biz/commission-records` | `web/src/views/biz/commission-records/index.vue` | 提成结算 | `biz:commission:list` | `biz:commission:settle` |
-| 24 | `biz_recurrences` | `/biz/recurrences` | `web/src/views/biz/recurrences/index.vue` | 周期预约 | `biz:recurrence:list` | `biz:recurrence:create` / `:update` / `:delete` |
-| 25 | `biz_notice_templates` | `/biz/notice-templates` | `web/src/views/biz/notice-templates/index.vue` | 通知模板 | `biz:notice:template` | `biz:notice:send`（`biz:notice:template` 已作页面权限，按钮行被去重跳过） |
-| 26 | `biz_notice_logs` | `/biz/notice-logs` | `web/src/views/biz/notice-logs/index.vue` | 通知记录 | `biz:notice:log` | 无 |
+| #   | 菜单名                   | 路由路径                  | 页面文件                                         | 中文名称   | 页面权限点                 | 按钮权限点                                                                                                                |
+| --- | ------------------------ | ------------------------- | ------------------------------------------------ | ---------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `biz_service_items`      | `/biz/service-items`      | `web/src/views/biz/service-items/index.vue`      | 服务项目   | `biz:serviceitem:list`     | `biz:serviceitem:create` / `:update` / `:delete`                                                                          |
+| 2   | `biz_staffs`             | `/biz/staffs`             | `web/src/views/biz/staffs/index.vue`             | 美甲师     | `biz:staff:list`           | `biz:staff:create` / `:update` / `:delete` / `:items`                                                                     |
+| 3   | `biz_app_staff_grants`   | `/biz/app-staff-grants`   | `web/src/views/biz/app-staff-grants/index.vue`   | 工作台授权 | `biz:staff:grant`          | 无（一个权限点管整页：列表 + 通过 + 驳回）                                                                                |
+| 4   | `biz_schedules`          | `/biz/schedules`          | `web/src/views/biz/schedules/index.vue`          | 排班管理   | `biz:schedule:list`        | `biz:schedule:update`                                                                                                     |
+| 5   | `biz_customers`          | `/biz/customers`          | `web/src/views/biz/customers/index.vue`          | 顾客档案   | `biz:customer:list`        | `biz:customer:create` / `:update` / `:delete`                                                                             |
+| 6   | `biz_bookings`           | `/biz/bookings`           | `web/src/views/biz/bookings/index.vue`           | 预约管理   | `biz:booking:list`         | `biz:booking:create` / `:update` / `:cancel` / `:arrive` / `:complete` / `:noshow` / `:delete` / `:manageall` / `:adjust` |
+| 7   | `biz_member_levels`      | `/biz/member-levels`      | `web/src/views/biz/member-levels/index.vue`      | 会员等级   | `biz:memberlevel:list`     | `biz:memberlevel:create` / `:update` / `:delete`                                                                          |
+| 8   | `biz_recharge_plans`     | `/biz/recharge-plans`     | `web/src/views/biz/recharge-plans/index.vue`     | 充值方案   | `biz:rechargeplan:list`    | `biz:rechargeplan:create` / `:update` / `:delete`                                                                         |
+| 9   | `biz_card_types`         | `/biz/card-types`         | `web/src/views/biz/card-types/index.vue`         | 次卡卡种   | `biz:cardtype:list`        | `biz:cardtype:create` / `:update` / `:delete`                                                                             |
+| 10  | `biz_members`            | `/biz/members`            | `web/src/views/biz/members/index.vue`            | 会员管理   | `biz:member:list`          | `biz:member:update` / `:adjust` / `:recount` / `:recharge` / `:refund` / `:coupon`；`biz:card:issue` / `biz:card:use`     |
+| 11  | `biz_member_cards`       | `/biz/member-cards`       | `web/src/views/biz/member-cards/index.vue`       | 会员次卡   | `biz:card:list`            | `biz:card:revoke` / `:refund`                                                                                             |
+| 12  | `biz_cashier`            | `/biz/cashier`            | `web/src/views/biz/cashier/index.vue`            | 收银台     | **未单独设权限点**（见下） | `biz:payment:create` / `:close`；`biz:refund:apply`；`biz:receivable:settle`                                              |
+| 13  | `biz_payments`           | `/biz/payments`           | `web/src/views/biz/payments/index.vue`           | 支付流水   | `biz:payment:list`         | `biz:payment:reconcile`                                                                                                   |
+| 14  | `biz_refunds`            | `/biz/refunds`            | `web/src/views/biz/refunds/index.vue`            | 退款审批   | `biz:refund:list`          | `biz:refund:approve`                                                                                                      |
+| 15  | `biz_payment_diffs`      | `/biz/payment-diffs`      | `web/src/views/biz/payment-diffs/index.vue`      | 支付对账   | **未单独设权限点**（见下） | 无（`biz:payment:reconcile` 已挂在「支付流水」下）                                                                        |
+| 16  | `biz_credit_accounts`    | `/biz/credit-accounts`    | `web/src/views/biz/credit-accounts/index.vue`    | 挂账主体   | `biz:credit:list`          | `biz:credit:create` / `:update` / `:delete`                                                                               |
+| 17  | `biz_receivables`        | `/biz/receivables`        | `web/src/views/biz/receivables/index.vue`        | 应收台账   | `biz:receivable:list`      | `biz:receivable:settle` / `:cancel`                                                                                       |
+| 18  | `biz_points_goods`       | `/biz/points-goods`       | `web/src/views/biz/points-goods/index.vue`       | 积分兑换品 | `biz:pointsgoods:list`     | `biz:pointsgoods:create` / `:update` / `:delete`；`biz:points:redeem` / `:revert`                                         |
+| 19  | `biz_coupons`            | `/biz/coupons`            | `web/src/views/biz/coupons/index.vue`            | 优惠券模板 | `biz:coupon:list`          | `biz:coupon:create` / `:update` / `:delete`                                                                               |
+| 20  | `biz_reviews`            | `/biz/reviews`            | `web/src/views/biz/reviews/index.vue`            | 评价管理   | `biz:review:list`          | `biz:review:create` / `:reply` / `:hide` / `:delete`                                                                      |
+| 21  | `biz_reports`            | `/biz/reports`            | `web/src/views/biz/reports/index.vue`            | 报表中心   | `biz:report:view`          | `biz:report:export`                                                                                                       |
+| 22  | `biz_commission_rules`   | `/biz/commission-rules`   | `web/src/views/biz/commission-rules/index.vue`   | 提成规则   | **未单独设权限点**（见下） | `biz:commission:rule`                                                                                                     |
+| 23  | `biz_commission_records` | `/biz/commission-records` | `web/src/views/biz/commission-records/index.vue` | 提成结算   | `biz:commission:list`      | `biz:commission:settle`                                                                                                   |
+| 24  | `biz_recurrences`        | `/biz/recurrences`        | `web/src/views/biz/recurrences/index.vue`        | 周期预约   | `biz:recurrence:list`      | `biz:recurrence:create` / `:update` / `:delete`                                                                           |
+| 25  | `biz_notice_templates`   | `/biz/notice-templates`   | `web/src/views/biz/notice-templates/index.vue`   | 通知模板   | `biz:notice:template`      | `biz:notice:send`（`biz:notice:template` 已作页面权限，按钮行被去重跳过）                                                 |
+| 26  | `biz_notice_logs`        | `/biz/notice-logs`        | `web/src/views/biz/notice-logs/index.vue`        | 通知记录   | `biz:notice:log`           | 无                                                                                                                        |
 
 ### 三个「未单独设权限点」的页面是怎么回事
 
@@ -62,11 +62,11 @@ const claimed = new Set<string>();
 
 具体后果：
 
-| 页面 | 原本声明的页面权限点 | 实际结果 |
-| --- | --- | --- |
-| `biz_cashier` | 故意留空 | `sys_menu.permission = NULL` —— 资金动作全部由三个按钮权限点控制（`biz:payment:create` / `close`、`biz:refund:apply`、`biz:receivable:settle`） |
-| `biz_payment_diffs` | `biz:payment:reconcile` | 该点已被 **`biz_payments` 的按钮行**占用 → 页面 permission 被清空、按钮行被跳过 → `NULL` |
-| `biz_commission_rules` | 无（注释说明） | 动作权限是 `biz:commission:rule`（唯一索引下不能与按钮重复） |
+| 页面                   | 原本声明的页面权限点    | 实际结果                                                                                                                                        |
+| ---------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `biz_cashier`          | 故意留空                | `sys_menu.permission = NULL` —— 资金动作全部由三个按钮权限点控制（`biz:payment:create` / `close`、`biz:refund:apply`、`biz:receivable:settle`） |
+| `biz_payment_diffs`    | `biz:payment:reconcile` | 该点已被 **`biz_payments` 的按钮行**占用 → 页面 permission 被清空、按钮行被跳过 → `NULL`                                                        |
+| `biz_commission_rules` | 无（注释说明）          | 动作权限是 `biz:commission:rule`（唯一索引下不能与按钮重复）                                                                                    |
 
 ::: warning 页面 permission 为 NULL 的影响
 前端路由**靠 `role_menu` 授权生成**，不读 `sys_menu.permission`。所以「有菜单授权」的账号就能看到并打开这些页面；页面内的按钮仍需各自的权限点。**安全边界在按钮与后端接口上，不在菜单行上**。
@@ -76,36 +76,36 @@ const claimed = new Set<string>();
 
 目录节点（`type: 'M'`）不生成页面，只作为侧边栏分组：`system`（系统管理，`sort: 2`）、`monitor`（系统监控，`sort: 3`）。`biz`（美甲预约，`sort: 8`）由 `buildBizMenus()` 自动生成。
 
-| # | 菜单名 | 路由路径 | 页面文件 | 中文名称 | 权限点 |
-| --- | --- | --- | --- | --- | --- |
-| 1 | `dashboard` | `/dashboard` | `web/src/views/dashboard/index.vue` | 首页 | **未单独设权限点** |
-| 2 | `system_users` | `/system/users` | `web/src/views/system/users/index.vue` | 用户管理 | `system:user:list` |
-| 3 | `system_roles` | `/system/roles` | `web/src/views/system/roles/index.vue` | 角色管理 | `system:role:list` |
-| 4 | `system_menus` | `/system/menus` | `web/src/views/system/menus/index.vue` | 菜单管理 | `system:menu:list` |
-| 5 | `system_depts` | `/system/depts` | `web/src/views/system/depts/index.vue` | 部门管理 | `system:dept:list` |
-| 6 | `system_posts` | `/system/posts` | `web/src/views/system/posts/index.vue` | 岗位管理 | `system:post:list` |
-| 7 | `system_dicts` | `/system/dicts` | `web/src/views/system/dicts/index.vue` | 字典管理 | `system:dict:list` |
-| 8 | `system_configs` | `/system/configs` | `web/src/views/system/configs/index.vue` | 参数配置 | `system:config:list` |
-| 9 | `system_stores` | `/system/stores` | `web/src/views/system/stores/index.vue` | 门店管理（连锁直营） | `system:store:list`（+ create/update/delete、`system:store:all` = 看全部门店） |
-| 10 | `monitor_login_logs` | `/monitor/login-logs` | `web/src/views/monitor/login-logs/index.vue` | 登录日志 | `monitor:loginlog:list` |
-| 11 | `monitor_operation_logs` | `/monitor/operation-logs` | `web/src/views/monitor/operation-logs/index.vue` | 操作日志 | `monitor:operlog:list` |
-| 12 | `monitor_online` | `/monitor/online` | `web/src/views/monitor/online/index.vue` | 在线用户 | `monitor:online:list` |
-| 12 | `monitor_cache` | `/monitor/cache` | `web/src/views/monitor/cache/index.vue` | 缓存监控 | `monitor:cache:list` |
-| 13 | `jobs` | `/jobs` | `web/src/views/jobs/index.vue` | 定时任务 | `system:job:list` |
-| 14 | `files` | `/files` | `web/src/views/files/index.vue` | 文件管理 | `system:file:list` |
-| 15 | `generator` | `/generator` | `web/src/views/generator/index.vue` | 代码生成器 | `system:generator:list` |
-| 16 | `ai` | `/ai` | `web/src/views/ai/index.vue` | AI 操作 | `ai:chat` |
+| #   | 菜单名                   | 路由路径                  | 页面文件                                         | 中文名称             | 权限点                                                                         |
+| --- | ------------------------ | ------------------------- | ------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------ |
+| 1   | `dashboard`              | `/dashboard`              | `web/src/views/dashboard/index.vue`              | 首页                 | **未单独设权限点**                                                             |
+| 2   | `system_users`           | `/system/users`           | `web/src/views/system/users/index.vue`           | 用户管理             | `system:user:list`                                                             |
+| 3   | `system_roles`           | `/system/roles`           | `web/src/views/system/roles/index.vue`           | 角色管理             | `system:role:list`                                                             |
+| 4   | `system_menus`           | `/system/menus`           | `web/src/views/system/menus/index.vue`           | 菜单管理             | `system:menu:list`                                                             |
+| 5   | `system_depts`           | `/system/depts`           | `web/src/views/system/depts/index.vue`           | 部门管理             | `system:dept:list`                                                             |
+| 6   | `system_posts`           | `/system/posts`           | `web/src/views/system/posts/index.vue`           | 岗位管理             | `system:post:list`                                                             |
+| 7   | `system_dicts`           | `/system/dicts`           | `web/src/views/system/dicts/index.vue`           | 字典管理             | `system:dict:list`                                                             |
+| 8   | `system_configs`         | `/system/configs`         | `web/src/views/system/configs/index.vue`         | 参数配置             | `system:config:list`                                                           |
+| 9   | `system_stores`          | `/system/stores`          | `web/src/views/system/stores/index.vue`          | 门店管理（连锁直营） | `system:store:list`（+ create/update/delete、`system:store:all` = 看全部门店） |
+| 10  | `monitor_login_logs`     | `/monitor/login-logs`     | `web/src/views/monitor/login-logs/index.vue`     | 登录日志             | `monitor:loginlog:list`                                                        |
+| 11  | `monitor_operation_logs` | `/monitor/operation-logs` | `web/src/views/monitor/operation-logs/index.vue` | 操作日志             | `monitor:operlog:list`                                                         |
+| 12  | `monitor_online`         | `/monitor/online`         | `web/src/views/monitor/online/index.vue`         | 在线用户             | `monitor:online:list`                                                          |
+| 12  | `monitor_cache`          | `/monitor/cache`          | `web/src/views/monitor/cache/index.vue`          | 缓存监控             | `monitor:cache:list`                                                           |
+| 13  | `jobs`                   | `/jobs`                   | `web/src/views/jobs/index.vue`                   | 定时任务             | `system:job:list`                                                              |
+| 14  | `files`                  | `/files`                  | `web/src/views/files/index.vue`                  | 文件管理             | `system:file:list`                                                             |
+| 15  | `generator`              | `/generator`              | `web/src/views/generator/index.vue`              | 代码生成器           | `system:generator:list`                                                        |
+| 16  | `ai`                     | `/ai`                     | `web/src/views/ai/index.vue`                     | AI 操作              | `ai:chat`                                                                      |
 
 ## 隐藏页（4）
 
 这些页面**不在菜单里**，靠 `constantRoutes` 静态注册（`web/src/router/index.ts`）：
 
-| 路由路径 | 页面文件 | 中文名称 | 说明 |
-| --- | --- | --- | --- |
-| `/login` | `web/src/views/login/index.vue` | 登录 | 白名单路由（`WHITE_LIST = ['/login']`） |
-| `/profile` | `web/src/views/profile/index.vue` | 个人中心 | `layout` 的静态子路由 |
-| `/403` | `web/src/views/error/403.vue` | 无权限 | |
-| `/:pathMatch(.*)*` | `web/src/views/error/404.vue` | 页面不存在 | 兜底路由；动态路由的 `component` 解析失败时也 fallback 到这里 |
+| 路由路径           | 页面文件                          | 中文名称   | 说明                                                          |
+| ------------------ | --------------------------------- | ---------- | ------------------------------------------------------------- |
+| `/login`           | `web/src/views/login/index.vue`   | 登录       | 白名单路由（`WHITE_LIST = ['/login']`）                       |
+| `/profile`         | `web/src/views/profile/index.vue` | 个人中心   | `layout` 的静态子路由                                         |
+| `/403`             | `web/src/views/error/403.vue`     | 无权限     |                                                               |
+| `/:pathMatch(.*)*` | `web/src/views/error/404.vue`     | 页面不存在 | 兜底路由；动态路由的 `component` 解析失败时也 fallback 到这里 |
 
 ::: tip 详情页 / 抽屉不单独建路由
 项目的做法是**列表页内用弹窗 / 抽屉**承载详情，例如「美甲师可做项目」放在 `biz/staffs` 详情抽屉里用多选项目组件维护（整体 `PUT`），不单独建页、不单独设权限点（用 `biz:staff:items`）。
@@ -115,11 +115,11 @@ const claimed = new Set<string>();
 
 ### 三类节点
 
-| `type` | 含义 | 前端处理 |
-| --- | --- | --- |
-| `M` | 目录 | 无 `component` → 只作布局容器；在侧边栏是分组标题 |
-| `C` | 页面 | 有 `component` / `path` → 生成路由 |
-| `F` | 按钮 | **不生成路由**；`toRouteRecord()` 直接 `return null` |
+| `type` | 含义 | 前端处理                                             |
+| ------ | ---- | ---------------------------------------------------- |
+| `M`    | 目录 | 无 `component` → 只作布局容器；在侧边栏是分组标题    |
+| `C`    | 页面 | 有 `component` / `path` → 生成路由                   |
+| `F`    | 按钮 | **不生成路由**；`toRouteRecord()` 直接 `return null` |
 
 ```ts
 // web/src/store/permission.ts:21
@@ -176,10 +176,23 @@ const { items, loading, currentPage, pageSize, total, search, handleChange } =
 import type { PageResult } from '~/types/api';
 import { get } from '~/request';
 
-export interface BalanceLog { id: number; customerId: number; amount: number; createdAt: string }
+export interface BalanceLog {
+  id: number;
+  customerId: number;
+  amount: number;
+  createdAt: string;
+}
 
-export function listBalanceLogs(page = 1, pageSize = 20, query: Record<string, unknown> = {}) {
-  return get<PageResult<BalanceLog>>('/biz/member-transactions', { page, pageSize, ...query });
+export function listBalanceLogs(
+  page = 1,
+  pageSize = 20,
+  query: Record<string, unknown> = {},
+) {
+  return get<PageResult<BalanceLog>>('/biz/member-transactions', {
+    page,
+    pageSize,
+    ...query,
+  });
 }
 ```
 
@@ -225,7 +238,11 @@ list(@Query() raw: Record<string, unknown>) { ... }
 ### 第 5 步：加按钮级 `v-permission`
 
 ```vue
-<IconButton v-permission="'biz:balance:export'" title="导出" @click="handleExport" />
+<IconButton
+  v-permission="'biz:balance:export'"
+  title="导出"
+  @click="handleExport"
+/>
 ```
 
 或用 `<IconButton permission="biz:balance:export" />`（`web/src/components/IconButton.vue` 内置了 `v-permission="permission"`）。

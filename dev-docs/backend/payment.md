@@ -56,17 +56,17 @@ export type PaymentChannel =
   | 'credit';
 ```
 
-| 通道 | 含义 | 需要通道对接 | 产生真实资金 | 代码行为 |
-| --- | --- | --- | --- | --- |
-| `wxpay_native` | 微信 Native 扫码，顾客扫店家屏上的码 | ✅ 需商户号 / APIv3 密钥 / 证书 | ✅ | 落 `pending` + `code_url`，回调/查单落地 |
-| `alipay_qr` | 支付宝当面付（预下单扫码） | ✅ 需 appId / RSA2 密钥对 | ✅ | 同上 |
-| `cash` | 现金，只记账 | ❌ | ✅（线下） | 直接 `success`，**允许 `received_amount > amount`**（找零） |
-| `wechat_offline` | 店家自己的微信收款码，只记账 | ❌ | ✅（线下） | 直接 `success` |
-| `alipay_offline` | 店家自己的支付宝收款码，只记账 | ❌ | ✅（线下） | 直接 `success` |
-| `balance` | 储值余额支付 | ❌ | ❌（内部划转） | 先条件更新扣余额，再落 `success` |
-| `card` | 次卡核销 | ❌ | ❌ | `amount = received_amount = 0`，落 `success` 并核销一次 |
-| `credit` | 挂账 | ❌ | ❌ | **本 service 拒绝**，由 `CreditPort` 生成应收单 |
-| `wxpay_jsapi` | 小程序内 JSAPI 支付 | P2 | — | **本期只有契约位**，见下 |
+| 通道             | 含义                                 | 需要通道对接                    | 产生真实资金   | 代码行为                                                    |
+| ---------------- | ------------------------------------ | ------------------------------- | -------------- | ----------------------------------------------------------- |
+| `wxpay_native`   | 微信 Native 扫码，顾客扫店家屏上的码 | ✅ 需商户号 / APIv3 密钥 / 证书 | ✅             | 落 `pending` + `code_url`，回调/查单落地                    |
+| `alipay_qr`      | 支付宝当面付（预下单扫码）           | ✅ 需 appId / RSA2 密钥对       | ✅             | 同上                                                        |
+| `cash`           | 现金，只记账                         | ❌                              | ✅（线下）     | 直接 `success`，**允许 `received_amount > amount`**（找零） |
+| `wechat_offline` | 店家自己的微信收款码，只记账         | ❌                              | ✅（线下）     | 直接 `success`                                              |
+| `alipay_offline` | 店家自己的支付宝收款码，只记账       | ❌                              | ✅（线下）     | 直接 `success`                                              |
+| `balance`        | 储值余额支付                         | ❌                              | ❌（内部划转） | 先条件更新扣余额，再落 `success`                            |
+| `card`           | 次卡核销                             | ❌                              | ❌             | `amount = received_amount = 0`，落 `success` 并核销一次     |
+| `credit`         | 挂账                                 | ❌                              | ❌             | **本 service 拒绝**，由 `CreditPort` 生成应收单             |
+| `wxpay_jsapi`    | 小程序内 JSAPI 支付                  | P2                              | —              | **本期只有契约位**，见下                                    |
 
 ### `wxpay_jsapi` 本期状态
 
@@ -206,20 +206,35 @@ async notifyAlipay(...) { ... }
 ```ts
 // src/modules/biz/payment/payments/payments.service.ts:445
 // 通道未配置 → 返回失败应答，绝不放行
-if (!provider.configured) return this.failureReplyOf(channel, `${provider.label}通道未启用`, 'business');
+if (!provider.configured)
+  return this.failureReplyOf(
+    channel,
+    `${provider.label}通道未启用`,
+    'business',
+  );
 
 // 验签 + 解密
-payload = await provider.verifyNotify({ headers: raw.headers, body: raw.body, rawBody: raw.rawBody });
+payload = await provider.verifyNotify({
+  headers: raw.headers,
+  body: raw.body,
+  rawBody: raw.rawBody,
+});
 
 // 支付单必须存在
-const [payment] = await this.database.db.select().from(bizPayments)
-  .where(eq(bizPayments.outTradeNo, payload.outTradeNo)).limit(1);
+const [payment] = await this.database.db
+  .select()
+  .from(bizPayments)
+  .where(eq(bizPayments.outTradeNo, payload.outTradeNo))
+  .limit(1);
 if (!payment) return provider.failureReply('支付单不存在', 'business');
 
 // 金额不一致 → 写 callback_invalid 留证 + 拒绝
 if (payload.amount !== payment.amount) {
   await this.insertLog(this.database.db, payment.id, 'callback_invalid', {
-    reason: 'amount_mismatch', expected: payment.amount, actual: payload.amount, transactionId: payload.transactionId,
+    reason: 'amount_mismatch',
+    expected: payment.amount,
+    actual: payload.amount,
+    transactionId: payload.transactionId,
   });
   return provider.failureReply('回调金额与订单不一致', 'business');
 }
@@ -231,13 +246,21 @@ if (payload.amount !== payment.amount) {
 
 ```ts
 // src/modules/biz/payment/payments/payments.service.ts:648
-const affected = await tx.update(bizPayments)
-  .set({ status: 'success', transactionId: input.transactionId, paidAt: input.successTime, callbackAt: new Date() })
-  .where(and(
-    eq(bizPayments.outTradeNo, payment.outTradeNo),
-    inArray(bizPayments.status, SETTLE_FROM_STATUSES),   // ['pending','closed','failed']
-  ));
-if (!affected[0].affectedRows) return false;   // 重复 / 并发回调 → 直接放弃
+const affected = await tx
+  .update(bizPayments)
+  .set({
+    status: 'success',
+    transactionId: input.transactionId,
+    paidAt: input.successTime,
+    callbackAt: new Date(),
+  })
+  .where(
+    and(
+      eq(bizPayments.outTradeNo, payment.outTradeNo),
+      inArray(bizPayments.status, SETTLE_FROM_STATUSES), // ['pending','closed','failed']
+    ),
+  );
+if (!affected[0].affectedRows) return false; // 重复 / 并发回调 → 直接放弃
 ```
 
 ::: warning 允许落地的起始状态**不止 `pending`**
@@ -273,10 +296,10 @@ const CALLBACK_SLOW_SETTLE_MS = 3000;
 
 `ChannelFailureKind`（`channel.interface.ts:24`）决定 HTTP 状态码，**两个渠道要求完全不同**：
 
-| 渠道 | 成功应答 | 失败应答 | 依据 |
-| --- | --- | --- | --- |
+| 渠道    | 成功应答                                         | 失败应答                                                                   | 依据                                                         |
+| ------- | ------------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | 微信 V3 | HTTP 200 + `{"code":"SUCCESS","message":"成功"}` | `verify` → **401**；`business` → **400**（`wxpay-native.provider.ts:294`） | HTTP 状态码表达受理结果；回 200 会被当成「接收成功」不再重投 |
-| 支付宝 | HTTP 200 + 文本 `success` | HTTP 200 + 文本 `failure` | 固定 200，用**响应体文本**表达 |
+| 支付宝  | HTTP 200 + 文本 `success`                        | HTTP 200 + 文本 `failure`                                                  | 固定 200，用**响应体文本**表达                               |
 
 ::: danger 微信回调失败绝不能回 200
 注释里列了两个真实后果：① 「平台证书尚未缓存好 / 时钟偏差」这类**重投就能成功**的情形被我们自己关掉，这笔支付再也落不了账；② 微信会下发签名值带 `WECHATPAY/SIGNTEST/` 前缀的**探测流量**检验商户是否真的验签，回 200 等于告诉微信「我验签失败也当成功」。
@@ -288,15 +311,15 @@ const CALLBACK_SLOW_SETTLE_MS = 3000;
 
 `src/modules/biz/payment/channels/channel.interface.ts` 定义了 `PaymentChannelProvider` 抽象类，方法集：
 
-| 方法 | 作用 |
-| --- | --- |
-| `configured` | 密钥 / 证书是否齐全；`false` 时业务侧抛「通道未启用」 |
-| `createNativeOrder(input)` | 统一下单，返回 `codeUrl` |
-| `queryOrder(outTradeNo)` | 主动查单（回调丢失兜底） |
-| `refund(input)` | 原路退款 |
-| `verifyNotify(input)` | 回调验签 + 解密/解析，返回 `NotifyPayload` |
-| `downloadBill(billDate)` | 下载渠道账单（**不抛错**，不可得返回 `[]`） |
-| `successReply()` / `failureReply(message, kind)` | 渠道要求的应答体 |
+| 方法                                             | 作用                                                  |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| `configured`                                     | 密钥 / 证书是否齐全；`false` 时业务侧抛「通道未启用」 |
+| `createNativeOrder(input)`                       | 统一下单，返回 `codeUrl`                              |
+| `queryOrder(outTradeNo)`                         | 主动查单（回调丢失兜底）                              |
+| `refund(input)`                                  | 原路退款                                              |
+| `verifyNotify(input)`                            | 回调验签 + 解密/解析，返回 `NotifyPayload`            |
+| `downloadBill(billDate)`                         | 下载渠道账单（**不抛错**，不可得返回 `[]`）           |
+| `successReply()` / `failureReply(message, kind)` | 渠道要求的应答体                                      |
 
 ::: tip 只有两个在线渠道有 Provider
 线下收款（`cash` / `wechat_offline` / `alipay_offline`）、储值（`balance`）、次卡（`card`）**只记账不走渠道**，因此**没有** Provider。`providerFor()` 只认 `wxpay_native` / `alipay_qr`，其余抛 `BadRequestException`。
@@ -333,20 +356,20 @@ const CALLBACK_SLOW_SETTLE_MS = 3000;
 
 ### 未配置通道时的行为
 
-| 场景 | 行为 |
-| --- | --- |
+| 场景                               | 行为                                                                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prepareChannelOrder` 时通道未配置 | `providerFor()`（`payments.service.ts:858`）抛 `ConflictException('微信支付通道未启用' / '支付宝通道未启用')`；**在写任何本地数据之前**抛出 → 不留 pending 单 |
-| 回调时通道未配置 | `failureReplyOf(channel, 'xx通道未启用', 'business')` —— **返回失败应答，绝不放行** |
-| 对账时通道未配置 | 记 `logger.warn` 并 `continue`，返回 `{ diffs: 0 }`，**不抛错** |
-| 其它收款方式 | 完全不受影响：现金 / 线下码 / 储值 / 次卡 / 挂账照常可用 |
+| 回调时通道未配置                   | `failureReplyOf(channel, 'xx通道未启用', 'business')` —— **返回失败应答，绝不放行**                                                                           |
+| 对账时通道未配置                   | 记 `logger.warn` 并 `continue`，返回 `{ diffs: 0 }`，**不抛错**                                                                                               |
+| 其它收款方式                       | 完全不受影响：现金 / 线下码 / 储值 / 次卡 / 挂账照常可用                                                                                                      |
 
 ## 兜底：主动查单与关单
 
 两个任务都**只改状态、不碰钱**（money-invariants 不变量 5），handler 注册在 `src/modules/jobs/jobs.service.ts`，cron 在 `src/database/seed/biz.ts`：
 
-| handler | cron（6 段式） | 说明 |
-| --- | --- | --- |
-| `closeExpiredPayments` | `0 * * * * *`（**每分钟**） | `pending` 且 `expire_at < now` → `closed`；单批上限 **500**（`closeExpired()`，`payments.service.ts:718`） |
+| handler                | cron（6 段式）                   | 说明                                                                                                           |
+| ---------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `closeExpiredPayments` | `0 * * * * *`（**每分钟**）      | `pending` 且 `expire_at < now` → `closed`；单批上限 **500**（`closeExpired()`，`payments.service.ts:718`）     |
 | `queryPendingPayments` | `0 */2 * * * *`（**每 2 分钟**） | 对未过期（或过期 24h 内）的在线支付单主动查单；单批上限 **200**（`queryPending()`，`payments.service.ts:530`） |
 
 **关单**：逐笔条件更新 `WHERE id=? AND status='pending'`，与回调竞争时谁先改谁生效（`affectedRows = 0` 就跳过），每次写 `close` 日志（`reason: 'expired'`）。
@@ -378,21 +401,35 @@ const CALLBACK_SLOW_SETTLE_MS = 3000;
 `src/config/app-config.service.ts` 用 `complete()` 辅助函数：**所有字段都是非空 string 才 `configured = true`**。
 
 ```ts
-function complete<T extends Record<string, string | undefined>>(values: T): T & { configured: boolean } {
-  return { ...values, configured: Object.values(values).every((value) => typeof value === 'string' && value.length > 0) };
+function complete<T extends Record<string, string | undefined>>(
+  values: T,
+): T & { configured: boolean } {
+  return {
+    ...values,
+    configured: Object.values(values).every(
+      (value) => typeof value === 'string' && value.length > 0,
+    ),
+  };
 }
 ```
 
-| 渠道 | 参与 `configured` 判定的环境变量 | 数量 |
-| --- | --- | --- |
+| 渠道     | 参与 `configured` 判定的环境变量                                                                             | 数量               |
+| -------- | ------------------------------------------------------------------------------------------------------------ | ------------------ |
 | 微信支付 | `WXPAY_APPID`、`WXPAY_MCHID`、`WXPAY_SERIAL_NO`、`WXPAY_PRIVATE_KEY`、`WXPAY_API_V3_KEY`、`WXPAY_NOTIFY_URL` | **6 项齐全才启用** |
-| 支付宝 | `ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY`、`ALIPAY_NOTIFY_URL` | **4 项齐全才启用** |
+| 支付宝   | `ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY`、`ALIPAY_NOTIFY_URL`                              | **4 项齐全才启用** |
 
 ::: tip `WXPAY_PLATFORM_PUBLIC_KEY` 不参与判定
 它被**故意放在 `complete()` 之外**：
 
 ```ts
-const base = complete({ appId, mchId, serialNo, privateKey, apiV3Key, notifyUrl });
+const base = complete({
+  appId,
+  mchId,
+  serialNo,
+  privateKey,
+  apiV3Key,
+  notifyUrl,
+});
 // 放在 complete() 之外：配不配它都不该让通道「未启用」
 return { ...base, platformPublicKey: this.values.WXPAY_PLATFORM_PUBLIC_KEY };
 ```
@@ -404,29 +441,29 @@ return { ...base, platformPublicKey: this.values.WXPAY_PLATFORM_PUBLIC_KEY };
 
 `src/modules/biz/common/biz-config.service.ts` 的 `BIZ_CONFIG_DEFAULTS` 中与支付相关的：
 
-| key | 默认值 | 含义 |
-| --- | --- | --- |
-| `biz.payment.qrExpireMinutes` | `5` | 二维码有效期（分钟），→ `expire_at = now + N` |
-| `biz.payment.reconcileHour` | `6` | 每日对账触发小时（**注意**：实际 cron 由 `sys_job.cron` 决定，seed 里是 `0 30 6 * * *`） |
+| key                           | 默认值 | 含义                                                                                     |
+| ----------------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| `biz.payment.qrExpireMinutes` | `5`    | 二维码有效期（分钟），→ `expire_at = now + N`                                            |
+| `biz.payment.reconcileHour`   | `6`    | 每日对账触发小时（**注意**：实际 cron 由 `sys_job.cron` 决定，seed 里是 `0 30 6 * * *`） |
 
 ## 相关表
 
 ### `biz_payment`（`src/database/schema/index.ts:1346`）
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `payment_no` | varchar(32)，`uq_payment_no` | `P{yyyyMMdd}{id}` |
-| `out_trade_no` | varchar(64)，`uq_payment_out_trade_no` | 提交渠道的商户订单号，回调按它匹配 |
-| `booking_id` / `customer_id` | int unsigned（前者 NULL） | 充值 / 购卡类 `booking_id` 为空 |
-| `purpose` | enum | `deposit` / `final` / `recharge` / `card_buy` / `credit_settle` |
-| `channel` | enum | 见通道矩阵 |
-| `amount` / `received_amount` | int unsigned | **应收** / **实收**（分）；现金可大于 `amount` |
-| `status` | enum default `pending` | `pending` / `success` / `failed` / `closed` / `refunded` / `partial_refunded` |
-| `code_url` | varchar(512) NULL | Native 二维码内容 |
-| `transaction_id` | varchar(64) NULL | 渠道交易号 |
-| `paid_at` / `expire_at` / `callback_at` | datetime NULL | |
-| `refunded_amount` | int unsigned default 0 | 已退金额（**打渠道前先预留**，见退款页） |
-| `remark` + `...auditColumns` | | `created_by` / `updated_by` / `created_at` / `updated_at` / `deleted_at` |
+| 字段                                    | 类型                                   | 说明                                                                          |
+| --------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------- |
+| `payment_no`                            | varchar(32)，`uq_payment_no`           | `P{yyyyMMdd}{id}`                                                             |
+| `out_trade_no`                          | varchar(64)，`uq_payment_out_trade_no` | 提交渠道的商户订单号，回调按它匹配                                            |
+| `booking_id` / `customer_id`            | int unsigned（前者 NULL）              | 充值 / 购卡类 `booking_id` 为空                                               |
+| `purpose`                               | enum                                   | `deposit` / `final` / `recharge` / `card_buy` / `credit_settle`               |
+| `channel`                               | enum                                   | 见通道矩阵                                                                    |
+| `amount` / `received_amount`            | int unsigned                           | **应收** / **实收**（分）；现金可大于 `amount`                                |
+| `status`                                | enum default `pending`                 | `pending` / `success` / `failed` / `closed` / `refunded` / `partial_refunded` |
+| `code_url`                              | varchar(512) NULL                      | Native 二维码内容                                                             |
+| `transaction_id`                        | varchar(64) NULL                       | 渠道交易号                                                                    |
+| `paid_at` / `expire_at` / `callback_at` | datetime NULL                          |                                                                               |
+| `refunded_amount`                       | int unsigned default 0                 | 已退金额（**打渠道前先预留**，见退款页）                                      |
+| `remark` + `...auditColumns`            |                                        | `created_by` / `updated_by` / `created_at` / `updated_at` / `deleted_at`      |
 
 索引：`idx_payment_booking(booking_id)`、`idx_payment_customer(customer_id, id)`、`idx_payment_status(status, created_at)`、`idx_payment_txn(transaction_id)`。
 
@@ -439,7 +476,8 @@ return { ...base, platformPublicKey: this.values.WXPAY_PLATFORM_PUBLIC_KEY };
 `findOne()` 对 `logs[].raw` 调用 `redactChannelRaw()`，敏感键正则（`payments.service.ts:107`）：
 
 ```ts
-const SENSITIVE_RAW_KEY = /openid|buyer|payer|phone|mobile|tel|id_?card|identity|real_?name/i;
+const SENSITIVE_RAW_KEY =
+  /openid|buyer|payer|phone|mobile|tel|id_?card|identity|real_?name/i;
 ```
 
 微信 `payer.openid`、支付宝 `buyer_id` / `buyer_logon_id` 会被替换成 `'[已脱敏]'`（**按 key 名递归掩码，保留报文结构**，深度上限 6）。**库里保持原样**（留证），只对接口出参脱敏。

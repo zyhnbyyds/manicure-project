@@ -43,7 +43,8 @@ function clampChannel(value: number): number {
 }
 
 export function rgbToHex(color: Rgb): string {
-  const toHex = (value: number) => clampChannel(value).toString(16).padStart(2, '0');
+  const toHex = (value: number) =>
+    clampChannel(value).toString(16).padStart(2, '0');
   return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`.toUpperCase();
 }
 
@@ -79,7 +80,9 @@ export function luminance(hex: string): number {
   const { r, g, b } = hexToRgb(hex);
   const channel = (value: number) => {
     const scaled = value / 255;
-    return scaled <= 0.03928 ? scaled / 12.92 : Math.pow((scaled + 0.055) / 1.055, 2.4);
+    return scaled <= 0.03928
+      ? scaled / 12.92
+      : Math.pow((scaled + 0.055) / 1.055, 2.4);
   };
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }

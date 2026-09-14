@@ -248,40 +248,42 @@ function handleDelete(row: Dept) {
           ref="formRef"
           v-model="form"
           label-width="80px"
-          :options="withPassThroughRule([
-            {
-              field: 'parentId',
-              label: '上级部门',
-              as: 'select',
-              props: { options: parentOptions },
-            },
-            {
-              field: 'name',
-              label: '部门名称',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '请输入部门名称', clearable: true },
-            },
-            {
-              field: 'sort',
-              label: '排序',
-              as: 'input-number',
-              props: { min: 0 },
-            },
-            {
-              field: 'phone',
-              label: '联系电话',
-              as: 'input',
-              props: { placeholder: '选填', clearable: true },
-            },
-            {
-              field: 'email',
-              label: '邮箱',
-              as: 'input',
-              props: { placeholder: '选填', clearable: true },
-            },
-            { field: 'status', label: '状态', as: 'switch' },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'parentId',
+                label: '上级部门',
+                as: 'select',
+                props: { options: parentOptions },
+              },
+              {
+                field: 'name',
+                label: '部门名称',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '请输入部门名称', clearable: true },
+              },
+              {
+                field: 'sort',
+                label: '排序',
+                as: 'input-number',
+                props: { min: 0 },
+              },
+              {
+                field: 'phone',
+                label: '联系电话',
+                as: 'input',
+                props: { placeholder: '选填', clearable: true },
+              },
+              {
+                field: 'email',
+                label: '邮箱',
+                as: 'input',
+                props: { placeholder: '选填', clearable: true },
+              },
+              { field: 'status', label: '状态', as: 'switch' },
+            ])
+          "
         />
       </div>
     </LewModal>

@@ -172,9 +172,7 @@ definePage({
           ? Math.min(
               100,
               me.nextLevel.upgradeAmount > 0
-                ? Math.round(
-                    (me.totalSpent / me.nextLevel.upgradeAmount) * 100,
-                  )
+                ? Math.round((me.totalSpent / me.nextLevel.upgradeAmount) * 100)
                 : 100,
             )
           : 100,
@@ -187,7 +185,10 @@ definePage({
         birthdayText: me.birthday ? me.birthday : '请选择生日',
         preference: me.preference ?? '',
         preferenceOptions: [
-          ...new Set([...(me.preference ? [me.preference] : []), ...categories]),
+          ...new Set([
+            ...(me.preference ? [me.preference] : []),
+            ...categories,
+          ]),
         ],
         phoneMasked: maskPhone(me.phone),
         bound: Boolean(me.phone),
@@ -210,7 +211,10 @@ definePage({
   },
 
   async onGuestLogin() {
-    await requireSession({ needBind: true, reason: '修改资料需要先绑定手机号' });
+    await requireSession({
+      needBind: true,
+      reason: '修改资料需要先绑定手机号',
+    });
     if (isBound()) void this.load();
   },
 
@@ -319,7 +323,8 @@ definePage({
 
     const pending = this.pendingAvatar;
     const birthday = this.data.birthday === '' ? null : this.data.birthday;
-    const preference = this.data.preference === '' ? null : this.data.preference;
+    const preference =
+      this.data.preference === '' ? null : this.data.preference;
 
     this.setData({ saving: true });
     showLoading('保存中');

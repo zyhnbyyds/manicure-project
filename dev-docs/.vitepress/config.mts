@@ -1,11 +1,11 @@
-import { defineConfig } from 'vitepress'
-import { mermaidMarkdown } from './mermaid'
+import { defineConfig } from 'vitepress';
+import { mermaidMarkdown } from './mermaid';
 
 /**
  * 可选的部署子路径，例如 DOCS_BASE=/manicure/dev-docs/ bun run build
  * 本地开发与默认构建都用根路径。
  */
-const base = process.env.DOCS_BASE ?? '/'
+const base = process.env.DOCS_BASE ?? '/';
 
 export default defineConfig({
   base,
@@ -69,7 +69,10 @@ export default defineConfig({
         text: '相关文档',
         items: [
           { text: '对客操作手册（docs/）', link: '/appendix/related-docs' },
-          { text: '设计资料库（project-design/）', link: '/appendix/related-docs#project-design' },
+          {
+            text: '设计资料库（project-design/）',
+            link: '/appendix/related-docs#project-design',
+          },
         ],
       },
     ],
@@ -122,8 +125,14 @@ export default defineConfig({
           items: [
             { text: '数据模型总览', link: '/data/' },
             { text: '业务表详解', link: '/data/business-tables' },
-            { text: '系统 · 监控 · AI · 小程序身份表', link: '/data/system-tables' },
-            { text: '迁移 · 种子数据 · 派生口径', link: '/data/migrations-seeds' },
+            {
+              text: '系统 · 监控 · AI · 小程序身份表',
+              link: '/data/system-tables',
+            },
+            {
+              text: '迁移 · 种子数据 · 派生口径',
+              link: '/data/migrations-seeds',
+            },
           ],
         },
       ],
@@ -153,4 +162,4 @@ export default defineConfig({
       copyright: 'manicure-project',
     },
   },
-})
+});

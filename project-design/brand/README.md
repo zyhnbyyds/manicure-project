@@ -3,12 +3,12 @@
 `logo-master.png` 是**唯一源文件**（1073×1097，透明底）。各处用到的尺寸都从它导出，
 不要直接改 `web/public/**` 或 `miniapp/**/assets/logo.png` —— 那些是产物。
 
-| 用途 | 文件 | 尺寸 |
-| ---- | ---- | ---- |
-| 浏览器标签 | `web/public/favicon.png` | 64（56 内容 + 4 呼吸，轻微锐化） |
-| iOS 加主屏 | `web/public/apple-touch-icon.png` | 180（158 + 11 呼吸） |
-| 后台登录页 / 侧边栏 | `web/public/image/logo.png` | 256 |
-| 小程序登录页 / 门店页 | `miniapp/miniprogram/assets/logo.png` | 240 |
+| 用途                  | 文件                                  | 尺寸                             |
+| --------------------- | ------------------------------------- | -------------------------------- |
+| 浏览器标签            | `web/public/favicon.png`              | 64（56 内容 + 4 呼吸，轻微锐化） |
+| iOS 加主屏            | `web/public/apple-touch-icon.png`     | 180（158 + 11 呼吸）             |
+| 后台登录页 / 侧边栏   | `web/public/image/logo.png`           | 256                              |
+| 小程序登录页 / 门店页 | `miniapp/miniprogram/assets/logo.png` | 240                              |
 
 ## 导出时的两个坑（别再踩）
 

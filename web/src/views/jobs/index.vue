@@ -307,37 +307,39 @@ async function handleClearLogs() {
           ref="formRef"
           v-model="form"
           label-width="80px"
-          :options="withPassThroughRule([
-            {
-              field: 'name',
-              label: '任务名称',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 数据同步任务', clearable: true },
-            },
-            {
-              field: 'handler',
-              label: '处理器',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 syncData', clearable: true },
-            },
-            {
-              field: 'cron',
-              label: 'Cron',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 0 0 * * *', clearable: true },
-            },
-            { field: 'status', label: '状态', as: 'switch' },
-            { field: 'concurrent', label: '允许并发', as: 'switch' },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              props: { placeholder: '选填', rows: 2 },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'name',
+                label: '任务名称',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 数据同步任务', clearable: true },
+              },
+              {
+                field: 'handler',
+                label: '处理器',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 syncData', clearable: true },
+              },
+              {
+                field: 'cron',
+                label: 'Cron',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 0 0 * * *', clearable: true },
+              },
+              { field: 'status', label: '状态', as: 'switch' },
+              { field: 'concurrent', label: '允许并发', as: 'switch' },
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                props: { placeholder: '选填', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>

@@ -12,9 +12,24 @@ const PAGE_ICONS: IconName[] = ['gift', 'calendar', 'coupon', 'star'];
 /** 会员权益（设计稿四项）。只有「专属折扣」在数据模型里有真实值，其余为权益说明。 */
 const BENEFITS = [
   { key: 'discount', label: '专属折扣', sub: '', icon: 'star' as IconName },
-  { key: 'birthday', label: '生日礼遇', sub: '专属礼品', icon: 'gift' as IconName },
-  { key: 'priority', label: '优先预约', sub: '提前 1 天', icon: 'calendar' as IconName },
-  { key: 'points', label: '积分兑换', sub: '好礼任选', icon: 'coupon' as IconName },
+  {
+    key: 'birthday',
+    label: '生日礼遇',
+    sub: '专属礼品',
+    icon: 'gift' as IconName,
+  },
+  {
+    key: 'priority',
+    label: '优先预约',
+    sub: '提前 1 天',
+    icon: 'calendar' as IconName,
+  },
+  {
+    key: 'points',
+    label: '积分兑换',
+    sub: '好礼任选',
+    icon: 'coupon' as IconName,
+  },
 ];
 
 interface PhoneNumberEventDetail {

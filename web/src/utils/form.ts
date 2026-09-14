@@ -26,9 +26,7 @@ export const PASS_THROUGH_RULE = 'Yup.mixed()';
  * const formOptions = withPassThroughRule([...]);
  * ```
  */
-export function withPassThroughRule(
-  options: LewFormOption[],
-): LewFormOption[] {
+export function withPassThroughRule(options: LewFormOption[]): LewFormOption[] {
   return options.map((option) =>
     option.rule ? option : { ...option, rule: PASS_THROUGH_RULE },
   );

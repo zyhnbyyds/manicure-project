@@ -412,29 +412,31 @@ function handleDataDelete(row: DictData) {
           ref="typeFormRef"
           v-model="typeForm"
           label-width="72px"
-          :options="withPassThroughRule([
-            {
-              field: 'name',
-              label: '字典名称',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 用户性别', clearable: true },
-            },
-            {
-              field: 'type',
-              label: '类型标识',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '小写字母/数字/:-_', clearable: true },
-            },
-            { field: 'status', label: '状态', as: 'switch' },
-            {
-              field: 'remark',
-              label: '备注',
-              as: 'textarea',
-              props: { placeholder: '选填', rows: 2 },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'name',
+                label: '字典名称',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 用户性别', clearable: true },
+              },
+              {
+                field: 'type',
+                label: '类型标识',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '小写字母/数字/:-_', clearable: true },
+              },
+              { field: 'status', label: '状态', as: 'switch' },
+              {
+                field: 'remark',
+                label: '备注',
+                as: 'textarea',
+                props: { placeholder: '选填', rows: 2 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>
@@ -473,41 +475,43 @@ function handleDataDelete(row: DictData) {
           ref="dataFormRef"
           v-model="dataForm"
           label-width="72px"
-          :options="withPassThroughRule([
-            {
-              field: 'label',
-              label: '标签',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 男', clearable: true },
-            },
-            {
-              field: 'value',
-              label: '键值',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如 1', clearable: true },
-            },
-            {
-              field: 'sort',
-              label: '排序',
-              as: 'input-number',
-              props: { min: 0 },
-            },
-            { field: 'status', label: '状态', as: 'switch' },
-            {
-              field: 'cssClass',
-              label: '样式类名',
-              as: 'input',
-              props: { placeholder: '选填', clearable: true },
-            },
-            {
-              field: 'listClass',
-              label: '列表样式',
-              as: 'input',
-              props: { placeholder: '选填', clearable: true },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'label',
+                label: '标签',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 男', clearable: true },
+              },
+              {
+                field: 'value',
+                label: '键值',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如 1', clearable: true },
+              },
+              {
+                field: 'sort',
+                label: '排序',
+                as: 'input-number',
+                props: { min: 0 },
+              },
+              { field: 'status', label: '状态', as: 'switch' },
+              {
+                field: 'cssClass',
+                label: '样式类名',
+                as: 'input',
+                props: { placeholder: '选填', clearable: true },
+              },
+              {
+                field: 'listClass',
+                label: '列表样式',
+                as: 'input',
+                props: { placeholder: '选填', clearable: true },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>

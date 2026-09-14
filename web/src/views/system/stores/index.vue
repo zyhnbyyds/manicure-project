@@ -32,8 +32,16 @@ import IconButton from '~/components/IconButton.vue';
  * 「默认门店」= 没指定门店时的兜底（小程序门店页、单据写入都用它），
  * 所以后端不允许删默认门店 —— 前端把这条原因原样展示，不自己编文案。
  */
-const { items, loading, currentPage, pageSize, total, search, refresh, handleChange } =
-  useTable<Store>({ url: '/stores' });
+const {
+  items,
+  loading,
+  currentPage,
+  pageSize,
+  total,
+  search,
+  refresh,
+  handleChange,
+} = useTable<Store>({ url: '/stores' });
 
 const columns: LewTableColumn[] = [
   { title: 'ID', field: 'id', width: 70 },
@@ -63,7 +71,11 @@ const columns: LewTableColumn[] = [
     width: 90,
     customRender: ({ row }) =>
       (row as unknown as Store).isDefault
-        ? h(LewTag, { type: 'light', size: 'small', color: 'primary' }, () => '默认')
+        ? h(
+            LewTag,
+            { type: 'light', size: 'small', color: 'primary' },
+            () => '默认',
+          )
         : '',
   },
   {
@@ -212,7 +224,11 @@ function handleDelete(row: Store) {
           默认门店是「未指定门店」时的兜底，不可删除
         </p>
       </div>
-      <LewButton v-permission="'system:store:create'" type="fill" @click="openCreate">
+      <LewButton
+        v-permission="'system:store:create'"
+        type="fill"
+        @click="openCreate"
+      >
         <Plus :size="15" style="margin-right: 4px" /> 新增门店
       </LewButton>
     </div>
@@ -297,66 +313,79 @@ function handleDelete(row: Store) {
           ref="formRef"
           v-model="form"
           label-width="88px"
-          :options="withPassThroughRule([
-            {
-              field: 'name',
-              label: '门店名称',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '如：南京西路店', clearable: true },
-            },
-            {
-              field: 'code',
-              label: '门店编码',
-              as: 'input',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '唯一，如 MAIN / XJH', clearable: true },
-            },
-            {
-              field: 'nameEn',
-              label: '英文副标题',
-              as: 'input',
-              props: { placeholder: '选填，如 BEAUTY NAILS', clearable: true },
-            },
-            {
-              field: 'phone',
-              label: '门店电话',
-              as: 'input',
-              props: { placeholder: '选填', clearable: true },
-            },
-            {
-              field: 'hours',
-              label: '营业时间',
-              as: 'input',
-              props: { placeholder: '如 10:00 - 20:00', clearable: true },
-            },
-            {
-              field: 'address',
-              label: '门店地址',
-              as: 'input',
-              props: { placeholder: '选填，小程序门店页展示', clearable: true },
-            },
-            {
-              field: 'latitude',
-              label: '纬度',
-              as: 'input-number',
-              props: { min: -90, max: 90, precision: 6 },
-            },
-            {
-              field: 'longitude',
-              label: '经度',
-              as: 'input-number',
-              props: { min: -180, max: 180, precision: 6 },
-            },
-            {
-              field: 'notice',
-              label: '公告',
-              as: 'textarea',
-              props: { placeholder: '选填，如「本周三店休」', rows: 2 },
-            },
-            { field: 'sort', label: '排序', as: 'input-number', props: { min: 0 } },
-            { field: 'status', label: '启用', as: 'switch' },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'name',
+                label: '门店名称',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '如：南京西路店', clearable: true },
+              },
+              {
+                field: 'code',
+                label: '门店编码',
+                as: 'input',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '唯一，如 MAIN / XJH', clearable: true },
+              },
+              {
+                field: 'nameEn',
+                label: '英文副标题',
+                as: 'input',
+                props: {
+                  placeholder: '选填，如 BEAUTY NAILS',
+                  clearable: true,
+                },
+              },
+              {
+                field: 'phone',
+                label: '门店电话',
+                as: 'input',
+                props: { placeholder: '选填', clearable: true },
+              },
+              {
+                field: 'hours',
+                label: '营业时间',
+                as: 'input',
+                props: { placeholder: '如 10:00 - 20:00', clearable: true },
+              },
+              {
+                field: 'address',
+                label: '门店地址',
+                as: 'input',
+                props: {
+                  placeholder: '选填，小程序门店页展示',
+                  clearable: true,
+                },
+              },
+              {
+                field: 'latitude',
+                label: '纬度',
+                as: 'input-number',
+                props: { min: -90, max: 90, precision: 6 },
+              },
+              {
+                field: 'longitude',
+                label: '经度',
+                as: 'input-number',
+                props: { min: -180, max: 180, precision: 6 },
+              },
+              {
+                field: 'notice',
+                label: '公告',
+                as: 'textarea',
+                props: { placeholder: '选填，如「本周三店休」', rows: 2 },
+              },
+              {
+                field: 'sort',
+                label: '排序',
+                as: 'input-number',
+                props: { min: 0 },
+              },
+              { field: 'status', label: '启用', as: 'switch' },
+            ])
+          "
         />
         <p class="hint mt-3 mb-0">
           <MapPin :size="13" style="display: inline; vertical-align: -2px" />

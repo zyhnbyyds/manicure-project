@@ -131,9 +131,16 @@ definePage({
           let reason = '';
           staffs.forEach((staff, index) => {
             const result = results[index];
-            slotsByStaff[String(staff.id)] = result ? result.slots.map(toSlotVM) : [];
+            slotsByStaff[String(staff.id)] = result
+              ? result.slots.map(toSlotVM)
+              : [];
             // 所有人都是空的时候，用第一位美甲师给出的原因解释（off / no_shift / …）
-            if (!reason && result && result.slots.length === 0 && result.reason) {
+            if (
+              !reason &&
+              result &&
+              result.slots.length === 0 &&
+              result.reason
+            ) {
               reason = formatSlotReason(result.reason);
             }
           });
@@ -167,9 +174,7 @@ definePage({
     });
 
     // 时段：选了美甲师就只看他的；否则看并集（同一钟点去重）
-    const source = staff
-      ? (slotsByStaff[String(staff.id)] ?? [])
-      : all;
+    const source = staff ? (slotsByStaff[String(staff.id)] ?? []) : all;
     const seen = new Set<string>();
     const timeSlots = source
       .filter((slot) => {
@@ -230,10 +235,16 @@ definePage({
       toast('这位美甲师在这个时间已经有约了');
       return;
     }
-    const staff = { id: target.id, nickname: target.nickname, avatar: target.avatar };
+    const staff = {
+      id: target.id,
+      nickname: target.nickname,
+      avatar: target.avatar,
+    };
     // 换美甲师会清掉已选时段（排班与冲突都变了），见 store/draft.ts
     setDraftStaff(staff);
-    this.setData({ selectedStart: '', selectedTimeText: '' }, () => this.refreshView());
+    this.setData({ selectedStart: '', selectedTimeText: '' }, () =>
+      this.refreshView(),
+    );
   },
 
   onRemarkInput(event: WechatMiniprogram.Input) {
@@ -255,7 +266,11 @@ definePage({
     }
     const slot = timeSlots.find((item) => item.startAt === selectedStart);
     if (!slot) return;
-    setDraftSlot({ date: activeDate, startAt: slot.startAt, endAt: slot.endAt });
+    setDraftSlot({
+      date: activeDate,
+      startAt: slot.startAt,
+      endAt: slot.endAt,
+    });
     goConfirm();
   },
 

@@ -8,33 +8,33 @@
 
 开工前先加载 `project-overview`，再按任务加载对应模块技能：
 
-| 技能                 | 覆盖范围                                               |
-| -------------------- | ------------------------------------------------------ |
-| `project-overview`   | 总纲：技术基线、铁律、实施批次 B1~B6、技能索引、DoD    |
-| `data-model`         | 61 张表分组、命名/索引/软删约定、迁移流程、派生字段    |
-| `money-invariants`   | **资金红线**：条件更新、锁顺序、只追加、对账等式、幂等 |
-| `base-data`          | 服务项目 / 美甲师 / 美甲师可做项目 / 顾客档案          |
-| `scheduling`         | 周模板、日期例外、请假与既有预约冲突保护               |
-| `booking-core`       | 可约时段算法、冲突与锁、服务与资金状态机、创建九步     |
-| `membership`         | 等级折扣、积分（累计/抵扣/兑换）、储值、次卡、算价     |
-| `cashier-payment`    | 在线支付与回调、定金尾款、混合支付、退款判责审批、对账 |
-| `credit-receivable`  | 挂账主体、应收、销账、账龄、营收口径                   |
-| `notification`       | 短信 + 站内消息、模板、重试与降级                      |
-| `operations-reports` | 评价、报表口径、提成规则与结算                         |
-| `recurring-bookings` | 周期预约规则与幂等批量生成                             |
+| 技能                 | 覆盖范围                                                             |
+| -------------------- | -------------------------------------------------------------------- |
+| `project-overview`   | 总纲：技术基线、铁律、实施批次 B1~B6、技能索引、DoD                  |
+| `data-model`         | 61 张表分组、命名/索引/软删约定、迁移流程、派生字段                  |
+| `money-invariants`   | **资金红线**：条件更新、锁顺序、只追加、对账等式、幂等               |
+| `base-data`          | 服务项目 / 美甲师 / 美甲师可做项目 / 顾客档案                        |
+| `scheduling`         | 周模板、日期例外、请假与既有预约冲突保护                             |
+| `booking-core`       | 可约时段算法、冲突与锁、服务与资金状态机、创建九步                   |
+| `membership`         | 等级折扣、积分（累计/抵扣/兑换）、储值、次卡、算价                   |
+| `cashier-payment`    | 在线支付与回调、定金尾款、混合支付、退款判责审批、对账               |
+| `credit-receivable`  | 挂账主体、应收、销账、账龄、营收口径                                 |
+| `notification`       | 短信 + 站内消息、模板、重试与降级                                    |
+| `operations-reports` | 评价、报表口径、提成规则与结算                                       |
+| `recurring-bookings` | 周期预约规则与幂等批量生成                                           |
 | `miniapp-reserved`   | `/api/v1/app/**` 独立认证域与 `app_` 表（除 JSAPI 支付外已真实实现） |
-| `web-frontend`       | 46 个页面、lew-ui 列表模式、收银台等复杂交互           |
-| `testing-acceptance` | 集成测试入口、B1~B7 验收清单、完成定义                 |
+| `web-frontend`       | 46 个页面、lew-ui 列表模式、收银台等复杂交互                         |
+| `testing-acceptance` | 集成测试入口、B1~B7 验收清单、完成定义                               |
 
 > 任何涉及金额、余额、积分、次卡的改动，都必须同时加载 `money-invariants`。
 
 ## 项目文档在哪（按读者分三层）
 
-| 目录 | 读者 | 内容 |
-| ---- | ---- | ---- |
-| `docs/` | **门店人员（对客）** | 操作手册：每个模块怎么用、注意事项、支付开通清单、模块间的配合逻辑（VitePress 站，`cd docs && bun run dev` → 5190） |
-| `dev-docs/` | **开发者 / 测试 / 运维** | 技术文档（VitePress 2）：架构、数据模型、状态机、接口契约、测试与部署（`cd dev-docs && bun run dev` → 5180） |
-| `project-design/` | **产品 / 设计 / 交接** | 设计资料库：`superpowers/specs`（早期设计意图）、`superpowers/plans`、`pitfalls/`、`HANDOVER-miniapp.md`、`brand/`、`screenshots/` |
+| 目录              | 读者                     | 内容                                                                                                                               |
+| ----------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/`           | **门店人员（对客）**     | 操作手册：每个模块怎么用、注意事项、支付开通清单、模块间的配合逻辑（VitePress 站，`cd docs && bun run dev` → 5190）                |
+| `dev-docs/`       | **开发者 / 测试 / 运维** | 技术文档（VitePress 2）：架构、数据模型、状态机、接口契约、测试与部署（`cd dev-docs && bun run dev` → 5180）                       |
+| `project-design/` | **产品 / 设计 / 交接**   | 设计资料库：`superpowers/specs`（早期设计意图）、`superpowers/plans`、`pitfalls/`、`HANDOVER-miniapp.md`、`brand/`、`screenshots/` |
 
 > ⚠️ spec 是**早期设计意图**（例如它写「32 张表」，现状是 61 张）。凡涉及现状，
 > **一律以 `src/`、`web/`、`miniapp/` 的实际代码为准**，不要用 spec 否定已实现的功能。
@@ -57,12 +57,12 @@
 
 ### 文件分工
 
-| 文件 | 覆盖 | 典型内容 |
-| ---- | ---- | -------- |
-| `project-design/pitfalls/server.md` | 后端（NestJS / Drizzle / MySQL） | 迁移、事务、并发闸门、测试基建 |
-| `project-design/pitfalls/web.md` | 前端 / 管理端（Vue3 + lew-ui） | 列表模式、表单、菜单路由、金额口径 |
-| `project-design/pitfalls/miniapp.md` | 小程序（微信原生 TS） | 样式、图标、登录态、验证手段 |
-| `project-design/pitfalls/tooling.md` | **工具链**（PowerShell / 开发者工具 / 测试运行） | 不属于任何一端、但三端都会踩 |
+| 文件                                 | 覆盖                                             | 典型内容                           |
+| ------------------------------------ | ------------------------------------------------ | ---------------------------------- |
+| `project-design/pitfalls/server.md`  | 后端（NestJS / Drizzle / MySQL）                 | 迁移、事务、并发闸门、测试基建     |
+| `project-design/pitfalls/web.md`     | 前端 / 管理端（Vue3 + lew-ui）                   | 列表模式、表单、菜单路由、金额口径 |
+| `project-design/pitfalls/miniapp.md` | 小程序（微信原生 TS）                            | 样式、图标、登录态、验证手段       |
+| `project-design/pitfalls/tooling.md` | **工具链**（PowerShell / 开发者工具 / 测试运行） | 不属于任何一端、但三端都会踩       |
 
 > 第 4 个文件是刻意加的：PowerShell 转义、`[System.IO.File]` 不认 `cd`、
 > 截图与真实尺寸不一致这类坑**不属于任何一端**，塞进某一端反而找不到。

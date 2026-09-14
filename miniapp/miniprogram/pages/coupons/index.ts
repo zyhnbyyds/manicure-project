@@ -1,4 +1,8 @@
-import { couponApi, type CouponStatusFilter, type CustomerCoupon } from '../../api/index';
+import {
+  couponApi,
+  type CouponStatusFilter,
+  type CustomerCoupon,
+} from '../../api/index';
 import { requireSession } from '../../store/session';
 import type { IconName } from '../../utils/icons';
 import { definePage } from '../../utils/page';

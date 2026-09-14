@@ -785,15 +785,17 @@ async function handleApplySubmit() {
           ref="rejectFormRef"
           v-model="rejectForm"
           label-width="88px"
-          :options="withPassThroughRule([
-            {
-              field: 'reason',
-              label: '驳回原因',
-              as: 'textarea',
-              rule: `Yup.string().required('不能为空')`,
-              props: { placeholder: '必填，将记录在退款单上', rows: 3 },
-            },
-          ])"
+          :options="
+            withPassThroughRule([
+              {
+                field: 'reason',
+                label: '驳回原因',
+                as: 'textarea',
+                rule: `Yup.string().required('不能为空')`,
+                props: { placeholder: '必填，将记录在退款单上', rows: 3 },
+              },
+            ])
+          "
         />
       </div>
     </LewModal>

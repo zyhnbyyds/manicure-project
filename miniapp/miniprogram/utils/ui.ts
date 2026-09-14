@@ -45,7 +45,10 @@ export function confirm(options: {
 }
 
 /** 通用「功能未开放」提示：本期骨架接口（501）被点到时的统一说法 */
-export function notOpenYet(feature: string, hint = '这个功能马上就来啦～'): void {
+export function notOpenYet(
+  feature: string,
+  hint = '这个功能马上就来啦～',
+): void {
   wx.showModal({
     title: `${feature}还没开放`,
     content: hint,

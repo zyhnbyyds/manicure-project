@@ -45,14 +45,14 @@ export const bizCustomers = mysqlTable('biz_customer', {
 
 ### 派生字段的维护时机
 
-| 字段 | 累加时机 | 回减时机 |
-| --- | --- | --- |
-| `total_spent` | `applyEarning()`：正常收款（`type='consume'`）、购卡（`type='card_buy'`） | `reverseEarning()`：退款 / 退卡（`type='refund'`） |
-| `points` | `applyEarning()`：`floor(amount/100) × pointsPerYuan` | `reverseEarning()`（不足时先扣至 0，差额写 `adjust` 流水） |
-| `points_total` | 只增不减（累计获得） | — |
-| `balance_principal` | `recharge()` / `creditBalance()` | `applyBalancePayment()` / `refundMember(mode='balance')` |
-| `balance_bonus` | `recharge()` / `creditBalance(bonus)` | 同上 |
-| `level_id` | `syncLevel()`（自动升级，只升不降） | 仅 `recount()` / `recountAllLevels()` / `adjustMember(levelId)` |
+| 字段                | 累加时机                                                                  | 回减时机                                                        |
+| ------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `total_spent`       | `applyEarning()`：正常收款（`type='consume'`）、购卡（`type='card_buy'`） | `reverseEarning()`：退款 / 退卡（`type='refund'`）              |
+| `points`            | `applyEarning()`：`floor(amount/100) × pointsPerYuan`                     | `reverseEarning()`（不足时先扣至 0，差额写 `adjust` 流水）      |
+| `points_total`      | 只增不减（累计获得）                                                      | —                                                               |
+| `balance_principal` | `recharge()` / `creditBalance()`                                          | `applyBalancePayment()` / `refundMember(mode='balance')`        |
+| `balance_bonus`     | `recharge()` / `creditBalance(bonus)`                                     | 同上                                                            |
+| `level_id`          | `syncLevel()`（自动升级，只升不降）                                       | 仅 `recount()` / `recountAllLevels()` / `adjustMember(levelId)` |
 
 ::: tip 积分跟着「钱」走，不跟着「完成」走
 `recordConsumption()` 由**支付成功后**的 `deliver()` 调用（[收银与支付通道接入](/backend/payment)），不是服务完成时。所以"服务完成但未收款"不会计积分。
@@ -65,17 +65,19 @@ export const bizCustomers = mysqlTable('biz_customer', {
 `biz_member_level.discount_permille`：`1000` = 不打折，`950` = 95 折，`880` = 88 折。默认 seed（`src/database/seed/biz.ts` 的 `MEMBER_LEVEL_SEEDS`）：
 
 | name | discount_permille | upgrade_amount（分） | sort |
-| --- | --- | --- | --- |
-| 银卡 | 1000 | 0 | 1 |
-| 金卡 | 950 | 50000（¥500） | 2 |
-| 钻卡 | 880 | 200000（¥2000） | 3 |
+| ---- | ----------------- | -------------------- | ---- |
+| 银卡 | 1000              | 0                    | 1    |
+| 金卡 | 950               | 50000（¥500）        | 2    |
+| 钻卡 | 880               | 200000（¥2000）      | 3    |
 
 服务层校验（`member-levels.service.ts`）：
 
 ```ts
 throw new BadRequestException('折扣率必须是 0~1000 的整数千分比');
 throw new BadRequestException('升级门槛必须是非负整数（分）');
-throw new BadRequestException(`等级门槛必须随排序单调不减：「${level.name}」排序更小但门槛更高`);
+throw new BadRequestException(
+  `等级门槛必须随排序单调不减：「${level.name}」排序更小但门槛更高`,
+);
 ```
 
 ::: warning 门槛必须随 `sort` 单调不减
@@ -102,11 +104,11 @@ override async syncLevel(tx: BizTx, customerId: number, actorId?: number | null)
 
 **只升不降**。唯一允许降级的入口：
 
-| 入口 | 权限点 | 说明 |
-| --- | --- | --- |
-| `POST /biz/members/:id/recount` | `biz:member:recount` | 按流水重算 `total_spent` / 余额 / 积分 / 等级（对账修复，幂等） |
-| `POST /biz/members/:id/adjust`（带 `levelId`） | `biz:member:adjust` | 手工调级，**必须填原因**，写 `level_change` 流水 |
-| 定时任务 `recountMemberLevels` | — | 全量重算（cron `0 30 3 * * *`，每日 03:30） |
+| 入口                                           | 权限点               | 说明                                                            |
+| ---------------------------------------------- | -------------------- | --------------------------------------------------------------- |
+| `POST /biz/members/:id/recount`                | `biz:member:recount` | 按流水重算 `total_spent` / 余额 / 积分 / 等级（对账修复，幂等） |
+| `POST /biz/members/:id/adjust`（带 `levelId`） | `biz:member:adjust`  | 手工调级，**必须填原因**，写 `level_change` 流水                |
+| 定时任务 `recountMemberLevels`                 | —                    | 全量重算（cron `0 30 3 * * *`，每日 03:30）                     |
 
 ## 算价公式
 
@@ -114,33 +116,48 @@ override async syncLevel(tx: BizTx, customerId: number, actorId?: number | null)
 
 ```ts
 // src/modules/biz/common/money.ts:90（节选）
-const levelDiscountAmount = Math.floor((originalPrice * (1000 - permille)) / 1000);
+const levelDiscountAmount = Math.floor(
+  (originalPrice * (1000 - permille)) / 1000,
+);
 const baseAfterLevel = Math.max(originalPrice - levelDiscountAmount, 0);
 // 券在**等级折扣之后、积分抵扣之前**；且与积分**同一单二选一**
 const couponDiscountAmount = input.couponDiscountAmount
-  ? Math.min(Math.max(Math.trunc(input.couponDiscountAmount), 0), baseAfterLevel) : 0;
+  ? Math.min(
+      Math.max(Math.trunc(input.couponDiscountAmount), 0),
+      baseAfterLevel,
+    )
+  : 0;
 const base4Points = Math.max(baseAfterLevel - couponDiscountAmount, 0);
-const maxPointsDiscountAmount = permilleOf(base4Points, Math.max(input.maxPointsPermille, 0));
+const maxPointsDiscountAmount = permilleOf(
+  base4Points,
+  Math.max(input.maxPointsPermille, 0),
+);
 const maxPoints = centsToPoints(maxPointsDiscountAmount, rate);
-const requested = couponDiscountAmount > 0 ? 0 : Math.max(Math.trunc(input.pointsUsed ?? 0), 0);
+const requested =
+  couponDiscountAmount > 0 ? 0 : Math.max(Math.trunc(input.pointsUsed ?? 0), 0);
 const pointsUsed = Math.min(requested - (requested % rate), maxPoints);
 const payableAmount = Math.max(
-  originalPrice - levelDiscountAmount - couponDiscountAmount - pointsToCents(pointsUsed, rate) + adjustAmount, 0,
+  originalPrice -
+    levelDiscountAmount -
+    couponDiscountAmount -
+    pointsToCents(pointsUsed, rate) +
+    adjustAmount,
+  0,
 );
 ```
 
 ### 分步口径
 
-| 步骤 | 公式 | 边界 |
-| --- | --- | --- |
-| ① 原价 | `Σ booking_item.price` | 全部是**快照价**，改项目价格不影响历史单 |
-| ② 等级折扣 | `Math.floor(originalPrice × (1000 − permille) / 1000)` | `permille` 被 `clampPermille` 夹到 `[0, 1000]`，非法值回落 1000 |
-| ③ 优惠券 | `Math.min(Math.max(券面额, 0), baseAfterLevel)` | 券**不能把单抵成负数**；面额与门槛在**发券时已快照** |
-| ④ 积分上限 | `permilleOf(base4Points, maxPointsPermille)`，默认 `300` → **折后金额的 30%**；再 `centsToPoints()` 折成所需积分 | 上限必须夹取配置，否则一单能被抵成 0 |
-| ⑤ 实际扣分 | `pointsUsed = Math.min(requested − requested % rate, maxPoints)` | **取整到整元的倍数**（不足 1 元的零头不抵） |
-| ⑥ 积分抵扣额 | `pointsToCents(pointsUsed, rate) = Math.floor(points / rate) × 100` | `rate = pointsDiscountPerYuan`，默认 **100 分抵 1 元** |
-| ⑦ 手动改价 | `adjustAmount` 可正可负（`Math.trunc`） | 需要 `biz:booking:adjust` + **原因** |
-| ⑧ 应付 | `Math.max(原价 − 等级折扣 − 券 − 积分 + 改价, 0)` | **不能为负**；取整方向全部**向下** |
+| 步骤         | 公式                                                                                                             | 边界                                                            |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| ① 原价       | `Σ booking_item.price`                                                                                           | 全部是**快照价**，改项目价格不影响历史单                        |
+| ② 等级折扣   | `Math.floor(originalPrice × (1000 − permille) / 1000)`                                                           | `permille` 被 `clampPermille` 夹到 `[0, 1000]`，非法值回落 1000 |
+| ③ 优惠券     | `Math.min(Math.max(券面额, 0), baseAfterLevel)`                                                                  | 券**不能把单抵成负数**；面额与门槛在**发券时已快照**            |
+| ④ 积分上限   | `permilleOf(base4Points, maxPointsPermille)`，默认 `300` → **折后金额的 30%**；再 `centsToPoints()` 折成所需积分 | 上限必须夹取配置，否则一单能被抵成 0                            |
+| ⑤ 实际扣分   | `pointsUsed = Math.min(requested − requested % rate, maxPoints)`                                                 | **取整到整元的倍数**（不足 1 元的零头不抵）                     |
+| ⑥ 积分抵扣额 | `pointsToCents(pointsUsed, rate) = Math.floor(points / rate) × 100`                                              | `rate = pointsDiscountPerYuan`，默认 **100 分抵 1 元**          |
+| ⑦ 手动改价   | `adjustAmount` 可正可负（`Math.trunc`）                                                                          | 需要 `biz:booking:adjust` + **原因**                            |
+| ⑧ 应付       | `Math.max(原价 − 等级折扣 − 券 − 积分 + 改价, 0)`                                                                | **不能为负**；取整方向全部**向下**                              |
 
 ```ts
 /** 千分比取整（向下），`permilleOf(10000, 950) = 9500` */
@@ -157,30 +174,30 @@ export function permilleOf(amount: number, permille: number): number {
 
 原价 10000 分（¥100），等级 950‰（95 折），顾客想用 5000 积分，`pointsDiscountPerYuan = 100`，`maxPointsPermille = 300`：
 
-| 步骤 | 计算 | 结果 |
-| --- | --- | --- |
-| 原价 | — | 10000 |
-| 等级折扣 | `floor(10000 × 50 / 1000)` | 500 |
-| 折后 | `10000 − 500` | 9500 |
-| 积分上限（金额） | `floor(9500 × 300 / 1000)` | 2850 |
-| 积分上限（分数） | `ceil(2850 / 100) × 100` | 2900 |
-| 实际扣分 | `min(5000 − 0, 2900)` | 2900 |
-| 积分抵扣额 | `floor(2900 / 100) × 100` | 2900 |
-| **应付** | `10000 − 500 − 0 − 2900 + 0` | **6600** |
+| 步骤             | 计算                         | 结果     |
+| ---------------- | ---------------------------- | -------- |
+| 原价             | —                            | 10000    |
+| 等级折扣         | `floor(10000 × 50 / 1000)`   | 500      |
+| 折后             | `10000 − 500`                | 9500     |
+| 积分上限（金额） | `floor(9500 × 300 / 1000)`   | 2850     |
+| 积分上限（分数） | `ceil(2850 / 100) × 100`     | 2900     |
+| 实际扣分         | `min(5000 − 0, 2900)`        | 2900     |
+| 积分抵扣额       | `floor(2900 / 100) × 100`    | 2900     |
+| **应付**         | `10000 − 500 − 0 − 2900 + 0` | **6600** |
 
 ### 配置项
 
 `BIZ_CONFIG_DEFAULTS`（`biz-config.service.ts:65`）：
 
-| key | 默认 | 含义 |
-| --- | --- | --- |
-| `biz.member.pointsPerYuan` | `1` | 每元累计积分 |
-| `biz.member.pointsDiscountPerYuan` | `100` | 多少积分抵 1 元 |
-| `biz.member.maxPointsPermille` | `300` | 单笔积分抵扣上限（‰ 折后金额） |
-| `biz.member.maxBonusPermille` | `200` | 充值赠送比例上限（‰） |
-| `biz.member.bonusDeductMode` | `bonus_first` | 余额扣减顺序 |
-| `biz.member.minRechargeAmount` | `10000` | 单次充值下限（分） |
-| `biz.member.refundNeedReason` | `true` | 退款 / 冲正是否必填原因 |
+| key                                | 默认          | 含义                           |
+| ---------------------------------- | ------------- | ------------------------------ |
+| `biz.member.pointsPerYuan`         | `1`           | 每元累计积分                   |
+| `biz.member.pointsDiscountPerYuan` | `100`         | 多少积分抵 1 元                |
+| `biz.member.maxPointsPermille`     | `300`         | 单笔积分抵扣上限（‰ 折后金额） |
+| `biz.member.maxBonusPermille`      | `200`         | 充值赠送比例上限（‰）          |
+| `biz.member.bonusDeductMode`       | `bonus_first` | 余额扣减顺序                   |
+| `biz.member.minRechargeAmount`     | `10000`       | 单次充值下限（分）             |
+| `biz.member.refundNeedReason`      | `true`        | 退款 / 冲正是否必填原因        |
 
 ## 储值
 
@@ -196,11 +213,22 @@ export function permilleOf(amount: number, permille: number): number {
 ```ts
 // src/modules/biz/membership/member-accounts/member-accounts.service.ts:864
 const customer = await this.lockCustomerRowReadOnly(customerId);
-if (!customer.phone) throw new BadRequestException('会员必须有手机号，请先补全手机号再充值');
+if (!customer.phone)
+  throw new BadRequestException('会员必须有手机号，请先补全手机号再充值');
 
-if (input.planId) { const plan = await this.requirePlan(input.planId); payAmount = plan.payAmount; bonusAmount = plan.bonusAmount; await this.assertBonusRatio(payAmount, bonusAmount); }
-else { payAmount = Math.trunc(input.payAmount); bonusAmount = 0; }
-if (payAmount < minRechargeAmount) throw new BadRequestException(`单次充值不得低于 ${(minRechargeAmount / 100).toFixed(2)} 元`);
+if (input.planId) {
+  const plan = await this.requirePlan(input.planId);
+  payAmount = plan.payAmount;
+  bonusAmount = plan.bonusAmount;
+  await this.assertBonusRatio(payAmount, bonusAmount);
+} else {
+  payAmount = Math.trunc(input.payAmount);
+  bonusAmount = 0;
+}
+if (payAmount < minRechargeAmount)
+  throw new BadRequestException(
+    `单次充值不得低于 ${(minRechargeAmount / 100).toFixed(2)} 元`,
+  );
 ```
 
 - **方案充值**：金额**服务端按方案重算**，绝不信任前端传值；
@@ -221,20 +249,20 @@ private async resolveDeductMode(): Promise<'bonus_first' | 'principal_first' | '
 }
 ```
 
-| 模式 | 行为 | 代码位置 |
-| --- | --- | --- |
-| `bonus_first`（**默认**） | 先扣赠送，不足再扣本金 —— 顾客可退本金留存更多 | `splitBalanceDeduction(..., 'bonus_first')`（`money.ts:167`） |
-| `principal_first` | 先扣本金，不足再扣赠送 | **内联计算**（`member-accounts.service.ts:249`），不在 `money.ts` 里 |
-| `proportional` | 按本金 : 赠送的比例分摊，赠送部分向下取整 | `splitBalanceDeduction(..., 'proportional')` |
+| 模式                      | 行为                                           | 代码位置                                                             |
+| ------------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| `bonus_first`（**默认**） | 先扣赠送，不足再扣本金 —— 顾客可退本金留存更多 | `splitBalanceDeduction(..., 'bonus_first')`（`money.ts:167`）        |
+| `principal_first`         | 先扣本金，不足再扣赠送                         | **内联计算**（`member-accounts.service.ts:249`），不在 `money.ts` 里 |
+| `proportional`            | 按本金 : 赠送的比例分摊，赠送部分向下取整      | `splitBalanceDeduction(..., 'proportional')`                         |
 
 ### 退款只退本金
 
 会员侧的独立冲正入口是 `POST /biz/members/:id/refund`（权限 `biz:member:refund`），`mode` 只有两个值：
 
-| mode | 行为 |
-| --- | --- |
+| mode      | 行为                                                                        |
+| --------- | --------------------------------------------------------------------------- |
 | `balance` | 从储值余额退回 → 条件更新回减余额（同样按 `bonusDeductMode` 拆本金 / 赠送） |
-| `cash` | 现金退回 → **只写流水，不动余额** |
+| `cash`    | 现金退回 → **只写流水，不动余额**                                           |
 
 ```ts
 // member-accounts.service.ts:967 —— 冲正 / 退款（§9.6）：写**反向流水**（`reversal_of` 指向原流水），原流水不改。
@@ -318,7 +346,7 @@ WHERE id = ? AND deleted_at IS NULL AND status <> 'refunded' AND used_times > 0
 ```ts
 // src/modules/biz/membership/member-accounts/member-accounts.service.ts:432
 const { pointsPerYuan } = await this.config.member();
-const pointsEarned = Math.floor(amount / CENTS_PER_YUAN) * pointsPerYuan;   // 按整元部分
+const pointsEarned = Math.floor(amount / CENTS_PER_YUAN) * pointsPerYuan; // 按整元部分
 ```
 
 默认 **消费 1 元 = 1 分**（`pointsPerYuan = 1`），只算 `payable_amount` 的**整元部分**，**跟着钱走**：收款时累计（`recordConsumption`）、退款时扣减（`reverseConsumption`）。服务完成本身不计分。
@@ -357,10 +385,10 @@ if (pointsReversed < requiredPoints)
 
 兑换品（`biz_points_goods`）**直接指向卡种**：换项目 = 发一张 N 次卡。
 
-| 接口 | 权限点 |
-| --- | --- |
-| `POST /biz/members/:id/redeem` | `biz:points:redeem` |
-| `GET /biz/points-redeems` | `biz:points:redeem` |
+| 接口                                              | 权限点              |
+| ------------------------------------------------- | ------------------- |
+| `POST /biz/members/:id/redeem`                    | `biz:points:redeem` |
+| `GET /biz/points-redeems`                         | `biz:points:redeem` |
 | `POST /biz/points-redeems/:id/revert`（必填原因） | `biz:points:revert` |
 
 - 同一事务内扣积分（`deductPoints(type='points_redeem')`）+ 发卡 + 写 `biz_points_redeem` + 流水；

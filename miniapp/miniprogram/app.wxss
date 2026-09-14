@@ -72,8 +72,9 @@ page {
    * 笔画有明显粗细对比、数字带衬线，是这套稿子最明显的风格特征；
    * 正文/副标题/按钮仍用无衬线（PingFang）。
    */
-  --font-serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC',
-    'Source Han Serif SC', 'SimSun', serif;
+  --font-serif:
+    'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun',
+    serif;
 
   background: var(--c-bg);
   color: var(--c-text);
@@ -318,7 +319,8 @@ page {
   font-size: 30rpx;
   font-weight: 600;
   box-sizing: border-box;
-  transition: transform var(--dur-fast) var(--ease-out),
+  transition:
+    transform var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
 }
 
@@ -413,7 +415,8 @@ page {
   background: var(--c-card);
   color: var(--c-text-sub);
   font-size: 25rpx;
-  transition: background-color var(--dur-fast) var(--ease-out),
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
@@ -445,7 +448,8 @@ page {
   background: var(--c-primary);
   color: var(--c-on-primary);
   font-size: 22rpx;
-  transition: transform var(--dur-fast) var(--ease-out),
+  transition:
+    transform var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
 }
 
@@ -498,7 +502,7 @@ page {
   margin-right: 10rpx;
 }
 
- /* 演示数据提示：必须显眼，避免被误当真实数据 */
+/* 演示数据提示：必须显眼，避免被误当真实数据 */
 .mock-badge {
   display: inline-flex;
   align-items: center;
@@ -710,7 +714,8 @@ page {
 
 /* 按下反馈 */
 .press {
-  transition: transform var(--dur-fast) var(--ease-out),
+  transition:
+    transform var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
 }
 

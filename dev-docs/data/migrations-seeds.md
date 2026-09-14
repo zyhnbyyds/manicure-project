@@ -21,19 +21,19 @@ bun run db:generate      # → drizzle-kit generate
 bun run db:migrate       # → bun src/database/migrate.ts
 ```
 
-| 命令 | 实现 | 说明 |
-| --- | --- | --- |
-| `bun run db:generate` | `drizzle-kit generate` | 按 schema 与快照的差异生成 SQL + `snapshot.json` |
-| `bun run db:migrate` | `bun src/database/migrate.ts` | 用 `drizzle-orm/mysql2/migrator` 按顺序执行 |
-| `bun run db:studio` | `drizzle-kit studio` | 可视化查看 |
+| 命令                  | 实现                          | 说明                                             |
+| --------------------- | ----------------------------- | ------------------------------------------------ |
+| `bun run db:generate` | `drizzle-kit generate`        | 按 schema 与快照的差异生成 SQL + `snapshot.json` |
+| `bun run db:migrate`  | `bun src/database/migrate.ts` | 用 `drizzle-orm/mysql2/migrator` 按顺序执行      |
+| `bun run db:studio`   | `drizzle-kit studio`          | 可视化查看                                       |
 
 ### `drizzle.config.ts` 关键配置
 
 ```ts
 export default defineConfig({
-  dialect: 'mysql',                                  // 固定 MySQL，不用 PG 语法
-  schema: './src/database/schema/index.ts',          // 单文件 schema
-  out: './src/database/migrations',                  // 迁移输出目录
+  dialect: 'mysql', // 固定 MySQL，不用 PG 语法
+  schema: './src/database/schema/index.ts', // 单文件 schema
+  out: './src/database/migrations', // 迁移输出目录
   dbCredentials: { url: process.env.DATABASE_URL ?? '' }, // 凭据只从环境变量来
   strict: true,
   verbose: true,
@@ -53,23 +53,23 @@ export default defineConfig({
 
 ### 迁移演进脉络（15 个迁移，61 张表）
 
-| 迁移目录 | 内容 | 建表数 |
-| --- | --- | --- |
-| `20260903075025_wild_ben_grimm` | 系统底座：`sys_config`、`sys_dept`、`sys_user`、`sys_role`、`sys_menu`、三张关联表、`sys_dict_*`、`sys_post`、`sys_refresh_token`、日志、`sys_job*`、`sys_file` | 18 |
-| `20260907071434_lying_darkhawk` | AI 会话底座：`ai_session`、`ai_message`、`ai_audit_log` | 3 |
-| `20260907090247_free_wonder_man` | AI 审批闸门：`ai_action_intent`、`ai_approval` | 2 |
-| `20260907104710_purple_speedball` | AI 任务时间线：`ai_task`、`ai_task_step` | 2 |
-| `20260907110721_flippant_corsair` | `ai_action_intent` 补 `task_id` / `task_step_id` 与外键（审批纳入任务时间线） | 0 |
-| `20260910135835_remove_dept_leader_user_id` | **删列**：`sys_dept.leader_user_id` | 0 |
-| `20260910174724_nebulous_lester` | 美甲业务主体一次性落地：`app_wx_user` + 30 张 `biz_*` + `sys_notice_template` / `sys_notice_log` | 32 |
-| `20260911033025_magical_snowbird` | `biz_service_item` 加 `images` json，**并手工追加数据回填**（`image` → `JSON_ARRAY(image)`） | 0 |
-| `20260911055121_clear_warhawk` | `app_wx_user` 加 `staff_id` / `staff_status` / `staff_requested_at` / `staff_decided_at` / `staff_decided_by` + `idx_wx_staff` + 外键 | 0 |
-| `20260911080757_wakeful_hellfire_club` | `biz_payment.channel` 枚举扩值（加 `wxpay_jsapi` 等） | 0 |
-| `20260911081512_kind_mephistopheles` | `app_wx_user` 加 `staff_reject_reason` | 0 |
-| `20260911105208_chunky_scrambler` | `app_wx_subscribe_grant` | 1 |
-| `20260911124052_bored_valkyrie` | `app_wx_user_bind_log` | 1 |
-| `20260912004347_tidy_human_cannonball` | 优惠券：`biz_coupon_template`、`biz_customer_coupon` | 2 |
-| `20260912005048_wise_tomas` | `biz_booking` 加 `coupon_id` / `coupon_discount_amount` | 0 |
+| 迁移目录                                    | 内容                                                                                                                                                            | 建表数 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `20260903075025_wild_ben_grimm`             | 系统底座：`sys_config`、`sys_dept`、`sys_user`、`sys_role`、`sys_menu`、三张关联表、`sys_dict_*`、`sys_post`、`sys_refresh_token`、日志、`sys_job*`、`sys_file` | 18     |
+| `20260907071434_lying_darkhawk`             | AI 会话底座：`ai_session`、`ai_message`、`ai_audit_log`                                                                                                         | 3      |
+| `20260907090247_free_wonder_man`            | AI 审批闸门：`ai_action_intent`、`ai_approval`                                                                                                                  | 2      |
+| `20260907104710_purple_speedball`           | AI 任务时间线：`ai_task`、`ai_task_step`                                                                                                                        | 2      |
+| `20260907110721_flippant_corsair`           | `ai_action_intent` 补 `task_id` / `task_step_id` 与外键（审批纳入任务时间线）                                                                                   | 0      |
+| `20260910135835_remove_dept_leader_user_id` | **删列**：`sys_dept.leader_user_id`                                                                                                                             | 0      |
+| `20260910174724_nebulous_lester`            | 美甲业务主体一次性落地：`app_wx_user` + 30 张 `biz_*` + `sys_notice_template` / `sys_notice_log`                                                                | 32     |
+| `20260911033025_magical_snowbird`           | `biz_service_item` 加 `images` json，**并手工追加数据回填**（`image` → `JSON_ARRAY(image)`）                                                                    | 0      |
+| `20260911055121_clear_warhawk`              | `app_wx_user` 加 `staff_id` / `staff_status` / `staff_requested_at` / `staff_decided_at` / `staff_decided_by` + `idx_wx_staff` + 外键                           | 0      |
+| `20260911080757_wakeful_hellfire_club`      | `biz_payment.channel` 枚举扩值（加 `wxpay_jsapi` 等）                                                                                                           | 0      |
+| `20260911081512_kind_mephistopheles`        | `app_wx_user` 加 `staff_reject_reason`                                                                                                                          | 0      |
+| `20260911105208_chunky_scrambler`           | `app_wx_subscribe_grant`                                                                                                                                        | 1      |
+| `20260911124052_bored_valkyrie`             | `app_wx_user_bind_log`                                                                                                                                          | 1      |
+| `20260912004347_tidy_human_cannonball`      | 优惠券：`biz_coupon_template`、`biz_customer_coupon`                                                                                                            | 2      |
+| `20260912005048_wise_tomas`                 | `biz_booking` 加 `coupon_id` / `coupon_discount_amount`                                                                                                         | 0      |
 
 合计建表 18+3+2+2+32+1+1+2 = **61** ✓
 
@@ -82,20 +82,19 @@ export default defineConfig({
 
 ### 改 schema 的常见冲突与处理
 
-| 场景 | 正确做法 |
-| --- | --- |
-| **多人并行加表** | 各改各的 schema 行，但**迁移文件串行生成**：`git pull` → `bun run db:generate` → 提交；不要两个人同时 generate 后各推一个分支，否则两条迁移的 snapshot 会互相对不上（表现为生成出一堆「莫名 ALTER」）。冲突时以最新 snapshot 为准重新 generate |
-| **加非空列** | 已上线的表**不要**直接 `ADD COLUMN ... NOT NULL`。要么可空、要么带默认值。确实必须非空：先加可空列 → 数据回填 → 再单独一条迁移改 NOT NULL |
-| **迁移与已有数据不兼容** | 例如加唯一索引时表里已有重复值：先出**清洗 DML**（去重 / 补值）再建索引；清洗语句追加在同一条迁移里、索引之前，用 `--> statement-breakpoint` 分隔 |
-| **改唯一索引** | MySQL 不会自动处理历史软删行占键的问题。改之前先确认存量数据（尤其 `biz_customer.phone`、单号列），必要时先 `restore` / 清洗 |
-| **改列类型或枚举** | `mysqlEnum` 加值会生成 `MODIFY COLUMN`；**减少**取值要先确认表里没有该值的数据，否则会被截断成空串 |
-| **删列** | 像 `20260910135835_remove_dept_leader_user_id` 一样单开一条小迁移，**不要**和功能迁移混在一起，回滚时好定位 |
-| **改了表结构但忘了 `defineRelations`** | 迁移会正常生成（关系不影响 DDL），但 `db.query.*` 用不了；schema 单文件改动务必同时注册关系 |
+| 场景                                   | 正确做法                                                                                                                                                                                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **多人并行加表**                       | 各改各的 schema 行，但**迁移文件串行生成**：`git pull` → `bun run db:generate` → 提交；不要两个人同时 generate 后各推一个分支，否则两条迁移的 snapshot 会互相对不上（表现为生成出一堆「莫名 ALTER」）。冲突时以最新 snapshot 为准重新 generate |
+| **加非空列**                           | 已上线的表**不要**直接 `ADD COLUMN ... NOT NULL`。要么可空、要么带默认值。确实必须非空：先加可空列 → 数据回填 → 再单独一条迁移改 NOT NULL                                                                                                      |
+| **迁移与已有数据不兼容**               | 例如加唯一索引时表里已有重复值：先出**清洗 DML**（去重 / 补值）再建索引；清洗语句追加在同一条迁移里、索引之前，用 `--> statement-breakpoint` 分隔                                                                                              |
+| **改唯一索引**                         | MySQL 不会自动处理历史软删行占键的问题。改之前先确认存量数据（尤其 `biz_customer.phone`、单号列），必要时先 `restore` / 清洗                                                                                                                   |
+| **改列类型或枚举**                     | `mysqlEnum` 加值会生成 `MODIFY COLUMN`；**减少**取值要先确认表里没有该值的数据，否则会被截断成空串                                                                                                                                             |
+| **删列**                               | 像 `20260910135835_remove_dept_leader_user_id` 一样单开一条小迁移，**不要**和功能迁移混在一起，回滚时好定位                                                                                                                                    |
+| **改了表结构但忘了 `defineRelations`** | 迁移会正常生成（关系不影响 DDL），但 `db.query.*` 用不了；schema 单文件改动务必同时注册关系                                                                                                                                                    |
 
 ::: danger `auditColumns` 的默认值括号坑（真实踩过）
-`drizzle-orm 1.0.0-rc` 会把 `.default(sql\`CURRENT_TIMESTAMP\`)` 渲染成
-`DEFAULT (CURRENT_TIMESTAMP)`。MySQL 8.0.23 **建表时放行**，但随后任何**重建表**的语句
-（`CREATE INDEX` / 某些 `ALTER`）会报 `Invalid default value for 'created_at'`。
+`drizzle-orm 1.0.0-rc` 会把 `.default(sql\`CURRENT_TIMESTAMP\`)`渲染成`DEFAULT (CURRENT_TIMESTAMP)`。MySQL 8.0.23 **建表时放行**，但随后任何**重建表**的语句
+（`CREATE INDEX`/ 某些`ALTER`）会报 `Invalid default value for 'created_at'`。
 
 处理：手工把生成的 `DEFAULT (CURRENT_TIMESTAMP)` 去掉括号。
 `drizzle-kit generate` 不会因此认为有漂移（快照里存的是表达式，不是字面量），
@@ -115,13 +114,13 @@ db:seed  →  index.ts
                                   （可选、不在链上）seedDemo()
 ```
 
-| 脚本 | 命令 | 职责 | 幂等策略 | 可重复执行 |
-| --- | --- | --- | --- | --- |
-| `seed/index.ts` | `bun run db:seed` | 内置角色 `admin`（`isSystem`）/ `user`、管理员账号（`SEED_ADMIN_PASSWORD`）、用户↔角色绑定，然后串联 menus → biz → nail | `ON DUPLICATE KEY UPDATE`（角色 key、用户名、用户角色唯一键） | ✅ |
-| `seed/menus.ts` | `bun run db:seed:menus` | 菜单树 + 权限点（`M`/`C`/`F`），并给 `admin` 角色**补齐**菜单授权 | 按 `name` 查已有行 → 逐字段比对，值没变**不发 UPDATE**；角色授权只补缺失项 | ✅ |
-| `seed/biz.ts` | `bun run db:seed:biz` | 配置类初始数据：`sys_config` 默认值、会员等级、退款判责规则、通知模板、定时任务 | 逐项按业务键判断，**已存在一律跳过**（不覆盖运营改过的值） | ✅ |
-| `seed/nail.ts` | `bun run db:seed:nail` | 美甲基础资料：服务项目、美甲师、可做项目、周排班、卡种 + 卡种项目、充值方案、积分兑换品、挂账主体、提成规则 | 按 `name` / `nickname` / 组合键判断，跳过已存在 | ✅ |
-| `seed/demo.ts` | `bun run db:seed:demo` | **演示**顾客档案 8 条（`13700000001`~`08`） | 按 `phone` 判断，已存在整行跳过 | ✅ |
+| 脚本            | 命令                    | 职责                                                                                                                    | 幂等策略                                                                   | 可重复执行 |
+| --------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------- |
+| `seed/index.ts` | `bun run db:seed`       | 内置角色 `admin`（`isSystem`）/ `user`、管理员账号（`SEED_ADMIN_PASSWORD`）、用户↔角色绑定，然后串联 menus → biz → nail | `ON DUPLICATE KEY UPDATE`（角色 key、用户名、用户角色唯一键）              | ✅         |
+| `seed/menus.ts` | `bun run db:seed:menus` | 菜单树 + 权限点（`M`/`C`/`F`），并给 `admin` 角色**补齐**菜单授权                                                       | 按 `name` 查已有行 → 逐字段比对，值没变**不发 UPDATE**；角色授权只补缺失项 | ✅         |
+| `seed/biz.ts`   | `bun run db:seed:biz`   | 配置类初始数据：`sys_config` 默认值、会员等级、退款判责规则、通知模板、定时任务                                         | 逐项按业务键判断，**已存在一律跳过**（不覆盖运营改过的值）                 | ✅         |
+| `seed/nail.ts`  | `bun run db:seed:nail`  | 美甲基础资料：服务项目、美甲师、可做项目、周排班、卡种 + 卡种项目、充值方案、积分兑换品、挂账主体、提成规则             | 按 `name` / `nickname` / 组合键判断，跳过已存在                            | ✅         |
+| `seed/demo.ts`  | `bun run db:seed:demo`  | **演示**顾客档案 8 条（`13700000001`~`08`）                                                                             | 按 `phone` 判断，已存在整行跳过                                            | ✅         |
 
 依赖顺序不可调换：`menus` 依赖 `admin` 角色（`seedMenus` 里找不到 admin 会直接抛
 `Admin role not found, run db:seed first`）；`nail` 的关联表（可做项目、卡种项目、周排班）
@@ -144,15 +143,15 @@ seed 里直接赋值会让对账等式从第一天就是错的。想让演示会
 
 ### seed 内容与代码的对应关系
 
-| seed 出的数据 | 来源常量 | 落在哪张表 | 幂等键 |
-| --- | --- | --- | --- |
-| 业务默认配置（23 项） | `BIZ_CONFIG_DEFAULTS`（`src/modules/biz/common/biz-config.service.ts`，**唯一事实来源**） | `sys_config` | `config_key` |
-| 会员等级：银卡 1000‰ / 金卡 950‰（满 ¥500）/ 钻卡 880‰（满 ¥2000） | `MEMBER_LEVEL_SEEDS` | `biz_member_level` | `name` |
-| 退款规则：≥24h 全退 / 2~24h 退 50% / <2h 不退 | `REFUND_POLICY_SEEDS` | `biz_refund_policy` | `name` |
-| 通知模板 8 条（`booking_created`、`booking_remind`、`booking_cancelled`、`booking_completed`、`member_recharged`、`tail_payment_remind`、`recurrence_conflict`、`recurrence_failed`） | `NOTICE_TEMPLATE_SEEDS`（`src/database/seed/biz.ts`） | `sys_notice_template` | `code` |
-| 定时任务 11 条 | `JOB_SEEDS` | `sys_job` | `handler` |
-| 服务项目 / 美甲师 / 周排班 / 卡种 / 充值方案 / 积分兑换品 / 挂账主体 / 提成规则 | `SERVICE_ITEM_SEEDS`、`STAFF_SEEDS`、`WEEKLY_SHIFT_SEEDS`、`CARD_TYPE_SEEDS`、`RECHARGE_PLAN_SEEDS`、`POINTS_GOODS_SEEDS`、`CREDIT_ACCOUNT_SEEDS`、`COMMISSION_RULE_SEEDS`（`src/database/seed/nail.ts`） | 对应 `biz_*` 表 | `name` / `nickname` / 组合键 |
-| 菜单 + 权限点 | `MENU_SEEDS`（含 `BIZ_PAGES` 的 25 个页面） | `sys_menu` / `sys_role_menu` | `name` |
+| seed 出的数据                                                                                                                                                                         | 来源常量                                                                                                                                                                                                  | 落在哪张表                   | 幂等键                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------- |
+| 业务默认配置（23 项）                                                                                                                                                                 | `BIZ_CONFIG_DEFAULTS`（`src/modules/biz/common/biz-config.service.ts`，**唯一事实来源**）                                                                                                                 | `sys_config`                 | `config_key`                 |
+| 会员等级：银卡 1000‰ / 金卡 950‰（满 ¥500）/ 钻卡 880‰（满 ¥2000）                                                                                                                    | `MEMBER_LEVEL_SEEDS`                                                                                                                                                                                      | `biz_member_level`           | `name`                       |
+| 退款规则：≥24h 全退 / 2~24h 退 50% / <2h 不退                                                                                                                                         | `REFUND_POLICY_SEEDS`                                                                                                                                                                                     | `biz_refund_policy`          | `name`                       |
+| 通知模板 8 条（`booking_created`、`booking_remind`、`booking_cancelled`、`booking_completed`、`member_recharged`、`tail_payment_remind`、`recurrence_conflict`、`recurrence_failed`） | `NOTICE_TEMPLATE_SEEDS`（`src/database/seed/biz.ts`）                                                                                                                                                     | `sys_notice_template`        | `code`                       |
+| 定时任务 11 条                                                                                                                                                                        | `JOB_SEEDS`                                                                                                                                                                                               | `sys_job`                    | `handler`                    |
+| 服务项目 / 美甲师 / 周排班 / 卡种 / 充值方案 / 积分兑换品 / 挂账主体 / 提成规则                                                                                                       | `SERVICE_ITEM_SEEDS`、`STAFF_SEEDS`、`WEEKLY_SHIFT_SEEDS`、`CARD_TYPE_SEEDS`、`RECHARGE_PLAN_SEEDS`、`POINTS_GOODS_SEEDS`、`CREDIT_ACCOUNT_SEEDS`、`COMMISSION_RULE_SEEDS`（`src/database/seed/nail.ts`） | 对应 `biz_*` 表              | `name` / `nickname` / 组合键 |
+| 菜单 + 权限点                                                                                                                                                                         | `MENU_SEEDS`（含 `BIZ_PAGES` 的 25 个页面）                                                                                                                                                               | `sys_menu` / `sys_role_menu` | `name`                       |
 
 ::: tip seed 会打印统计
 四个脚本都会输出 `inserted` / `skipped` 计数，重复执行时 `inserted=0` 是正确的。
@@ -311,18 +310,18 @@ this.rangeEnd(q)   → shopDayRange(addLocalDays(q.dateTo, 1), q.timeZone).start
 
 **口径定义**
 
-| 字段 | 何时加 | 何时减 | 唯一写入方 |
-| --- | --- | --- | --- |
-| `biz_customer.total_spent` | 收款成功（已收金额） | 退款成功时**按比例回减** | 会员账务 service |
-| `biz_customer.points` | `points_earn` 流水 | `points_spend` / `points_redeem` 流水 | 会员账务 service |
-| `biz_customer.points_total` | 累计发放，只增不减 | — | 会员账务 service |
-| `biz_customer.balance_principal` / `balance_bonus` | 充值 / 转入 | 消费扣减 / 退款 | 会员账务 service |
-| `biz_customer.level_id` | 定时任务 `recountMemberLevels` 按 `total_spent` 重算 | — | 等级重算任务 |
-| `biz_customer.visit_count` / `last_visit_at` | 预约 `completed` 时 +1 | — | `onBookingCompleted()` / `recount` |
-| `biz_booking.paid_amount` / `refund_amount` / `due_amount` / `pay_status` / `pay_channel_summary` / `settled_at` | `BookingSettlementService.recalc()` | 同左 | 只有 `recalc()` |
-| `biz_member_card.used_times` / `status` | 核销条件更新 | 撤销核销条件更新 | 次卡核销 service |
-| `biz_credit_account.used_amount` | 挂账条件更新 | 销账条件更新 | 挂账 / 销账 service |
-| `biz_receivable.settled_amount` / `status` | 销账条件更新 | — | 销账 service |
+| 字段                                                                                                             | 何时加                                               | 何时减                                | 唯一写入方                         |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------- | ---------------------------------- |
+| `biz_customer.total_spent`                                                                                       | 收款成功（已收金额）                                 | 退款成功时**按比例回减**              | 会员账务 service                   |
+| `biz_customer.points`                                                                                            | `points_earn` 流水                                   | `points_spend` / `points_redeem` 流水 | 会员账务 service                   |
+| `biz_customer.points_total`                                                                                      | 累计发放，只增不减                                   | —                                     | 会员账务 service                   |
+| `biz_customer.balance_principal` / `balance_bonus`                                                               | 充值 / 转入                                          | 消费扣减 / 退款                       | 会员账务 service                   |
+| `biz_customer.level_id`                                                                                          | 定时任务 `recountMemberLevels` 按 `total_spent` 重算 | —                                     | 等级重算任务                       |
+| `biz_customer.visit_count` / `last_visit_at`                                                                     | 预约 `completed` 时 +1                               | —                                     | `onBookingCompleted()` / `recount` |
+| `biz_booking.paid_amount` / `refund_amount` / `due_amount` / `pay_status` / `pay_channel_summary` / `settled_at` | `BookingSettlementService.recalc()`                  | 同左                                  | 只有 `recalc()`                    |
+| `biz_member_card.used_times` / `status`                                                                          | 核销条件更新                                         | 撤销核销条件更新                      | 次卡核销 service                   |
+| `biz_credit_account.used_amount`                                                                                 | 挂账条件更新                                         | 销账条件更新                          | 挂账 / 销账 service                |
+| `biz_receivable.settled_amount` / `status`                                                                       | 销账条件更新                                         | —                                     | 销账 service                       |
 
 **对账等式（必须随时成立）**
 

@@ -52,7 +52,9 @@ export function stripDisplayImageUrl(url: string): string {
 }
 
 /** 一批地址的批量版本（列表/图集常用） */
-export function toDisplayImageUrls(urls: string[] | null | undefined): string[] {
+export function toDisplayImageUrls(
+  urls: string[] | null | undefined,
+): string[] {
   return (urls ?? []).map(toDisplayImageUrl);
 }
 

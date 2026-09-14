@@ -32,7 +32,8 @@ export class AppAuthController { ... }
 // 独立 token 域：只接受 scope=app 的令牌（后台令牌一律 401）
 if (payload.scope !== 'app') throw new UnauthorizedException();
 const id = Number(payload.sub);
-if (!Number.isSafeInteger(id) || typeof payload.openid !== 'string') throw new UnauthorizedException();
+if (!Number.isSafeInteger(id) || typeof payload.openid !== 'string')
+  throw new UnauthorizedException();
 request.appUser = { id, openid: payload.openid };
 ```
 
@@ -44,10 +45,10 @@ request.appUser = { id, openid: payload.openid };
 
 两个守卫**共用** `JWT_ACCESS_SECRET` / `issuer` / `audience`，靠 **payload 形态**区分，**不需要改 `AccessTokenGuard`**：
 
-| token 种类 | 签发处 | payload 特征 |
-| --- | --- | --- |
-| 后台 token | `AuthService.issueTokens` | 含 `username` / `permissions` / `roles`，**不含** `scope` |
-| app token | `AppAuthService.signAppToken` | 含 `scope: 'app'` + `openid`，**故意不含 `username`**、**故意不含角色** |
+| token 种类 | 签发处                        | payload 特征                                                            |
+| ---------- | ----------------------------- | ----------------------------------------------------------------------- |
+| 后台 token | `AuthService.issueTokens`     | 含 `username` / `permissions` / `roles`，**不含** `scope`               |
+| app token  | `AppAuthService.signAppToken` | 含 `scope: 'app'` + `openid`，**故意不含 `username`**、**故意不含角色** |
 
 ```ts
 // src/modules/app/auth/app-auth.service.ts:225
@@ -153,25 +154,39 @@ async login(input: AppLoginRequest): Promise<AppLoginVo> {
 
 ### 绑定锚点
 
-| 关系 | 落在哪里 |
-| --- | --- |
-| 微信身份 | `app_wx_user.openid`（唯一） |
-| 微信身份 ↔ 顾客 | `app_wx_user.customer_id`（**一个 openid 同时只绑一个**，换绑**覆盖**） |
-| 微信身份 ↔ 美甲师 | `app_wx_user.staff_id` + `staff_status` |
-| 绑定留痕 | `app_wx_user_bind_log`（只追加，记 `customer_id_before` / `customer_id_after` / `phone` / `openid` 快照） |
-| 顾客 ↔ 会员 | 同一个 `biz_customer.id`（顾客即会员，见 [会员 · 储值 · 次卡 · 积分](/backend/membership)） |
+| 关系              | 落在哪里                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| 微信身份          | `app_wx_user.openid`（唯一）                                                                              |
+| 微信身份 ↔ 顾客   | `app_wx_user.customer_id`（**一个 openid 同时只绑一个**，换绑**覆盖**）                                   |
+| 微信身份 ↔ 美甲师 | `app_wx_user.staff_id` + `staff_status`                                                                   |
+| 绑定留痕          | `app_wx_user_bind_log`（只追加，记 `customer_id_before` / `customer_id_after` / `phone` / `openid` 快照） |
+| 顾客 ↔ 会员       | 同一个 `biz_customer.id`（顾客即会员，见 [会员 · 储值 · 次卡 · 积分](/backend/membership)）               |
 
 ::: warning 换绑的「覆盖 + 留痕」必须在同一事务里
+
 ```ts
 // src/modules/app/auth/app-auth.service.ts:153
 // 换绑覆盖旧关系：一个 openid 同时只绑定一个 customer_id。
 // 覆盖与留痕**必须在同一事务里**：留痕落不下去的换绑比不换绑更危险。
 await this.database.db.transaction(async (tx) => {
-  await tx.update(appWxUsers).set({ customerId }).where(eq(appWxUsers.id, appUserId));
-  await tx.insert(appWxUserBindLogs).values({ appWxUserId: appUserId, openid: identity.openid, phone,
-    customerIdBefore: identity.customerId, customerIdAfter: customerId, source: 'bind_phone', createdBy: APP_ACTOR_ID });
+  await tx
+    .update(appWxUsers)
+    .set({ customerId })
+    .where(eq(appWxUsers.id, appUserId));
+  await tx
+    .insert(appWxUserBindLogs)
+    .values({
+      appWxUserId: appUserId,
+      openid: identity.openid,
+      phone,
+      customerIdBefore: identity.customerId,
+      customerIdAfter: customerId,
+      source: 'bind_phone',
+      createdBy: APP_ACTOR_ID,
+    });
 });
 ```
+
 :::
 
 ### 手机号命中软删档案 → 409
@@ -186,22 +201,24 @@ await this.database.db.transaction(async (tx) => {
 响应体形如 `{ message, needRestoreConfirm: true, customerId }`；门店侧用 `POST /biz/customers/:id/restore`（权限 `biz:customer:update`）恢复后再绑定。
 
 ::: tip 为什么要先落手机号快照
+
 ```ts
 // app-auth.service.ts:102
 // 1. **先落手机号快照**（`app_wx_user.phone`）——与「绑定顾客」解耦。
 //    这样即使命中软删档案需要用户确认，也不必再弹一次微信授权
 //    （`getPhoneNumber` 的 code 是一次性的，无法复用）。
 ```
+
 :::
 
 ### 微信能力端口与降级
 
 微信能力全部走 `WxMiniappProvider` 抽象（`auth/wx-miniapp.provider.ts`）：
 
-| 实现 | 何时启用 | 行为 |
-| --- | --- | --- |
-| `HttpWxMiniappProvider` | 默认 | 真连 `api.weixin.qq.com`；`code2Session` 用 `sns/jscode2session`，`getPhoneNumber` 用 `wxa/business/getuserphonenumber`；`fetch` 超时 5 秒 |
-| `FakeWxMiniappProvider` | `WX_MINIAPP_FAKE=true` **且非生产** | 零网络：`openid = 'fake-openid-' + code`；`getPhoneNumber` 接受 11 位手机号或 `phone-<手机号>` |
+| 实现                    | 何时启用                            | 行为                                                                                                                                       |
+| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HttpWxMiniappProvider` | 默认                                | 真连 `api.weixin.qq.com`；`code2Session` 用 `sns/jscode2session`，`getPhoneNumber` 用 `wxa/business/getuserphonenumber`；`fetch` 超时 5 秒 |
+| `FakeWxMiniappProvider` | `WX_MINIAPP_FAKE=true` **且非生产** | 零网络：`openid = 'fake-openid-' + code`；`getPhoneNumber` 接受 11 位手机号或 `phone-<手机号>`                                             |
 
 **未配置凭据**：
 
@@ -237,7 +254,9 @@ get wxMiniappFake(): boolean {
 ```ts
 // src/modules/app/auth/wx-miniapp.provider.ts:174
 if (process.env.NODE_ENV === 'production') {
-  throw new Error('FakeWxMiniappProvider 不允许在生产环境使用：它会让任意手机号登录成任意顾客/美甲师');
+  throw new Error(
+    'FakeWxMiniappProvider 不允许在生产环境使用：它会让任意手机号登录成任意顾客/美甲师',
+  );
 }
 ```
 
@@ -260,18 +279,18 @@ if (process.env.NODE_ENV === 'production') {
 
 ### 认证（`@Controller('app/auth')`）
 
-| 方法 | 路径 | 作用 | 实现状态 |
-| --- | --- | --- | --- |
-| POST | `/app/auth/login` | `code` 换 openid + 签发 app token | ✅ 真实现；限流 10/分/IP；未配置凭据 → 503 |
+| 方法 | 路径              | 作用                                     | 实现状态                                                       |
+| ---- | ----------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| POST | `/app/auth/login` | `code` 换 openid + 签发 app token        | ✅ 真实现；限流 10/分/IP；未配置凭据 → 503                     |
 | POST | `/app/auth/phone` | `getPhoneNumber` code 换手机号并绑定顾客 | ✅ 真实现；需 app token；软删档案 → 409 + `needRestoreConfirm` |
 
 ### 目录（`@Controller('app')`，`app-catalog.controller.ts`）
 
-| 方法 | 路径 | 作用 | 实现状态 |
-| --- | --- | --- | --- |
-| GET | `/app/service-items` | 启用中的服务项目列表 | ✅ 真实现 |
-| GET | `/app/staffs` | 启用中的美甲师列表 | ✅ 真实现 |
-| GET | `/app/available-slots` | 可约时段（必填 `staffId` / `date` / `serviceItemIds`） | ✅ 真实现，**复用后台同一个 service** |
+| 方法 | 路径                   | 作用                                                   | 实现状态                              |
+| ---- | ---------------------- | ------------------------------------------------------ | ------------------------------------- |
+| GET  | `/app/service-items`   | 启用中的服务项目列表                                   | ✅ 真实现                             |
+| GET  | `/app/staffs`          | 启用中的美甲师列表                                     | ✅ 真实现                             |
+| GET  | `/app/available-slots` | 可约时段（必填 `staffId` / `date` / `serviceItemIds`） | ✅ 真实现，**复用后台同一个 service** |
 
 `available-slots` 的契约细节：
 
@@ -282,16 +301,16 @@ if (process.env.NODE_ENV === 'production') {
 
 ### 会员（`app-member.controller.ts`）
 
-| 方法 | 路径 | 作用 | 需绑定手机号 | 实现状态 |
-| --- | --- | --- | --- | --- |
-| GET | `/app/member/me` | 等级 / 折扣率 / 积分 / 余额 / 次卡 | ✅ | ✅ 真实现；未绑定 → 401 + `needBind: true` |
-| GET | `/app/member/cards` | 我的次卡列表（状态**现算**） | ✅ | ✅ 真实现 |
-| GET | `/app/recharge-plans` | 上架中的充值档位 | ❌ | ✅ 真实现 |
-| GET | `/app/points-goods` | 积分兑换品目录（仅 `status=active`） | ❌ | ✅ 真实现 |
-| POST | `/app/points/redeem` | 兑换（扣积分 + 发次卡，同事务） | ✅ | ✅ 真实现 |
-| GET | `/app/coupon-offers` | 可领取的券模板（已持有可用券的不出现） | ✅ | ✅ 真实现 |
-| POST | `/app/coupons/claim` | 领券（并发安全在服务端） | ✅ | ✅ 真实现 |
-| GET | `/app/coupons` | 我的券（状态现算，不含 `templateId`） | ✅ | ✅ 真实现 |
+| 方法 | 路径                  | 作用                                   | 需绑定手机号 | 实现状态                                   |
+| ---- | --------------------- | -------------------------------------- | ------------ | ------------------------------------------ |
+| GET  | `/app/member/me`      | 等级 / 折扣率 / 积分 / 余额 / 次卡     | ✅           | ✅ 真实现；未绑定 → 401 + `needBind: true` |
+| GET  | `/app/member/cards`   | 我的次卡列表（状态**现算**）           | ✅           | ✅ 真实现                                  |
+| GET  | `/app/recharge-plans` | 上架中的充值档位                       | ❌           | ✅ 真实现                                  |
+| GET  | `/app/points-goods`   | 积分兑换品目录（仅 `status=active`）   | ❌           | ✅ 真实现                                  |
+| POST | `/app/points/redeem`  | 兑换（扣积分 + 发次卡，同事务）        | ✅           | ✅ 真实现                                  |
+| GET  | `/app/coupon-offers`  | 可领取的券模板（已持有可用券的不出现） | ✅           | ✅ 真实现                                  |
+| POST | `/app/coupons/claim`  | 领券（并发安全在服务端）               | ✅           | ✅ 真实现                                  |
+| GET  | `/app/coupons`        | 我的券（状态现算，不含 `templateId`）  | ✅           | ✅ 真实现                                  |
 
 「需绑定手机号」的判定口径就是 `app_wx_user.customer_id` 是否为空 —— 空的返回 `401` 且响应体带 `needBind: true`。
 
@@ -301,16 +320,16 @@ if (process.env.NODE_ENV === 'production') {
 
 ### 预约与支付
 
-| 方法 | 路径 | 作用 | 实现状态 |
-| --- | --- | --- | --- |
-| GET | `/app/bookings` | 我的预约列表（`{items,page,pageSize}`，无 `total`） | ✅ 真实现 |
-| GET | `/app/bookings/:id` | 预约详情（本人）；他人的单 → 404 | ✅ 真实现 |
-| POST | `/app/bookings` | 自助下单 | ✅ 真实现 |
-| POST | `/app/bookings/:id/cancel` | 自助取消（`reason` 必填） | ✅ 真实现 |
-| POST | `/app/reviews` | 提交服务评价（一单一评） | ✅ 真实现 |
-| POST | `/app/subscribe` | 订阅消息授权上报 | ✅ 真实现 |
-| POST | `/app/payments/wxpay/jsapi` | 小程序内 JSAPI 支付 | ⛔ **501 契约位**（不落库） |
-| POST | `/app/payments/wxpay/notify` | 微信支付**回调**（公开，无 token） | ✅ 真实现，复用后台 `PaymentPort.handleNotify` |
+| 方法 | 路径                         | 作用                                                | 实现状态                                       |
+| ---- | ---------------------------- | --------------------------------------------------- | ---------------------------------------------- |
+| GET  | `/app/bookings`              | 我的预约列表（`{items,page,pageSize}`，无 `total`） | ✅ 真实现                                      |
+| GET  | `/app/bookings/:id`          | 预约详情（本人）；他人的单 → 404                    | ✅ 真实现                                      |
+| POST | `/app/bookings`              | 自助下单                                            | ✅ 真实现                                      |
+| POST | `/app/bookings/:id/cancel`   | 自助取消（`reason` 必填）                           | ✅ 真实现                                      |
+| POST | `/app/reviews`               | 提交服务评价（一单一评）                            | ✅ 真实现                                      |
+| POST | `/app/subscribe`             | 订阅消息授权上报                                    | ✅ 真实现                                      |
+| POST | `/app/payments/wxpay/jsapi`  | 小程序内 JSAPI 支付                                 | ⛔ **501 契约位**（不落库）                    |
+| POST | `/app/payments/wxpay/notify` | 微信支付**回调**（公开，无 token）                  | ✅ 真实现，复用后台 `PaymentPort.handleNotify` |
 
 `POST /app/bookings` 与后台创建的差异（controller 的 description 逐条写明）：
 
@@ -327,25 +346,25 @@ if (process.env.NODE_ENV === 'production') {
 
 ### 工作台（`/app/staff/**`）
 
-| 方法 | 路径 | 作用 | 守卫 | 实现状态 |
-| --- | --- | --- | --- | --- |
-| POST | `/app/staff/apply` | 申请开通工作台 | `AppAccessTokenGuard` | ✅ 真实现 |
-| GET | `/app/staff/me` | 我的美甲师档案 + 可做项目白名单 | `APP_STAFF_GUARDS` | ✅ 真实现 |
-| GET | `/app/staff/bookings` | 我的预约（顾客手机号脱敏） | 同上 | ✅ 真实现 |
-| GET | `/app/staff/schedule` | 我的排班（必填 `date`） | 同上 | ✅ 真实现 |
-| GET | `/app/staff/performance` | 我的业绩（`period` 默认当月） | 同上 | ✅ 真实现 |
-| GET | `/app/staff/reviews` | 我的评价（只出已公开的） | 同上 | ✅ 真实现 |
-| GET | `/app/staff/bookings/:id/phone` | 取顾客真号（仅供拨号） | 同上 | ✅ 真实现 |
-| POST | `/app/staff/bookings/:id/arrived` | 标记顾客已到店（幂等） | 同上 | ✅ 真实现 |
-| POST | `/app/staff/bookings/:id/complete` | 标记服务完成 | 同上 | ✅ 真实现 |
+| 方法 | 路径                               | 作用                            | 守卫                  | 实现状态  |
+| ---- | ---------------------------------- | ------------------------------- | --------------------- | --------- |
+| POST | `/app/staff/apply`                 | 申请开通工作台                  | `AppAccessTokenGuard` | ✅ 真实现 |
+| GET  | `/app/staff/me`                    | 我的美甲师档案 + 可做项目白名单 | `APP_STAFF_GUARDS`    | ✅ 真实现 |
+| GET  | `/app/staff/bookings`              | 我的预约（顾客手机号脱敏）      | 同上                  | ✅ 真实现 |
+| GET  | `/app/staff/schedule`              | 我的排班（必填 `date`）         | 同上                  | ✅ 真实现 |
+| GET  | `/app/staff/performance`           | 我的业绩（`period` 默认当月）   | 同上                  | ✅ 真实现 |
+| GET  | `/app/staff/reviews`               | 我的评价（只出已公开的）        | 同上                  | ✅ 真实现 |
+| GET  | `/app/staff/bookings/:id/phone`    | 取顾客真号（仅供拨号）          | 同上                  | ✅ 真实现 |
+| POST | `/app/staff/bookings/:id/arrived`  | 标记顾客已到店（幂等）          | 同上                  | ✅ 真实现 |
+| POST | `/app/staff/bookings/:id/complete` | 标记服务完成                    | 同上                  | ✅ 真实现 |
 
 后台侧的授权管理接口（走 RBAC，权限点 `biz:staff:grant`）：
 
-| 方法 | 路径 | 作用 |
-| --- | --- | --- |
-| GET | `/biz/app-staff-grants` | 申请列表（`status` 过滤 `pending/active/rejected`；不传=全部，**不含未申请**） |
-| POST | `/biz/app-staff-grants/:id/approve` | 通过（置 `staff_status=active`） |
-| POST | `/biz/app-staff-grants/:id/reject` | 驳回（**必填原因**，小程序端可见） |
+| 方法 | 路径                                | 作用                                                                           |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------ |
+| GET  | `/biz/app-staff-grants`             | 申请列表（`status` 过滤 `pending/active/rejected`；不传=全部，**不含未申请**） |
+| POST | `/biz/app-staff-grants/:id/approve` | 通过（置 `staff_status=active`）                                               |
+| POST | `/biz/app-staff-grants/:id/reject`  | 驳回（**必填原因**，小程序端可见）                                             |
 
 ::: tip 真号为什么要点一次取一次
 `GET /app/staff/bookings/:id/phone` 的注释：「列表里只给脱敏值（D11），真号**点一次取一次**且限本人单 —— 抓包/截图拿不到批量号码，只有真要打电话的那一瞬间才取。」
@@ -363,17 +382,20 @@ POST /biz/app-staff-grants/:id/reject   →  'rejected' + staffRejectReason
 
 ```ts
 // src/modules/app/staff/app-staff.service.ts:34
-if (!identity.phone) throw new BadRequestException('请先完成手机号授权，再申请美甲师工作台');
+if (!identity.phone)
+  throw new BadRequestException('请先完成手机号授权，再申请美甲师工作台');
 const staff = await this.staffs.findByPhone(identity.phone);
 if (!staff || staff.deletedAt || staff.status !== 'active')
-  throw new BadRequestException('该手机号未匹配到在职美甲师档案，请联系门店处理');
+  throw new BadRequestException(
+    '该手机号未匹配到在职美甲师档案，请联系门店处理',
+  );
 ```
 
 ::: danger 为什么申请后必须店长确认
 `app_wx_user` 的表注释写得很直白：
 
 > 手机号命中 `biz_staff.phone` 后置 `pending`，**必须店长在后台确认**才变 `active`——仅凭手机号自动开通等于提权漏洞：spec §16.2 允许「手机号属于他人 openid 也允许绑定」，号码被复用即可看该美甲师的预约与业绩。
-:::
+> :::
 
 申请接口的请求体 `@Body()` **只为保持契约与 Swagger 完整**，身份字段全部丢弃：
 
@@ -405,7 +427,10 @@ return this.staff.apply(appUser.id);
 组合守卫：
 
 ```ts
-export const APP_STAFF_GUARDS = [AppAccessTokenGuard, AppStaffScopeGuard] as const;
+export const APP_STAFF_GUARDS = [
+  AppAccessTokenGuard,
+  AppStaffScopeGuard,
+] as const;
 ```
 
 **撤权的实现方式 = 停用美甲师档案**（`biz_staff.status = 'disabled'`）：
@@ -413,7 +438,9 @@ export const APP_STAFF_GUARDS = [AppAccessTokenGuard, AppStaffScopeGuard] as con
 ```ts
 // src/modules/app/staff/app-staff-grants.service.ts:121
 if (grant.staffStatus === 'active')
-  throw new ConflictException('已开通的授权不能驳回；如需撤权请停用对应的美甲师档案');
+  throw new ConflictException(
+    '已开通的授权不能驳回；如需撤权请停用对应的美甲师档案',
+  );
 ```
 
 ### 前端如何消费
@@ -424,13 +451,13 @@ if (grant.staffStatus === 'active')
 
 `app_wx_subscribe_grant`（**故意不建外键**，注释说明了原因）：
 
-| 字段 | 说明 |
-| --- | --- |
-| `app_wx_user_id` + `template_id` | **唯一键** `uq_wx_subscribe_grant` |
-| `customer_id` | 顾客 ID **快照**（授权后绑定关系可能被换绑，这里留证） |
-| `granted_count` | **累计授权次数**（微信一次性订阅可累积） |
-| `last_booking_id` | 最近一次授权的关联预约（仅上下文，可空） |
-| `granted_at` | |
+| 字段                             | 说明                                                   |
+| -------------------------------- | ------------------------------------------------------ |
+| `app_wx_user_id` + `template_id` | **唯一键** `uq_wx_subscribe_grant`                     |
+| `customer_id`                    | 顾客 ID **快照**（授权后绑定关系可能被换绑，这里留证） |
+| `granted_count`                  | **累计授权次数**（微信一次性订阅可累积）               |
+| `last_booking_id`                | 最近一次授权的关联预约（仅上下文，可空）               |
+| `granted_at`                     |                                                        |
 
 ::: tip 为什么是计数行而不是 append-only 流水
 表注释：「微信订阅消息的真实语义是**额度**：用户在客户端点一次『允许』，开发者就获得该模板的一次下发权限，且可累积。所以按 `(用户, 模板)` 聚合成一行计数，而不是记成 append-only 流水——后者做不了『还能发几次』的查询。」
