@@ -1,37 +1,69 @@
 <view class="page page-with-tabbar" style="{{themeStyle}}">
-  <!-- 自定义导航栏（设计稿：标题左对齐 + 右侧两个细线图标；右侧留出胶囊按钮的位） -->
+  <!-- 自定义导航栏（设计稿：品牌名 + 右侧两个主色圆钮；右侧留出胶囊按钮的位） -->
   <view
     class="navbar"
     style="padding-top:{{statusBarHeight}}px;height:{{navBarHeight}}px;padding-right:{{navRightGap}}px"
   >
-    <view class="navbar__title">美甲小铺</view>
+    <view class="navbar__title ellipsis">{{brandName}}</view>
     <view class="navbar__actions">
-      <image class="navbar__icon" src="{{icons.shop}}" bindtap="onNavShop" mode="aspectFit" />
-      <image class="navbar__icon" src="{{icons.chat}}" bindtap="onNavChat" mode="aspectFit" />
+      <view class="navbtn press-sm" bindtap="onNavShop">
+        <image class="navbtn__icon" src="{{iconsNav.shop}}" mode="aspectFit" />
+      </view>
+      <view class="navbtn press-sm" bindtap="onNavChat">
+        <image class="navbtn__icon" src="{{iconsNav.chat}}" mode="aspectFit" />
+      </view>
     </view>
   </view>
+  <!-- 英文副标题单独一行（放在导航栏**外面**：塞进导航栏会把自绘高度撑破） -->
+  <view wx:if="{{brandNameEn}}" class="brand-en">{{brandNameEn}}</view>
 
-  <!-- 头图：大幅作品照 + 底部压深渐变 + 白色衬线标题 -->
+  <!--
+    头图轮播：门店图集（没传过就用款式封面兜底）+ 右下角自定义圆点。
+    渐变与文案放在 **swiper-item 里面**（而不是盖在 swiper 上）：
+    盖在 swiper 上的浮层会吃掉触摸，那一片区域就划不动了（`pointer-events` 在 WXSS 里不可靠）。
+  -->
   <view class="hero">
-    <image class="hero__img" src="{{hero}}" mode="aspectFill" />
-    <view class="hero__mask"></view>
-    <view class="hero__text">
-      <view class="hero__title">今日灵感</view>
-      <view class="hero__sub">把喜欢的样子，做在手上</view>
+    <swiper
+      class="hero__swiper"
+      autoplay="{{heroSlides.length > 1}}"
+      circular="{{heroSlides.length > 1}}"
+      interval="4500"
+      duration="420"
+      bindchange="onHeroChange"
+    >
+      <swiper-item wx:for="{{heroSlides}}" wx:key="url">
+        <view class="hero__slide">
+          <image class="hero__img" src="{{item.url}}" mode="aspectFill" />
+          <view class="hero__mask"></view>
+          <view class="hero__text">
+            <view class="hero__title">{{item.title}}</view>
+            <view class="hero__sub">{{item.sub}}</view>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+    <view wx:if="{{heroSlides.length > 1}}" class="hero__dots">
+      <view
+        wx:for="{{heroSlides}}"
+        wx:key="url"
+        class="hero__dot {{index === heroCurrent ? 'is-active' : ''}}"
+      ></view>
     </view>
   </view>
 
-  <!-- 快捷入口：四张白卡 + 细线图标（设计稿没有 emoji） -->
+  <!-- 快捷入口：一张白卡里四格，图标是主色实心圆 + 白图标 -->
   <view class="quick">
     <view
       wx:for="{{quickEntries}}"
       wx:key="label"
-      class="quick__item press anim-item"
+      class="quick__item press-sm anim-item"
       style="--i:{{index}}"
       data-action="{{item.action}}"
       bindtap="onQuickTap"
     >
-      <image class="quick__icon" src="{{icons[item.icon]}}" mode="aspectFit" />
+      <view class="quick__badge">
+        <image class="quick__icon" src="{{iconsWhite[item.icon]}}" mode="aspectFit" />
+      </view>
       <view class="quick__label">{{item.label}}</view>
     </view>
   </view>
@@ -48,42 +80,57 @@
 
   <!-- 骨架屏 → 内容：整块做一次入场（`.anim-rise` 只在元素重新挂载时播，不会每次 setData 都抖） -->
   <view wx:else class="anim-rise">
-    <!-- 人气款式 -->
+    <!-- 人气款式：一屏 3 张（设计稿），卡上的心形可收藏 -->
     <view class="section">
       <view class="section__title">人气款式</view>
       <view class="section__more" bindtap="goServices">
         全部
-        <image class="section__arrow" src="{{icons.chevron}}" mode="aspectFit" />
+        <image class="section__arrow" src="{{iconChevron}}" mode="aspectFit" />
       </view>
     </view>
-    <scroll-view class="popular" scroll-x enable-flex show-scrollbar="{{false}}">
-      <view class="popular__row">
-        <view
-          wx:for="{{services}}"
-          wx:key="id"
-          class="popular__card"
-          data-id="{{item.id}}"
-          bindtap="openService"
-        >
+    <view class="popular">
+      <view
+        wx:for="{{services}}"
+        wx:key="id"
+        class="popular__card press-sm"
+        data-id="{{item.id}}"
+        bindtap="openService"
+      >
+        <view class="popular__photo-wrap">
           <image class="popular__photo" src="{{item.imageResolved}}" mode="aspectFill" />
-          <view class="popular__body">
-            <view class="popular__name ellipsis">{{item.name}}</view>
-            <view class="popular__meta ellipsis">{{item.durationText}} · {{item.category}}</view>
-            <view class="price popular__price">
-              <text class="price__symbol">¥</text>
-              <text class="price__yuan">{{item.priceYuan}}</text>
-            </view>
+          <!--
+            收藏：必须 `catchtap` —— 心形长在「点卡片进详情」的卡片里，
+            用 `bindtap` 会连详情页一起跳。
+          -->
+          <view
+            class="popular__fav press-sm"
+            data-id="{{item.id}}"
+            catchtap="onFavoriteTap"
+          >
+            <image
+              class="popular__fav-icon"
+              src="{{item.favorited ? iconsHeartOn.heart : iconsHeartOff.heart}}"
+              mode="aspectFit"
+            />
+          </view>
+        </view>
+        <view class="popular__body">
+          <view class="popular__name ellipsis">{{item.name}}</view>
+          <view class="popular__meta ellipsis">{{item.durationText}} · {{item.category}}</view>
+          <view class="price popular__price">
+            <text class="price__symbol">¥</text>
+            <text class="price__yuan">{{item.priceYuan}}</text>
           </view>
         </view>
       </view>
-    </scroll-view>
+    </view>
 
     <!-- 我们的美甲师 -->
     <view class="section">
       <view class="section__title">我们的美甲师</view>
       <view class="section__more" bindtap="goStaffs">
         全部
-        <image class="section__arrow" src="{{icons.chevron}}" mode="aspectFit" />
+        <image class="section__arrow" src="{{iconChevron}}" mode="aspectFit" />
       </view>
     </view>
     <view class="staffs">
@@ -93,7 +140,7 @@
         class="staffs__item press-sm"
         bindtap="goStaffs"
       >
-        <view class="staffs__ring {{index === 0 ? 'is-featured' : ''}}">
+        <view class="staffs__ring">
           <image class="staffs__avatar" src="{{item.avatarResolved}}" mode="aspectFill" />
         </view>
         <view class="staffs__name">{{item.nickname}}</view>

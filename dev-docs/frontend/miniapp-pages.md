@@ -17,20 +17,20 @@ title: 小程序页面与接口映射
 
 ### 浏览与预约（12）
 
-| #   | 页面路径                     | 中文名称 | 用途                                               | 调用的 app 域接口                                                                          |
-| --- | ---------------------------- | -------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1   | `pages/index/index`          | 首页     | 品牌头图、推荐款式、美甲师、快捷入口               | `GET /app/service-items`、`GET /app/staffs`                                                |
-| 2   | `pages/services/index`       | 款式库   | 服务项目列表（分类筛选）                           | `GET /app/service-items`                                                                   |
-| 3   | `pages/service-detail/index` | 款式详情 | 项目详情 + 时长价格 + 可做美甲师                   | `GET /app/service-items`、`GET /app/staffs`（含 `?id=` 直达）                              |
-| 4   | `pages/staffs/index`         | 选美甲师 | 美甲师列表与简介                                   | `GET /app/staffs`                                                                          |
-| 5   | `pages/slots/index`          | 选时间   | 日期 + 可约时段（按所选项目过滤美甲师）            | `GET /app/staffs`、`GET /app/available-slots`                                              |
-| 6   | `pages/confirm/index`        | 确认预约 | 项目 / 美甲师 / 时段确认，积分或券二选一，提交建单 | `GET /app/member/me`、`GET /app/coupons`（`status=usable`）、`POST /app/bookings`          |
-| 7   | `pages/pay/index`            | 支付     | 单据金额与支付方式，拉起微信支付                   | `GET /app/bookings/:id`、`GET /app/member/me`、`POST /app/payments/wxpay/jsapi`（**501**） |
-| 8   | `pages/pay-result/index`     | 支付结果 | 结果页；**向服务端复核**而不是只信 query           | `GET /app/bookings/:id`                                                                    |
-| 9   | `pages/bookings/index`       | 我的预约 | 预约列表（状态分组）                               | `GET /app/bookings`                                                                        |
-| 10  | `pages/booking-detail/index` | 订单详情 | 单笔预约详情                                       | `GET /app/bookings`（列表内 find）                                                         |
-| 11  | `pages/review/index`         | 服务评价 | 打分 + 文字 + 图片提交（一单一评）                 | `GET /app/bookings`、`POST /app/reviews`                                                   |
-| 12  | `pages/cancel/index`         | 取消说明 | 取消前先看规则再确认                               | `GET /app/bookings`、`POST /app/bookings/:id/cancel`                                       |
+| #   | 页面路径                     | 中文名称 | 用途                                                                                   | 调用的 app 域接口                                                                                             |
+| --- | ---------------------------- | -------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | `pages/index/index`          | 首页     | 品牌头图轮播（门店图集，兜底用款式封面）、推荐款式（**卡上可收藏**）、美甲师、快捷入口 | `GET /app/service-items`、`GET /app/staffs`、`GET /app/shop`、`GET /app/member/favorites`（仅已绑定手机号时） |
+| 2   | `pages/services/index`       | 款式库   | 服务项目列表（分类筛选）                                                               | `GET /app/service-items`                                                                                      |
+| 3   | `pages/service-detail/index` | 款式详情 | 项目详情 + 时长价格 + 可做美甲师                                                       | `GET /app/service-items`、`GET /app/staffs`（含 `?id=` 直达）                                                 |
+| 4   | `pages/staffs/index`         | 选美甲师 | 美甲师列表与简介                                                                       | `GET /app/staffs`                                                                                             |
+| 5   | `pages/slots/index`          | 选时间   | 日期 + 可约时段（按所选项目过滤美甲师）                                                | `GET /app/staffs`、`GET /app/available-slots`                                                                 |
+| 6   | `pages/confirm/index`        | 确认预约 | 项目 / 美甲师 / 时段确认，积分或券二选一，提交建单                                     | `GET /app/member/me`、`GET /app/coupons`（`status=usable`）、`POST /app/bookings`                             |
+| 7   | `pages/pay/index`            | 支付     | 单据金额与支付方式，拉起微信支付                                                       | `GET /app/bookings/:id`、`GET /app/member/me`、`POST /app/payments/wxpay/jsapi`（**501**）                    |
+| 8   | `pages/pay-result/index`     | 支付结果 | 结果页；**向服务端复核**而不是只信 query                                               | `GET /app/bookings/:id`                                                                                       |
+| 9   | `pages/bookings/index`       | 我的预约 | 预约列表（状态分组）                                                                   | `GET /app/bookings`                                                                                           |
+| 10  | `pages/booking-detail/index` | 订单详情 | 单笔预约详情                                                                           | `GET /app/bookings`（列表内 find）                                                                            |
+| 11  | `pages/review/index`         | 服务评价 | 打分 + 文字 + 图片提交（一单一评）                                                     | `GET /app/bookings`、`POST /app/reviews`                                                                      |
+| 12  | `pages/cancel/index`         | 取消说明 | 取消前先看规则再确认                                                                   | `GET /app/bookings`、`POST /app/bookings/:id/cancel`                                                          |
 
 ::: warning 支付页的真实行为（JSAPI 尚未接通）
 `pages/pay/index.ts` 的 `onConfirm()`：

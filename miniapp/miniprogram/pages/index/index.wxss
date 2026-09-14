@@ -1,4 +1,4 @@
-/* 首页 —— 严格对齐 docs/design.png 第 1 屏 */
+/* 首页 —— 对齐设计稿 `manicure-ui-home`：品牌栏 / 头图轮播 / 四格入口 / 三列款式 / 美甲师 */
 
 /* ── 自定义导航栏 ─────────────────────────────────────────── */
 
@@ -15,6 +15,18 @@
   font-size: 40rpx;
   font-weight: 600;
   letter-spacing: 2rpx;
+  /* 门店名可能比设计稿的「美甲小铺」长（连锁下每店一个名字），别让它顶到右侧圆钮上 */
+  max-width: 420rpx;
+}
+
+/* 英文副标题：小号 + 大字距（设计稿里是 BEAUTY NAILS，跟在中文名下方） */
+.brand-en {
+  margin: 2rpx 28rpx 0;
+  padding-left: 2rpx;
+  font-size: 18rpx;
+  letter-spacing: 4rpx;
+  color: var(--c-text-sub);
+  text-transform: uppercase;
 }
 
 .navbar__actions {
@@ -22,18 +34,47 @@
   align-items: center;
 }
 
-.navbar__icon {
-  width: 48rpx;
-  height: 48rpx;
-  margin-left: 30rpx;
+/* 两个圆钮：细边 + 主色图标（设计稿里不是裸图标） */
+.navbtn {
+  width: 68rpx;
+  height: 68rpx;
+  margin-left: 20rpx;
+  border-radius: 50%;
+  border: 1rpx solid var(--c-primary-soft);
+  background: var(--c-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* ── 头图 ─────────────────────────────────────────────────── */
+.navbtn__icon {
+  width: 34rpx;
+  height: 34rpx;
+}
+
+/* ── 头图轮播 ─────────────────────────────────────────────── */
 
 .hero {
   position: relative;
-  margin: 0 28rpx;
+  margin: 16rpx 28rpx 0;
   height: 408rpx;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  /* 设计稿的头图是浮在奶油底上的一张卡（极淡中性投影） */
+  box-shadow: 0 12rpx 32rpx var(--c-shadow);
+}
+
+.hero__swiper {
+  width: 100%;
+  height: 100%;
+}
+
+/* 一屏：图 + 渐变 + 文案叠在一起（整屏跟着轮播一起滑） */
+.hero__slide {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* 再裁一次圆角：部分基础库下 swiper 的内容不跟着父级的 overflow 走 */
   border-radius: var(--r-lg);
   overflow: hidden;
 }
@@ -41,6 +82,7 @@
 .hero__img {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
 .hero__mask {
@@ -76,36 +118,74 @@
   color: rgba(255, 255, 255, 0.88);
 }
 
-/* ── 快捷入口 ─────────────────────────────────────────────── */
+/* 圆点：设计稿在**右下角**（小程序原生 indicator-dots 只能居中，所以自绘） */
+.hero__dots {
+  position: absolute;
+  right: 32rpx;
+  bottom: 38rpx;
+  display: flex;
+  align-items: center;
+}
+
+.hero__dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transition:
+    width var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.hero__dot + .hero__dot {
+  margin-left: 10rpx;
+}
+
+/* 当前页拉长成小胶囊：比单纯变色更容易一眼看出在哪一屏 */
+.hero__dot.is-active {
+  width: 24rpx;
+  border-radius: var(--r-pill);
+  background: #ffffff;
+}
+
+/* ── 快捷入口（一张白卡四格）───────────────────────────────── */
 
 .quick {
   display: flex;
-  padding: 24rpx 28rpx 0;
+  margin: 24rpx 28rpx 0;
+  padding: 26rpx 8rpx 22rpx;
+  background: var(--c-card);
+  border-radius: var(--r-lg);
+  box-shadow: 0 8rpx 24rpx var(--c-shadow);
 }
 
 .quick__item {
   flex: 1;
-  padding: 22rpx 0 18rpx;
-  background: var(--c-card);
-  border-radius: var(--r-md);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.quick__item + .quick__item {
-  margin-left: 16rpx;
+/* 主色实心圆 + 白图标（设计稿的图标底不是浅色块） */
+.quick__badge {
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 50%;
+  background: var(--c-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .quick__icon {
-  width: 48rpx;
-  height: 48rpx;
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .quick__label {
   margin-top: 14rpx;
-  font-size: 22rpx;
-  color: var(--c-text-sub);
+  font-size: 24rpx;
+  color: var(--c-text);
 }
 
 /* ── 区块标题 ─────────────────────────────────────────────── */
@@ -114,14 +194,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 30rpx 28rpx 0;
+  margin: 36rpx 28rpx 0;
 }
 
 .section__more {
   display: flex;
   align-items: center;
   font-size: 24rpx;
-  color: var(--c-text-weak);
+  color: var(--c-text-sub);
 }
 
 .section__arrow {
@@ -130,56 +210,85 @@
   margin-left: 4rpx;
 }
 
-/* ── 人气款式（横向滑动，一屏露出约 2.5 张）────────────────── */
+/* ── 人气款式：一屏 3 张 ───────────────────────────────────── */
 
 .popular {
-  width: 100%;
-  white-space: nowrap;
-  margin-top: 20rpx;
-}
-
-.popular__row {
   display: flex;
-  padding: 0 28rpx;
+  margin: 20rpx 28rpx 0;
 }
 
 .popular__card {
-  width: 284rpx;
-  flex-shrink: 0;
-  margin-right: 20rpx;
+  /* 3 列等宽：靠 flex:1 而不是写死宽度，免得到窄屏上第 3 张被挤出去 */
+  flex: 1;
+  min-width: 0;
   background: var(--c-card);
   border-radius: var(--r-md);
   overflow: hidden;
+  box-shadow: 0 8rpx 20rpx var(--c-shadow);
 }
 
-.popular__card:last-child {
-  margin-right: 0;
+.popular__card + .popular__card {
+  margin-left: 16rpx;
+}
+
+.popular__photo-wrap {
+  position: relative;
+  width: 100%;
+  height: 232rpx;
 }
 
 .popular__photo {
   width: 100%;
-  height: 166rpx;
+  height: 100%;
   display: block;
 }
 
+/* 收藏钮：压在照片右上角，半透明白药丸底 —— 照片深浅不一，不加底会看不清 */
+.popular__fav {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popular__fav-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
 .popular__body {
-  padding: 16rpx 18rpx 20rpx;
+  padding: 16rpx 16rpx 20rpx;
 }
 
 .popular__name {
   font-family: var(--font-serif);
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 600;
 }
 
 .popular__meta {
   margin-top: 6rpx;
-  font-size: 22rpx;
+  font-size: 20rpx;
   color: var(--c-text-weak);
 }
 
 .popular__price {
   margin-top: 10rpx;
+}
+
+/* 三列时价格字号要收一点，否则「¥128」会把卡片撑出去 */
+.popular__price .price__yuan {
+  font-size: 34rpx;
+}
+
+.popular__price .price__symbol {
+  font-size: 22rpx;
 }
 
 /* ── 美甲师 ───────────────────────────────────────────────── */
@@ -201,17 +310,13 @@
   width: 104rpx;
   height: 104rpx;
   border-radius: 50%;
-  border: 3rpx solid var(--c-border);
+  /* 设计稿四位美甲师都是主色圆环（不再只突出第一位） */
+  border: 3rpx solid var(--c-primary);
   padding: 4rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* 设计稿第一位美甲师用主色圆环突出 */
-.staffs__ring.is-featured {
-  border-color: var(--c-primary);
 }
 
 .staffs__avatar {
