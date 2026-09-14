@@ -202,6 +202,11 @@ interface TabMeta {
   overview?: OverviewMeta[];
   /** 整页签都是全店口径时的说明（会员报表：大部分指标无门店归属） */
   globalScopeNote?: string;
+  /**
+   * 行集字段名。**响应里有多个数组时必须给** —— 否则 `reportRows` 会取第一个数组：
+   * 应收报表的 `buckets`（账龄分桶）排在 `accounts`（主体明细）前面，取错就整列 ¥0.00。
+   */
+  rowsKey?: string;
 }
 
 const OVERVIEW_META: OverviewMeta[] = [
@@ -393,6 +398,8 @@ const TAB_META: Record<ReportTabKey, TabMeta> = {
   },
   receivables: {
     mode: 'table',
+    // 响应里 buckets（账龄分桶）在 accounts（主体明细）之前，必须显式指定行集
+    rowsKey: 'accounts',
     columns: [
       { title: '挂账主体', keys: ['name'], kind: 'text', width: 160 },
       { title: '额度', keys: ['creditLimit'], kind: 'money', width: 120 },
@@ -457,7 +464,9 @@ const leftoverScalars = computed(() => {
     }));
 });
 
-const tableRows = computed(() => reportRows(payload.value));
+const tableRows = computed(() =>
+  reportRows(payload.value, currentMeta.value.rowsKey),
+);
 
 function cellValue(row: Record<string, unknown>, column: ReportColumn) {
   if (column.kind === 'text') return reportText(row, ...column.keys);

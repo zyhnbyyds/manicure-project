@@ -86,12 +86,27 @@ export function reportText(
   return '-';
 }
 
-/** 把宽松响应归一成表格行：数组直接用；对象里第一个数组字段作为行集；否则整体当一行。行内的嵌套对象一并展平。 */
+/**
+ * 把宽松响应归一成表格行：数组直接用；对象里**指定字段**（`key`，没给就取第一个数组字段）
+ * 作为行集；否则整体当一行。行内的嵌套对象一并展平。
+ *
+ * ⚠️ 为什么必须能显式指定行集：应收报表的响应里有**两个**数组 ——
+ * `buckets`（账龄分桶，3 行）排在 `accounts`（主体明细）前面，
+ * 只按「第一个数组」取就会把分桶当行集，而列配置要的是主体字段
+ * （`name` / `creditLimit` / `outstanding` / `buckets.0-30`…），
+ * 结果整张表显示 `¥0.00`、看着像「这家店没有挂账」（真踩过）。
+ */
 export function reportRows(
   payload: ReportPayload | null,
+  key?: string,
 ): Record<string, unknown>[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload.map((row) => flatten(row));
+  if (key) {
+    const picked = (payload as Record<string, unknown>)[key];
+    if (Array.isArray(picked))
+      return (picked as Record<string, unknown>[]).map((row) => flatten(row));
+  }
   for (const value of Object.values(payload)) {
     if (Array.isArray(value))
       return (value as Record<string, unknown>[]).map((row) => flatten(row));
