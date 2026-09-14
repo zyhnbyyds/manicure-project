@@ -25,7 +25,7 @@ import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
 import { parsePagination } from '../../common/query.js';
-import { StoresService } from './stores.service.js';
+import { MAX_STORE_IMAGES, StoresService } from './stores.service.js';
 
 const createSchema = z.object({
   code: z
@@ -54,6 +54,14 @@ const createSchema = z.object({
     .max(500)
     .nullish()
     .openapi({ description: '公告 / 到店须知' }),
+  images: z
+    .array(z.string().max(500))
+    .max(MAX_STORE_IMAGES)
+    .nullish()
+    .openapi({
+      example: ['/files/12.png'],
+      description: `门店图集（最多 ${MAX_STORE_IMAGES} 张，顺序即展示顺序，第一张当封面）；空数组 = 清空图片`,
+    }),
   timezone: z
     .string()
     .max(64)

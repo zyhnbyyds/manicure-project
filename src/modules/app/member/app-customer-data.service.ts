@@ -505,6 +505,8 @@ export class AppCustomerDataService {
         (store?.notice ?? profile.notice) === ''
           ? null
           : (store?.notice ?? profile.notice),
+      // 图集：没传过就是空数组（C 端判 length，不用判 null）
+      images: store?.images ?? [],
     };
   }
 

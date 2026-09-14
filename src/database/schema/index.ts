@@ -77,6 +77,13 @@ export const sysStores = mysqlTable(
     /** 公告 / 到店须知（小程序门店页展示） */
     notice: varchar('notice', { length: 500 }),
     /**
+     * 门店图集（最多 5 张，门店管理页上传；小程序门店页展示）。
+     *
+     * 与 `biz_service_item.images` 同款口径：库里只有 `NULL` 或**非空数组**两种形态
+     * （空数组一律归一成 `null`，见 `normalizeImages`），**顺序即展示顺序**，第一张当封面。
+     */
+    images: json('images').$type<string[]>(),
+    /**
      * 门店时区（可空）。
      *
      * 同城连锁一家店一个时区没差别，所以**现在留空**：有效时区仍走全局

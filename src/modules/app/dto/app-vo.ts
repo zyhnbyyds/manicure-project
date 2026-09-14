@@ -871,6 +871,14 @@ export const appShopVo = z.object({
   longitude: z.number().nullable(),
   /** 公告 / 到店须知（门店可在后台改） */
   notice: z.string().nullable(),
+  /**
+   * 门店图集（后台「门店管理」上传，最多 5 张）。
+   *
+   * 给**空数组**而不是 null：C 端只判 `.length` 一处就够了
+   * （与其它字段「不用到处判 null」同一取舍）。顺序即展示顺序，
+   * **第一张当封面**（小程序门店页头图用它，没图时落回内置素材）。
+   */
+  images: z.array(z.string()),
 });
 registerComponent('AppShopVo', appShopVo);
 export type AppShopVo = z.infer<typeof appShopVo>;

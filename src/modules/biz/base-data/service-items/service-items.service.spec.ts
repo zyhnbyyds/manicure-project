@@ -1,10 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  ServiceItemsService,
-  imagesPatch,
-  normalizeImages,
-} from './service-items.service.js';
+import { ServiceItemsService, imagesPatch } from './service-items.service.js';
 
 type Row = Record<string, unknown>;
 
@@ -56,46 +52,6 @@ const item = (overrides: Row = {}): Row => ({
   sort: 0,
   remark: null,
   ...overrides,
-});
-
-describe('normalizeImages（图集归一化）', () => {
-  it('没传 / null / 空数组都归一成 null', () => {
-    expect(normalizeImages(undefined)).toBeNull();
-    expect(normalizeImages(null)).toBeNull();
-    expect(normalizeImages([])).toBeNull();
-  });
-
-  it('全空白也归一成 null（不允许存一个「有数组但没图」的形态）', () => {
-    expect(normalizeImages(['', '   '])).toBeNull();
-  });
-
-  it('去掉首尾空白', () => {
-    expect(normalizeImages(['  /files/1.png  '])).toEqual(['/files/1.png']);
-  });
-
-  it('按首次出现去重且保持原顺序', () => {
-    expect(normalizeImages(['b', 'a', 'b', 'c', 'a'])).toEqual(['b', 'a', 'c']);
-  });
-
-  it('顺序即展示顺序，不做排序', () => {
-    expect(normalizeImages(['/3.png', '/1.png', '/2.png'])).toEqual([
-      '/3.png',
-      '/1.png',
-      '/2.png',
-    ]);
-  });
-
-  it('超过 9 张时截断，保留前 9 张', () => {
-    const many = Array.from({ length: 12 }, (_, i) => `/files/${i}.png`);
-    const normalized = normalizeImages(many);
-    expect(normalized).toHaveLength(9);
-    expect(normalized?.[0]).toBe('/files/0.png');
-    expect(normalized?.[8]).toBe('/files/8.png');
-  });
-
-  it('不去重以外的清洗：不做 url 合法性判断（与 biz_review.images 口径一致）', () => {
-    expect(normalizeImages(['not-a-url'])).toEqual(['not-a-url']);
-  });
 });
 
 describe('imagesPatch（图集 → 写入补丁，封面派生）', () => {

@@ -17,6 +17,7 @@ import {
   type ServiceItemRow,
 } from '../../common/ports.js';
 import { keywordLike } from '../../common/query.js';
+import { normalizeImages } from '../../common/gallery.js';
 import { withoutUndefined, type BizTx } from '../../common/tx.js';
 
 /** 未完成预约（§6.4）：这些状态下的预约会阻止主数据被停用 / 删除 */
@@ -31,9 +32,6 @@ const MAX_BOOKING_ITEMS = 3;
 
 /** 删除保护提示里最多列出的单号数 */
 const SAMPLE_BOOKING_LIMIT = 3;
-
-/** 图集张数上限，与前端上传组件的 `limit` 保持一致 */
-const MAX_IMAGES = 9;
 
 export type CreateServiceItemInput = {
   name: string;
@@ -233,24 +231,11 @@ export class ServiceItemsService extends ServiceItemPort {
 }
 
 /**
- * 归一化图集：去空白、去重、保持顺序、截断到上限。
- *
- * 空数组一律归一成 `null` —— 列里只允许「NULL」或「非空数组」两种形态，
- * 免得 `[]` 与 `null` 两种「没有图」的写法在前后端各判一次。
- */
-export function normalizeImages(
-  images: string[] | null | undefined,
-): string[] | null {
-  if (!images?.length) return null;
-  const cleaned = [...new Set(images.map((url) => url.trim()).filter(Boolean))];
-  return cleaned.length ? cleaned.slice(0, MAX_IMAGES) : null;
-}
-
-/**
  * 图集 → 写入补丁。
  *
  * `images === undefined` 表示「本次不改图集」，返回空补丁，让 `update` 保持原值；
  * 否则连同派生封面 `image = images[0] ?? null` 一起写，两者永远同进同退。
+ * （归一化规则见 `common/gallery.ts`：上限 9 张。）
  */
 export function imagesPatch(images: string[] | null | undefined): {
   images?: string[] | null;

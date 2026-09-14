@@ -114,6 +114,58 @@ describe('门店档案 CRUD /stores', () => {
     expect(app.body.storeId).toBeNull();
     expect(app.body.name).toBeTruthy();
   });
+
+  it('门店图集：顺序即展示顺序、最多 5 张、不传 = 不改、空数组 = 清空', async () => {
+    const images = ['/files/3.png', '/files/1.png', '/files/2.png'];
+    const created = await ctx.request('POST', '/api/v1/stores', {
+      body: { code: 'IMG', name: '图集店', images },
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.id as number;
+
+    // 没有 `GET /stores/:id`，走列表接口回读
+    const readImages = async (): Promise<unknown> => {
+      const list = await ctx.request(
+        'GET',
+        '/api/v1/stores?page=1&pageSize=50',
+        {},
+      );
+      const found = list.body.items.find(
+        (item: { id: number }) => item.id === id,
+      );
+      // 注意别写成 `found?.images ?? 'NOT_FOUND'` —— 清空后 images 就是 null，
+      // 那样会把「已清空」误判成「没找到」。
+      if (!found) return 'NOT_FOUND';
+      return found.images;
+    };
+
+    // 顺序即展示顺序（**不去排序**：第一张就是封面）
+    expect(await readImages()).toEqual(images);
+
+    // 超过 5 张 → 400（zod 的 `.max(5)`；前端 `limit` 只是体验，闸门在后端）
+    const tooMany = await ctx.request('PATCH', `/api/v1/stores/${id}`, {
+      body: { images: Array.from({ length: 6 }, (_, i) => `/files/${i}.png`) },
+    });
+    expect(tooMany.status).toBe(400);
+
+    // 不传 `images` = 本次不改图集（改个名字不该把图弄丢）
+    const renamed = await ctx.request('PATCH', `/api/v1/stores/${id}`, {
+      body: { name: '图集店（改名）' },
+    });
+    expect(renamed.status).toBe(200);
+    expect(await readImages()).toEqual(images);
+
+    // 空数组 = 清空 → 归一成 NULL（库里只允许 NULL / 非空数组两种形态）
+    await ctx.request('PATCH', `/api/v1/stores/${id}`, {
+      body: { images: [] },
+    });
+    expect(await readImages()).toBeNull();
+    const [row] = await ctx.sql<{ images: unknown }[]>(
+      `SELECT images FROM sys_store WHERE id = ?`,
+      [id],
+    );
+    expect(row!.images).toBeNull();
+  });
 });
 
 describe('小程序门店档案 GET /app/shop 以门店为准', () => {

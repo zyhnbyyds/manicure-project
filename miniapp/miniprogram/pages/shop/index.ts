@@ -44,7 +44,7 @@ definePage({
   chromeIcons: PAGE_ICONS,
   data: {
     shop: SHOP,
-    /** 门店照片（本地占位素材） */
+    /** 门店头图：后台图集第一张，没传过时用内置素材 */
     shopImage: SHOP.image,
     rows: toRows(SHOP),
     /** 门店公告（配置里没有就是空串，WXML 里据此不显示这一块） */
@@ -72,6 +72,8 @@ definePage({
         shop: merged,
         rows: toRows({ ...merged, wechat: SHOP.wechat }),
         notice: profile.notice ?? '',
+        // 门店图集第一张当封面（后台没传过就用内置素材，不掉图）
+        shopImage: profile.images[0] || SHOP.image,
       });
     } catch {
       // 门店档案拿不到就继续用常量：这页是「看一眼」的内容，不该因为网络抖动变空

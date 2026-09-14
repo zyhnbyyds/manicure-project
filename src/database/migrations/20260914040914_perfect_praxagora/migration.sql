@@ -1,0 +1,1 @@
+ALTER TABLE `sys_store` ADD `images` json;

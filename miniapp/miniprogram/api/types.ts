@@ -221,6 +221,8 @@ export interface ShopProfile {
   latitude: number | null;
   longitude: number | null;
   notice: string | null;
+  /** 门店图集（后台上传，最多 5 张）；空数组 = 没传过，第一张当封面 */
+  images: string[];
 }
 
 /** 提交意见反馈的入参（`POST /app/feedback`） */

@@ -93,21 +93,27 @@ seed 驱动文件 `src/database/seed/menus.ts`（幂等：按 `name` 查 → 逐
 一个 `config_key` 只能存一份值），现在收敛成一条实体记录。业务表将来会带 `store_id`，
 资产（余额/积分/次卡/券）在「全店通兑」口径下不带。
 
-| 字段                          | 类型                        | 必填/默认     | 说明                       | 口径与坑                                                                                                              |
-| ----------------------------- | --------------------------- | ------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `id`                          | `int unsigned`              | PK 自增       | 主键                       | —                                                                                                                     |
-| `code`                        | `varchar(32)`               | 必填          | 门店编码                   | `uq_store_code` 唯一；**软删也占位**（与用户名同口径）                                                                |
-| `name` / `name_en`            | `varchar(50)`               | 必填 / 可空   | 门店名与英文副标题         | 通知模板 `{shopName}` 取它                                                                                            |
-| `phone` / `address` / `hours` | `varchar(20/200/50)`        | 可空          | 电话 / 地址 / 营业时间文案 | 门店页展示口径                                                                                                        |
-| `latitude` / `longitude`      | `double`                    | 可空          | 坐标（地图导航）           | 迁移从配置回填时用 `value + 0` 转数值                                                                                 |
-| `notice`                      | `varchar(500)`              | 可空          | 公告 / 到店须知            | 空串在接口层统一成 `null`                                                                                             |
-| `timezone`                    | `varchar(64)`               | 可空          | 门店时区                   | **现在留空**：有效时区仍走全局 `biz.booking.timezone`（跨时区连锁才需要）                                             |
-| `status`                      | `enum('active','disabled')` | 默认 `active` | 启停                       | 停用门店不参与默认门店回落                                                                                            |
-| `sort`                        | `int`                       | 默认 `0`      | 排序                       | —                                                                                                                     |
-| `is_default`                  | `boolean`                   | 默认 `false`  | 默认门店                   | 单店期就是唯一那家；多店期是「未指定门店时的兜底」。**同刻最多一个**（MySQL 没有部分唯一索引，规则在 service 事务里） |
+| 字段                          | 类型                        | 必填/默认     | 说明                       | 口径与坑                                                                                                                                                      |
+| ----------------------------- | --------------------------- | ------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                          | `int unsigned`              | PK 自增       | 主键                       | —                                                                                                                                                             |
+| `code`                        | `varchar(32)`               | 必填          | 门店编码                   | `uq_store_code` 唯一；**软删也占位**（与用户名同口径）                                                                                                        |
+| `name` / `name_en`            | `varchar(50)`               | 必填 / 可空   | 门店名与英文副标题         | 通知模板 `{shopName}` 取它                                                                                                                                    |
+| `phone` / `address` / `hours` | `varchar(20/200/50)`        | 可空          | 电话 / 地址 / 营业时间文案 | 门店页展示口径                                                                                                                                                |
+| `latitude` / `longitude`      | `double`                    | 可空          | 坐标（地图导航）           | 迁移从配置回填时用 `value + 0` 转数值                                                                                                                         |
+| `notice`                      | `varchar(500)`              | 可空          | 公告 / 到店须知            | 空串在接口层统一成 `null`                                                                                                                                     |
+| `images`                      | `json`                      | 可空          | 门店图集（≤ 5 张）         | 库里只有 `NULL` 或**非空数组**（空数组归一成 `null`，见 `normalizeImages`）；**顺序即展示顺序**，第一张当封面；`GET /app/shop` 原样返回，小程序门店页头图用它 |
+| `timezone`                    | `varchar(64)`               | 可空          | 门店时区                   | **现在留空**：有效时区仍走全局 `biz.booking.timezone`（跨时区连锁才需要）                                                                                     |
+| `status`                      | `enum('active','disabled')` | 默认 `active` | 启停                       | 停用门店不参与默认门店回落                                                                                                                                    |
+| `sort`                        | `int`                       | 默认 `0`      | 排序                       | —                                                                                                                                                             |
+| `is_default`                  | `boolean`                   | 默认 `false`  | 默认门店                   | 单店期就是唯一那家；多店期是「未指定门店时的兜底」。**同刻最多一个**（MySQL 没有部分唯一索引，规则在 service 事务里）                                         |
 
 **相关代码**：`src/modules/biz/base-data/stores/stores.service.ts`（CRUD + 默认唯一 + 默认门店不可删）；
 seed 补空字段 `src/database/seed/stores.ts`；小程序 `GET /app/shop` 以门店表为准、`biz.shop.*` 兜底。
+
+**门店图集的上限三处同源**：`MAX_STORE_IMAGES = 5`（service）、zod `.max(5)`（controller）、
+表单 `limit: 5`（门店页）—— 改一处就要一起改，否则会出现「前端还能选、后端默默截断」。
+归一化用共享的 `normalizeImages(value, limit)`（`src/modules/biz/common/gallery.ts`），
+服务项目图集（9 张）走的是同一个函数（默认上限 9）。
 
 ### sys_user_store —— 账号 ↔ 可见门店（连锁直营）
 

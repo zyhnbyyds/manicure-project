@@ -13,8 +13,16 @@ import {
   type StoreBrief,
 } from '../../../../common/data-scope/store-scope.js';
 import { StorePort, type StoreRow } from '../../common/ports.js';
+import { normalizeImages } from '../../common/gallery.js';
 import { withoutUndefined } from '../../common/tx.js';
 import type { BizTx } from '../../common/tx.js';
+
+/**
+ * 门店图集张数上限（小程序门店页展示）。
+ *
+ * 三处必须同源：这里、controller 的 zod `.max(5)`、前端表单的 `limit: 5`。
+ */
+export const MAX_STORE_IMAGES = 5;
 
 export type CreateStoreInput = {
   code: string;
@@ -26,6 +34,8 @@ export type CreateStoreInput = {
   latitude?: number | null | undefined;
   longitude?: number | null | undefined;
   notice?: string | null | undefined;
+  /** 门店图集（最多 5 张）；空数组 = 清空 → 存 `null` */
+  images?: string[] | null | undefined;
   timezone?: string | null | undefined;
   status?: 'active' | 'disabled' | undefined;
   sort?: number | undefined;
@@ -173,6 +183,8 @@ export class StoresService extends StorePort {
       if (shouldBeDefault) await this.clearDefault(tx);
       const inserted = await tx.insert(sysStores).values({
         ...withoutUndefined(input),
+        // 图集归一化（空 → null、上限截断）：库里只留 `NULL` 或非空数组两种形态
+        images: normalizeImages(input.images, MAX_STORE_IMAGES),
         isDefault: shouldBeDefault,
         createdBy: actorId,
         updatedBy: actorId,
@@ -195,7 +207,14 @@ export class StoresService extends StorePort {
       if (input.isDefault === true) await this.clearDefault(tx);
       await tx
         .update(sysStores)
-        .set({ ...withoutUndefined(input), updatedBy: actorId })
+        .set({
+          ...withoutUndefined(input),
+          // `images` 不传 = 「本次不改图集」（与其它字段同款）；传了才归一化后写
+          ...(input.images === undefined
+            ? {}
+            : { images: normalizeImages(input.images, MAX_STORE_IMAGES) }),
+          updatedBy: actorId,
+        })
         .where(and(eq(sysStores.id, id), isNull(sysStores.deletedAt)));
     });
 

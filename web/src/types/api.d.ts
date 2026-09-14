@@ -106,6 +106,8 @@ export interface Store {
   latitude: number | null;
   longitude: number | null;
   notice: string | null;
+  /** 门店图集（最多 5 张，顺序即展示顺序）；空 = 没有图 */
+  images: string[] | null;
   timezone: string | null;
   status: EntityStatus;
   sort: number;
@@ -125,6 +127,8 @@ export interface StoreBody {
   latitude?: number | null;
   longitude?: number | null;
   notice?: string | null;
+  /** 门店图集（最多 5 张）；空数组 = 清空；不传 = 不改 */
+  images?: string[] | null;
   status?: EntityStatus;
   sort?: number;
   isDefault?: boolean;
