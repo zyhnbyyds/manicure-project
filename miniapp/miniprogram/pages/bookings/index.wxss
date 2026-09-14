@@ -81,123 +81,200 @@
   height: 36rpx;
 }
 
-/* ── 双列网格 ─────────────────────────────────────────────── */
+/* ── 单列订单卡片 ───────────────────────────────────────────
+ * 设计稿：状态胶囊 + 单号 / 左右两栏（时间·美甲师 ｜ 项目·金额·资金状态）/ 底部操作。
+ * 卡片本身可点进详情，卡内按钮 `catchtap` 阻止冒泡。
+ * -------------------------------------------------------- */
 
-.grid {
-  display: flex;
-  flex-wrap: wrap;
+.list {
+  display: block;
 }
 
 .bcard {
-  width: 48%;
   margin-bottom: 20rpx;
-  padding: 20rpx;
+  /* 底部不留内边距：操作区自己带，好让分隔线横贯到卡片边缘 */
+  padding: 22rpx 24rpx 0;
 }
 
-/* 用 margin 而非 flex gap：iOS 老版本 WKWebView 不支持 gap */
-.bcard:nth-child(odd) {
-  margin-right: 4%;
+/* 已取消 / 未到店：整卡降饱和 —— 一眼能看出「这单不用管了」 */
+.bcard.is-muted {
+  opacity: 0.72;
+}
+
+/* ── 头：状态胶囊 + 单号 ──────────────────────────────────── */
+
+.bcard__head {
+  display: flex;
+  align-items: center;
 }
 
 /* 状态胶囊：低饱和语义色，颜色仍走主题令牌 */
 .bcard__status {
   display: inline-flex;
   align-items: center;
-  height: 38rpx;
-  padding: 0 16rpx;
+  flex-shrink: 0;
+  height: 40rpx;
+  padding: 0 18rpx;
   border-radius: var(--r-pill);
   font-size: 20rpx;
   background: var(--c-primary-soft);
   color: var(--c-primary-deep);
 }
 
-.pill--waiting {
-  background: var(--c-chip);
-  color: var(--c-text-sub);
+/* 待确认 / 已确认 = 主色淡粉（需要顾客关注） */
+.pill--waiting,
+.pill--active {
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
 }
 
+/* 已完成 = 绿。语义色，**不随主题变**（见 app.wxss 的 `--c-success` 说明） */
 .pill--done {
-  background: var(--c-bg);
-  color: var(--c-text-sub);
+  background: var(--c-success-soft);
+  color: var(--c-success);
 }
 
+/* 已取消 / 未到店 = 灰 */
 .pill--cancelled {
-  background: var(--c-bg);
+  background: var(--c-chip);
   color: var(--c-text-weak);
 }
 
 .bcard__no {
-  margin-top: 16rpx;
-  font-size: 19rpx;
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.bcard__no-label {
+  flex-shrink: 0;
+  margin-right: 8rpx;
+  font-size: 20rpx;
   color: var(--c-text-weak);
 }
 
 .bcard__no-value {
-  margin-top: 2rpx;
   font-size: 22rpx;
   color: var(--c-text-sub);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.bcard__when {
-  margin-top: 10rpx;
+/* ── 身：左右两栏 + 竖分隔线 ──────────────────────────────── */
+
+.bcard__body {
+  display: flex;
+  align-items: stretch;
+  margin-top: 18rpx;
+}
+
+.bcard__left {
+  flex: 0 0 46%;
+  min-width: 0;
+}
+
+.bcard__divider {
+  width: 2rpx;
+  margin: 2rpx 24rpx;
+  background: var(--c-border);
+}
+
+.bcard__right {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.bcard__date {
   font-family: var(--font-serif);
-  font-size: 26rpx;
+  font-size: 36rpx;
   font-weight: 600;
+  line-height: 1.25;
+}
+
+.bcard__time {
+  margin-top: 6rpx;
+  font-size: 26rpx;
+  color: var(--c-primary);
 }
 
 .bcard__staff {
   display: flex;
   align-items: center;
-  margin-top: 8rpx;
+  margin-top: 14rpx;
   font-size: 22rpx;
   color: var(--c-text-sub);
 }
 
 .bcard__staff-avatar {
-  width: 36rpx;
-  height: 36rpx;
+  width: 40rpx;
+  height: 40rpx;
   border-radius: 50%;
   margin-right: 10rpx;
   flex-shrink: 0;
 }
 
-.bcard__items {
-  margin-top: 6rpx;
-  font-size: 21rpx;
-  line-height: 1.45;
-  color: var(--c-text-weak);
+.bcard__staff-name {
+  min-width: 0;
 }
 
-.bcard__foot {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-top: 14rpx;
+.bcard__items {
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: var(--c-text);
 }
 
 .bcard__amount {
+  margin-top: 8rpx;
   font-family: var(--font-serif);
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--c-primary);
 }
 
 .bcard__pay {
-  font-size: 19rpx;
-  color: var(--c-text-weak);
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: var(--c-text-sub);
 }
 
-/* 未付清但小程序内自助支付未开放：占「去支付」的位置给出去路，但不是可点按钮 */
-.bcard__pay-store {
-  font-size: 24rpx;
+/* 已结清 = 绿（同样用语义色） */
+.bcard__pay.is-paid {
+  color: var(--c-success);
+}
+
+/* ── 底：结算方式 + 操作 ──────────────────────────────────── */
+
+.bcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20rpx;
+  padding: 16rpx 0 18rpx;
+  border-top: 2rpx solid var(--c-border);
+}
+
+.bcard__method {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 22rpx;
   color: var(--c-text-sub);
-  padding: 0 8rpx;
+}
+
+.bcard__method-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
 }
 
 .bcard__actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  margin-top: 14rpx;
 }
 
 /* ── 空态 / 失败态 ────────────────────────────────────────── */

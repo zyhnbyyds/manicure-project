@@ -286,9 +286,10 @@ export type BookingTone = 'waiting' | 'active' | 'done' | 'cancelled';
 export interface BookingVM {
   id: number;
   bookingNo: string;
+  staffId: number;
   staffName: string;
   staffEmoji: string;
-  /** 美甲师头像：订单里只有 staffId，用本地占位图兜底（**不用 emoji**） */
+  /** 美甲师头像：订单里只有 staffId，传了 staffById 就用真头像，否则本地占位图（**不用 emoji**） */
   staffAvatarResolved: string;
   /** 原始状态与资金状态：筛选/按钮显隐要用，不能只留展示文案 */
   status: Booking['status'];
@@ -300,6 +301,10 @@ export interface BookingVM {
   statusText: string;
   payStatusText: string;
   tone: BookingTone;
+  /** 已取消 / 未到店：整张卡片降到弱色（设计稿里已取消的单据就是灰的） */
+  muted: boolean;
+  /** 已结清：金额下方的资金文案标绿 */
+  paid: boolean;
   /** 是否还能取消（待确认 / 已确认） */
   cancellable: boolean;
   /** 是否还能评价（已完成且未评价——评价与否由后端约束，这里只做入口显隐） */
@@ -310,6 +315,8 @@ export interface BookingVM {
   itemNames: string;
   itemCount: number;
   durationText: string;
+  /** 原项目 id：重新预约时用它把草稿拼回来 */
+  serviceItemIds: number[];
 }
 
 const TONE_BY_STATUS: Record<Booking['status'], BookingTone> = {
@@ -321,7 +328,15 @@ const TONE_BY_STATUS: Record<Booking['status'], BookingTone> = {
   no_show: 'cancelled',
 };
 
-export function toBookingVM(booking: Booking): BookingVM {
+export function toBookingVM(
+  booking: Booking,
+  /**
+   * 美甲师 id → 档案。预约列表接口只回 `staffId` / `staffName`（没有头像），
+   * 想让卡片显示**真头像**就得自己把美甲师列表拉回来按 id 查。
+   * 不传（如收银台单条渲染）就退回本地占位图，行为与从前一致。
+   */
+  staffById?: Map<number, Pick<Staff, 'id' | 'avatar'>>,
+): BookingVM {
   const tone = TONE_BY_STATUS[booking.status];
   const durationMinutes = booking.items.reduce(
     (sum, item) => sum + item.durationMinutes,
@@ -330,12 +345,12 @@ export function toBookingVM(booking: Booking): BookingVM {
   return {
     id: booking.id,
     bookingNo: booking.bookingNo,
+    staffId: booking.staffId,
     staffName: booking.staffName ?? '到店安排',
     staffEmoji: staffEmoji(booking.staffId),
-    staffAvatarResolved: resolveStaffAvatar({
-      id: booking.staffId,
-      avatar: null,
-    }),
+    staffAvatarResolved: resolveStaffAvatar(
+      staffById?.get(booking.staffId) ?? { id: booking.staffId, avatar: null },
+    ),
     status: booking.status,
     payStatus: booking.payStatus,
     startAt: booking.startAt,
@@ -347,6 +362,8 @@ export function toBookingVM(booking: Booking): BookingVM {
     statusText: formatBookingStatus(booking.status),
     payStatusText: formatPayStatus(booking.payStatus),
     tone,
+    muted: tone === 'cancelled',
+    paid: booking.payStatus === 'paid',
     cancellable: booking.status === 'pending' || booking.status === 'confirmed',
     reviewable: booking.status === 'completed',
     payableText: fenToYuan(booking.payableAmount),
@@ -354,6 +371,7 @@ export function toBookingVM(booking: Booking): BookingVM {
     itemNames: booking.items.map((item) => item.name).join(' · '),
     itemCount: booking.items.length,
     durationText: formatDuration(durationMinutes),
+    serviceItemIds: booking.items.map((item) => item.serviceItemId),
   };
 }
 

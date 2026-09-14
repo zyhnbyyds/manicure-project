@@ -11,7 +11,7 @@
         <input
           class="search__input"
           value="{{keyword}}"
-          placeholder="搜索单号 / 项目 / 美甲师"
+          placeholder="搜索单号、项目或美甲师"
           placeholder-class="search__placeholder"
           bindinput="onSearchInput"
         />
@@ -73,59 +73,101 @@
       <view class="btn btn--primary empty__action" bindtap="goServices">去挑款式</view>
     </view>
 
-    <!-- 双列订单卡片（batch1 第 1 屏）：卡片可点进详情，卡内按钮用 catchtap 阻止冒泡 -->
-    <view wx:else class="grid anim-rise">
+    <!--
+      单列订单卡片（设计稿：状态胶囊 + 单号 / 左右两栏 / 底部操作）。
+      卡片整体可点进详情，卡内按钮用 catchtap 阻止冒泡，避免「点取消却先跳了详情」。
+    -->
+    <view wx:else class="list anim-rise">
       <view
         wx:for="{{bookings}}"
         wx:key="id"
-        class="card bcard press"
+        class="card bcard press {{item.muted ? 'is-muted' : ''}}"
         data-id="{{item.id}}"
         bindtap="onDetail"
       >
-        <view class="bcard__status pill--{{item.tone}}">{{item.statusText}}</view>
-        <view class="bcard__no">预约单号</view>
-        <view class="bcard__no-value ellipsis">{{item.bookingNo}}</view>
-        <view class="bcard__when">{{item.dateText}} {{item.timeText}}</view>
-        <view class="bcard__staff ellipsis">
-          <image class="bcard__staff-avatar" src="{{item.staffAvatarResolved}}" mode="aspectFill" />
-          {{item.staffName}}
+        <!-- 头：状态胶囊 + 单号 -->
+        <view class="bcard__head">
+          <view class="bcard__status pill--{{item.tone}}">{{item.statusText}}</view>
+          <view class="bcard__no">
+            <text class="bcard__no-label">预约单号</text>
+            <text class="bcard__no-value">{{item.bookingNo}}</text>
+          </view>
         </view>
-        <view class="bcard__items ellipsis-2">{{item.itemNames}}</view>
+
+        <!-- 身：左（时间 + 美甲师）｜竖线｜右（项目 + 金额 + 资金状态） -->
+        <view class="bcard__body">
+          <view class="bcard__left">
+            <view class="bcard__date">{{item.dateText}}</view>
+            <view class="bcard__time">{{item.timeText}}</view>
+            <view class="bcard__staff">
+              <image
+                class="bcard__staff-avatar"
+                src="{{item.staffAvatarResolved}}"
+                mode="aspectFill"
+              />
+              <text class="bcard__staff-name ellipsis">{{item.staffName}}</text>
+            </view>
+          </view>
+          <view class="bcard__divider"></view>
+          <view class="bcard__right">
+            <view class="bcard__items ellipsis-2">{{item.itemNames}}</view>
+            <view class="bcard__amount">¥{{item.payableText}}</view>
+            <view class="bcard__pay {{item.paid ? 'is-paid' : ''}}">
+              {{item.payStatusText}}
+            </view>
+          </view>
+        </view>
+
+        <!-- 底：结算方式 + 操作（主操作实心、次操作描边） -->
         <view class="bcard__foot">
-          <view class="bcard__amount">¥{{item.payableText}}</view>
-          <view class="bcard__pay">{{item.payStatusText}}</view>
-        </view>
-        <view class="bcard__actions">
-          <view
-            wx:if="{{(item.payStatus === 'unpaid' || item.payStatus === 'partial') && selfPayEnabled}}"
-            class="mini-btn press-sm"
-            data-id="{{item.id}}"
-            catchtap="onPay"
-          >
-            去支付
+          <view class="bcard__method">
+            <image
+              class="bcard__method-icon"
+              src="{{icons.card}}"
+              mode="aspectFit"
+            />
+            <text>到店支付</text>
           </view>
-          <!-- 未付清但小程序内自助支付未开放：只提示去路，不给点进去是死路的按钮 -->
-          <view
-            wx:if="{{(item.payStatus === 'unpaid' || item.payStatus === 'partial') && !selfPayEnabled}}"
-            class="bcard__pay-store"
-          >
-            到店支付
-          </view>
-          <view
-            wx:if="{{item.reviewable}}"
-            class="mini-btn press-sm"
-            data-id="{{item.id}}"
-            catchtap="onReview"
-          >
-            去评价
-          </view>
-          <view
-            wx:if="{{item.cancellable}}"
-            class="mini-btn mini-btn--ghost press-sm"
-            data-id="{{item.id}}"
-            catchtap="onCancel"
-          >
-            取消预约
+          <view class="bcard__actions">
+            <view
+              wx:if="{{(item.payStatus === 'unpaid' || item.payStatus === 'partial') && selfPayEnabled}}"
+              class="mini-btn press-sm"
+              data-id="{{item.id}}"
+              catchtap="onPay"
+            >
+              去支付
+            </view>
+            <view
+              wx:if="{{item.status === 'completed'}}"
+              class="mini-btn mini-btn--ghost press-sm"
+              data-id="{{item.id}}"
+              catchtap="onRebook"
+            >
+              再次预约
+            </view>
+            <view
+              wx:if="{{item.reviewable}}"
+              class="mini-btn press-sm"
+              data-id="{{item.id}}"
+              catchtap="onReview"
+            >
+              去评价
+            </view>
+            <view
+              wx:if="{{item.cancellable}}"
+              class="mini-btn mini-btn--ghost press-sm"
+              data-id="{{item.id}}"
+              catchtap="onCancel"
+            >
+              取消预约
+            </view>
+            <view
+              class="mini-btn press-sm"
+              data-id="{{item.id}}"
+              catchtap="onDetail"
+            >
+              查看详情
+            </view>
           </view>
         </view>
       </view>

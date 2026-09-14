@@ -1,5 +1,5 @@
-import { bookingApi, memberApi } from '../../api/index';
-import type { BookingStatus } from '../../api/types';
+import { bookingApi, catalogApi, memberApi } from '../../api/index';
+import type { BookingStatus, Staff } from '../../api/types';
 import type { IconName } from '../../utils/icons';
 import { runLoad, runPullDownLoad } from '../../utils/load';
 import {
@@ -9,9 +9,12 @@ import {
   goPay,
   goReview,
   goServices,
+  goSlots,
 } from '../../utils/nav';
 import { definePage } from '../../utils/page';
 import { toBookingVM, type BookingVM } from '../../utils/present';
+import { setDraftItems, setDraftStaff } from '../../store/draft';
+import { hideLoading, showLoading, toast } from '../../utils/ui';
 
 interface FilterItem {
   /** 空串 = 不传 status（全部） */
@@ -28,7 +31,7 @@ const FILTERS: FilterItem[] = [
   { key: 'completed', label: '已完成' },
 ];
 
-const PAGE_ICONS: IconName[] = ['search', 'funnel', 'calendar'];
+const PAGE_ICONS: IconName[] = ['search', 'funnel', 'calendar', 'card'];
 
 definePage({
   chromeIcons: PAGE_ICONS,
@@ -85,19 +88,28 @@ definePage({
     await runLoad(
       this,
       async () => {
-        // 能力位与列表一起取：`selfPayEnabled` 决定未付清的卡片上显示「去支付」还是「到店支付」
-        const [page, me] = await Promise.all([
+        // 三个请求一起发：
+        // - 能力位 `selfPayEnabled` 决定未付清的卡片上显示「去支付」还是「到店支付」；
+        // - 美甲师列表**只为拿头像**（预约接口只回 staffId / staffName），
+        //   拉失败不影响主流程，`catch → null` 后退回本地占位图。
+        const [page, me, staffs] = await Promise.all([
           bookingApi.list({ page: 1, pageSize: 50 }),
           memberApi.getMe().catch(() => null),
+          catalogApi.listStaffs().catch(() => null),
         ]);
-        return { page, selfPayEnabled: me?.selfPayEnabled === true };
+        return { page, selfPayEnabled: me?.selfPayEnabled === true, staffs };
       },
       {
-        merge: ({ page, selfPayEnabled }) => ({
-          guest: false,
-          selfPayEnabled,
-          all: page.items.map(toBookingVM),
-        }),
+        merge: ({ page, selfPayEnabled, staffs }) => {
+          const staffById = new Map<number, Pick<Staff, 'id' | 'avatar'>>(
+            (staffs?.items ?? []).map((staff) => [staff.id, staff]),
+          );
+          return {
+            guest: false,
+            selfPayEnabled,
+            all: page.items.map((booking) => toBookingVM(booking, staffById)),
+          };
+        },
         after: () => this.applyFilter(),
       },
     );
@@ -187,6 +199,47 @@ definePage({
   onReview(event: WechatMiniprogram.TouchEvent) {
     // 评价表单页已按设计稿实现（pages/review）
     goReview(Number(event.currentTarget.dataset.id));
+  },
+
+  /**
+   * 再次预约：把原单的项目与美甲师拼回草稿，直接进「选时段」。
+   *
+   * 为什么还要拉一次项目列表：预约单里只有 `serviceItemId / name / price`（下单时的快照），
+   * 而草稿要的是完整 `ServiceItem`（含 `category` / `image` / `description`，
+   * 款式库与选时段页都依赖它们）。项目下架了就只带上还在的那些；
+   * 一个都不剩就引导去款式库重挑，**不留一个点进去必然空转的按钮**。
+   *
+   * 顺序不能反：`setDraftItems` 内部会清掉美甲师与时段（改项目 → 时长变了），
+   * 所以必须先写项目、再写美甲师。
+   */
+  async onRebook(event: WechatMiniprogram.TouchEvent) {
+    const id = Number(event.currentTarget.dataset.id);
+    const booking = this.data.all.find((item) => item.id === id);
+    if (!booking) return;
+    showLoading('准备中');
+    try {
+      const page = await catalogApi.listServiceItems(1, 100);
+      const wanted = new Set(booking.serviceItemIds);
+      const picked = page.items.filter((item) => wanted.has(item.id));
+      if (picked.length === 0) {
+        toast('原来的项目已下架，去挑个新款吧');
+        goServices();
+        return;
+      }
+      setDraftItems(picked);
+      if (booking.staffId) {
+        setDraftStaff({
+          id: booking.staffId,
+          nickname: booking.staffName,
+          avatar: null,
+        });
+      }
+      goSlots();
+    } catch {
+      toast('网络连接失败，请稍后再试');
+    } finally {
+      hideLoading();
+    }
   },
 
   onPay(event: WechatMiniprogram.TouchEvent) {
