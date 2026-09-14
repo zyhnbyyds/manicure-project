@@ -235,5 +235,12 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
 - **列表接口手拼 `?storeId=`** → 门店是**请求级上下文**：顶栏切换器写 `x-store-id` 头
   （`store/store-scope.ts` + `request.ts` 拦截器），后端所有单据表都按它筛（列表）/落店（写入）。
   列表用 `useTable` 就好（它内置 `watch(activeStoreId)` 自动重载）；只有自绘的非列表视图
-  （统计卡 / 工作台 / 收银台队列）才需要自己 `watch` 一次。自己拼参数迟早漏，
+  （统计卡 / 工作台 / 收银台队列 / 报表页）才需要自己 `watch` 一次。自己拼参数迟早漏，
   漏了就是「看着 A 店的列表、建出来的单在 B 店」。见 `dev-docs/data/multi-store.md`。
+- **`LewTabs` 的 `@change` 在 lew-ui 2.8.2 里恒不触发**：它的实现是「先把本地值同步成新值，
+  再比较旧值 ≠ 新值才 emit」，那个条件永远不成立 —— 表现是「**页签高亮切了、内容没变**」。
+  用 `v-model` + `watch(tab)` 驱动，别指望 `@change`（报表页踩过）。
+- **报表类页面的字段名一律以后端 `ReportsService` 的类型为准**，不要凭感觉猜 camelCase / snake_case：
+  后端概览是**分组结构**（`{ revenue: { net } }`），`reportScalars` 会递归展平成
+  `revenue.net` 这种点号路径（明细行同理，如账龄的 `buckets.0-30`）。写错键的后果是
+  「页面显示『该区间没有数据』，而后端明明回了满屏数字」。

@@ -32,6 +32,11 @@ import {
   sql,
 } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import {
+  resolveStoreScope,
+  storeConditions,
+} from '../../../../common/data-scope/store-scope.js';
 import {
   bizBookingItems,
   bizBookings,
@@ -113,6 +118,8 @@ export type CommissionRecordFilter = {
   period?: string | undefined;
   status?: CommissionRecordStatus | undefined;
   bookingId?: number | undefined;
+  /** 门店维度：记录本身没有 `store_id`，按关联预约的门店归属过滤（阶段 1.8） */
+  storeId?: number | undefined;
 };
 
 export type CommissionRecordItem = CommissionRecordRow & {
@@ -644,8 +651,21 @@ export class CommissionService extends CommissionPort {
     page: number,
     pageSize: number,
     filter: CommissionRecordFilter,
+    actor: RequestActor | null,
   ): Promise<PageResult<CommissionRecordItem>> {
     const { offset } = parsePagination(page, pageSize);
+    /*
+     * 门店维度（阶段 1.8）：`biz_commission_record` 没有 `store_id`，
+     * 门店归属只能顺着 `booking_id → biz_booking.store_id` 找。
+     * 没有门店筛选时不加任何条件 —— 不写成 `inArray(bookingId, 全部预约 id)`，
+     * 那是等价但白跑一次全表子查询。
+     */
+    const store = await resolveStoreScope(
+      this.database.db,
+      actor,
+      filter.storeId,
+    );
+    const storeFilters = storeConditions(bizBookings.storeId, store);
     const items = await this.database.db
       .select({
         id: bizCommissionRecords.id,
@@ -676,6 +696,17 @@ export class CommissionService extends CommissionPort {
       )
       .where(
         andConditions([
+          ...(storeFilters.length
+            ? [
+                inArray(
+                  bizCommissionRecords.bookingId,
+                  this.database.db
+                    .select({ id: bizBookings.id })
+                    .from(bizBookings)
+                    .where(and(...storeFilters)),
+                ),
+              ]
+            : []),
           filter.staffId
             ? eq(bizCommissionRecords.staffId, filter.staffId)
             : undefined,

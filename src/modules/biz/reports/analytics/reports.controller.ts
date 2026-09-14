@@ -3,8 +3,12 @@
  *
  * **全部只读**（权限 `biz:report:view`；导出 `biz:report:export`），
  * 一律按店内本地日 `dateFrom`/`dateTo`（含两端）过滤，支持 `staffId` / `channel` 维度。
+ *
+ * **门店维度**（阶段 1.8）：与业务列表**同一套门店上下文** —— 显式 `?storeId=` 优先，
+ * 否则用顶栏切换器的 `x-store-id` 头；店长**不传参数也自动只统计自己的门店**（数据权限），
+ * 超管不传则是全部门店合并。会员资产类指标（储值/积分/结存/次卡发售/新增会员）恒为全店口径。
  */
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Query, Req, Res } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -14,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import {
   DEFAULT_REPORT_RANGE_DAYS,
   PAYMENT_CHANNEL_VALUES,
@@ -25,6 +30,8 @@ type CsvReply = {
   header(name: string, value: string): unknown;
   send(payload: unknown): unknown;
 };
+
+type AuthRequest = { user: RequestActor };
 
 /** 空字符串一律当「没传」（前端清空筛选项时常见） */
 function emptyToUndefined(value: unknown): unknown {
@@ -46,6 +53,7 @@ const reportQuerySchema = z.object({
     z.enum(['deposit', 'final', 'recharge', 'card_buy', 'credit_settle']),
   ),
   granularity: optional(z.enum(['day', 'week', 'month'])),
+  storeId: optional(z.coerce.number().int().positive()),
 });
 
 const exportQuerySchema = reportQuerySchema.extend({
@@ -62,6 +70,10 @@ const exportQuerySchema = reportQuerySchema.extend({
 
 const RANGE_DOC = `店内本地日 YYYY-MM-DD（含两端）；缺省 = 最近 ${DEFAULT_REPORT_RANGE_DAYS} 天`;
 
+const STORE_DOC =
+  '门店维度（连锁直营）：超管可传任意门店；普通账号只能传自己可见的门店（传别的门店 403）。' +
+  '不传 = 用顶栏切换器选中的门店；都没选则 = 按账号可见范围（店长限本店 / 超管全部门店合并）';
+
 function toInput(query: z.infer<typeof reportQuerySchema>): ReportQuery {
   return {
     dateFrom: query.dateFrom,
@@ -70,6 +82,7 @@ function toInput(query: z.infer<typeof reportQuerySchema>): ReportQuery {
     channel: query.channel,
     purpose: query.purpose,
     granularity: query.granularity,
+    storeId: query.storeId,
   };
 }
 
@@ -98,9 +111,13 @@ export class ReportsController {
     required: false,
     description: '支付用途维度（可选，默认不筛选）',
   })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({ status: 200, description: '成功' })
-  overview(@Query() raw: Record<string, unknown>) {
-    return this.reports.overview(toInput(reportQuerySchema.parse({ ...raw })));
+  overview(@Query() raw: Record<string, unknown>, @Req() request: AuthRequest) {
+    return this.reports.overview(
+      toInput(reportQuerySchema.parse({ ...raw })),
+      request.user,
+    );
   }
 
   @Get('revenue')
@@ -115,9 +132,13 @@ export class ReportsController {
     required: false,
     description: 'day | week | month（默认 day）',
   })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({ status: 200, description: '成功' })
-  revenue(@Query() raw: Record<string, unknown>) {
-    return this.reports.revenue(toInput(reportQuerySchema.parse({ ...raw })));
+  revenue(@Query() raw: Record<string, unknown>, @Req() request: AuthRequest) {
+    return this.reports.revenue(
+      toInput(reportQuerySchema.parse({ ...raw })),
+      request.user,
+    );
   }
 
   @Get('services')
@@ -127,9 +148,13 @@ export class ReportsController {
   @ApiQuery({ name: 'dateTo', required: false, description: RANGE_DOC })
   @ApiQuery({ name: 'staffId', required: false, description: '美甲师维度' })
   @ApiQuery({ name: 'channel', required: false, description: '支付渠道维度' })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({ status: 200, description: '成功' })
-  services(@Query() raw: Record<string, unknown>) {
-    return this.reports.services(toInput(reportQuerySchema.parse({ ...raw })));
+  services(@Query() raw: Record<string, unknown>, @Req() request: AuthRequest) {
+    return this.reports.services(
+      toInput(reportQuerySchema.parse({ ...raw })),
+      request.user,
+    );
   }
 
   @Get('staffs')
@@ -140,9 +165,13 @@ export class ReportsController {
   @ApiQuery({ name: 'dateFrom', required: false, description: RANGE_DOC })
   @ApiQuery({ name: 'dateTo', required: false, description: RANGE_DOC })
   @ApiQuery({ name: 'staffId', required: false, description: '只看某位美甲师' })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({ status: 200, description: '成功' })
-  staffs(@Query() raw: Record<string, unknown>) {
-    return this.reports.staffs(toInput(reportQuerySchema.parse({ ...raw })));
+  staffs(@Query() raw: Record<string, unknown>, @Req() request: AuthRequest) {
+    return this.reports.staffs(
+      toInput(reportQuerySchema.parse({ ...raw })),
+      request.user,
+    );
   }
 
   @Get('members')
@@ -157,9 +186,13 @@ export class ReportsController {
     required: false,
     description: 'day | week | month（默认 day）',
   })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({ status: 200, description: '成功' })
-  members(@Query() raw: Record<string, unknown>) {
-    return this.reports.members(toInput(reportQuerySchema.parse({ ...raw })));
+  members(@Query() raw: Record<string, unknown>, @Req() request: AuthRequest) {
+    return this.reports.members(
+      toInput(reportQuerySchema.parse({ ...raw })),
+      request.user,
+    );
   }
 
   @Get('receivables')
@@ -178,10 +211,15 @@ export class ReportsController {
     description: '挂账日区间终点（缺省 = 全部未结）',
   })
   @ApiQuery({ name: 'staffId', required: false, description: '预留维度' })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({ status: 200, description: '成功' })
-  receivables(@Query() raw: Record<string, unknown>) {
+  receivables(
+    @Query() raw: Record<string, unknown>,
+    @Req() request: AuthRequest,
+  ) {
     return this.reports.receivables(
       toInput(reportQuerySchema.parse({ ...raw })),
+      request.user,
     );
   }
 
@@ -206,12 +244,14 @@ export class ReportsController {
     required: false,
     description: 'day | week | month（默认 day）',
   })
+  @ApiQuery({ name: 'storeId', required: false, description: STORE_DOC })
   @ApiResponse({
     status: 200,
     description: 'text/csv; charset=utf-8（含 UTF-8 BOM）',
   })
   async export(
     @Query() raw: Record<string, unknown>,
+    @Req() request: AuthRequest,
     @Res() reply: CsvReply,
   ): Promise<void> {
     const query = exportQuerySchema.parse({ ...raw });
@@ -223,6 +263,7 @@ export class ReportsController {
     const { filename, content } = await this.reports.exportCsv(
       query.type,
       toInput(query),
+      request.user,
     );
     reply.header('Content-Type', 'text/csv; charset=utf-8');
     reply.header(

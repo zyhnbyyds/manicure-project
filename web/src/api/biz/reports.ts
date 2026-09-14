@@ -86,29 +86,52 @@ export function reportText(
   return '-';
 }
 
-/** 把宽松响应归一成表格行：数组直接用；对象里第一个数组字段作为行集；否则整体当一行 */
+/** 把宽松响应归一成表格行：数组直接用；对象里第一个数组字段作为行集；否则整体当一行。行内的嵌套对象一并展平。 */
 export function reportRows(
   payload: ReportPayload | null,
 ): Record<string, unknown>[] {
   if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload)) return payload.map((row) => flatten(row));
   for (const value of Object.values(payload)) {
-    if (Array.isArray(value)) return value as Record<string, unknown>[];
+    if (Array.isArray(value))
+      return (value as Record<string, unknown>[]).map((row) => flatten(row));
   }
-  return [payload];
+  return [flatten(payload)];
 }
 
-/** 把宽松响应归一成概览键值对：数组返回 null；对象取其中非数组/非对象的标量字段 */
+/**
+ * 把嵌套对象压成一层，键用点号路径：`{ revenue: { net: 1 } }` → `{ 'revenue.net': 1 }`。
+ *
+ * 数组不参与展平（数组 = 明细行）。标量（概览）与明细行都走这一套，
+ * 配置里就能直接写 `revenue.net` / `buckets.0-30` 这种路径。
+ */
+function flatten(
+  value: unknown,
+  path = '',
+  out: Record<string, unknown> = {},
+): Record<string, unknown> {
+  if (Array.isArray(value)) return out;
+  if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value))
+      flatten(child, path ? `${path}.${key}` : key, out);
+    return out;
+  }
+  if (path) out[path] = value;
+  return out;
+}
+
+/**
+ * 把宽松响应归一成概览键值对：数组返回 null；对象展平成一层标量。
+ *
+ * 后端概览是分组结构（`{ revenue: { net, gross }, member: { … } }`），
+ * 不展平的话整棵子树会被当成「对象」跳过，结果一个标量都不剩 ——
+ * 页面显示「该区间没有数据」，而后端其实回了满满一屏数字。
+ */
 export function reportScalars(
   payload: ReportPayload | null,
 ): Record<string, unknown> | null {
   if (!payload || Array.isArray(payload)) return null;
-  const scalars: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload)) {
-    if (Array.isArray(value)) continue;
-    if (value !== null && typeof value === 'object') continue;
-    scalars[key] = value;
-  }
+  const scalars = flatten(payload);
   return Object.keys(scalars).length ? scalars : null;
 }
 

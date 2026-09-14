@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { Download } from 'lucide-vue-next';
 import dayjs from 'dayjs';
 import {
@@ -8,6 +8,7 @@ import {
   LewMessage,
   LewSelect,
   LewTable,
+  LewTag,
   LewTabs,
 } from 'lew-ui';
 import type { LewTableColumn, LewTabsOption } from 'lew-ui';
@@ -27,6 +28,7 @@ import type {
   ReportTabKey,
 } from '~/api/biz/reports';
 import { listStaffOptions } from '~/api/biz/reviews';
+import { useStoreScopeStore } from '~/store/store-scope';
 import { formatDateTime } from '~/composables/useFormat';
 
 // ---------- 金额工具 ----------
@@ -126,10 +128,32 @@ async function load() {
 }
 void load();
 
-function switchTab(value: unknown) {
-  tab.value = value as ReportTabKey;
+/** 顶栏的门店切换器（多店才显示；单店期看不到，也不会多一次重拉） */
+const storeScope = useStoreScopeStore();
+
+/**
+ * 切门店 → 整页重拉。
+ *
+ * 报表不走 `useTable`（一个页签一张表，另有汇总卡），所以这里单独接一次；
+ * 不接就会出「切到 B 店，营收还是全公司的」—— 报表数字错了最难被发现。
+ */
+watch(
+  () => storeScope.activeStoreId,
+  () => {
+    void load();
+  },
+);
+
+/**
+ * 页签切换 → 重新拉数据。
+ *
+ * **不要指望 `LewTabs` 的 `change` 事件**：lew-ui 2.8.2 的实现里先把本地值同步成新值、
+ * 再比较「旧值 ≠ 新值」才 emit，结果那个条件恒不成立 —— 事件永远不会触发
+ * （表现就是「页签高亮切了、内容没变」）。所以这里以 `v-model`（`tab`）的变化为准。
+ */
+watch(tab, () => {
   void load();
-}
+});
 
 // ---------- 导出 ----------
 async function handleExport() {
@@ -150,109 +174,99 @@ async function handleExport() {
   }
 }
 
-// ---------- 列描述（字段名兼容 camelCase / snake_case） ----------
+// ---------- 列描述（字段路径以后端 `ReportsService` 的类型为准，响应已展平成点号路径） ----------
 interface ReportColumn {
   title: string;
+  /** 后端字段路径，支持 `buckets.0-30` 这种点号路径（响应已展平） */
   keys: string[];
   kind?: 'text' | 'money' | 'number' | 'percent';
   width?: number;
+  /** `true` = 全店口径：不随门店筛选变化（见 `OverviewMeta.globalScope`） */
+  globalScope?: boolean;
 }
 interface OverviewMeta {
   label: string;
   keys: string[];
   kind: 'money' | 'number';
+  /**
+   * `true` = **全店口径**：不随门店筛选变化。
+   *
+   * 会员资产类指标（储值 / 积分 / 结存 / 次卡发售 / 新增会员）所在的表没有门店列 ——
+   * 余额是全店通兑的一个池子，按店切分没有意义，所以后端刻意不过滤、
+   * 前端也必须显式标注，否则店长会以为「切到本店后这些数字也是本店的」。
+   */
+  globalScope?: boolean;
 }
 interface TabMeta {
   mode: 'summary' | 'table';
   columns?: ReportColumn[];
   overview?: OverviewMeta[];
+  /** 整页签都是全店口径时的说明（会员报表：大部分指标无门店归属） */
+  globalScopeNote?: string;
 }
 
 const OVERVIEW_META: OverviewMeta[] = [
-  {
-    label: '净营收',
-    keys: ['netRevenue', 'net_revenue', 'revenue'],
-    kind: 'money',
-  },
-  {
-    label: '完成单量',
-    keys: ['completedCount', 'completed_count', 'orderCount', 'order_count'],
-    kind: 'number',
-  },
-  {
-    label: '客单价',
-    keys: ['avgOrderAmount', 'avg_order_amount', 'avgAmount'],
-    kind: 'money',
-  },
-  {
-    label: '新客数',
-    keys: ['newCustomerCount', 'new_customer_count', 'newCustomers'],
-    kind: 'number',
-  },
-  {
-    label: '回头客数',
-    keys: [
-      'returningCustomerCount',
-      'returning_customer_count',
-      'returningCustomers',
-    ],
-    kind: 'number',
-  },
-  {
-    label: '取消单量',
-    keys: ['cancelledCount', 'cancelled_count'],
-    kind: 'number',
-  },
-  { label: '爽约单量', keys: ['noShowCount', 'no_show_count'], kind: 'number' },
+  { label: '净营收', keys: ['revenue.net'], kind: 'money' },
+  { label: '毛收入', keys: ['revenue.gross'], kind: 'money' },
+  { label: '退款', keys: ['revenue.refund'], kind: 'money' },
+  { label: '完成单量', keys: ['bookings.completed'], kind: 'number' },
+  { label: '客单价', keys: ['revenue.avgTicket'], kind: 'money' },
+  { label: '预约总数', keys: ['bookings.total'], kind: 'number' },
+  { label: '取消单量', keys: ['bookings.cancelled'], kind: 'number' },
+  { label: '爽约单量', keys: ['bookings.noShow'], kind: 'number' },
+  { label: '未完成（待处理）', keys: ['bookings.pending'], kind: 'number' },
+  { label: '新客数', keys: ['customers.newCustomers'], kind: 'number' },
+  { label: '回头客数', keys: ['customers.returning'], kind: 'number' },
+  // 以下“全店口径”：会员资产 / 积分 / 结存 / 发售都没有门店列（见 globalScope 注释）
   {
     label: '新增会员',
-    keys: ['newMemberCount', 'new_member_count', 'memberNewCount'],
+    keys: ['customers.memberNew'],
     kind: 'number',
+    globalScope: true,
   },
   {
     label: '储值充值',
-    keys: ['rechargeAmount', 'recharge_amount', 'balanceRecharge'],
+    keys: ['member.rechargePrincipal'],
     kind: 'money',
+    globalScope: true,
   },
   {
-    label: '储值退款',
-    keys: ['rechargeRefundAmount', 'recharge_refund_amount', 'balanceRefund'],
+    label: '储值赠送',
+    keys: ['member.rechargeBonus'],
     kind: 'money',
+    globalScope: true,
   },
   {
-    label: '余额结存',
-    keys: ['balanceAmount', 'balance_amount', 'balanceBalance', 'balance'],
+    label: '期末本金结存',
+    keys: ['member.balancePrincipalEnd'],
     kind: 'money',
+    globalScope: true,
   },
   {
-    label: '次卡发售',
-    keys: ['cardSoldCount', 'card_sold_count', 'cardIssuedCount'],
-    kind: 'number',
-  },
-  {
-    label: '次卡核销',
-    keys: ['cardUsedCount', 'card_used_count', 'cardUseCount'],
-    kind: 'number',
+    label: '期末赠送结存',
+    keys: ['member.balanceBonusEnd'],
+    kind: 'money',
+    globalScope: true,
   },
   {
     label: '积分发放',
-    keys: ['pointsIssued', 'points_issued'],
+    keys: ['member.pointsIssued'],
     kind: 'number',
+    globalScope: true,
   },
   {
     label: '积分抵扣',
-    keys: ['pointsDeducted', 'points_deducted', 'pointsSpent'],
+    keys: ['member.pointsSpent'],
     kind: 'number',
+    globalScope: true,
   },
+  // 次卡核销能归属到门店（顺关联预约找），所以不是全店口径
+  { label: '次卡核销', keys: ['member.cardUsedTimes'], kind: 'number' },
   {
-    label: '积分兑换',
-    keys: ['pointsRedeemed', 'points_redeemed'],
+    label: '次卡发售',
+    keys: ['member.cardIssued'],
     kind: 'number',
-  },
-  {
-    label: '积分结存',
-    keys: ['pointsBalance', 'points_balance'],
-    kind: 'number',
+    globalScope: true,
   },
 ];
 
@@ -289,85 +303,87 @@ const MONEY_HINT = /amount|revenue|price|balance|money|fee/i;
 
 const TAB_META: Record<ReportTabKey, TabMeta> = {
   overview: { mode: 'summary', overview: OVERVIEW_META },
-  members: { mode: 'summary' },
+  members: {
+    mode: 'table',
+    globalScopeNote:
+      '会员资产全店通兑：本表除「次卡核销」外都是全店口径，不随门店筛选变化',
+    columns: [
+      { title: '期间', keys: ['period'], kind: 'text', width: 140 },
+      {
+        title: '新增会员',
+        keys: ['newMembers'],
+        kind: 'number',
+        width: 110,
+        globalScope: true,
+      },
+      {
+        title: '储值本金',
+        keys: ['recharge'],
+        kind: 'money',
+        width: 120,
+        globalScope: true,
+      },
+      {
+        title: '储值赠送',
+        keys: ['bonus'],
+        kind: 'money',
+        width: 120,
+        globalScope: true,
+      },
+      {
+        title: '期末结存',
+        keys: ['balanceEnd'],
+        kind: 'money',
+        width: 130,
+        globalScope: true,
+      },
+      {
+        title: '积分发放',
+        keys: ['pointsIssued'],
+        kind: 'number',
+        width: 110,
+        globalScope: true,
+      },
+      {
+        title: '积分抵扣',
+        keys: ['pointsSpent'],
+        kind: 'number',
+        width: 110,
+        globalScope: true,
+      },
+      { title: '次卡核销', keys: ['cardUsed'], kind: 'number', width: 110 },
+    ],
+  },
   revenue: {
     mode: 'table',
     columns: [
-      {
-        title: '期间',
-        keys: ['period', 'date', 'bucket', 'label', 'day'],
-        kind: 'text',
-        width: 140,
-      },
-      { title: '渠道', keys: ['channel'], kind: 'text', width: 110 },
-      {
-        title: '实收',
-        keys: ['paidAmount', 'paid_amount', 'receivedAmount', 'paymentAmount'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '退款',
-        keys: ['refundAmount', 'refund_amount', 'refund'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '净营收',
-        keys: ['netRevenue', 'net_revenue', 'netAmount', 'revenue', 'amount'],
-        kind: 'money',
-        width: 130,
-      },
-      {
-        title: '完成单量',
-        keys: ['orderCount', 'order_count', 'count', 'bookingCount'],
-        kind: 'number',
-        width: 100,
-      },
+      { title: '期间', keys: ['period'], kind: 'text', width: 140 },
+      { title: '毛收入', keys: ['gross'], kind: 'money', width: 120 },
+      { title: '退款', keys: ['refund'], kind: 'money', width: 120 },
+      { title: '净营收', keys: ['net'], kind: 'money', width: 130 },
+      { title: '现金', keys: ['cash'], kind: 'money', width: 110 },
+      { title: '微信', keys: ['wechat'], kind: 'money', width: 110 },
+      { title: '支付宝', keys: ['alipay'], kind: 'money', width: 110 },
+      { title: '储值余额', keys: ['balance'], kind: 'money', width: 120 },
+      { title: '销账实收', keys: ['creditSettled'], kind: 'money', width: 120 },
+      { title: '完成单量', keys: ['count'], kind: 'number', width: 100 },
     ],
   },
   services: {
     mode: 'table',
     columns: [
-      {
-        title: '项目',
-        keys: ['name', 'serviceItemName', 'service_item_name'],
-        kind: 'text',
-        width: 180,
-      },
-      {
-        title: '次数',
-        keys: ['count', 'times', 'quantity', 'useCount'],
-        kind: 'number',
-        width: 100,
-      },
-      {
-        title: '金额',
-        keys: ['amount', 'totalAmount', 'netRevenue', 'revenue'],
-        kind: 'money',
-        width: 130,
-      },
+      { title: '项目', keys: ['name'], kind: 'text', width: 180 },
+      { title: '次数', keys: ['times'], kind: 'number', width: 100 },
+      { title: '金额', keys: ['amount'], kind: 'money', width: 130 },
       {
         title: '次卡核销次数',
-        keys: [
-          'cardTimes',
-          'card_times',
-          'cardUseCount',
-          'card_use_count',
-          'cardUsedCount',
-        ],
+        keys: ['cardTimes'],
         kind: 'number',
         width: 130,
       },
       {
         title: '次卡核销占比',
-        keys: [
-          'cardRatio',
-          'card_ratio',
-          'cardPercent',
-          'card_percent',
-          'cardRatioPermille',
-        ],
+        keys: ['cardRatio'],
         kind: 'percent',
         width: 130,
       },
@@ -376,98 +392,31 @@ const TAB_META: Record<ReportTabKey, TabMeta> = {
   staffs: {
     mode: 'table',
     columns: [
-      {
-        title: '美甲师',
-        keys: ['staffName', 'staff_name', 'nickname', 'name'],
-        kind: 'text',
-        width: 140,
-      },
-      {
-        title: '完成单量',
-        keys: ['orderCount', 'order_count', 'completedCount', 'count'],
-        kind: 'number',
-        width: 110,
-      },
-      {
-        title: '净营收',
-        keys: ['netRevenue', 'net_revenue', 'amount', 'revenue'],
-        kind: 'money',
-        width: 130,
-      },
-      {
-        title: '提成',
-        keys: ['commissionAmount', 'commission_amount', 'commission'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '平均评分',
-        keys: ['avgScore', 'avg_score', 'averageScore', 'score'],
-        kind: 'number',
-        width: 110,
-      },
+      { title: '美甲师', keys: ['nickname'], kind: 'text', width: 140 },
+      { title: '完成单量', keys: ['bookings'], kind: 'number', width: 110 },
+      { title: '净营收分摊', keys: ['amount'], kind: 'money', width: 130 },
+      { title: '提成', keys: ['commission'], kind: 'money', width: 120 },
+      { title: '平均评分', keys: ['avgScore'], kind: 'number', width: 110 },
+      { title: '评价数', keys: ['reviewCount'], kind: 'number', width: 100 },
     ],
   },
   receivables: {
     mode: 'table',
     columns: [
-      {
-        title: '挂账主体',
-        keys: [
-          'creditAccountName',
-          'credit_account_name',
-          'accountName',
-          'name',
-        ],
-        kind: 'text',
-        width: 160,
-      },
-      {
-        title: '额度',
-        keys: ['creditLimit', 'credit_limit', 'limit'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '已挂未结',
-        keys: [
-          'usedAmount',
-          'used_amount',
-          'unsettledAmount',
-          'unsettled_amount',
-        ],
-        kind: 'money',
-        width: 130,
-      },
-      {
-        title: '0-30 天',
-        keys: ['age0to30', 'age_0_30', 'due0to30', 'bucket0to30'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '31-60 天',
-        keys: ['age31to60', 'age_31_60', 'due31to60', 'bucket31to60'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '60 天以上',
-        keys: ['age60plus', 'age_60_plus', 'due60plus', 'bucket60plus'],
-        kind: 'money',
-        width: 120,
-      },
-      {
-        title: '逾期金额',
-        keys: ['overdueAmount', 'overdue_amount', 'overdue'],
-        kind: 'money',
-        width: 120,
-      },
+      { title: '挂账主体', keys: ['name'], kind: 'text', width: 160 },
+      { title: '额度', keys: ['creditLimit'], kind: 'money', width: 120 },
+      { title: '已挂未结', keys: ['outstanding'], kind: 'money', width: 130 },
+      // 账龄是嵌套对象，取展平后的路径
+      { title: '0-30 天', keys: ['buckets.0-30'], kind: 'money', width: 120 },
+      { title: '31-60 天', keys: ['buckets.31-60'], kind: 'money', width: 120 },
+      { title: '60 天以上', keys: ['buckets.60+'], kind: 'money', width: 120 },
+      { title: '逾期金额', keys: ['overdueAmount'], kind: 'money', width: 120 },
     ],
   },
 };
 
-const currentMeta = computed(() => TAB_META[tab.value]);
+// 兜底：万一拿到非法页签名，也不要把整页渲染成空白（用概览的列描述顶着）
+const currentMeta = computed(() => TAB_META[tab.value] ?? TAB_META.overview);
 
 function hasAny(row: Record<string, unknown>, keys: string[]) {
   return keys.some(
@@ -488,6 +437,8 @@ const overviewCards = computed(() => {
         meta.kind === 'money'
           ? `¥${fen2yuan(reportNumber(scalars, ...meta.keys))}`
           : String(reportNumber(scalars, ...meta.keys)),
+      /** 会员资产类指标：全店口径，必须在卡片上标出来（见 OverviewMeta.globalScope） */
+      globalScope: meta.globalScope === true,
     }));
 });
 
@@ -498,6 +449,9 @@ const leftoverScalars = computed(() => {
   const known = new Set(
     [
       ...OVERVIEW_META.flatMap((meta) => meta.keys),
+      // 营收口径的完成单量与「完成单量」卡片同义（只是锚点不同：支付日 vs 服务开始日），
+      // 不再重复列一行 —— 它含 "revenue"，落到这里会被当成金额显示成 ¥0.00
+      'revenue.count',
       ...Object.keys(MEMBER_LABEL_MAP),
     ].map((key) => key),
   );
@@ -548,6 +502,12 @@ const rawKeys = computed(() => {
       <div>
         <h2 class="page-title m-0">报表中心</h2>
         <p class="page-subtitle mt-1 mb-0">
+          <span
+            v-if="storeScope.hasSwitcher"
+            class="mr-2 rounded-6px bg-[var(--lew-color-primary-light)] px-2 py-0.5 font-600 text-[var(--lew-color-primary)]"
+            title="报表按顶栏选中的门店统计（店长固定只看自己门店）；带「全店」标记的指标不随门店筛选变化"
+            >统计口径：{{ storeScope.activeLabel }}</span
+          >
           <span
             class="mr-2 rounded-6px bg-[var(--lew-color-warning-light)] px-2 py-0.5 font-600 text-[var(--lew-color-warning)]"
             >{{ REVENUE_CAVEAT }}</span
@@ -622,13 +582,7 @@ const rawKeys = computed(() => {
     <!-- 分页签 -->
     <div class="app-card overflow-hidden">
       <div class="border-b border-[var(--app-border)] px-4 pt-3">
-        <LewTabs
-          :model-value="tab"
-          :options="tabOptions"
-          type="block"
-          round
-          @change="switchTab"
-        />
+        <LewTabs v-model="tab" :options="tabOptions" type="block" round />
       </div>
 
       <div v-if="loading" class="table-empty">加载中…</div>
@@ -643,12 +597,20 @@ const rawKeys = computed(() => {
             <div
               v-for="card in overviewCards"
               :key="card.label"
-              class="rounded-8px border border-[var(--app-border)] p-3"
+              class="relative rounded-8px border border-[var(--app-border)] p-3"
             >
               <div class="text-12px text-[var(--app-text-muted)]">
                 {{ card.label }}
               </div>
               <div class="mt-1 text-18px font-700">{{ card.value }}</div>
+              <LewTag
+                v-if="card.globalScope"
+                class="absolute right-2 top-2"
+                type="light"
+                size="small"
+                title="会员资产全店通兑：这项是全店口径，不随门店筛选变化"
+                >全店</LewTag
+              >
             </div>
           </div>
 
@@ -681,6 +643,12 @@ const rawKeys = computed(() => {
 
       <!-- 明细页签 -->
       <template v-else>
+        <div
+          v-if="currentMeta.globalScopeNote"
+          class="mx-4 mt-3 rounded-6px bg-[var(--lew-color-warning-light)] px-3 py-2 text-12px text-[var(--lew-color-warning)]"
+        >
+          {{ currentMeta.globalScopeNote }}
+        </div>
         <LewTable
           :columns="tableColumns"
           :data-source="tableRows"

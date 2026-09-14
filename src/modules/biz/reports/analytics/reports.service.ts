@@ -23,8 +23,14 @@ import {
   type SQL,
   sum,
 } from 'drizzle-orm';
-import type { MySqlColumn } from 'drizzle-orm/mysql-core';
+import type { AnyMySqlColumn, MySqlColumn } from 'drizzle-orm/mysql-core';
 import { DatabaseService } from '../../../../database/database.service';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import {
+  resolveStoreScope,
+  storeConditions,
+  type StoreContext,
+} from '../../../../common/data-scope/store-scope.js';
 import {
   bizBookingItems,
   bizBookings,
@@ -111,6 +117,14 @@ export type ReportQuery = {
   /** 扩展维度：按支付用途筛选（默认不过滤，与 §20.2 口径一致） */
   purpose?: PaymentPurpose | undefined;
   granularity?: ReportGranularity | undefined;
+  /**
+   * 门店筛选（阶段 1.8）。
+   *
+   * `undefined` = 按账号可见范围（超管 = 全部门店合并，店长 = 自己那几家）；
+   * 传了就只看这家店（不可见 → 403）。顶栏切换器走的是 `x-store-id` 头，
+   * 由 `resolveStoreScope` 在这里一并吃进来 —— 报表和列表用的是同一套门店上下文。
+   */
+  storeId?: number | undefined;
 };
 
 export type OverviewReport = {
@@ -326,6 +340,11 @@ type ResolvedQuery = {
   staffId?: number | undefined;
   channel?: ReportChannel | undefined;
   purpose?: PaymentPurpose | undefined;
+  /**
+   * 门店上下文（阶段 1.8）。单据类指标（营收 / 单量 / 项目 / 美甲师 / 应收 / 次卡核销）
+   * 全部按它过滤；**会员资产类指标恒为全店口径**，理由见 `memberTransactionRows` 的注释。
+   */
+  store: StoreContext;
 };
 
 type ResolvedPartialQuery = {
@@ -333,6 +352,7 @@ type ResolvedPartialQuery = {
   dateFrom?: string | undefined;
   dateTo?: string | undefined;
   staffId?: number | undefined;
+  store: StoreContext;
 };
 
 @Injectable()
@@ -344,34 +364,53 @@ export class ReportsService {
 
   /* ---------------- 公开接口 ---------------- */
 
-  async overview(input: ReportQuery): Promise<OverviewReport> {
-    return this.overviewOf(await this.resolve(input));
+  async overview(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<OverviewReport> {
+    return this.overviewOf(await this.resolve(input, actor));
   }
 
-  async revenue(input: ReportQuery): Promise<RevenueReportRow[]> {
-    return this.revenueOf(await this.resolve(input));
+  async revenue(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<RevenueReportRow[]> {
+    return this.revenueOf(await this.resolve(input, actor));
   }
 
-  async services(input: ReportQuery): Promise<ServiceReportRow[]> {
-    return this.servicesOf(await this.resolve(input));
+  async services(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<ServiceReportRow[]> {
+    return this.servicesOf(await this.resolve(input, actor));
   }
 
-  async staffs(input: ReportQuery): Promise<StaffReportRow[]> {
-    return this.staffsOf(await this.resolve(input));
+  async staffs(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<StaffReportRow[]> {
+    return this.staffsOf(await this.resolve(input, actor));
   }
 
-  async members(input: ReportQuery): Promise<MemberReportRow[]> {
-    return this.membersOf(await this.resolve(input));
+  async members(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<MemberReportRow[]> {
+    return this.membersOf(await this.resolve(input, actor));
   }
 
-  async receivables(input: ReportQuery): Promise<ReceivablesReport> {
-    return this.receivablesOf(await this.resolvePartial(input));
+  async receivables(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<ReceivablesReport> {
+    return this.receivablesOf(await this.resolvePartial(input, actor));
   }
 
-  /** 导出 CSV 文本（含 UTF-8 BOM，Excel 直接可开） */
+  /** 导出 CSV 文本（含 UTF-8 BOM，Excel 直接可开）—— 门店口径与实际报表完全一致 */
   async exportCsv(
     type: ReportType,
     input: ReportQuery,
+    actor: RequestActor | null,
   ): Promise<{ filename: string; content: string }> {
     let header: string[];
     let rows: (string | number)[][];
@@ -379,7 +418,7 @@ export class ReportsService {
     let range: string;
 
     if (type === 'receivables') {
-      const query = await this.resolvePartial(input);
+      const query = await this.resolvePartial(input, actor);
       const report = await this.receivablesOf(query);
       header = [
         '主体ID',
@@ -419,7 +458,7 @@ export class ReportsService {
       label = '应收账龄';
       range = report.asOf;
     } else {
-      const query = await this.resolve(input);
+      const query = await this.resolve(input, actor);
       label = type;
       range = `${query.dateFrom}_${query.dateTo}`;
       if (type === 'overview') {
@@ -680,6 +719,7 @@ export class ReportsService {
     const [memberNewRow] = await this.database.db
       .select({ value: count() })
       .from(bizCustomers)
+      // 新增会员：`biz_customer` 没有门店列（顾客全店唯一）→ 全店口径，随门店筛选不变
       .where(
         andConditions([
           isNull(bizCustomers.deletedAt),
@@ -844,6 +884,8 @@ export class ReportsService {
         .where(
           andConditions([
             inArray(bizCommissionRecords.status, ['accrued', 'settled']),
+            // 提成记录自己没有 store_id：门店归属顺着 booking 找（见 helper 注释）
+            this.bookingStoreCondition(bizCommissionRecords.bookingId, q),
             this.dayRange(bizCommissionRecords.createdAt, q),
             q.staffId ? eq(bizCommissionRecords.staffId, q.staffId) : undefined,
           ]),
@@ -856,6 +898,8 @@ export class ReportsService {
           andConditions([
             eq(bizReviews.status, 'published'),
             isNull(bizReviews.deletedAt),
+            // 评价同样挂在预约上：评分也要按门店归属（否则店长会看到别店的评价数）
+            this.bookingStoreCondition(bizReviews.bookingId, q),
             this.dayRange(bizReviews.createdAt, q),
             q.staffId ? eq(bizReviews.staffId, q.staffId) : undefined,
           ]),
@@ -1038,6 +1082,7 @@ export class ReportsService {
         .from(bizReceivables)
         .where(
           andConditions([
+            ...storeConditions(bizReceivables.storeId, q.store),
             isNull(bizReceivables.deletedAt),
             inArray(bizReceivables.status, ['open', 'partial', 'overdue']),
             q.dateFrom || q.dateTo
@@ -1162,7 +1207,10 @@ export class ReportsService {
 
   /* ---------------- 查询条件 ---------------- */
 
-  private async resolve(input: ReportQuery): Promise<ResolvedQuery> {
+  private async resolve(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<ResolvedQuery> {
     const timeZone = await this.timeZone();
     const granularity = input.granularity ?? 'day';
     const today = shopToday(timeZone);
@@ -1178,11 +1226,13 @@ export class ReportsService {
       staffId: input.staffId,
       channel: input.channel,
       purpose: input.purpose,
+      store: await this.storeContext(input, actor),
     };
   }
 
   private async resolvePartial(
     input: ReportQuery,
+    actor: RequestActor | null,
   ): Promise<ResolvedPartialQuery> {
     const timeZone = await this.timeZone();
     if (input.dateFrom || input.dateTo)
@@ -1195,7 +1245,22 @@ export class ReportsService {
       dateFrom: input.dateFrom,
       dateTo: input.dateTo,
       staffId: input.staffId,
+      store: await this.storeContext(input, actor),
     };
+  }
+
+  /**
+   * 报表的门店上下文 —— **与列表同一套口径**（`resolveStoreScope`）：
+   * 显式 `?storeId=` → 顶栏切换器的 `x-store-id` 头 → 默认门店（写入才用得上，报表不看）。
+   *
+   * 店长即使一个参数都不传，也会被限到自己可见的门店（`scope.kind = 'stores'`）——
+   * 这是**数据权限**，不是筛选。
+   */
+  private async storeContext(
+    input: ReportQuery,
+    actor: RequestActor | null,
+  ): Promise<StoreContext> {
+    return resolveStoreScope(this.database.db, actor, input.storeId);
   }
 
   private assertRange(dateFrom: string, dateTo: string): void {
@@ -1244,6 +1309,8 @@ export class ReportsService {
       .from(bizPayments)
       .where(
         andConditions([
+          // 门店维度（数据权限 + 筛选）：与列表同一套 storeConditions
+          ...storeConditions(bizPayments.storeId, q.store),
           inArray(bizPayments.status, PAID_PAYMENT_STATUSES),
           isNull(bizPayments.deletedAt),
           must(
@@ -1284,6 +1351,7 @@ export class ReportsService {
       .from(bizRefunds)
       .where(
         andConditions([
+          ...storeConditions(bizRefunds.storeId, q.store),
           eq(bizRefunds.status, 'success'),
           isNull(bizRefunds.deletedAt),
           must(
@@ -1332,6 +1400,7 @@ export class ReportsService {
       .from(bizBookings)
       .where(
         andConditions([
+          ...storeConditions(bizBookings.storeId, q.store),
           isNull(bizBookings.deletedAt),
           this.dayRange(bizBookings.startAt, q),
           options.completedOnly
@@ -1359,6 +1428,7 @@ export class ReportsService {
       .innerJoin(bizBookings, eq(bizBookingItems.bookingId, bizBookings.id))
       .where(
         andConditions([
+          ...storeConditions(bizBookings.storeId, q.store),
           eq(bizBookings.status, 'completed'),
           isNull(bizBookings.deletedAt),
           this.dayRange(bizBookings.startAt, q),
@@ -1385,7 +1455,37 @@ export class ReportsService {
     );
   }
 
-  /** 会员流水（区间内）：充值 / 积分 / 结存增量的唯一事实来源 */
+  /**
+   * 「挂在预约上」的表的门店条件：提成记录、评价都没有 `store_id`，
+   * 门店归属只能顺着 `booking_id → biz_booking.store_id` 找。
+   *
+   * 没有门店筛选时返回 `undefined`（不加条件）—— 不写成「`inArray(bookingId, 全部预约 id)`」，
+   * 那是等价但白跑一次全表子查询。
+   */
+  private bookingStoreCondition(
+    column: AnyMySqlColumn,
+    q: ResolvedQuery | ResolvedPartialQuery,
+  ): SQL | undefined {
+    const conditions = storeConditions(bizBookings.storeId, q.store);
+    if (conditions.length === 0) return undefined;
+    return inArray(
+      column,
+      this.database.db
+        .select({ id: bizBookings.id })
+        .from(bizBookings)
+        .where(and(...conditions)),
+    );
+  }
+
+  /**
+   * 会员流水（区间内）：充值 / 积分 / 结存增量的唯一事实来源。
+   *
+   * **刻意不按门店过滤**（阶段 1.8 的口径边界）：这张表没有 `store_id`，
+   * 而「储值余额 / 积分 / 结存」在连锁直营下是**全店通兑的一个池子** ——
+   * 余额不属于任何一家店，按店切分反而会得出「A 店余额」这种不存在的概念。
+   * 前端会给这几项打「全店口径」标签。充值金额若非要按店看，看营收报表的
+   * `purpose=recharge` 那一档（支付单有门店）。
+   */
   private memberTransactionRows(q: ResolvedQuery) {
     return this.database.db
       .select({
@@ -1440,24 +1540,33 @@ export class ReportsService {
       .from(bizMemberCardLogs)
       .leftJoin(bizBookings, eq(bizMemberCardLogs.bookingId, bizBookings.id))
       .where(
-        must(
-          or(
-            and(
-              isNull(bizMemberCardLogs.bookingId),
-              this.dayRange(bizMemberCardLogs.createdAt, q),
-            ),
-            and(
-              eq(bizBookings.status, 'completed'),
-              isNull(bizBookings.deletedAt),
-              this.dayRange(bizBookings.startAt, q),
-              q.staffId ? eq(bizBookings.staffId, q.staffId) : undefined,
-              q.channel ? this.bookingChannelCondition(q.channel) : undefined,
+        andConditions([
+          must(
+            or(
+              and(
+                isNull(bizMemberCardLogs.bookingId),
+                this.dayRange(bizMemberCardLogs.createdAt, q),
+              ),
+              and(
+                eq(bizBookings.status, 'completed'),
+                isNull(bizBookings.deletedAt),
+                this.dayRange(bizBookings.startAt, q),
+                q.staffId ? eq(bizBookings.staffId, q.staffId) : undefined,
+                q.channel ? this.bookingChannelCondition(q.channel) : undefined,
+              ),
             ),
           ),
-        ),
+          /*
+           * 门店维度：核销记录靠「关联预约的门店」归属。
+           * 散客核销（`booking_id` 为空）没有门店可判 → 按店筛选时落空。
+           * 宁少不多：把别店的核销算进来，比少算更难被发现。
+           */
+          ...storeConditions(bizBookings.storeId, q.store),
+        ]),
       );
   }
 
+  /** 次卡发售张数：`biz_member_card` 无门店列 → 全店口径（同 `memberTransactionRows` 的说明） */
   private async cardIssuedCount(q: ResolvedQuery): Promise<number> {
     const [row] = await this.database.db
       .select({ value: count() })

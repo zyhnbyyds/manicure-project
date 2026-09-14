@@ -27,6 +27,7 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
 import { parsePagination } from '../../common/query.js';
 import {
@@ -134,9 +135,10 @@ const recordQuerySchema = z.object({
   period: optional(period),
   status: optional(z.enum(['accrued', 'settled', 'reversed'])),
   bookingId: optional(z.coerce.number().int().positive()),
+  storeId: optional(z.coerce.number().int().positive()),
 });
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = { user: RequestActor };
 
 @ApiTags('提成管理')
 @ApiBearerAuth('access-token')
@@ -249,20 +251,34 @@ export class CommissionController {
     description: 'accrued | settled | reversed',
   })
   @ApiQuery({ name: 'bookingId', required: false, description: '预约ID' })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店维度：计提记录自己没有 store_id，按关联预约的门店归属过滤；' +
+      '不传 = 用顶栏切换器的门店（店长不传也自动限本店）',
+  })
   @ApiResponse({ status: 200, description: '成功' })
   listRecords(
+    @Req() request: AuthRequest,
     @Query('page') rawPage?: string,
     @Query('pageSize') rawPageSize?: string,
     @Query() raw: Record<string, unknown> = {},
   ) {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
     const query = recordQuerySchema.parse({ ...raw });
-    return this.commission.listRecords(page, pageSize, {
-      staffId: query.staffId,
-      period: query.period,
-      status: query.status,
-      bookingId: query.bookingId,
-    });
+    return this.commission.listRecords(
+      page,
+      pageSize,
+      {
+        staffId: query.staffId,
+        period: query.period,
+        status: query.status,
+        bookingId: query.bookingId,
+        storeId: query.storeId,
+      },
+      request.user,
+    );
   }
 
   /* ---------------- 结算 / 冲销 ---------------- */
