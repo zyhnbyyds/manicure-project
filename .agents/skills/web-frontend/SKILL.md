@@ -3,7 +3,7 @@ name: web-frontend
 description: 后台前端：46 个页面清单、useTable + lew-ui 列表模式（formKey 重建 / setForm 回填 / v-permission / confirmDanger）、文件与图片上传（LewForm `as:'upload'` + uploadHelper）、菜单 seed 驱动路由、收银台与退款审批等复杂交互、时间与金额的展示口径。写任何 web/ 页面或组件时加载。
 whenToUse: 新增/修改 web/src/views/biz 页面、API 封装、表单与权限按钮；做文件/图片上传与预览；实现收银台、退款审批、对账、报表页。
 metadata:
-  version: '1.3.0'
+  version: '1.4.0'
   spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §10 / §9 / §3
 ---
@@ -190,6 +190,18 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
 
 ## 交互约定
 
+- **不让用户手填内部 ID**：需要引用顾客 / 预约 / 美甲师等实体时，一律给
+  「关键词输入 + 搜索 + 下拉选择」，选项里带上**人能认的字段**（姓名 / 手机号 / 单号 / 时间），
+  不要把数据库主键做成 `input-number` —— 界面上既看不到也猜不出，
+  用户只能先去别的页面翻 ID 再回来粘。
+  - 顾客：`useCustomerOptions()`（`web/src/composables/useCustomerOptions.ts`），
+    支持关键词搜索、`ensure()` 预置已知顾客、文案里标「无手机号 / 已入会」；
+    `search(kw, size, { requirePhone: true })` 会把无手机号的选项置灰（入会场景用）。
+  - 预约：`listBookings(1, 30, { keyword })` —— `keyword` 命中**单号 / 顾客姓名 / 手机号**。
+  - 注意 `LewSelect` **没有 `search` 事件**（只有 change / blur / clear / focus / delete），
+    所以远程搜索只能是「输入框 + 搜索按钮 + 下拉」，`searchable` 只是本地过滤。
+  - 唯一例外：`staffs` 的「后台账号」在没有「用户管理」列表权限时退化为手填用户 ID ——
+    刻意的降级，`tips` 里已写明原因。
 - 预约创建返回 409（时段被占）→ **保留表单内容**、提示并自动刷新可约时段。
 - 排班编辑：选美甲师 → 表格展示周一至周日各班次 → 弹窗编辑，**整体 PUT 提交**。
 - 请假撞既有预约返回 409 + 受影响清单 → 先展示清单让店员处理，再二次确认 `force=true`。
@@ -221,6 +233,10 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
   两种写法都要包：脚本里的 `formOptions`，以及模板里内联的
   `:options="withPassThroughRule([...])"`。写新页面时直接包上，别等报错。
   （全项目 22 个文件 / 29 处已统一包好，2026-09-11。）
+- **确认框里的实体名字别单独存变量**：从行内打开弹窗时顺手记下那位顾客 / 预约的名字，
+  用户**改选别人之后**确认框仍显示旧名字（写着张三、实际提交的是李四）——
+  这种错很难在自测里发现，因为默认路径（不改选）是对的。
+  一律从**当前选中项对应的 options** 里取 label，别用「打开弹窗时记住的那个」。
 - 图片预览用 `window.open` / `<a target="_blank">` → 跳出后台丢上下文；自己再写一个预览弹窗
   → 与全局查看器两套手感。统一 `openImagePreview(...)`。
 - **异步选项 + 多选 `LewSelect` / `LewTree`：必须「选项就绪后再挂载组件」。**
