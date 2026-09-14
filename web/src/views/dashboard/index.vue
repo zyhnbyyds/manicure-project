@@ -653,7 +653,6 @@ const rangeLabel = computed(() => {
     <!-- 页头 -->
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 class="page-title m-0">你好，{{ userStore.username }} 👋</h2>
         <p class="page-subtitle mt-1 mb-0">
           <template v-if="canSeeHome">
             经营概览 ·
