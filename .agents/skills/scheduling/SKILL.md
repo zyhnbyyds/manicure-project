@@ -12,12 +12,12 @@ metadata:
 
 ## 数据
 
-| 表                            | 说明                                                                                               |
-| ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| `biz_staff_weekly_shift`      | 周模板：`staff_id + weekday(1=周一..7=周日) + start_time + end_time`；一天多段即多行；**物理删表** |
-| `biz_staff_schedule_override` | 日期例外：`date + type(off/custom) + start_time/end_time + reason`；**物理删表**                   |
+| 表                            | 说明                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `biz_staff_weekly_shift`      | 周模板：`staff_id + store_id(可空=通用) + weekday(1=周一..7=周日) + start_time + end_time`；一天多段即多行；**物理删表** |
+| `biz_staff_schedule_override` | 日期例外：`date + store_id(可空=通用) + type(off/custom) + start_time/end_time + reason`；**物理删表**                   |
 
-校验：`start_time < end_time`；同一天同一美甲师的多个 `custom` 段**不重叠**；
+校验：`start_time < end_time`；同一天同一美甲师同一个门店层的多个 `custom` 段**不重叠**；
 `type='off'` 时 `start_time`/`end_time` **必须为空**（防"既请假又上班"的脏数据）。
 
 ## 求值优先级（可约时段用它取班次）
@@ -28,15 +28,31 @@ metadata:
 否则                   → 用周模板中该 weekday 的所有段
 ```
 
+### 门店层叠（阶段 1.11）：专属优先、通用兜底
+
+`store_id` **可空即通用层**；填了即该门店专属层。求值时按**层**取，而不是混合取用：
+
+```
+求值(美甲师, 某日, 门店 A) =
+    若 A 有专属例外 → 用 A 的专属例外            （请假就全天不可约）
+    否则若 A 有专属班次 → 用 A 的专属周模板
+    否则 → 用通用层例外 / 通用周模板            （老数据全在通用层，无需回填）
+```
+
+- 「整体级联而非混合」：A 店配了请假，**不会**再去叠通用层的自定义时段，避免拼出运营没配过的班；
+- 不传 `storeId` = 只看通用层（老调用方行为不变）；
+- 冲突保护**按店范围**：专属模板只查该店预约，通用模板查全部；
+- 前端排班页 `source`（`store`/`shared`）标出当前用的是哪一层，防「我在 A 店改的怎么全门店都变了」的误会。
+
 ## 接口
 
-| 方法   | 路径                                    | 说明                                                   |
-| ------ | --------------------------------------- | ------------------------------------------------------ |
-| GET    | `/biz/staffs/:id/weekly-shifts`         | 周模板（7 天全部段）                                   |
-| PUT    | `/biz/staffs/:id/weekly-shifts`         | **整体替换**（事务内先删后插）                         |
-| GET    | `/biz/staffs/:id/overrides`             | 例外列表，支持 `from` / `to`                           |
-| POST   | `/biz/staffs/:id/overrides`             | 新增例外；撞既有预约时 409 + 清单，`force=true` 才落库 |
-| DELETE | `/biz/staffs/:id/overrides/:overrideId` | 删除例外                                               |
+| 方法   | 路径                                    | 说明                                                                        |
+| ------ | --------------------------------------- | --------------------------------------------------------------------------- |
+| GET    | `/biz/staffs/:id/weekly-shifts`         | 周模板，`?storeId=` 取该店实际生效层，返回 `{shifts, source}`               |
+| PUT    | `/biz/staffs/:id/weekly-shifts`         | **整体替换**，`?storeId=` 决定替换哪一层（空=通用层）                       |
+| GET    | `/biz/staffs/:id/overrides`             | 例外列表，支持 `from` / `to` / `storeId`                                    |
+| POST   | `/biz/staffs/:id/overrides`             | 新增例外（body 可带 `storeId`）；撞既有预约 409 + 清单，`force=true` 才落库 |
+| DELETE | `/biz/staffs/:id/overrides/:overrideId` | 删除例外                                                                    |
 
 > 用 **PUT 整体替换**而不是逐条 CRUD：UI 是一次编辑 7 天的表格，整体替换天然保证"同天各段不重叠"，
 > 也免去前端做复杂增量 diff。权限点 `biz:schedule:list` / `biz:schedule:update`。

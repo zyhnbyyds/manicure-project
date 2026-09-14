@@ -31,9 +31,12 @@ import type {
   WeeklyShiftInput,
 } from '~/api/biz/schedules';
 import { listStaffs } from '~/api/biz/staffs';
+import { useStoreScopeStore } from '~/store/store-scope';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+
+const storeScope = useStoreScopeStore();
 
 const weekdayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -83,9 +86,18 @@ const tabOptions = [
 
 const currentStaffId = computed(() => Number(selectedStaffId.value) || 0);
 
+/**
+ * 排班跟谁走：**顶栏的门店切换器**（超管切 B 店就排 B 店的专属班次，店长默认只看本店）。
+ *
+ * `null` = 没有选定具体门店（单店或多店视图中「通用模板」那一层）。
+ */
+const activeStoreId = computed(() => storeScope.activeStoreId);
+
 // ---------- 周模板 ----------
 const weeklyShifts = ref<WeeklyShift[]>([]);
 const weeklyLoading = ref(false);
+/** 当前展示的周模板来自哪一层：`store` = 该门店专属；`shared` = 通用 */
+const weeklySource = ref<'store' | 'shared'>('shared');
 
 const weekRows = computed(() =>
   weekdayLabels.map((label, index) => ({
@@ -108,7 +120,15 @@ async function loadWeekly(staffId: number) {
   }
   weeklyLoading.value = true;
   try {
-    weeklyShifts.value = await getWeeklyShifts(staffId);
+    /**
+     * 门店：当前排班要展示**这家店的班次**（专属优先、通用兜底），
+     * 后端返回 `{ shifts, source }` —— 通用层说明「该店没配专属班次」。
+     */
+    const data = activeStoreId.value
+      ? await getWeeklyShifts(staffId, activeStoreId.value)
+      : await getWeeklyShifts(staffId);
+    weeklyShifts.value = data.shifts;
+    weeklySource.value = data.source;
   } finally {
     weeklyLoading.value = false;
   }
@@ -194,7 +214,11 @@ async function saveDay() {
 
   weekSaving.value = true;
   try {
-    const outcome = await replaceWeeklyShifts(staffId, shifts);
+    const outcome = await replaceWeeklyShifts(
+      staffId,
+      shifts,
+      activeStoreId.value ?? undefined,
+    );
     if (!outcome.ok) {
       // 周模板刻意不提供 force（§6.4）：必须先改期再保存
       openConflictModal(outcome.message, outcome.conflicts, null);
@@ -487,6 +511,12 @@ watch(
   },
   { immediate: true },
 );
+
+/** 切门店 → 整个排班跟着变（换一家店看的是那家店的专属班次） */
+watch(activeStoreId, () => {
+  const staffId = currentStaffId.value;
+  if (staffId) void loadWeekly(staffId);
+});
 </script>
 
 <template>
@@ -522,6 +552,31 @@ watch(
 
       <!-- 周模板 -->
       <div v-if="activeTab === 'weekly'" class="mt-4">
+        <!-- 门店层级提示：当前看的是「这家店的专属模板」还是「全店通用的模板」 -->
+        <div
+          v-if="storeScope.hasSwitcher"
+          class="mb-3 rounded-6px px-3 py-2 text-12.5px"
+          :class="
+            weeklySource === 'store'
+              ? 'bg-[var(--lew-color-primary-light)] text-[var(--lew-color-primary)]'
+              : 'bg-[var(--lew-color-warning-light)] text-[var(--lew-color-warning)]'
+          "
+        >
+          <template v-if="weeklySource === 'store'">
+            当前显示「{{
+              storeScope.activeLabel
+            }}」的专属班次：保存时只会改动这家店的班次， 不影响其他店。
+          </template>
+          <template v-else>
+            {{
+              storeScope.activeLabel !== '全部门店'
+                ? `「${storeScope.activeLabel}」还没有专属班次，`
+                : ''
+            }}
+            当前显示的是「通用班次」（对能服务到的所有门店生效）。若想单独排这一家店，
+            可直接编辑并保存 —— 保存会把它变成该店专属班次。
+          </template>
+        </div>
         <LewTable
           :columns="weekColumns"
           :data-source="weekRows"

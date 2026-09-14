@@ -251,15 +251,29 @@ export class BookingsService implements BookingPort {
       date: string;
       serviceItemIds: number[];
       channel?: 'admin' | 'miniapp' | undefined;
+      /** 门店（多店，阶段 1.11）：不传则按操作人的当前门店 */
+      storeId?: number | null | undefined;
     },
     actor: RequestActor,
   ) {
     await this.assertStaffVisible(input.staffId, actor);
+    /*
+     * 门店：显式传入 > actor 的当前门店（切换器 / x-store-id 头，已由 resolveStoreScope 解析）。
+     * 这一步落在「读取门店上下文」而不是 `requireCurrentStoreId`：查时段只是展示，
+     * 门店没了就回落到通用班次，不该逼着操作人非要选一家店才能看。
+     */
+    const store = await resolveStoreScope(
+      this.database.db,
+      actor,
+      input.storeId ?? null,
+    );
     return this.slots.availableSlots({
       staffId: input.staffId,
       date: input.date,
       serviceItemIds: input.serviceItemIds,
       channel: input.channel ?? 'admin',
+      // currentStoreId = null 时 slots 会用 null（只看通用班次）
+      storeId: store.currentStoreId,
     });
   }
 
@@ -554,6 +568,7 @@ export class BookingsService implements BookingPort {
       startAt,
       durationMinutes,
       timeZone: tz,
+      storeId,
     });
 
     const adjustAmount = Math.trunc(input.adjustAmount ?? 0);
@@ -862,6 +877,7 @@ export class BookingsService implements BookingPort {
       startAt,
       durationMinutes,
       timeZone: tz,
+      storeId,
     });
 
     // 顾客侧冲突：小程序端没有 force，重叠直接 409（后台是软检查 + force 覆盖）
@@ -1139,6 +1155,8 @@ export class BookingsService implements BookingPort {
       startAt,
       durationMinutes,
       timeZone: tz,
+      // 改期不换门店：按**预约自己的**门店校验班次（不是操作者的当前门店）
+      storeId: current.storeId,
     });
 
     const adjustAmount =

@@ -93,8 +93,15 @@ function readConflicts(data: unknown): ScheduleConflictItem[] {
 }
 
 /** 周模板（7 天全部段） */
-export function getWeeklyShifts(staffId: number) {
-  return get<WeeklyShift[]>(`/biz/staffs/${staffId}/weekly-shifts`);
+export type WeeklyShifts = {
+  shifts: WeeklyShift[];
+  source: 'store' | 'shared';
+};
+export function getWeeklyShifts(staffId: number, storeId?: number) {
+  return get<WeeklyShifts>(
+    `/biz/staffs/${staffId}/weekly-shifts`,
+    storeId ? { storeId } : {},
+  );
 }
 
 /**
@@ -102,15 +109,17 @@ export function getWeeklyShifts(staffId: number) {
  *
  * 该接口**不提供 force**（§6.4：未来 30 天内的既有预约越界时必须先改期），
  * 409 时只把冲突清单交给页面展示。
+ * `storeId` 决定替换哪一层：传了替换该门店的专属模板，不传替换通用模板。
  */
 export async function replaceWeeklyShifts(
   staffId: number,
   shifts: WeeklyShiftInput[],
+  storeId?: number,
 ): Promise<ScheduleSaveOutcome<{ success: boolean; count: number }>> {
   const response = await request.put(
     `/biz/staffs/${staffId}/weekly-shifts`,
     { shifts },
-    { validateStatus: acceptConflict },
+    { params: storeId ? { storeId } : {}, validateStatus: acceptConflict },
   );
   if (response.status === 409) {
     return {

@@ -222,6 +222,13 @@ export class BookingsController {
     description: '服务项目 id，逗号分隔或重复传参',
   })
   @ApiQuery({ name: 'channel', required: false, enum: ['admin', 'miniapp'] })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店（多店）：不传则按操作人的**当前门店**（切换器 / x-store-id 头）；' +
+      '班次按「该门店专属优先、通用兜底」求值',
+  })
   @ApiResponse({
     status: 200,
     description: '{ slots, reason?, durationMinutes, bufferMinutes }',
@@ -230,15 +237,19 @@ export class BookingsController {
     @Query('staffId') rawStaffId: string,
     @Query('date') date: string,
     @Query('serviceItemIds') rawServiceItemIds: string | string[],
+    @Query('storeId') rawStoreId: string | undefined,
     @Req() request: AuthRequest,
     @Query('channel') channel?: 'admin' | 'miniapp',
   ) {
+    const storeId = Number(rawStoreId);
     return this.bookings.availableSlots(
       {
         staffId: Number(rawStaffId),
         date,
         serviceItemIds: parseIdList(rawServiceItemIds),
         channel: channel ?? 'admin',
+        storeId:
+          Number.isSafeInteger(storeId) && storeId > 0 ? storeId : undefined,
       },
       request.user,
     );

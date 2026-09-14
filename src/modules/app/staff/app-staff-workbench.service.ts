@@ -86,6 +86,11 @@ export class AppStaffWorkbenchService {
   }
 
   async schedule(staffId: number, date: string): Promise<AppStaffScheduleVo> {
+    /*
+     * 工作台看的是**通用班次**（不传门店）：美甲师在多家店有专属班次时，这里只反映
+     * 「不分店的那一层」。要按门店分层看班次请用排班页 —— 工作台按店显示是下一批的事
+     * （见 `dev-docs/data/multi-store.md` 的「还没做」）。
+     */
     const [shifts, overrides] = await Promise.all([
       this.schedulePort.resolveShifts(staffId, date),
       this.schedulePort.listOverrides(staffId, { from: date, to: date }),

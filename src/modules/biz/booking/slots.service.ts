@@ -117,10 +117,11 @@ export class SlotsService extends SlotPort {
       };
     }
 
-    // 步骤 1：班次（off → 不可约；custom → 替代周模板；否则周模板）
+    // 步骤 1：班次（off → 不可约；custom → 替代周模板；否则周模板）；按门店级联
     const { off, segments } = await this.schedule.resolveShifts(
       query.staffId,
       query.date,
+      { storeId: query.storeId ?? null },
     );
     if (off) {
       return { slots: [], reason: 'off', durationMinutes, bufferMinutes };
@@ -288,10 +289,13 @@ export class SlotsService extends SlotPort {
     startAt: Date;
     durationMinutes: number;
     timeZone: string;
+    /** 门店：班次按「该门店专属优先、通用兜底」求值（与可约时段同一口径） */
+    storeId?: number | null | undefined;
   }): Promise<void> {
     const { off, segments } = await this.schedule.resolveShifts(
       input.staffId,
       input.date,
+      { storeId: input.storeId ?? null },
     );
     const start = input.startAt.getTime();
     const end = start + input.durationMinutes * MINUTE_MS;

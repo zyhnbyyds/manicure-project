@@ -846,6 +846,14 @@ export const bizStaffWeeklyShifts = mysqlTable(
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     staffId: int('staff_id', { unsigned: true }).notNull(),
+    /**
+     * 门店（**可空 = 通用班次**，对该美甲师可服务的所有门店生效）。
+     *
+     * 求值层叠（见 `SchedulingService.resolveShifts`）：
+     * 同一天**门店专属班次优先**，没有专属的才用通用班次。
+     * 可空就是为了让既有数据保持「通用的老行为」—— 迁移无需回填。
+     */
+    storeId: int('store_id', { unsigned: true }),
     weekday: tinyint('weekday', { unsigned: true }).notNull(),
     startTime: time('start_time').notNull(),
     endTime: time('end_time').notNull(),
@@ -853,10 +861,21 @@ export const bizStaffWeeklyShifts = mysqlTable(
   },
   (table) => [
     index('idx_shift_staff_weekday').on(table.staffId, table.weekday),
+    /** 求值路径：按 (美甲师, 门店, 星期) 取该店的专属班次 */
+    index('idx_shift_staff_store_weekday').on(
+      table.staffId,
+      table.storeId,
+      table.weekday,
+    ),
     foreignKey({
       columns: [table.staffId],
       foreignColumns: [bizStaffs.id],
       name: 'fk_shift_staff',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_shift_store',
     }).onDelete('cascade'),
   ],
 );
@@ -867,6 +886,8 @@ export const bizStaffScheduleOverrides = mysqlTable(
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     staffId: int('staff_id', { unsigned: true }).notNull(),
+    /** 门店（**可空 = 通用例外**）；规则同 `biz_staff_weekly_shift.store_id` */
+    storeId: int('store_id', { unsigned: true }),
     date: date('date', { mode: 'string' }).notNull(),
     type: mysqlEnum('type', ['off', 'custom']).notNull(),
     startTime: time('start_time'),
@@ -876,10 +897,21 @@ export const bizStaffScheduleOverrides = mysqlTable(
   },
   (table) => [
     index('idx_override_staff_date').on(table.staffId, table.date),
+    /** 求值路径：按 (美甲师, 门店, 日期) 取该店的例外 */
+    index('idx_override_staff_store_date').on(
+      table.staffId,
+      table.storeId,
+      table.date,
+    ),
     foreignKey({
       columns: [table.staffId],
       foreignColumns: [bizStaffs.id],
       name: 'fk_override_staff',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_override_store',
     }).onDelete('cascade'),
   ],
 );

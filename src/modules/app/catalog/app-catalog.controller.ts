@@ -131,7 +131,10 @@ export class AppCatalogController {
     status: 401,
     description: '带了凭证但凭证非法 / 非 app token（访客不带凭证可正常访问）',
   })
-  availableSlots(@Query() query: Record<string, unknown>) {
-    return this.catalog.availableSlots(query);
+  availableSlots(
+    @Query() query: Record<string, unknown>,
+    @Headers('x-store-id') rawStoreId?: string,
+  ) {
+    return this.catalog.availableSlots(query, rawStoreId);
   }
 }

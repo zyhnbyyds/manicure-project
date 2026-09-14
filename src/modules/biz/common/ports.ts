@@ -172,6 +172,11 @@ export type SlotQuery = {
   date: string;
   serviceItemIds: number[];
   channel: 'admin' | 'miniapp';
+  /**
+   * 门店（多店，阶段 1.11）：班次按「该门店专属优先、通用兜底」求值。
+   * 不传 = 只看通用层（单店期的老行为）。
+   */
+  storeId?: number | null | undefined;
   timeZone?: string | undefined;
 };
 
@@ -214,13 +219,27 @@ export abstract class SlotPort {
 
 /** 排班（B1）：供预约冲突保护与排班页使用 */
 export abstract class SchedulePort {
+  /**
+   * 周模板。传了 `storeId` 返回**该门店实际生效**的模板（专属优先、通用兜底），
+   * `source` 说清来自哪一层 —— 前端据此提示「这是通用模板」，
+   * 否则运营会以为「我在 A 店明明改过了」。
+   */
   abstract getWeeklyShifts(
     staffId: number,
-  ): Promise<
-    { id: number; weekday: number; startTime: string; endTime: string }[]
-  >;
+    storeId?: number | null,
+  ): Promise<{
+    shifts: {
+      id: number;
+      weekday: number;
+      startTime: string;
+      endTime: string;
+    }[];
+    source: 'store' | 'shared';
+  }>;
+  /** 整体替换**指定那一层**：`storeId = null` 改通用模板，否则改该门店的专属模板 */
   abstract replaceWeeklyShifts(
     staffId: number,
+    storeId: number | null,
     shifts: { weekday: number; startTime: string; endTime: string }[],
     actorId: number,
   ): Promise<void>;
@@ -255,11 +274,14 @@ export abstract class SchedulePort {
     actorId: number,
     force?: boolean,
   ): Promise<{ conflicts: BookingConflictItem[] }>;
-  /** 求值优先级：off → 不可约；custom → 替代周模板；否则周模板 */
+  /**
+   * 求值优先级：off → 不可约；custom → 替代周模板；否则周模板。
+   * `options.storeId` 传了就按该门店级联（门店专属优先、通用兜底）。
+   */
   abstract resolveShifts(
     staffId: number,
     date: string,
-    tx?: BizTx,
+    options?: { storeId?: number | null | undefined; tx?: BizTx | undefined },
   ): Promise<{
     off: boolean;
     segments: { startTime: string; endTime: string }[];

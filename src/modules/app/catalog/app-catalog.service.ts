@@ -80,9 +80,11 @@ export class AppCatalogService {
   /**
    * 可约时段（§5）：`staffId` + `date` + `serviceItemIds`（逗号分隔或重复 query）。
    * `channel: 'miniapp'` → 走小程序的提前期（`minLeadMinutes`），算法与后台完全相同。
+   * **门店**：按当前门店（`x-store-id` 头）求值班次 —— 专属班次优先、通用兜底。
    */
   async availableSlots(
     query: Record<string, unknown>,
+    rawStoreId?: string,
   ): Promise<AppAvailableSlotsVo> {
     const parsed = appAvailableSlotsQuerySchema.parse({
       staffId: query['staffId'],
@@ -92,11 +94,13 @@ export class AppCatalogService {
     const serviceItemIds = appServiceItemIdsSchema.parse(
       normalizeServiceItemIds(parsed.serviceItemIds),
     );
+    const store = await resolveAppStore(this.stores, rawStoreId);
     return this.slots.availableSlots({
       staffId: parsed.staffId,
       date: parsed.date,
       serviceItemIds,
       channel: 'miniapp',
+      storeId: store?.id,
     });
   }
 }

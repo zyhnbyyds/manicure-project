@@ -25,11 +25,12 @@ title: 排班与可约时段算法
 
 drizzle 变量 `bizStaffWeeklyShifts`：
 
-| 列                        | 说明                                                   |
-| ------------------------- | ------------------------------------------------------ |
-| `staff_id`                | 美甲师                                                 |
-| `weekday`                 | **1 = 周一 … 7 = 周日**（ISO 8601，不是 JS 的 0=周日） |
-| `start_time` / `end_time` | `time` 类型，`HH:MM:SS`                                |
+| 行                        | 说明                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| `staff_id`                | 美甲师                                                                             |
+| `store_id`（**可空**）    | **空 = 通用层**（对所有能服务的门店生效）；填了 = 该门店专属层（多店 · 阶段 1.11） |
+| `weekday`                 | **1 = 周一 … 7 = 周日**（ISO 8601，不是 JS 的 0=周日）                             |
+| `start_time` / `end_time` | `time` 类型，`HH:MM:SS`                                                            |
 
 一天多段就是**多行**（例如上午一段、下午一段）。该表是**物理删表**（§3 声明豁免软删）。
 
@@ -37,12 +38,13 @@ drizzle 变量 `bizStaffWeeklyShifts`：
 
 drizzle 变量 `bizStaffScheduleOverrides`：
 
-| 列                        | 说明                                      |
-| ------------------------- | ----------------------------------------- |
-| `staff_id` + `date`       | 生效日期（店内本地日 `YYYY-MM-DD`）       |
-| `type`                    | `off`（整天休息）/ `custom`（自定义时段） |
-| `start_time` / `end_time` | **仅 `custom` 填**；`off` 必须为空        |
-| `reason`                  | 原因（如「调休」）                        |
+| 列                        | 说明                                                        |
+| ------------------------- | ----------------------------------------------------------- |
+| `staff_id` + `date`       | 生效日期（店内本地日 `YYYY-MM-DD`）                         |
+| `store_id`（**可空**）    | 同周模板：空 = 通用例外，填了 = 该门店专属例外（阶段 1.11） |
+| `type`                    | `off`（整天休息）/ `custom`（自定义时段）                   |
+| `start_time` / `end_time` | **仅 `custom` 填**；`off` 必须为空                          |
+| `reason`                  | 原因（如「调休」）                                          |
 
 同样是**物理删表**。
 
@@ -90,16 +92,35 @@ private async resolveSegments(executor, staffId, date, overrides) {
 }
 ```
 
-对外入口是 `resolveShifts(staffId, date, tx?)`，返回 `{ off, segments }`：
+对外入口是 `resolveShifts(staffId, date, options?)`，返回 `{ off, segments }`，
+`options` 含 `storeId`（看哪家店的班次）与 `tx`（事务内调用必须传）：
 
 ```ts
-async resolveShifts(staffId: number, date: string, tx?: BizTx) {
-  const executor: BizExecutor = tx ?? this.database.db;   // 事务内调用必须传 tx
+async resolveShifts(staffId, date, { storeId, tx }) {
+  const executor: BizExecutor = tx ?? this.database.db;
   const localDate = this.assertLocalDate(date);
-  const overrides = await this.loadDayOverrides(executor, staffId, localDate);
-  return (await this.resolveSegments(executor, staffId, localDate, overrides)) /* → { off, segments } */;
+  // storeId 传了就按「专属优先、通用兜底」取该店的例外；不传只看通用层
+  const overrides = await this.loadDayOverrides(executor, staffId, localDate, { storeId });
+  return await this.resolveSegments(executor, staffId, localDate, overrides, storeId);
 }
 ```
+
+::: tip 门店层叠（阶段 1.11）：专属优先、通用兜底
+
+周模板与日期例外都带**可空 `store_id`**。求值按**层**取——专属层有东西就用专属层，
+否则整段回落到通用层：
+
+```
+求值(美甲师, 某日, 门店 A)=
+  若 A 有专属例外   → 用 A 的专属例外（请假就全天不可约）
+  否则若 A 有专属班次 → 用 A 的专属周模板
+  否则             → 用通用层的例外 / 通用周模板
+```
+
+- 「整体级联而非混合取用」：A 店配了请假，**不会**再去叠通用层的自定义时段；
+- 老数据 `store_id` 全是 NULL = 通用层，**迁移无需回填**，单店期行为完全不变；
+- 冲突保护**按店范围**：改 A 店专属班次只查 A 店预约，改通用模板查所有门店。
+  :::
 
 ::: warning 例外是「替代」不是「叠加」
 最常见的误用是把它当成「在周模板上再加一段」。实际语义是**整天的时段被 `custom` 完全替换**。销售想「这周六只上 14:00–17:00」时，写一条 `custom` 就够了，不需要先删周模板。

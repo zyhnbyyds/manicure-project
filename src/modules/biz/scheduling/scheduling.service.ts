@@ -4,7 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, gte, inArray, isNull, lt, lte, ne } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  ne,
+  or,
+} from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
   bizBookings,
@@ -61,6 +72,8 @@ export type ScheduleOverrideRow = {
   startTime: string | null;
   endTime: string | null;
   reason: string | null;
+  /** 门店（null = 通用例外） */
+  storeId: number | null;
 };
 
 export type ScheduleOverrideInput = {
@@ -69,11 +82,15 @@ export type ScheduleOverrideInput = {
   startTime?: string | null | undefined;
   endTime?: string | null | undefined;
   reason?: string | null | undefined;
+  /** 门店（可空 = 通用例外，对能服务的所有门店生效）；层叠规则同周模板 */
+  storeId?: number | null | undefined;
 };
 
 export type ScheduleOverrideFilter = {
   from?: string | undefined;
   to?: string | undefined;
+  /** 只看该门店的例外（不传 = 不过滤） */
+  storeId?: number | undefined;
 };
 
 export type ConflictItem = BookingConflictItem;
@@ -100,52 +117,84 @@ export class SchedulingService extends SchedulePort {
     super();
   }
 
-  /** 周模板（7 天全部段） */
-  async getWeeklyShifts(staffId: number): Promise<WeeklyShiftRow[]> {
+  /**
+   * 周模板。
+   *
+   * 传了 `storeId` 就返回**该门店实际生效**的模板（专属优先、通用兜底），
+   * 并用 `source` 说清这次用的是哪一层 —— 前端据此提示「这是通用模板」，
+   * 否则运营会以为「我在 A 店明明改过了」。不传 = 只看通用层（老行为）。
+   */
+  async getWeeklyShifts(
+    staffId: number,
+    storeId: number | null = null,
+  ): Promise<{ shifts: WeeklyShiftRow[]; source: 'store' | 'shared' }> {
     await this.assertStaffExists(staffId);
-    return this.database.db
-      .select({
-        id: bizStaffWeeklyShifts.id,
-        weekday: bizStaffWeeklyShifts.weekday,
-        startTime: bizStaffWeeklyShifts.startTime,
-        endTime: bizStaffWeeklyShifts.endTime,
-      })
-      .from(bizStaffWeeklyShifts)
-      .where(eq(bizStaffWeeklyShifts.staffId, staffId))
-      .orderBy(
-        asc(bizStaffWeeklyShifts.weekday),
-        asc(bizStaffWeeklyShifts.startTime),
-        asc(bizStaffWeeklyShifts.id),
-      );
+    const selection = {
+      id: bizStaffWeeklyShifts.id,
+      weekday: bizStaffWeeklyShifts.weekday,
+      startTime: bizStaffWeeklyShifts.startTime,
+      endTime: bizStaffWeeklyShifts.endTime,
+    };
+    const fetch = (scope: ReturnType<typeof isNull> | undefined) =>
+      this.database.db
+        .select(selection)
+        .from(bizStaffWeeklyShifts)
+        .where(and(eq(bizStaffWeeklyShifts.staffId, staffId), scope))
+        .orderBy(
+          asc(bizStaffWeeklyShifts.weekday),
+          asc(bizStaffWeeklyShifts.startTime),
+          asc(bizStaffWeeklyShifts.id),
+        );
+    if (storeId !== null) {
+      const scoped = await fetch(eq(bizStaffWeeklyShifts.storeId, storeId));
+      if (scoped.length) return { shifts: scoped, source: 'store' };
+    }
+    return {
+      shifts: await fetch(isNull(bizStaffWeeklyShifts.storeId)),
+      source: 'shared',
+    };
   }
 
   /**
    * 周模板整体替换：事务内先删后插。
    *
-   * 缩短 / 删除班次会让未来 30 天内的既有预约越界时直接 409（§6.4 要求「先改期再保存」；
-   * 周模板是长期生效的骨架，刻意不提供 force，避免静默把已约的单甩在班次外）。
+   * **只替换指定那一层**（`storeId = null` 替换通用模板，否则替换该门店的专属模板）——
+   * 改 A 店的班不该动到通用模板，反之亦然。
+   *
+   * 缩短 / 删除班次会让未来 30 天内既有预约越界时直接 409（§6.4 要求「先改期再保存」；
+   * 周模板是长期生效的骨架，刻意不提供 force）。
    */
   async replaceWeeklyShifts(
     staffId: number,
+    storeId: number | null,
     shifts: WeeklyShiftInput[],
     actorId: number,
   ): Promise<void> {
     await this.assertStaffExists(staffId);
     const normalized = this.validateWeeklyShifts(shifts);
-    const conflicts = await this.findTemplateConflicts(staffId, normalized);
+    const conflicts = await this.findTemplateConflicts(
+      staffId,
+      storeId,
+      normalized,
+    );
     if (conflicts.length)
       throw this.conflictException(
         `新的周模板会让 ${conflicts.length} 条既有预约落在班次之外，请先改期再保存`,
         conflicts,
       );
     await this.database.db.transaction(async (tx) => {
+      const scope =
+        storeId === null
+          ? isNull(bizStaffWeeklyShifts.storeId)
+          : eq(bizStaffWeeklyShifts.storeId, storeId);
       await tx
         .delete(bizStaffWeeklyShifts)
-        .where(eq(bizStaffWeeklyShifts.staffId, staffId));
+        .where(and(eq(bizStaffWeeklyShifts.staffId, staffId), scope));
       if (!normalized.length) return;
       await tx.insert(bizStaffWeeklyShifts).values(
         normalized.map((shift) => ({
           staffId,
+          storeId,
           weekday: shift.weekday,
           startTime: shift.startTime,
           endTime: shift.endTime,
@@ -170,6 +219,8 @@ export class SchedulingService extends SchedulePort {
       conditions.push(
         lte(bizStaffScheduleOverrides.date, this.assertLocalDate(filter.to)),
       );
+    if (filter.storeId !== undefined)
+      conditions.push(eq(bizStaffScheduleOverrides.storeId, filter.storeId));
     return this.database.db
       .select({
         id: bizStaffScheduleOverrides.id,
@@ -178,6 +229,7 @@ export class SchedulingService extends SchedulePort {
         startTime: bizStaffScheduleOverrides.startTime,
         endTime: bizStaffScheduleOverrides.endTime,
         reason: bizStaffScheduleOverrides.reason,
+        storeId: bizStaffScheduleOverrides.storeId,
       })
       .from(bizStaffScheduleOverrides)
       .where(and(...conditions))
@@ -205,6 +257,7 @@ export class SchedulingService extends SchedulePort {
       this.database.db,
       staffId,
       date,
+      { storeId: input.storeId ?? null },
     );
     let startTime: string | null = null;
     let endTime: string | null = null;
@@ -239,17 +292,22 @@ export class SchedulingService extends SchedulePort {
       );
     }
 
-    // 以「落库后」的有效班次做冲突判定（off 优先于 custom）
-    const after = await this.resolveSegments(this.database.db, staffId, date, [
-      ...existing,
-      { type: input.type, startTime, endTime },
-    ]);
+    // 以「落库后」的有效班次做冲突判定（off 优先于 custom），按同一门店层级联
+    const storeId = input.storeId ?? null;
+    const after = await this.resolveSegments(
+      this.database.db,
+      staffId,
+      date,
+      [...existing, { type: input.type, startTime, endTime }],
+      storeId,
+    );
     const conflicts = await this.findDayConflicts(
       this.database.db,
       staffId,
       date,
       after.segments,
       timeZone,
+      storeId,
     );
     if (conflicts.length && !force)
       throw this.conflictException(
@@ -261,6 +319,7 @@ export class SchedulingService extends SchedulePort {
       .insert(bizStaffScheduleOverrides)
       .values({
         staffId,
+        storeId,
         date,
         type: input.type,
         startTime,
@@ -286,6 +345,7 @@ export class SchedulingService extends SchedulePort {
       .select({
         id: bizStaffScheduleOverrides.id,
         date: bizStaffScheduleOverrides.date,
+        storeId: bizStaffScheduleOverrides.storeId,
       })
       .from(bizStaffScheduleOverrides)
       .where(
@@ -297,17 +357,19 @@ export class SchedulingService extends SchedulePort {
       .limit(1);
     if (!row) throw new NotFoundException('排班例外不存在');
 
+    // 删掉后回到「同一层级的其余例外 / 周模板」，所以按这条例外自己的门店求值
     const remaining = await this.loadDayOverrides(
       this.database.db,
       staffId,
       row.date,
-      overrideId,
+      { storeId: row.storeId, excludeOverrideId: overrideId },
     );
     const after = await this.resolveSegments(
       this.database.db,
       staffId,
       row.date,
       remaining,
+      row.storeId,
     );
     const conflicts = await this.findDayConflicts(
       this.database.db,
@@ -315,6 +377,7 @@ export class SchedulingService extends SchedulePort {
       row.date,
       after.segments,
       timeZone,
+      row.storeId,
     );
     if (conflicts.length && !force)
       throw this.conflictException(
@@ -333,20 +396,33 @@ export class SchedulingService extends SchedulePort {
     return { conflicts };
   }
 
-  /** 求值优先级：off → 当天不可约；custom → 替代周模板；否则周模板（§4.3 / §5.2） */
+  /**
+   * 求值优先级：off → 当天不可约；custom → 替代周模板；否则周模板（§4.3 / §5.2）。
+   *
+   * **门店维度**（阶段 1.11）：传了 `storeId` 就按该门店求值 ——
+   * 例外与周模板**各自**遵守「门店专属优先、通用兜底」（`store_id IS NULL` 即通用）。
+   * 不传 / 传 `null` = 只看通用层，老调用方的行为不变。
+   */
   async resolveShifts(
     staffId: number,
     date: string,
-    tx?: BizTx,
+    options?: { storeId?: number | null | undefined; tx?: BizTx | undefined },
   ): Promise<{ off: boolean; segments: ShiftSegment[] }> {
-    const executor: BizExecutor = tx ?? this.database.db;
+    const executor: BizExecutor = options?.tx ?? this.database.db;
     const localDate = this.assertLocalDate(date);
-    const overrides = await this.loadDayOverrides(executor, staffId, localDate);
+    const storeId = options?.storeId ?? null;
+    const overrides = await this.loadDayOverrides(
+      executor,
+      staffId,
+      localDate,
+      { storeId },
+    );
     const resolved = await this.resolveSegments(
       executor,
       staffId,
       localDate,
       overrides,
+      storeId,
     );
     return { off: resolved.off, segments: resolved.segments };
   }
@@ -456,34 +532,90 @@ export class SchedulingService extends SchedulePort {
     }
   }
 
+  /**
+   * 当天的例外，**按门店级联**：该门店的专属例外优先；一条都没有才看通用例外。
+   *
+   * 注意是「整体级联」而不是「混合取用」：A 店配了请假，就不会再叠加通用层的自定义时段 ——
+   * 否则「上午请假 + 通用模板的下午班」会拼出一个运营根本没配过的班。
+   */
   private async loadDayOverrides(
     executor: BizExecutor,
     staffId: number,
     date: string,
-    excludeOverrideId?: number,
+    options: {
+      storeId?: number | null | undefined;
+      excludeOverrideId?: number;
+    } = {},
   ): Promise<OverrideState[]> {
-    const conditions = [
+    const base = [
       eq(bizStaffScheduleOverrides.staffId, staffId),
       eq(bizStaffScheduleOverrides.date, date),
     ];
-    if (excludeOverrideId !== undefined)
-      conditions.push(ne(bizStaffScheduleOverrides.id, excludeOverrideId));
+    if (options.excludeOverrideId !== undefined)
+      base.push(ne(bizStaffScheduleOverrides.id, options.excludeOverrideId));
+    const selection = {
+      type: bizStaffScheduleOverrides.type,
+      startTime: bizStaffScheduleOverrides.startTime,
+      endTime: bizStaffScheduleOverrides.endTime,
+    };
+    if (options.storeId !== null && options.storeId !== undefined) {
+      const scoped = await executor
+        .select(selection)
+        .from(bizStaffScheduleOverrides)
+        .where(
+          and(...base, eq(bizStaffScheduleOverrides.storeId, options.storeId)),
+        );
+      if (scoped.length) return scoped;
+    }
     return executor
-      .select({
-        type: bizStaffScheduleOverrides.type,
-        startTime: bizStaffScheduleOverrides.startTime,
-        endTime: bizStaffScheduleOverrides.endTime,
-      })
+      .select(selection)
       .from(bizStaffScheduleOverrides)
-      .where(and(...conditions));
+      .where(and(...base, isNull(bizStaffScheduleOverrides.storeId)));
   }
 
-  /** off → 空；custom → 这些段；否则周模板该 weekday 的段 */
+  /** 周模板级联：该门店的专属班次优先；没有专属班次才用通用（`store_id IS NULL`） */
+  private async loadWeeklySegments(
+    executor: BizExecutor,
+    staffId: number,
+    weekday: number,
+    storeId: number | null,
+  ): Promise<ShiftSegment[]> {
+    const base = [
+      eq(bizStaffWeeklyShifts.staffId, staffId),
+      eq(bizStaffWeeklyShifts.weekday, weekday),
+    ];
+    const selection = {
+      startTime: bizStaffWeeklyShifts.startTime,
+      endTime: bizStaffWeeklyShifts.endTime,
+    };
+    const toSegments = (rows: ShiftSegment[]): ShiftSegment[] =>
+      rows
+        .map((row) => ({ startTime: row.startTime, endTime: row.endTime }))
+        .sort(
+          (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime),
+        );
+    if (storeId !== null) {
+      const scoped = await executor
+        .select(selection)
+        .from(bizStaffWeeklyShifts)
+        .where(and(...base, eq(bizStaffWeeklyShifts.storeId, storeId)));
+      if (scoped.length) return toSegments(scoped);
+    }
+    return toSegments(
+      await executor
+        .select(selection)
+        .from(bizStaffWeeklyShifts)
+        .where(and(...base, isNull(bizStaffWeeklyShifts.storeId))),
+    );
+  }
+
+  /** off → 空；custom → 这些段；否则周模板该 weekday 的段（按门店级联） */
   private async resolveSegments(
     executor: BizExecutor,
     staffId: number,
     date: string,
     overrides: OverrideState[],
+    storeId: number | null = null,
   ): Promise<{ off: boolean; segments: ShiftSegment[] }> {
     if (overrides.some((row) => row.type === 'off'))
       return { off: true, segments: [] };
@@ -495,25 +627,14 @@ export class SchedulingService extends SchedulePort {
       }))
       .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
     if (customs.length) return { off: false, segments: customs };
-    const weekly = await executor
-      .select({
-        startTime: bizStaffWeeklyShifts.startTime,
-        endTime: bizStaffWeeklyShifts.endTime,
-      })
-      .from(bizStaffWeeklyShifts)
-      .where(
-        and(
-          eq(bizStaffWeeklyShifts.staffId, staffId),
-          eq(bizStaffWeeklyShifts.weekday, shopWeekday(date)),
-        ),
-      );
     return {
       off: false,
-      segments: weekly
-        .map((row) => ({ startTime: row.startTime, endTime: row.endTime }))
-        .sort(
-          (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime),
-        ),
+      segments: await this.loadWeeklySegments(
+        executor,
+        staffId,
+        shopWeekday(date),
+        storeId,
+      ),
     };
   }
 
@@ -524,6 +645,7 @@ export class SchedulingService extends SchedulePort {
     date: string,
     segments: ShiftSegment[],
     timeZone: string,
+    storeId: number | null = null,
   ): Promise<ConflictItem[]> {
     const { start, end } = shopDayRange(date, timeZone);
     const rows = await executor
@@ -542,6 +664,8 @@ export class SchedulingService extends SchedulePort {
           isNull(bizBookings.deletedAt),
           gte(bizBookings.startAt, start),
           lt(bizBookings.startAt, end),
+          // 门店专属班次只影响本店预约；通用班次看全部
+          storeId === null ? undefined : eq(bizBookings.storeId, storeId),
         ),
       )
       .orderBy(asc(bizBookings.startAt));
@@ -590,9 +714,16 @@ export class SchedulingService extends SchedulePort {
     });
   }
 
-  /** 周模板缩短 / 删除：未来 30 天内越界的既有预约（有日期例外的日子不受模板影响） */
+  /**
+   * 周模板缩短 / 删除：未来 30 天内越界的既有预约
+   * （有日期例外的日子不受模板影响）。
+   *
+   * **门店范围**：通用模板（`storeId = null`）影响所有门店的预约；
+   * 门店专属模板只影响该门店 —— 误报比漏报好，所以通用层不去排除各店的专属例外。
+   */
   private async findTemplateConflicts(
     staffId: number,
+    storeId: number | null,
     shifts: WeeklyShiftInput[],
   ): Promise<ConflictItem[]> {
     const timeZone = await this.timeZone();
@@ -604,6 +735,14 @@ export class SchedulingService extends SchedulePort {
       list.push({ startTime: shift.startTime, endTime: shift.endTime });
       byWeekday.set(shift.weekday, list);
     }
+    // 例外按「该层 + 通用层」排除：这两层才是会盖住本次模板的
+    const overrideScope =
+      storeId === null
+        ? isNull(bizStaffScheduleOverrides.storeId)
+        : or(
+            isNull(bizStaffScheduleOverrides.storeId),
+            eq(bizStaffScheduleOverrides.storeId, storeId),
+          );
     const overrides = await this.database.db
       .select({ date: bizStaffScheduleOverrides.date })
       .from(bizStaffScheduleOverrides)
@@ -612,6 +751,7 @@ export class SchedulingService extends SchedulePort {
           eq(bizStaffScheduleOverrides.staffId, staffId),
           gte(bizStaffScheduleOverrides.date, today),
           lte(bizStaffScheduleOverrides.date, lastDate),
+          overrideScope,
         ),
       );
     const overrideDates = new Set(overrides.map((row) => row.date));
@@ -622,6 +762,7 @@ export class SchedulingService extends SchedulePort {
       byWeekday,
       timeZone,
       overrideDates,
+      storeId,
     );
   }
 
@@ -632,6 +773,7 @@ export class SchedulingService extends SchedulePort {
     byWeekday: Map<number, ShiftSegment[]>,
     timeZone: string,
     overrideDates: Set<string>,
+    storeId: number | null = null,
   ): Promise<ConflictItem[]> {
     const rows = await this.database.db
       .select({
@@ -649,6 +791,8 @@ export class SchedulingService extends SchedulePort {
           isNull(bizBookings.deletedAt),
           gte(bizBookings.startAt, from),
           lt(bizBookings.startAt, to),
+          // 专属模板只影响本店的预约；通用模板看全部
+          storeId === null ? undefined : eq(bizBookings.storeId, storeId),
         ),
       )
       .orderBy(asc(bizBookings.startAt));

@@ -87,6 +87,12 @@ registerComponent('CreateScheduleOverrideRequest', createOverrideSchema);
 
 type AuthRequest = { user: { id: number } };
 
+/** `?storeId=` → 门店 id；不传 / 非法 = `null`（= 通用层） */
+function parseStoreId(raw?: string): number | null {
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
 @ApiTags('排班')
 @ApiBearerAuth('access-token')
 @Controller('biz/staffs')
@@ -97,17 +103,34 @@ export class SchedulingController {
   @RequirePermissions('biz:schedule:list')
   @ApiOperation({ summary: '美甲师周模板班次（7 天全部段）' })
   @ApiParam({ name: 'id', description: '美甲师ID' })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店ID。传了返回**该门店实际生效**的模板（门店专属优先、通用兜底），' +
+      '响应里的 `source` 说明用的是哪一层；不传 = 只看通用模板',
+  })
   @ApiResponse({ status: 200, description: '成功' })
-  getWeeklyShifts(@Param('id', ParseIntPipe) id: number) {
-    return this.scheduling.getWeeklyShifts(id);
+  getWeeklyShifts(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('storeId') rawStoreId?: string,
+  ) {
+    return this.scheduling.getWeeklyShifts(id, parseStoreId(rawStoreId));
   }
 
   @Put(':id/weekly-shifts')
   @RequirePermissions('biz:schedule:update')
   @ApiOperation({
-    summary: '整体替换周模板（事务内先删后插；越界预约会让保存 409）',
+    summary:
+      '整体替换周模板（事务内先删后插；越界预约会让保存 409）。**只替换指定那一层**',
   })
   @ApiParam({ name: 'id', description: '美甲师ID' })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店ID：传了就替换该门店的**专属模板**，不传则替换**通用模板**（两者互不影响）',
+  })
   @ApiBody({
     schema: { $ref: '#/components/schemas/ReplaceWeeklyShiftsRequest' },
   })
@@ -118,12 +141,18 @@ export class SchedulingController {
   })
   async replaceWeeklyShifts(
     @Param('id', ParseIntPipe) id: number,
+    @Query('storeId') rawStoreId: string | undefined,
     @Body() body: unknown,
     @Req() request: AuthRequest,
   ) {
     const parsed = replaceWeeklyShiftsSchema.parse(body);
     const shifts = Array.isArray(parsed) ? parsed : parsed.shifts;
-    await this.scheduling.replaceWeeklyShifts(id, shifts, request.user.id);
+    await this.scheduling.replaceWeeklyShifts(
+      id,
+      parseStoreId(rawStoreId),
+      shifts,
+      request.user.id,
+    );
     return { success: true, count: shifts.length };
   }
 
