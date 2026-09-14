@@ -39,7 +39,7 @@
  *    ⚠️ WLAN 的网络类别若是「公用」而没放行，症状是**手机侧超时**；本机浏览器自测**测不出防火墙**。
  * 4. 快速自检：用**手机浏览器**打开 `http://<局域网IP>:3000/api/v1/health`，能看到 JSON 就说明网络通了。
  */
-export const API_BASE = 'http://192.168.0.100:3000/api/v1';
+export const API_BASE = 'http://172.17.64.1:3000/api/v1';
 
 /** 请求超时（毫秒） */
 export const REQUEST_TIMEOUT = 10000;
