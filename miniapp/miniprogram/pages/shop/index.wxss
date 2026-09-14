@@ -121,6 +121,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 与下面第一行门店之间留一口气，否则标题会「贴」在店名上 */
+  margin-bottom: 10rpx;
 }
 
 .store-pick__title {
