@@ -173,17 +173,15 @@ await this.database.db.transaction(async (tx) => {
     .update(appWxUsers)
     .set({ customerId })
     .where(eq(appWxUsers.id, appUserId));
-  await tx
-    .insert(appWxUserBindLogs)
-    .values({
-      appWxUserId: appUserId,
-      openid: identity.openid,
-      phone,
-      customerIdBefore: identity.customerId,
-      customerIdAfter: customerId,
-      source: 'bind_phone',
-      createdBy: APP_ACTOR_ID,
-    });
+  await tx.insert(appWxUserBindLogs).values({
+    appWxUserId: appUserId,
+    openid: identity.openid,
+    phone,
+    customerIdBefore: identity.customerId,
+    customerIdAfter: customerId,
+    source: 'bind_phone',
+    createdBy: APP_ACTOR_ID,
+  });
 });
 ```
 

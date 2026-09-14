@@ -91,7 +91,9 @@ export class StaffsService extends StaffPort {
     pageSize: number,
     filter: StaffListFilter,
     actor?: RequestActor | null,
-  ): Promise<PageResult<StaffRow & { stores: { id: number; name: string }[] }>> {
+  ): Promise<
+    PageResult<StaffRow & { stores: { id: number; name: string }[] }>
+  > {
     const conditions = [isNull(bizStaffs.deletedAt)];
     const nickname = keywordLike(bizStaffs.nickname, filter.keyword);
     const phone = keywordLike(bizStaffs.phone, filter.keyword);
@@ -403,9 +405,7 @@ export class StaffsService extends StaffPort {
           status: sysStores.status,
         })
         .from(sysStores)
-        .where(
-          and(inArray(sysStores.id, unique), isNull(sysStores.deletedAt)),
-        );
+        .where(and(inArray(sysStores.id, unique), isNull(sysStores.deletedAt)));
       const found = new Map(rows.map((row) => [row.id, row]));
       const missing = unique.filter((id) => !found.has(id));
       if (missing.length)

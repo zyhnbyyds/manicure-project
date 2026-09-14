@@ -201,9 +201,13 @@ describe('美甲师的服务门店：空 = 全部门店，配了才收窄', () =
       body: { storeIds: [storeB] },
     });
 
-    const app = await ctx.request('GET', '/api/v1/app/staffs?page=1&pageSize=50', {
-      token: await ctx.appToken('openid-staff-store', 1),
-    });
+    const app = await ctx.request(
+      'GET',
+      '/api/v1/app/staffs?page=1&pageSize=50',
+      {
+        token: await ctx.appToken('openid-staff-store', 1),
+      },
+    );
     expect(app.status).toBe(200);
     const ids = listIds(app.body);
     expect(ids).not.toContain(onlyB); // A 店（默认门店）约不到只服务 B 店的人

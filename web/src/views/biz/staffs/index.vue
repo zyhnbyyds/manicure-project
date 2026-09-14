@@ -466,12 +466,14 @@ async function openDetail(row: Staff) {
   itemsLoading.value = true;
   optionsFailed.value = false;
   try {
-    const [selected, options, storeOptionList, staffStores] = await Promise.all([
-      getStaffServiceItems(row.id),
-      fetchItemOptions(),
-      fetchStoreOptions(),
-      getStaffStores(row.id),
-    ]);
+    const [selected, options, storeOptionList, staffStores] = await Promise.all(
+      [
+        getStaffServiceItems(row.id),
+        fetchItemOptions(),
+        fetchStoreOptions(),
+        getStaffStores(row.id),
+      ],
+    );
     // 已配置但已停用的项目：保留在选项里并标注，避免「保存后被静默丢弃」
     itemOptions.value = withDisabledSelected(options, selected);
     optionsKey.value += 1;
@@ -847,8 +849,8 @@ async function handleClearItems() {
             </div>
             <div class="mt-1 text-[var(--app-text-secondary)]">
               勾选后就变成白名单：只有这几家店能约到该美甲师（跨店支援就把他勾到那家店）。
-              <span class="font-600">注意排班不区分门店</span>（一人一份周模板），
-              「这家店今天谁在」仍由班次与预约决定。
+              <span class="font-600">注意排班不区分门店</span
+              >（一人一份周模板）， 「这家店今天谁在」仍由班次与预约决定。
             </div>
           </div>
 

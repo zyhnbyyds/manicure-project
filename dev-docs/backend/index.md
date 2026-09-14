@@ -157,15 +157,13 @@ if (exception instanceof ZodError) {
   const messages = exception.issues.map(
     (issue) => `${fieldLabel(issue)}：${friendlyIssue(issue)}`,
   );
-  reply
-    .status(HttpStatus.BAD_REQUEST)
-    .send(
-      withRequestId({
-        statusCode: 400,
-        message: messages,
-        error: 'Bad Request',
-      }),
-    );
+  reply.status(HttpStatus.BAD_REQUEST).send(
+    withRequestId({
+      statusCode: 400,
+      message: messages,
+      error: 'Bad Request',
+    }),
+  );
   return;
 }
 ```

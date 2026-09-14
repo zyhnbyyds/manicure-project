@@ -15,7 +15,7 @@ metadata:
 > ⚠️ **数量与分组以 schema 文件为准**：历史上这里的清单是 32 张（spec §4.1 的早期设计），
 > 现状是 **66 张 = 业务 `biz_*` 34 / 系统 `sys_*` 22 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
 > 逐张字段表见开发者文档 `dev-docs/data/business-tables.md` 与 `dev-docs/data/system-tables.md`。
-> 下面按功能分组列出 _*biz_* 业务表 34 张_*（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
+> 下面按功能分组列出 _\*biz_* 业务表 34 张_*（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
 
 **A. 基础数据（6）**
 `biz_service_item`、`biz_staff`、`biz_staff_service_item`、`biz_customer`（兼会员档案）、

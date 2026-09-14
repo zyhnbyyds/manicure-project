@@ -4,5 +4,5 @@
   "trailingComma": "all",
   "printWidth": 80,
   "sortPackageJson": false,
-  "ignorePatterns": ["web/types/auto-imports.d.ts"]
+  "ignorePatterns": ["web/types/auto-imports.d.ts", "src/database/migrations"]
 }

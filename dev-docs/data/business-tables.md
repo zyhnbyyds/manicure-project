@@ -94,11 +94,11 @@ title: 业务表详解
 「这个人能在哪些店接单」的关联表（连锁直营 · 阶段 1.9）。美甲师列表、预约选人与小程序
 美甲师目录都按它收窄。
 
-| 字段       | 类型           | 必填/默认 | 说明     | 口径与坑 |
-| ---------- | -------------- | --------- | -------- | -------- |
-| `id`       | `int unsigned` | PK 自增   | 主键     | —        |
-| `staff_id` | `int unsigned` | 必填      | 美甲师   | —        |
-| `store_id` | `int unsigned` | 必填      | 可服务门店 | —      |
+| 字段       | 类型           | 必填/默认 | 说明       | 口径与坑 |
+| ---------- | -------------- | --------- | ---------- | -------- |
+| `id`       | `int unsigned` | PK 自增   | 主键       | —        |
+| `staff_id` | `int unsigned` | 必填      | 美甲师     | —        |
+| `store_id` | `int unsigned` | 必填      | 可服务门店 | —        |
 
 **索引与约束**：`uq_staff_store(staff_id, store_id)`、`idx_staff_store_store(store_id)`；
 外键 `fk_staff_store_staff` / `fk_staff_store_store` 都是 `ON DELETE CASCADE`。
