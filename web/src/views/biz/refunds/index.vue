@@ -5,6 +5,7 @@ import {
   LewButton,
   LewDatePicker,
   LewForm,
+  LewInput,
   LewMessage,
   LewModal,
   LewPagination,
@@ -30,6 +31,7 @@ import type {
   RefundPreview,
   RefundStatus,
 } from '~/api/biz/refunds';
+import { listBookings } from '~/api/biz/bookings';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
@@ -390,7 +392,8 @@ async function handleRejectSubmit() {
 const applyVisible = ref(false);
 const applyFormRef = ref();
 const applyForm = ref({
-  bookingId: undefined as number | undefined,
+  /** 预约 id（下拉选中值，字符串） */
+  bookingId: undefined as string | undefined,
   /** 取消时间（判责试算用，选填） */
   cancelAt: '',
   /** 元 */
@@ -405,6 +408,28 @@ const preview = ref<RefundPreview | null>(null);
 const previewing = ref(false);
 /** 去向提示（LewForm 不回写父级，靠 change 事件同步） */
 const applyMode = ref<RefundMode>('original');
+
+// 预约选择：此前这里让人手填「预约 ID」—— 内部主键不是给店长看的。
+// 改成「单号 / 顾客 / 手机号搜索 + 下拉选择」，选项直接展示单号与到店时间。
+const bookingKeyword = ref('');
+const bookingOptions = ref<{ label: string; value: string }[]>([]);
+const bookingSearching = ref(false);
+
+async function searchBookingOptions() {
+  bookingSearching.value = true;
+  try {
+    const keyword = bookingKeyword.value.trim();
+    const data = await listBookings(1, 30, keyword ? { keyword } : {});
+    bookingOptions.value = data.items.map((booking) => ({
+      label: `${booking.bookingNo} · ${booking.customerName} · ${formatDateTime(
+        booking.startAt,
+      )}`,
+      value: String(booking.id),
+    }));
+  } finally {
+    bookingSearching.value = false;
+  }
+}
 
 const applyModeHint = computed(() => {
   if (applyMode.value === 'original') return '在线支付强制原路退回。';
@@ -451,13 +476,18 @@ const previewRows = computed(() => {
   ];
 });
 
-const applyFormOptions: LewFormOption[] = [
+const applyFormOptions = computed<LewFormOption[]>(() => [
   {
     field: 'bookingId',
-    label: '预约 ID',
-    as: 'input-number',
-    rule: "Yup.number().required('不能为空')",
-    props: { min: 1, placeholder: '用于定位支付单与判责规则' },
+    label: '预约',
+    as: 'select',
+    rule: "Yup.string().required('请选择预约')",
+    props: {
+      options: bookingOptions.value,
+      placeholder: '先用单号 / 姓名 / 手机号搜索，再选择预约',
+      clearable: true,
+      searchable: true,
+    },
   },
   {
     field: 'cancelAt',
@@ -503,7 +533,7 @@ const applyFormOptions: LewFormOption[] = [
       rows: 3,
     },
   },
-];
+]);
 
 /** LewForm 不回写父级 v-model，靠 change 事件同步去向提示 */
 function handleApplyFormChange(values: unknown) {
@@ -519,6 +549,8 @@ function openApply() {
   applyMode.value = 'original';
   applyFormKey.value += 1;
   applyVisible.value = true;
+  bookingKeyword.value = '';
+  void searchBookingOptions();
   void nextTick(() => {
     applyFormRef.value?.setForm?.({
       bookingId: undefined,
@@ -537,7 +569,7 @@ async function handlePreview() {
     applyForm.value) as typeof applyForm.value;
   const bookingId = Number(values.bookingId ?? 0);
   if (!bookingId) {
-    LewMessage.error('请先填写预约 ID');
+    LewMessage.error('请先选择要退款的预约');
     return;
   }
   previewing.value = true;
@@ -574,7 +606,7 @@ async function handleApplySubmit() {
   }
   const bookingId = Number(values.bookingId ?? 0);
   if (!bookingId) {
-    LewMessage.error('请先填写预约 ID 并试算');
+    LewMessage.error('请先选择预约并试算');
     return;
   }
   const amountYuan = Number(values.amount ?? 0);
@@ -829,6 +861,22 @@ async function handleApplySubmit() {
       ]"
     >
       <div class="p-5">
+        <div class="mb-3 flex items-center gap-2">
+          <LewInput
+            v-model="bookingKeyword"
+            width="360px"
+            placeholder="预约单号 / 顾客姓名 / 手机号"
+            clearable
+            @enter="searchBookingOptions"
+          />
+          <LewButton
+            type="light"
+            :loading="bookingSearching"
+            @click="searchBookingOptions"
+            >搜索</LewButton
+          >
+        </div>
+
         <LewForm
           :key="applyFormKey"
           ref="applyFormRef"
@@ -843,7 +891,7 @@ async function handleApplySubmit() {
             试算判责
           </LewButton>
           <span class="text-13px text-[var(--app-text-muted)]">
-            先填预约 ID 再试算，命中规则只给建议金额，可改但必须写明原因
+            先选预约再试算，命中规则只给建议金额，可改但必须写明原因
           </span>
         </div>
 

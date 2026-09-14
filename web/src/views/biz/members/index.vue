@@ -70,6 +70,7 @@ import {
   listActiveCouponTemplates,
 } from '~/api/biz/coupons';
 import { formatDateTime } from '~/composables/useFormat';
+import { useCustomerOptions } from '~/composables/useCustomerOptions';
 import { useTable } from '~/composables/useTable';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
@@ -920,33 +921,60 @@ function handleRecount() {
 }
 
 // ---------- 纳为会员 ----------
+// 此前这里让人手填「顾客 ID」—— 内部主键不是给运营看的。
+// 改成「姓名/手机号搜索 + 下拉选择」；从会员详情打开时预置当前顾客，直接显示姓名。
 const enrollVisible = ref(false);
-const enrollFormKey = ref(0);
-const enrollFormRef = ref();
-const enrollForm = ref({ customerId: undefined as number | undefined });
+const enrollForm = ref({ customerId: undefined as string | undefined });
+const enrollKeyword = ref('');
+const {
+  options: enrollCustomerOptions,
+  searching: enrollSearching,
+  search: searchEnrollCustomers,
+  ensure: ensureEnrollCustomer,
+} = useCustomerOptions();
 
-function openEnroll(customerId?: number) {
-  enrollFormKey.value += 1;
+async function runEnrollSearch() {
+  await searchEnrollCustomers(enrollKeyword.value, 30, { requirePhone: true });
+}
+
+/**
+ * @param customer 从会员详情打开时传入（已有档案，无需再搜）；
+ *   从页头按钮打开则留空，由运营自己搜。
+ */
+function openEnroll(customer?: {
+  id: number;
+  name: string;
+  phone: string | null;
+  memberNo?: string | null;
+}) {
+  // 没有手机号就入不了会（后端 400），别让人白点一次
+  if (customer && !customer.phone) {
+    LewMessage.warning('该顾客还没有手机号，请先在顾客档案里补全手机号');
+    return;
+  }
   enrollVisible.value = true;
-  void nextTick(() => {
-    enrollFormRef.value?.setForm?.({ customerId: customerId ?? undefined });
-  });
+  enrollKeyword.value = '';
+  enrollForm.value = { customerId: customer ? String(customer.id) : undefined };
+  if (customer) ensureEnrollCustomer(customer, true);
+  else void runEnrollSearch();
 }
 
 async function submitEnroll() {
-  const valid = await enrollFormRef.value?.validate();
-  if (!valid) return;
-  const values = (enrollFormRef.value?.getForm?.() ??
-    enrollForm.value) as typeof enrollForm.value;
-  const customerId = Number(values.customerId ?? 0);
+  const customerId = Number(enrollForm.value.customerId ?? 0);
   if (!customerId) {
-    LewMessage.error('请填写顾客 ID');
+    LewMessage.error('请选择要纳为会员的顾客');
     return;
   }
+  // 名字只从「当前选中项」取 —— 用一个独立变量记详情里那位顾客，
+  // 会在改选别人之后显示错名字（确认框写着张三、实际入会的是李四）。
+  const picked = enrollCustomerOptions.value.find(
+    (item) => item.value === String(customerId),
+  );
+  const who = picked?.label ?? `#${customerId}`;
   confirmDanger({
     type: 'normal',
     title: '纳为会员',
-    content: `将把顾客 #${customerId} 纳为会员（建会员号、置入会时间）。手机号是会员的必填锚点，顾客必须有手机号。确定继续吗？`,
+    content: `将把「${who}」纳为会员（建会员号、置入会时间）。手机号是会员的必填锚点，顾客必须有手机号。确定继续吗？`,
     confirmText: '确认入会',
     confirmColor: 'primary',
     onConfirm: async () => {
@@ -1346,7 +1374,7 @@ const balanceTotal = computed(
             v-permission="'biz:member:update'"
             type="light"
             size="small"
-            @click="openEnroll(detail.id)"
+            @click="openEnroll(detail)"
           >
             <UserPlus :size="13" style="margin-right: 4px" /> 纳为会员
           </LewButton>
@@ -1811,25 +1839,32 @@ const balanceTotal = computed(
       ]"
     >
       <div class="p-5">
-        <LewForm
-          :key="enrollFormKey"
-          ref="enrollFormRef"
-          v-model="enrollForm"
-          label-width="90px"
-          :options="
-            withPassThroughRule([
-              {
-                field: 'customerId',
-                label: '顾客 ID',
-                as: 'input-number',
-                rule: `Yup.number().required('不能为空')`,
-                props: { min: 1, placeholder: '已有顾客档案的 ID' },
-              },
-            ])
-          "
+        <div class="flex items-center gap-2">
+          <LewInput
+            v-model="enrollKeyword"
+            width="300px"
+            placeholder="顾客姓名 / 手机号"
+            clearable
+            @enter="runEnrollSearch"
+          />
+          <LewButton
+            type="light"
+            :loading="enrollSearching"
+            @click="runEnrollSearch"
+            >搜索</LewButton
+          >
+        </div>
+        <LewSelect
+          v-model="enrollForm.customerId"
+          class="mt-3"
+          width="380px"
+          :options="enrollCustomerOptions"
+          placeholder="选择要纳为会员的顾客"
+          clearable
+          searchable
         />
         <p class="page-subtitle mb-0 mt-3">
-          顾客必须已有手机号（会员的必填锚点）；入会后等级置为最低启用等级。
+          顾客必须已有手机号（会员的必填锚点，无手机号的会置灰）；入会后等级置为最低启用等级。
         </p>
       </div>
     </LewModal>

@@ -4,7 +4,6 @@ import { Undo2, Wallet } from 'lucide-vue-next';
 import {
   LewButton,
   LewForm,
-  LewInput,
   LewMessage,
   LewModal,
   LewPagination,
@@ -21,6 +20,7 @@ import type {
 } from '~/api/biz/member-cards';
 import { formatDateTime } from '~/composables/useFormat';
 import { numberProps } from '~/utils/form';
+import { useCustomerOptions } from '~/composables/useCustomerOptions';
 import { useTable } from '~/composables/useTable';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
@@ -101,6 +101,11 @@ async function loadCardTypes() {
 void loadCardTypes();
 
 // ---------- 列表 ----------
+// 顾客筛选此前是「手填顾客 ID」—— 内部主键不是给店长看的，改成顾客下拉（可本地搜索）。
+const { options: customerOptions, search: searchCustomers } =
+  useCustomerOptions();
+void searchCustomers('', 200);
+
 const query = ref<{
   customerId?: string;
   status?: string;
@@ -317,12 +322,13 @@ async function handleRefundSubmit() {
 
     <!-- 搜索栏 -->
     <div class="app-card flex items-center gap-3 p-4">
-      <LewInput
+      <LewSelect
         v-model="query.customerId"
-        width="160px"
-        placeholder="顾客 ID"
+        width="220px"
+        :options="customerOptions"
+        placeholder="全部顾客"
         clearable
-        @enter="search()"
+        searchable
       />
       <LewSelect
         v-model="query.status"

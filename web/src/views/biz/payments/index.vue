@@ -22,6 +22,7 @@ import type {
   PaymentStatus,
 } from '~/api/biz/payments';
 import { formatDateTime } from '~/composables/useFormat';
+import { useCustomerOptions } from '~/composables/useCustomerOptions';
 import { useTable } from '~/composables/useTable';
 import { confirmDanger } from '~/utils/confirm';
 import { trimCell } from '~/utils/table-text';
@@ -124,6 +125,11 @@ function memberText(name: string | null | undefined, customerId: number) {
 }
 
 // ---------- 列表 ----------
+// 顾客筛选此前是「手填顾客 ID」—— 内部主键不是给店长看的，改成顾客下拉（可本地搜索）。
+const { options: customerOptions, search: searchCustomers } =
+  useCustomerOptions();
+void searchCustomers('', 200);
+
 const query = ref<{
   channel?: string;
   status?: string;
@@ -401,12 +407,13 @@ function handleClose(row: Payment) {
         clearable
         @enter="search()"
       />
-      <LewInput
+      <LewSelect
         v-model="query.customerId"
-        width="140px"
-        placeholder="顾客 ID"
+        width="220px"
+        :options="customerOptions"
+        placeholder="全部顾客"
         clearable
-        @enter="search()"
+        searchable
       />
       <LewButton type="light" :loading="loading" @click="search()"
         >查询</LewButton
