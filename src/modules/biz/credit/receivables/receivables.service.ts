@@ -591,13 +591,11 @@ export class ReceivablesService extends CreditPort {
       ...(actor
         ? storeConditions(
             bizReceivables.storeId,
-            (
-              await resolveStoreScope(
-                this.database.db,
-                actor,
-                filter.storeId ?? null,
-              )
-            ).scope,
+            await resolveStoreScope(
+              this.database.db,
+              actor,
+              filter.storeId ?? null,
+            ),
             filter.storeId,
           )
         : []),

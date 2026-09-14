@@ -10,16 +10,16 @@ title: 后台前端（Vue 3）
 
 `web/package.json`（`packageManager: bun@1.4.0`）：
 
-| 依赖 | 版本 | 用途 |
-| --- | --- | --- |
-| `vue` / `vue-router` / `pinia` | `^3.5.30` / `^5.0.3` / `^3.0.3` | 框架 / 路由 / 状态 |
-| `vite` / `typescript` / `vue-tsc` | `^8.0.0` / `^6` / `^3.2.6` | 构建与类型检查 |
-| `lew-ui` | `^2.8.2` | UI 组件库（`LewTable` / `LewForm` / `LewModal` / `LewDialog` / `LewUpload`） |
-| `unocss` | `^66.6.7` | 原子类 |
-| `echarts` | `^6.0.0` | 图表（只在首页用） |
-| `axios` / `dayjs` / `lucide-vue-next` | `^1.13.2` / `^1.11.13` / `^0.534.0` | 请求 / 时间 / 图标 |
-| `marked` + `dompurify` | `^18.0.12` / `^3.4.15` | AI 页 Markdown 渲染 |
-| `unplugin-auto-import` / `unplugin-vue-components` | `^21.0.0` / `^31.0.0` | 自动导入 |
+| 依赖                                               | 版本                                | 用途                                                                         |
+| -------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------- |
+| `vue` / `vue-router` / `pinia`                     | `^3.5.30` / `^5.0.3` / `^3.0.3`     | 框架 / 路由 / 状态                                                           |
+| `vite` / `typescript` / `vue-tsc`                  | `^8.0.0` / `^6` / `^3.2.6`          | 构建与类型检查                                                               |
+| `lew-ui`                                           | `^2.8.2`                            | UI 组件库（`LewTable` / `LewForm` / `LewModal` / `LewDialog` / `LewUpload`） |
+| `unocss`                                           | `^66.6.7`                           | 原子类                                                                       |
+| `echarts`                                          | `^6.0.0`                            | 图表（只在首页用）                                                           |
+| `axios` / `dayjs` / `lucide-vue-next`              | `^1.13.2` / `^1.11.13` / `^0.534.0` | 请求 / 时间 / 图标                                                           |
+| `marked` + `dompurify`                             | `^18.0.12` / `^3.4.15`              | AI 页 Markdown 渲染                                                          |
+| `unplugin-auto-import` / `unplugin-vue-components` | `^21.0.0` / `^31.0.0`               | 自动导入                                                                     |
 
 ```json
 "scripts": {
@@ -51,7 +51,10 @@ plugins: [
 `.env.development` 与 `.env.production` 都是 `VITE_API_BASE_URL=/api/v1`；开发时 Vite 把 `/api` 代理到 `localhost:3000`。
 
 ```ts
-const request = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL, timeout: 15000 });
+const request = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  timeout: 15000,
+});
 ```
 
 导出 `get` / `post` / `patch` / `put` / `del` / `upload`，**响应直接返回 `data`**（后端无统一包裹层）。请求拦截器注入 `Authorization` 并给每个请求带一个 `request-id`：
@@ -70,7 +73,9 @@ config.headers['request-id'] = crypto.randomUUID();
 // ---------- 刷新排队 ----------
 let refreshing: Promise<string> | null = null;
 const pendingQueue: PendingCallback[] = [];
-function flushQueue(token: string | null) { while (pendingQueue.length) pendingQueue.shift()?.(token); }
+function flushQueue(token: string | null) {
+  while (pendingQueue.length) pendingQueue.shift()?.(token);
+}
 ```
 
 `refreshOnce()` 用一个模块级 Promise 做全局去重：并发请求共享同一次刷新；成功 `flushQueue(token)`，失败 `flushQueue(null)` + `useUserStore().reset()` + `window.dispatchEvent(new CustomEvent('auth:logout'))`（用事件解耦，避免循环依赖 router）。响应拦截器重放一次：
@@ -83,7 +88,9 @@ if (status === 401 && config && !config._retried && !skipRefresh) {
     const token = refreshing ? await refreshing : await refreshOnce();
     config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
     return request(config);
-  } catch { return Promise.reject(new ApiError(401, '登录已过期，请重新登录')); }
+  } catch {
+    return Promise.reject(new ApiError(401, '登录已过期，请重新登录'));
+  }
 }
 ```
 
@@ -96,12 +103,36 @@ if (status === 401 && config && !config._retried && !skipRefresh) {
 
 ### token 存储（`store/user.ts`）
 
-| 值 | 位置 | 原因 |
-| --- | --- | --- |
-| `accessToken` | **仅内存**（`ref`） | 更安全；刷新页面后靠 refreshToken 换回 |
+| 值             | 位置                                                             | 原因                                   |
+| -------------- | ---------------------------------------------------------------- | -------------------------------------- |
+| `accessToken`  | **仅内存**（`ref`）                                              | 更安全；刷新页面后靠 refreshToken 换回 |
 | `refreshToken` | `localStorage`（`REFRESH_TOKEN_KEY = 'manicure:refresh-token'`） | 后端通过 body 返回，无 httpOnly cookie |
 
 `hasPermission(required)` 支持 `'a:b:c'` 精确匹配与 `'*:*:*'` 通配（`isSuperAdmin`）。
+
+### 当前门店（`x-store-id`，连锁直营）
+
+后台顶栏的**门店切换器**（只在可见门店 > 1 时出现）把选中的门店写进 pinia，拦截器再把它作为
+请求头下发；后端 `resolveStoreScope` 复核可见性后，**列表按它筛选、新建单据按它落店**：
+
+```
+AppHeader 切换器 → storeScope.setActive(id)
+                 → localStorage `manicure:active-store`（刷新/重进还原）
+                 → request.ts 拦截器：config.headers['x-store-id'] = String(id)
+```
+
+- 状态在 `web/src/store/store-scope.ts`（`useStoreScopeStore`）：
+  `stores` / `scope` / `activeStoreId` / `hasSwitcher`；选项来自 `GET /stores/mine`
+  （**登录即可**，不要求 `system:store:list` —— 店长也要看得到自己门店的名字）。
+- `router/guard.ts` 在注册动态路由后 `await ensureLoaded()`（拉不到门店不阻塞导航，顶栏会给提示）；
+  登出（`resetRouteFlag()` / `auth:logout`）时 `reset()`，避免下一个账号继承上一人选的门店。
+- **切换后自动重载**：`useTable` 内置 `watch(activeStoreId)`，35 个列表页一行没改；
+  收银台队列（不走 `useTable`）单独接了一次。
+- 选「全部门店」= `activeStoreId` 为 `null` → **不发这个头**，后端口径回到升级前
+  （超管看全部、店长看可见集合）。
+- 写新页面的口径：列表用 `useTable` **不要自己拼 `?storeId=`**；自绘的非列表视图
+  （统计卡、工作台）要自己 `watch(() => storeScope.activeStoreId)` 重拉数据。
+- **报表中心目前不受切换影响**（报表按店是下一阶段，见 `dev-docs/data/multi-store.md`）。
 
 ## 路由与菜单
 
@@ -112,11 +143,29 @@ if (status === 401 && config && !config._retried && !skipRefresh) {
 ```ts
 // web/src/router/index.ts
 export const constantRoutes = [
-  { path: '/login', name: 'login', component: () => import('../views/login/index.vue'), meta: { title: '登录' } },
-  { path: '/', name: 'layout', component: () => import('../layouts/default.vue'), redirect: '/dashboard',
-    children: [ /* dashboard、profile */ ] },
-  { path: '/403', name: 'forbidden', component: () => import('../views/error/403.vue') },
-  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../views/error/404.vue') },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/login/index.vue'),
+    meta: { title: '登录' },
+  },
+  {
+    path: '/',
+    name: 'layout',
+    component: () => import('../layouts/default.vue'),
+    redirect: '/dashboard',
+    children: [/* dashboard、profile */],
+  },
+  {
+    path: '/403',
+    name: 'forbidden',
+    component: () => import('../views/error/403.vue'),
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('../views/error/404.vue'),
+  },
 ];
 ```
 
@@ -138,10 +187,11 @@ if (!dynamicRoutesAdded) {
 `store/permission.ts` 负责 `RouteNode` → `RouteRecordRaw`：`const viewModules = import.meta.glob('../views/**/*.vue')`，把 `component`（如 `system/users/index`）解析成 `../views/system/users/index.vue`；`type === 'F'`（按钮）直接 `return null`；目录节点（无 `component`）只作布局容器；找不到组件时 fallback 到 404 页。
 
 ::: warning 三个必须知道的注意点
+
 1. **刷新页面靠模块级 flag `dynamicRoutesAdded`**：它在内存里，刷新后必然为 `false`，所以每次刷新都重新拉菜单并注册路由 —— 这就是上面那段「按 path 重新解析」存在的原因；
 2. **`accessToken` 只在内存**：刷新后 `generateRoutes()` 会 401 → 请求层自动刷新换回 token 并重放 → 导航成功。所以 guard 对「有 refreshToken 但无 accessToken」是**先放行**；
 3. **权限变更后必须重新登录或刷新**：`permissions` 来自 accessToken 的 JWT payload，当前会话不会自动感知。
-:::
+   :::
 
 ### 按钮级权限
 
@@ -151,7 +201,7 @@ export const permission: Directive<HTMLElement, string | string[]> = {
   mounted(el, binding) {
     const userStore = useUserStore();
     if (!binding.value) return;
-    if (!userStore.hasPermission(binding.value)) el.parentNode?.removeChild(el);   // 无权限直接移除
+    if (!userStore.hasPermission(binding.value)) el.parentNode?.removeChild(el); // 无权限直接移除
   },
 };
 ```
@@ -162,13 +212,13 @@ export const permission: Directive<HTMLElement, string | string[]> = {
 
 设计文档的取舍口径是「**lew-ui 无可直接复用的组件才自研**，且要在 §10.3 写明理由」（排班周视图、预约日历就是这么留下来的）。所以别用裸 `div` / `button` + 原子类手搓控件，先翻一遍 lew-ui：
 
-| 场景 | 用什么 | 别用 |
-| --- | --- | --- |
-| 分段页签 / 视图切换 | `LewTabs`（`type="block"` + `round` = 分段胶囊，`type="line"` = 下划线式） | 一排 `<button>` + 选中态原子类 |
-| 状态 / 折扣 / 类型小标签 | `LewTag`（`type="light"` + `size="small"`） | `<span>` + 手写 `bg-[...light]` |
-| 金额输入 | `LewInputNumber`（`:min="0"` `:step="0.01"`，`v-model` 绑 **number**） | `LewInput` + 字符串再 `Number()` |
-| 图标按钮 | `<IconButton>`（项目组件，带 `permission`） | 裸 `<button class="icon-btn">` |
-| 加载占位 | `<AppLoading>`（见「加载态与过渡」一节） | 自己写骨架 / 转圈 |
+| 场景                     | 用什么                                                                     | 别用                             |
+| ------------------------ | -------------------------------------------------------------------------- | -------------------------------- |
+| 分段页签 / 视图切换      | `LewTabs`（`type="block"` + `round` = 分段胶囊，`type="line"` = 下划线式） | 一排 `<button>` + 选中态原子类   |
+| 状态 / 折扣 / 类型小标签 | `LewTag`（`type="light"` + `size="small"`）                                | `<span>` + 手写 `bg-[...light]`  |
+| 金额输入                 | `LewInputNumber`（`:min="0"` `:step="0.01"`，`v-model` 绑 **number**）     | `LewInput` + 字符串再 `Number()` |
+| 图标按钮                 | `<IconButton>`（项目组件，带 `permission`）                                | 裸 `<button class="icon-btn">`   |
+| 加载占位                 | `<AppLoading>`（见「加载态与过渡」一节）                                   | 自己写骨架 / 转圈                |
 
 **没有对应组件的**（自研，别重复造）：加载骨架与转圈（`AppLoading`）、周视图排班网格与预约日历（§10.3）、首字圆形头像（`LewAvatar` 只认 `src`，全站 AppHeader / profile 都是首字 `<span>`）。
 
@@ -183,15 +233,21 @@ export const permission: Directive<HTMLElement, string | string[]> = {
  * 后端分页响应无 total 字段，通过多取一条判断 hasMore 估算 total
  */
 async function fetchPage(page = currentPage.value) {
-  const data = await get<PageResult<T>>(options.url, { page, pageSize: pageSize.value + 1, ...extraQuery });
+  const data = await get<PageResult<T>>(options.url, {
+    page,
+    pageSize: pageSize.value + 1,
+    ...extraQuery,
+  });
   const list = data.items.slice(0, pageSize.value);
   hasMore.value = data.items.length > pageSize.value;
   items.value = options.transform ? options.transform(list) : list;
   currentPage.value = data.page;
 }
-const total = computed(() => hasMore.value
-  ? currentPage.value * pageSize.value + 1
-  : (currentPage.value - 1) * pageSize.value + items.value.length);
+const total = computed(() =>
+  hasMore.value
+    ? currentPage.value * pageSize.value + 1
+    : (currentPage.value - 1) * pageSize.value + items.value.length,
+);
 ```
 
 ::: danger 后端分页响应**没有 `total`**
@@ -200,12 +256,12 @@ const total = computed(() => hasMore.value
 
 ### 约定四件套
 
-| 约定 | 怎么做 | 为什么 |
-| --- | --- | --- |
-| **`formKey` 重建表单** | 打开弹窗前 `formKey.value += 1`，模板 `:key="formKey"` | 强制重建 `LewForm`，避免上一次编辑的脏状态残留 |
-| **`setForm` 回填** | `void nextTick(() => formRef.value?.setForm?.({...}))` | 必须在 `nextTick` 里，等重建后的组件挂载完 |
-| **`formOptions` 包 `withPassThroughRule`** | `const formOptions = withPassThroughRule([...])` | 否则非必填 + 真值字段会刷 `The schema does not contain the path: xxx` |
-| **`confirmDanger` 二次确认** | 见下 | 危险操作统一防重入 |
+| 约定                                       | 怎么做                                                 | 为什么                                                                |
+| ------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------------------- |
+| **`formKey` 重建表单**                     | 打开弹窗前 `formKey.value += 1`，模板 `:key="formKey"` | 强制重建 `LewForm`，避免上一次编辑的脏状态残留                        |
+| **`setForm` 回填**                         | `void nextTick(() => formRef.value?.setForm?.({...}))` | 必须在 `nextTick` 里，等重建后的组件挂载完                            |
+| **`formOptions` 包 `withPassThroughRule`** | `const formOptions = withPassThroughRule([...])`       | 否则非必填 + 真值字段会刷 `The schema does not contain the path: xxx` |
+| **`confirmDanger` 二次确认**               | 见下                                                   | 危险操作统一防重入                                                    |
 
 ### 逐条对照一个真实页面
 
@@ -251,20 +307,31 @@ function openEdit(row: CreditAccount) {
 
 **`web/src/components/AppLoading.vue`** 是唯一的加载占位组件（lew-ui 2.8.2 没有 `LewLoading` / `LewSkeleton`）。三种形态按「内容会不会被销毁」区分：
 
-| `variant`  | 场景 | 内容 |
-| --- | --- | --- |
-| `skeleton` | 首屏（列表 / 详情 / 统计卡） | 加载中**隐藏**内容，由骨架撑开高度 |
-| `spinner`  | 首屏，高度不固定的小区域 | 同上，居中转圈 + 文案 |
-| `overlay`  | **刷新 / 局部重载** | 半透明遮罩盖住旧内容，内容**始终挂载** |
+| `variant`  | 场景                         | 内容                                   |
+| ---------- | ---------------------------- | -------------------------------------- |
+| `skeleton` | 首屏（列表 / 详情 / 统计卡） | 加载中**隐藏**内容，由骨架撑开高度     |
+| `spinner`  | 首屏，高度不固定的小区域     | 同上，居中转圈 + 文案                  |
+| `overlay`  | **刷新 / 局部重载**          | 半透明遮罩盖住旧内容，内容**始终挂载** |
 
 ```vue
 <!-- 首屏骨架：卡片形、4 行、最矮 220px -->
-<AppLoading variant="skeleton" shape="card" :rows="4" min-height="220px" :loading="queueLoading">
+<AppLoading
+  variant="skeleton"
+  shape="card"
+  :rows="4"
+  min-height="220px"
+  :loading="queueLoading"
+>
   <MyList />
 </AppLoading>
 
 <!-- 刷新遮罩：图表 / 表单这类「重建就会坏」的内容必须用它 -->
-<AppLoading class="app-card p-5" variant="overlay" text="加载图表数据…" :loading="loading">
+<AppLoading
+  class="app-card p-5"
+  variant="overlay"
+  text="加载图表数据…"
+  :loading="loading"
+>
   <div ref="chartRef" class="h-260px" />
 </AppLoading>
 ```
@@ -307,11 +374,11 @@ async function uploadImage(params: { fileItem: LewUploadFileItem; setFileItem: (
 
 三个必须用的工具模块：
 
-| 模块 | 内容 |
-| --- | --- |
+| 模块                    | 内容                                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `~/utils/upload-images` | `toUploadItems`（反显）/ `toUploadedItem`（上传回填）/ `toImageUrls`（提交，只挑 `complete`、`success`）/ `toSingleImageUrl`（单图字段，无图返回 `null`） |
-| `~/utils/upload-limits` | `MAX_UPLOAD_FILE_SIZE = 10 * 1024 * 1024`（与后端 `MAX_FILE_SIZE` 一致）；`IMAGE_ACCEPT` |
-| `~/utils/form` | `withPassThroughRule` + `PASS_THROUGH_RULE = 'Yup.mixed()'` |
+| `~/utils/upload-limits` | `MAX_UPLOAD_FILE_SIZE = 10 * 1024 * 1024`（与后端 `MAX_FILE_SIZE` 一致）；`IMAGE_ACCEPT`                                                                  |
+| `~/utils/form`          | `withPassThroughRule` + `PASS_THROUGH_RULE = 'Yup.mixed()'`                                                                                               |
 
 ::: danger 不要手写 `{ key, status: 'complete', percent: 100, url }`
 `url` 必须过 `toDisplayImageUrl()` 归一化。`web/src/utils/image-url.ts` 写明了原因：lew-ui 判断「能不能当图片渲染」用的是 **url 是否以图片扩展名结尾**，而预览地址是 `/api/v1/files/:id/download?inline=1` —— 不以扩展名结尾 ⇒ 渲染成**文件图标**。这就是「编辑时**原有**图片能看见、**新传**的图片是个文件图标」的真正原因。归一化做法是给显示态地址补无害参数 `__img=.png`，提交前 `stripDisplayImageUrl()` 剥掉。
@@ -358,23 +425,37 @@ export function formatSize(bytes: number): string { ... }
 
 ```ts
 function startPolling(paymentId: number) {
-  stopPolling(); qrFailures.value = 0;
-  pollTimer = window.setInterval(() => { void pollStatus(paymentId); }, 3000);
+  stopPolling();
+  qrFailures.value = 0;
+  pollTimer = window.setInterval(() => {
+    void pollStatus(paymentId);
+  }, 3000);
 }
 async function pollStatus(paymentId: number) {
   if (qrStatus.value !== 'pending') return;
   try {
     const data = await getPaymentStatus(paymentId);
-    qrFailures.value = 0; qrStatus.value = data.status;
-    if (data.status === 'success') { stopPolling(); stopTick(); qrVisible.value = false; await Promise.all([reloadSelected(), loadQueue()]); }
-    else if (data.status === 'closed' || data.status === 'failed') {
+    qrFailures.value = 0;
+    qrStatus.value = data.status;
+    if (data.status === 'success') {
+      stopPolling();
+      stopTick();
+      qrVisible.value = false;
+      await Promise.all([reloadSelected(), loadQueue()]);
+    } else if (data.status === 'closed' || data.status === 'failed') {
       // 通道侧已定局：停轮询 + **明确告知** + 刷新单据
-      stopPolling(); LewMessage.warning(data.status === 'closed' ? '该支付单已关闭，请重新获取二维码或改现金收款' : '...支付失败...');
+      stopPolling();
+      LewMessage.warning(
+        data.status === 'closed'
+          ? '该支付单已关闭，请重新获取二维码或改现金收款'
+          : '...支付失败...',
+      );
       await Promise.all([reloadSelected(), loadQueue()]);
     }
   } catch {
     // 轮询失败静默重试；连续失败 5 次后停止，避免错误提示刷屏
-    qrFailures.value += 1; if (qrFailures.value >= 5) stopPolling();
+    qrFailures.value += 1;
+    if (qrFailures.value >= 5) stopPolling();
   }
 }
 ```
@@ -396,7 +477,11 @@ async function pollStatus(paymentId: number) {
 ```ts
 // `GET /biz/reports/export` 需要带 Bearer token，而 `window.open` 无法附带 Authorization 头（会 401），
 // 因此这里走 axios（`~/request` 已注入 token）拿 blob 再本地下载。
-const response = await request.get<Blob>('/biz/reports/export', { params: { format: 'csv', ...query }, responseType: 'blob', timeout: 60000 });
+const response = await request.get<Blob>('/biz/reports/export', {
+  params: { format: 'csv', ...query },
+  responseType: 'blob',
+  timeout: 60000,
+});
 ```
 
 ::: tip ECharts 只在首页

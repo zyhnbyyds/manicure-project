@@ -7,6 +7,11 @@ import {
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service.js';
 import { sysStores } from '../../../../database/schema/index.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import {
+  listVisibleStores,
+  type StoreBrief,
+} from '../../../../common/data-scope/store-scope.js';
 import { StorePort, type StoreRow } from '../../common/ports.js';
 import { withoutUndefined } from '../../common/tx.js';
 import type { BizTx } from '../../common/tx.js';
@@ -78,6 +83,30 @@ export class StoresService extends StorePort {
       .limit(pageSize)
       .offset(offset);
     return { items, page, pageSize };
+  }
+
+  /**
+   * 「我可见的门店」——后台顶栏**门店切换器**的数据源。
+   *
+   * 与 `list()`（门店档案管理，要 `system:store:list`、含停用门店）的区别：
+   * 这里登录即可访问、只回**当前账号能用的启用门店**。店长也要在顶栏看到自己门店的名字，
+   * 不该为了这个给他开「门店管理」权限。
+   *
+   * `activeStoreId` 是**复核过**的「当前门店」：请求头里的门店一旦被停用/删除或授权被收回，
+   * 就归一回 `null`（= 全部门店视图），免得顶栏显示一家已不存在的店、列表却是空的。
+   */
+  async listMine(actor: RequestActor | null): Promise<{
+    scope: 'all' | 'stores' | 'none';
+    activeStoreId: number | null;
+    stores: StoreBrief[];
+  }> {
+    const { scope, stores } = await listVisibleStores(this.database.db, actor);
+    const requested = actor?.storeId ?? null;
+    const activeStoreId =
+      requested !== null && stores.some((item) => item.id === requested)
+        ? requested
+        : null;
+    return { scope, activeStoreId, stores };
   }
 
   async listActive(): Promise<StoreRow[]> {

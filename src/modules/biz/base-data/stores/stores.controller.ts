@@ -21,6 +21,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
 import { parsePagination } from '../../common/query.js';
@@ -69,8 +70,8 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
-/** 与其它后台 controller 同款：只取审计需要的当前用户 id */
-type AuthRequest = { user: { id: number } };
+/** 与其它后台 controller 同款：只取审计需要的当前用户 / 门店上下文 */
+type AuthRequest = { user: RequestActor };
 
 registerComponent('CreateStoreRequest', createSchema);
 registerComponent('UpdateStoreRequest', updateSchema);
@@ -78,8 +79,8 @@ registerComponent('UpdateStoreRequest', updateSchema);
 /**
  * 门店档案（连锁直营）。
  *
- * 权限点用 `system:store:*`：门店是**总部配置**（店长自己改不了自己门店的名称/坐标），
- * 现阶段只有 admin（`*:*:*`）能操作；后台「门店管理」页与菜单授权一起在下一阶段补。
+ * 权限点用 `system:store:*`：门店是**总部配置**（店长自己改不了自己门店的名称/坐标）。
+ * 例外是 `GET /stores/mine` —— 顶栏门店切换器要用，登录即可访问（见方法注释）。
  */
 @ApiTags('门店')
 @ApiBearerAuth('access-token')
@@ -104,6 +105,22 @@ export class StoresController {
   ) {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
     return this.stores.list(page, pageSize);
+  }
+
+  @Get('mine')
+  @ApiOperation({
+    summary: '我可见的门店（后台顶栏门店切换器）',
+    description:
+      '登录即可访问，**不需要** `system:store:list`：店长也要在顶栏看到自己门店的名字。\n\n' +
+      '- `scope=all`：可看全部门店（超管 / `system:store:all`），选项里会多一个「全部门店」\n' +
+      '- `scope=stores`：只回授权的门店；`scope=none`：一家可用的都没有（前端常驻提示）\n' +
+      '- `activeStoreId`：当前选中的门店（来自 `x-store-id` 头），已复核可见性；' +
+      '门店被停用/删除或授权被收回时归一回 `null`\n' +
+      '- **不传 `x-store-id` 时，列表口径与升级前完全一致**（超管看全部、店长看可见集合）',
+  })
+  @ApiResponse({ status: 200, description: '成功' })
+  listMine(@Req() request: AuthRequest) {
+    return this.stores.listMine(request.user);
   }
 
   @Post()

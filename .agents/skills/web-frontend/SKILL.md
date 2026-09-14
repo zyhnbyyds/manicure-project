@@ -26,13 +26,13 @@ metadata:
 （排班周视图、预约日历就是这么留下来的）。所以别用裸 `div` / `button` + 原子类手搓
 控件——先翻一遍 lew-ui 有没有现成的：
 
-| 场景 | 用什么 | 别用 |
-| --- | --- | --- |
-| 分段页签 / 视图切换 | `LewTabs`（`type="block"` + `round` 就是分段胶囊；`type="line"` 是下划线式） | 一排 `<button>` + 选中态原子类 |
-| 状态 / 折扣 / 类型小标签 | `LewTag`（`type="light"` + `size="small"`，`color` 取 `LewColor`） | `<span>` + 手写 `bg-[...light] text-[...]` |
-| 金额输入 | `LewInputNumber`（`:min="0"` `:step="0.01"`，`v-model` 是 **number**） | `LewInput` + 字符串再 `Number()` |
-| 图标按钮 | `<IconButton>`（项目组件，带 `permission`） | 裸 `<button class="icon-btn">` |
-| 加载占位 | `<AppLoading>`（见下） | 自己写骨架/转圈 |
+| 场景                     | 用什么                                                                       | 别用                                       |
+| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| 分段页签 / 视图切换      | `LewTabs`（`type="block"` + `round` 就是分段胶囊；`type="line"` 是下划线式） | 一排 `<button>` + 选中态原子类             |
+| 状态 / 折扣 / 类型小标签 | `LewTag`（`type="light"` + `size="small"`，`color` 取 `LewColor`）           | `<span>` + 手写 `bg-[...light] text-[...]` |
+| 金额输入                 | `LewInputNumber`（`:min="0"` `:step="0.01"`，`v-model` 是 **number**）       | `LewInput` + 字符串再 `Number()`           |
+| 图标按钮                 | `<IconButton>`（项目组件，带 `permission`）                                  | 裸 `<button class="icon-btn">`             |
+| 加载占位                 | `<AppLoading>`（见下）                                                       | 自己写骨架/转圈                            |
 
 **目前没有对应组件的**（自研，别重复造）：加载骨架/转圈（`AppLoading`）、
 周视图排班网格与预约日历（§10.3 已说明）、首字圆形头像（`LewAvatar` 只认 `src`，
@@ -43,14 +43,20 @@ metadata:
 lew-ui 2.8.2 没有 `LewLoading` / `LewSkeleton`，所以自己封了一个，三种形态按
 **「内容会不会被销毁」**区分：
 
-| `variant` | 场景 | 行为 |
-| --- | --- | --- |
+| `variant`  | 场景                         | 行为                                                                        |
+| ---------- | ---------------------------- | --------------------------------------------------------------------------- |
 | `skeleton` | 首屏（列表 / 详情 / 统计卡） | 隐藏内容，骨架撑开高度（`shape="line"` \| `"card"`、`:rows`、`min-height`） |
-| `spinner` | 高度不固定的小区域 | 转圈 + 文案（`align="start"` 可塞进一行文字里） |
-| `overlay` | **刷新 / 局部重载** | 半透明遮罩盖住旧内容，**内容始终挂载** |
+| `spinner`  | 高度不固定的小区域           | 转圈 + 文案（`align="start"` 可塞进一行文字里）                             |
+| `overlay`  | **刷新 / 局部重载**          | 半透明遮罩盖住旧内容，**内容始终挂载**                                      |
 
 ```vue
-<AppLoading variant="skeleton" shape="card" :rows="4" min-height="220px" :loading="queueLoading">
+<AppLoading
+  variant="skeleton"
+  shape="card"
+  :rows="4"
+  min-height="220px"
+  :loading="queueLoading"
+>
   <MyList />
 </AppLoading>
 ```
@@ -142,7 +148,9 @@ lew-ui 2.8.2 没有 `LewLoading` / `LewSkeleton`，所以自己封了一个，�
 - `uploadHelper({ fileItem, setFileItem })` 被调用时自己上传，成功后**用 `toUploadedItem` 回填**：
   ```ts
   const uploaded = await uploadFile(file);
-  setFileItem(toUploadedItem(fileItem.key, filePreviewUrl(uploaded.id), fileItem.name));
+  setFileItem(
+    toUploadedItem(fileItem.key, filePreviewUrl(uploaded.id), fileItem.name),
+  );
   // 失败：setFileItem({ key: fileItem.key, status: 'fail', percent: 0 })
   ```
   **不要手写 `{ key, status: 'complete', percent: 100, url }`** —— `url` 必须过显示态归一化，
@@ -168,7 +176,7 @@ lew-ui 2.8.2 没有 `LewLoading` / `LewSkeleton`，所以自己封了一个，�
 ```ts
 import { openImagePreview } from '~/composables/useImagePreview';
 
-openImagePreview(urls, startIndex, '图集名');   // 空数组自动忽略；下标越界自动夹回
+openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下标越界自动夹回
 ```
 
 **不要**再用 `window.open` / `<a target="_blank">` 预览图片（会跳出后台丢上下文），
@@ -224,3 +232,8 @@ openImagePreview(urls, startIndex, '图集名');   // 空数组自动忽略；�
   踩过：美甲师「可做项目」抽屉第一次打开空白。详见 `docs/pitfalls/web.md` §14。
 - 浮层盖在 lew-ui 弹窗上时：`z-index` 要用任意值语法（`z-[3000]`，`z-3000` 不会被生成），
   并且 `Esc` 要在**捕获阶段**拦掉，否则会连底下的弹窗一起关。详见 `docs/pitfalls/web.md` §10。
+- **列表接口手拼 `?storeId=`** → 门店是**请求级上下文**：顶栏切换器写 `x-store-id` 头
+  （`store/store-scope.ts` + `request.ts` 拦截器），后端所有单据表都按它筛（列表）/落店（写入）。
+  列表用 `useTable` 就好（它内置 `watch(activeStoreId)` 自动重载）；只有自绘的非列表视图
+  （统计卡 / 工作台 / 收银台队列）才需要自己 `watch` 一次。自己拼参数迟早漏，
+  漏了就是「看着 A 店的列表、建出来的单在 B 店」。见 `dev-docs/data/multi-store.md`。

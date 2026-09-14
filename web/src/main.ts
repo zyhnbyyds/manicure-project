@@ -9,6 +9,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import permission from './directives/permission';
 import router from './router';
+import { useStoreScopeStore } from './store/store-scope';
 import { useUserStore } from './store/user';
 
 const app = createApp(App);
@@ -22,6 +23,7 @@ app.directive('permission', permission);
 window.addEventListener('auth:logout', () => {
   const userStore = useUserStore();
   userStore.reset();
+  useStoreScopeStore().reset();
   window.location.href = '/login';
 });
 

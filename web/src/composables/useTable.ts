@@ -1,6 +1,7 @@
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import type { PageResult } from '~/types/api';
 import { get } from '~/request';
+import { useStoreScopeStore } from '~/store/store-scope';
 
 export interface UseTableOptions<T, Q extends Record<string, unknown>> {
   /** 请求路径 */
@@ -65,6 +66,21 @@ export function useTable<
     pageSize.value = data.pageSize;
     return fetchPage(data.currentPage);
   }
+
+  /**
+   * 顶栏切换门店 → 当前列表自动从第 1 页重载。
+   *
+   * 放在这里而不是每个页面自己 `watch`：门店筛选是**横切**的（后端所有接了门店的单据表
+   * 都按 `x-store-id` 过滤），逐个页面接迟早会漏，漏了就是「切了店但列表还是旧数据」。
+   * 不接门店的后端会忽略这个头，代价只是一次多余请求（切换是低频动作）。
+   */
+  const storeScope = useStoreScopeStore();
+  watch(
+    () => storeScope.activeStoreId,
+    () => {
+      void search();
+    },
+  );
 
   return {
     items,

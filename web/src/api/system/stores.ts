@@ -1,4 +1,4 @@
-import type { PageResult, Store, StoreBody } from '~/types/api';
+import type { MyStoresResult, PageResult, Store, StoreBody } from '~/types/api';
 import { del, get, patch, post, put } from '~/request';
 
 /**
@@ -22,6 +22,16 @@ export function updateStore(id: number, body: Partial<StoreBody>) {
 /** 设为默认门店：后端在同一事务里清掉原默认 */
 export function setDefaultStore(id: number) {
   return post<{ ok: boolean }>(`/stores/${id}/default`);
+}
+
+/**
+ * 我可见的门店（后台顶栏门店切换器）。
+ *
+ * 与 `listStores`（门店档案管理，要 `system:store:list`、含停用门店）不同：
+ * 这个接口**登录即可**，只回当前账号能用的启用门店。
+ */
+export function getMyStores() {
+  return get<MyStoresResult>('/stores/mine');
 }
 
 export function deleteStore(id: number) {

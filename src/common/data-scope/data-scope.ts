@@ -8,11 +8,25 @@ import {
   type relations,
 } from '../../database/schema/index';
 
+/**
+ * 请求头里的「当前门店」（后台顶栏的门店切换器）。
+ *
+ * 刻意**不放 JWT**：与 `resolveDataScope` 同一取舍 —— 切门店后立刻生效，
+ * 不用等重新登录换 token；同时后端仍然要按 `sys_user_store` 复核可见性，
+ * 所以这个头只是「用户想在哪家店干活」的意图，不是权限。
+ */
+export const STORE_HEADER = 'x-store-id';
+
 /** 当前请求操作人（来自 JWT claims，与 AccessTokenGuard 设置的 request.user 一致） */
 export type RequestActor = {
   id: number;
   roles: string[];
   permissions: string[];
+  /**
+   * 当前门店（来自 `x-store-id` 头，见 `STORE_HEADER`）。
+   * 非法/未传 = undefined；可见性由 `resolveStoreScope` 复核。
+   */
+  storeId?: number | undefined;
 };
 
 /** 解析后的数据权限范围 */

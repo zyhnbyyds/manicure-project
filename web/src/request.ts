@@ -1,7 +1,11 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { LewMessage } from 'lew-ui';
 import { REFRESH_TOKEN_KEY, useUserStore } from '~/store/user';
+import { useStoreScopeStore } from '~/store/store-scope';
 import type { LoginResult } from '~/types/api';
+
+/** 同一个 key 必须与后端 `STORE_HEADER`（src/common/data-scope/data-scope.ts）一致 */
+const STORE_HEADER = 'x-store-id';
 
 /** 业务错误（后端无统一包裹层，直接用 HTTP 状态码 + message） */
 export class ApiError extends Error {
@@ -26,11 +30,23 @@ const request = axios.create({
   timeout: 15000,
 });
 
-// ---------- 请求拦截器：注入 token ----------
+// ---------- 请求拦截器：注入 token + 当前门店 ----------
 request.interceptors.request.use((config) => {
   const userStore = useUserStore();
   if (userStore.accessToken) {
     config.headers.Authorization = `Bearer ${userStore.accessToken}`;
+  }
+  /**
+   * 「当前门店」（顶栏切换器选择）统一以请求头下发。
+   *
+   * 放在这一层而不是各页面拼 `?storeId=`：门店是**请求级上下文** ——
+   * 列表要按它筛选、新建单据要按它落店（后端 `resolveStoreScope` 兜底），
+   * 每个接口各自拼一遍迟早会漏（漏了就是「在 B 店建单落到 A 店」这种脏数据）。
+   * 未选门店（= 全部门店视图）时不发这个头，后端行为与升级前完全一致。
+   */
+  const storeScope = useStoreScopeStore();
+  if (storeScope.activeStoreId !== null) {
+    config.headers[STORE_HEADER] = String(storeScope.activeStoreId);
   }
   // 每次请求带一个请求号：后端 Fastify 用它当 reqId 写日志、并回填进异常响应
   if (!config.headers['request-id']) {

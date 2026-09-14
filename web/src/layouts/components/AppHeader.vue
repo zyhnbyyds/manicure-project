@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Bot, Github, Moon, Palette, Sun } from 'lucide-vue-next';
+import {
+  AlertTriangle,
+  Bot,
+  ChevronDown,
+  Github,
+  Moon,
+  Palette,
+  Store as StoreIcon,
+  Sun,
+} from 'lucide-vue-next';
 import { LewDropdown, LewMessage } from 'lew-ui';
 import type { LewContextMenusOption } from 'lew-ui';
 import { logout as logoutApi } from '~/api/auth';
+import { useStoreScopeStore } from '~/store/store-scope';
 import { useUserStore } from '~/store/user';
 import { useSettingsStore } from '~/store/settings';
 import { resetRouteFlag } from '~/router/guard';
@@ -13,6 +24,60 @@ const emit = defineEmits<{ openTheme: []; openAi: [] }>();
 const router = useRouter();
 const userStore = useUserStore();
 const settings = useSettingsStore();
+const storeScope = useStoreScopeStore();
+
+/** 切换器里代表「全部门店」的哨兵值（`value` 是 string，且 0 在 lew-ui 里不当真值） */
+const ALL_STORES = 'all';
+
+/**
+ * 一个下拉项。
+ *
+ * `checkable: true` 不能省：lew-ui 的 `LewContextMenu` **只看 option 上的 `checkable`**
+ * 来决定要不要渲染勾选列（dropdown 自己的 `checkable` prop 不参与这段逻辑）——
+ * 漏了就变成「所有项都看不出当前选中」，只能靠 trigger 上的文案猜。
+ */
+function storeOption(
+  label: string,
+  value: string,
+  active: boolean,
+): LewContextMenusOption {
+  return { label, value, checkable: true, checked: active, active };
+}
+
+/**
+ * 门店切换器选项。
+ *
+ * 「全部门店」= 不按门店筛选（`activeStoreId` 为 null）：
+ * 超管看到的是全部门店合并，店长看到的是自己那几家的合并 —— 选项列表本身就只含
+ * 他可见的门店，所以这个说法不会让人误会成「看到了别人的店」。
+ */
+const storeOptions = computed<LewContextMenusOption[]>(() => [
+  storeOption('全部门店', ALL_STORES, storeScope.activeStoreId === null),
+  ...storeScope.stores.map((store) =>
+    storeOption(
+      store.isDefault ? `${store.name}（默认）` : store.name,
+      String(store.id),
+      storeScope.activeStoreId === store.id,
+    ),
+  ),
+]);
+
+/**
+ * 切换门店：只改本地上下文（`request.ts` 会把 `x-store-id` 带到之后每个请求），
+ * 列表页由 `useTable` 监听 `activeStoreId` 自动重载 —— 这里不发任何请求，
+ * 所以不需要 loading，但必须给一条结果反馈，否则用户不知道「切成功了没」。
+ */
+function handleStoreChange(option: LewContextMenusOption) {
+  const value = String(option.value ?? '');
+  const next = value === ALL_STORES ? null : Number(value);
+  if (next === storeScope.activeStoreId) return;
+  const label =
+    next === null
+      ? '全部门店'
+      : (storeScope.stores.find((store) => store.id === next)?.name ?? '门店');
+  storeScope.setActive(next);
+  LewMessage.success(`已切换到「${label}」`);
+}
 
 async function handleLogout() {
   try {
@@ -48,6 +113,42 @@ function toggleDark() {
     </div>
 
     <div class="flex items-center gap-2">
+      <!-- 门店切换器：多店（可见门店 > 1）才显示，单店期不该让运营看见这个概念 -->
+      <LewDropdown
+        v-if="storeScope.hasSwitcher"
+        trigger="click"
+        :options="storeOptions"
+        @change="handleStoreChange"
+      >
+        <button
+          class="flex items-center gap-1.5 h-30px px-2.5 border-none rounded-full bg-transparent cursor-pointer transition-colors duration-200 hover:bg-[var(--app-bg-hover)]"
+          :title="`当前门店：${storeScope.activeLabel}（列表与新建单据都按它走）`"
+        >
+          <StoreIcon
+            :size="15"
+            class="shrink-0 text-[var(--app-text-secondary)]"
+          />
+          <span
+            class="max-w-110px truncate text-13px text-[var(--app-text-primary)]"
+            >{{ storeScope.activeLabel }}</span
+          >
+          <ChevronDown
+            :size="13"
+            class="shrink-0 text-[var(--app-text-secondary)]"
+          />
+        </button>
+      </LewDropdown>
+
+      <!-- 未分配门店：常驻提示（不是静默的空列表，也不是每次刷新弹一次错误框） -->
+      <span
+        v-else-if="storeScope.loaded && storeScope.scope === 'none'"
+        class="flex items-center gap-1.5 h-30px px-2.5 rounded-full bg-[var(--lew-color-warning-light)] text-12px text-[var(--lew-color-warning)]"
+        title="当前账号未分配门店：预约 / 收款 / 顾客等业务数据都会是空的，请在「用户管理 → 设置可见门店」里分配"
+      >
+        <AlertTriangle :size="14" class="shrink-0" />
+        未分配门店
+      </span>
+
       <!-- 暗色切换 -->
       <button class="icon-btn" title="切换暗色模式" @click="toggleDark">
         <Moon v-if="!settings.isDark" :size="17" />

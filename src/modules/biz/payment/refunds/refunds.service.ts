@@ -537,7 +537,7 @@ export class RefundsService extends RefundPort {
         filter.storeId ?? null,
       );
       conditions.push(
-        ...storeConditions(bizRefunds.storeId, store.scope, filter.storeId),
+        ...storeConditions(bizRefunds.storeId, store, filter.storeId),
       );
     }
     if (filter.status) conditions.push(eq(bizRefunds.status, filter.status));

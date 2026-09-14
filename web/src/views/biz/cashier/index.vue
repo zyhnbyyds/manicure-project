@@ -47,6 +47,7 @@ import { getMember, type MemberDetail } from '~/api/biz/members';
 import { listMemberCards, type MemberCard } from '~/api/biz/member-cards';
 import { previewPoints, type PointsPreview } from '~/api/biz/points-goods';
 import { formatDateTime } from '~/composables/useFormat';
+import { useStoreScopeStore } from '~/store/store-scope';
 import { ApiError } from '~/request';
 import { confirmDanger } from '~/utils/confirm';
 import AppLoading from '~/components/AppLoading.vue';
@@ -206,6 +207,20 @@ async function loadQueue() {
   }
 }
 void loadQueue();
+
+/**
+ * 顶栏切换门店 → 队列跟着换。
+ *
+ * 队列的语义就是「**本店**待收款」，切了店还留着旧队列，收款时很容易点错单据。
+ * 队列没走 `useTable`（三条查询拼成一个列表），所以这里单独接一次。
+ */
+const storeScope = useStoreScopeStore();
+watch(
+  () => storeScope.activeStoreId,
+  () => {
+    void loadQueue();
+  },
+);
 
 /** 队列卡片右上角的折扣角标（未打折 / 列表未返回折扣率时不显示） */
 function discountTag(item: CashierBooking): string | null {

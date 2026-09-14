@@ -271,7 +271,8 @@ export class BookingsService implements BookingPort {
   ) {
     const bookingConfig = await this.config.booking();
     const scope = await this.resolveScope(actor);
-    // 门店维度：店长只看本店、超管可筛（未分配门店的账号在这里直接 403）
+    // 门店维度：店长只看本店、超管可筛；顶栏切换器选中的门店也在这里生效
+    // （未分配门店的账号在这里直接 403）
     const store = await resolveStoreScope(
       this.database.db,
       actor,
@@ -279,7 +280,7 @@ export class BookingsService implements BookingPort {
     );
     const where = andConditions([
       isNull(bizBookings.deletedAt),
-      ...storeConditions(bizBookings.storeId, store.scope, filter.storeId),
+      ...storeConditions(bizBookings.storeId, store, filter.storeId),
       filter.staffId ? eq(bizBookings.staffId, filter.staffId) : undefined,
       filter.status ? eq(bizBookings.status, filter.status) : undefined,
       filter.payStatus

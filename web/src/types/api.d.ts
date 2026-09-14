@@ -131,6 +131,26 @@ export interface StoreBody {
   remark?: string | null;
 }
 
+/** 顶栏门店切换器的一项（GET /stores/mine） */
+export interface MyStore {
+  id: number;
+  code: string;
+  name: string;
+  isDefault: boolean;
+}
+
+/** GET /stores/mine 返回：我可见的门店 + 当前选中的门店 */
+export interface MyStoresResult {
+  /** `all` = 可看全部门店（超管 / system:store:all）；`stores` = 只有授权的门店；`none` = 一家可用的都没有 */
+  scope: 'all' | 'stores' | 'none';
+  /**
+   * 当前选中的门店（服务端按可见性复核过）；`null` = 未选，
+   * 此时列表口径 = 可见范围内的全部门店（超管=全部，店长=自己的门店集合）。
+   */
+  activeStoreId: number | null;
+  stores: MyStore[];
+}
+
 /** GET /auth/profile 返回的当前用户资料 */
 export interface Profile {
   id: number;

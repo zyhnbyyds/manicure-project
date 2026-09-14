@@ -417,3 +417,155 @@ describe('门店筛选：收款 / 退款 / 应收列表同一口径', () => {
     expect(receivables.body.items).toHaveLength(0);
   });
 });
+
+/**
+ * 门店切换器（阶段 1.7）。
+ *
+ * 「当前门店」不是 JWT 里的东西，而是**每个请求带的 `x-store-id` 头**（后台顶栏切换器），
+ * 服务端复核可见性后：**列表按它筛选、新建单据按它落店**。三条口径必须同时成立，
+ * 否则就会出现「看着 A 店的列表、建出来的单在 B 店」这种最难查的脏数据。
+ */
+describe('门店切换器：x-store-id 头 = 当前门店', () => {
+  /** 默认门店（MAIN）的 id */
+  async function mainStoreId(): Promise<number> {
+    const rows = await ctx.sql<{ id: number }[]>(
+      `SELECT id FROM sys_store WHERE code = 'MAIN'`,
+    );
+    return rows[0]!.id;
+  }
+
+  it('GET /stores/mine：超管=全部门店，店长=授权门店，未分配=none（不报 403）', async () => {
+    const storeA = await mainStoreId();
+    const storeB = await seedStore('XJH', '徐家汇店');
+    const storeC = await seedStore('PD', '浦东店');
+
+    // 超管：可切到任意门店，选项里含「全部门店」（activeStoreId = null）
+    const admin = await ctx.request('GET', '/api/v1/stores/mine', {});
+    expect(admin.status).toBe(200);
+    expect(admin.body.scope).toBe('all');
+    expect(
+      (admin.body.stores as { id: number }[]).map((item) => item.id).sort(),
+    ).toEqual([storeA, storeB, storeC].sort());
+    expect(admin.body.activeStoreId).toBeNull();
+
+    // 店长：只拿到自己被授权的那家
+    await bindUser1([storeB]);
+    const manager = await ctx.request('GET', '/api/v1/stores/mine', {
+      token: await storeManagerToken(),
+    });
+    expect(manager.status).toBe(200);
+    expect(manager.body.scope).toBe('stores');
+    expect(
+      (manager.body.stores as { id: number }[]).map((item) => item.id),
+    ).toEqual([storeB]);
+
+    // 未分配门店：这里返回 none 而**不是 403** —— 顶栏要能常驻提示「未分配门店」，
+    // 而不是每翻一个页面就弹一次错误框（业务接口仍然 403，见上一组用例）
+    await bindUser1([]);
+    const none = await ctx.request('GET', '/api/v1/stores/mine', {
+      token: await storeManagerToken(),
+    });
+    expect(none.status).toBe(200);
+    expect(none.body.scope).toBe('none');
+    expect(none.body.stores).toEqual([]);
+  });
+
+  it('带 x-store-id 时列表按该门店筛选；不可见 / 非法的值被静默忽略', async () => {
+    const storeA = await mainStoreId();
+    const storeB = await seedStore('XJH', '徐家汇店');
+    const row = await seedBase();
+    await seedBooking(storeA, row, `${date}T10:00:00+08:00`);
+    await seedBooking(storeB, row, `${date}T14:00:00+08:00`);
+
+    // 超管：不带 = 全部门店合并（升级前的行为不变）
+    const all = await ctx.request(
+      'GET',
+      '/api/v1/biz/bookings?page=1&pageSize=20',
+      {},
+    );
+    expect(all.body.items).toHaveLength(2);
+
+    // 超管切到 B 店 → 只剩 B
+    const scoped = await ctx.request(
+      'GET',
+      '/api/v1/biz/bookings?page=1&pageSize=20',
+      { headers: { 'x-store-id': String(storeB) } },
+    );
+    expect(scoped.status).toBe(200);
+    expect(scoped.body.items).toHaveLength(1);
+    expect(scoped.body.items[0].storeId).toBe(storeB);
+
+    // 店长绑 B、头里塞了不可见的 A → 当没传（不是 403：那不是他的显式筛选，
+    // 常见于「授权刚被收回」「换了台机器还留着上次的选择」），仍只看得到自己的 B
+    await bindUser1([storeB]);
+    const manager = await ctx.request(
+      'GET',
+      '/api/v1/biz/bookings?page=1&pageSize=20',
+      {
+        token: await storeManagerToken(),
+        headers: { 'x-store-id': String(storeA) },
+      },
+    );
+    expect(manager.status).toBe(200);
+    expect(manager.body.items).toHaveLength(1);
+    expect(manager.body.items[0].storeId).toBe(storeB);
+
+    // 非法头（非数字 / 0 / 负数）等同没传，不能把请求打成 400 或筛成空列表
+    for (const bad of ['abc', '0', '-3', '1.5']) {
+      const res = await ctx.request(
+        'GET',
+        '/api/v1/biz/bookings?page=1&pageSize=20',
+        { headers: { 'x-store-id': bad } },
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(2);
+    }
+  });
+
+  it('带 x-store-id 建单 → 落在该门店；显式 storeId 仍然优先', async () => {
+    const storeA = await mainStoreId();
+    const storeB = await seedStore('XJH', '徐家汇店');
+    const row = await seedBase();
+    const draft = (startAt: string) => ({
+      customerId: row.customerId,
+      staffId: row.staffId,
+      startAt,
+      serviceItemIds: [row.serviceItemId],
+      payMode: 'full',
+      payments: [{ channel: 'cash', amount: 10000 }],
+    });
+    const storeOf = async (bookingId: number): Promise<number> => {
+      const [booking] = await ctx.sql<{ store_id: number }[]>(
+        `SELECT store_id FROM biz_booking WHERE id = ?`,
+        [bookingId],
+      );
+      return Number(booking!.store_id);
+    };
+
+    // 超管把切换器切到 B 店 → 建单落 B，不必每次手填 storeId
+    const byHeader = await ctx.request('POST', '/api/v1/biz/bookings', {
+      headers: { 'x-store-id': String(storeB) },
+      body: draft(`${date}T10:00:00+08:00`),
+    });
+    expect(byHeader.status).toBe(201);
+    expect(await storeOf(byHeader.body.id)).toBe(storeB);
+
+    // 表单里显式选了门店 → 以显式为准（切在 B 店，这一单指定落 A 店）
+    const explicit = await ctx.request('POST', '/api/v1/biz/bookings', {
+      headers: { 'x-store-id': String(storeB) },
+      body: { ...draft(`${date}T15:00:00+08:00`), storeId: storeA },
+    });
+    expect(explicit.status).toBe(201);
+    expect(await storeOf(explicit.body.id)).toBe(storeA);
+
+    // 店长绑 B、头里塞不可见的 A → 落自己的 B（既不 403，也绝不会落到别人的店）
+    await bindUser1([storeB]);
+    const manager = await ctx.request('POST', '/api/v1/biz/bookings', {
+      token: await storeManagerToken(),
+      headers: { 'x-store-id': String(storeA) },
+      body: draft(`${date}T17:00:00+08:00`),
+    });
+    expect(manager.status).toBe(201);
+    expect(await storeOf(manager.body.id)).toBe(storeB);
+  });
+});

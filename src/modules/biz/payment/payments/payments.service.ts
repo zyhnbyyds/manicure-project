@@ -798,7 +798,7 @@ export class PaymentsService extends PaymentPort {
         filter.storeId ?? null,
       );
       conditions.push(
-        ...storeConditions(bizPayments.storeId, store.scope, filter.storeId),
+        ...storeConditions(bizPayments.storeId, store, filter.storeId),
       );
     }
     if (filter.channel)
