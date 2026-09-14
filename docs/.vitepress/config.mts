@@ -140,6 +140,7 @@ export default defineConfig({
           items: [
             { text: '后台管理端总览', link: '/admin/' },
             { text: '用户与角色', link: '/admin/users-roles' },
+            { text: '门店与连锁', link: '/admin/stores' },
             {
               text: '菜单 · 部门 · 岗位 · 字典 · 参数',
               link: '/admin/menus-depts',

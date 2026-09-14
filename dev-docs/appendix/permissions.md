@@ -22,6 +22,10 @@ title: 权限点与菜单清单
 层级取自 `parentKey`（父菜单的 `name`）；顶层节点的 `parentKey` 为空，落库时 `parent_id = 0`。`sort` 同级递增，业务页面的 `sort` 等于它在 `BIZ_PAGES` 中的下标 + 1。
 
 - `dashboard` 首页 · `C` · `/dashboard` · `dashboard/index` · icon `home` · sort 1 · （无权限点）
+  - `dashboard_home_overview` 首页-经营概览（轻量，不含金额） · `F` · `biz:report:home` · sort 1
+    （**首页菜单本身不设权限点**：三个默认角色都看得到首页。经营概览的金额可见性由权限点决定 ——
+    `biz:report:view` 给全量版，`biz:report:home` 给轻量版；
+    挂在首页的**按钮行**而不是首页菜单上，否则美甲师会自动拿到它，而美甲师通常没绑门店 → 一进首页就 403）
 - `system` 系统管理 · `M` · `/system` · icon `setting` · sort 2
   - `system_users` 用户管理 · `C` · `/system/users` · `system/users/index` · `system:user:list` · icon `user` · sort 1
   - `system_roles` 角色管理 · `C` · `/system/roles` · `system/roles/index` · `system:role:list` · icon `role` · sort 2
@@ -161,114 +165,115 @@ title: 权限点与菜单清单
 
 `所属菜单`列对页面级权限点填页面自身，对按钮级权限点填它挂载的页面。类型中「菜单」=落在 `C` 行，「按钮」=落在 `F` 行。共 **106** 行，穷举无抽样。
 
-| 权限点字符串              | 中文名称           | 所属菜单   | 类型 | 典型用途                                                               |
-| ------------------------- | ------------------ | ---------- | ---- | ---------------------------------------------------------------------- |
-| `system:user:list`        | 用户管理           | 用户管理   | 菜单 | 进入用户管理页、查询用户列表                                           |
-| `system:role:list`        | 角色管理           | 角色管理   | 菜单 | 进入角色管理页、查看角色与已授权菜单                                   |
-| `system:menu:list`        | 菜单管理           | 菜单管理   | 菜单 | 进入菜单管理页、读取菜单树                                             |
-| `system:dept:list`        | 部门管理           | 部门管理   | 菜单 | 进入部门管理页、读取部门树                                             |
-| `system:post:list`        | 岗位管理           | 岗位管理   | 菜单 | 进入岗位管理页                                                         |
-| `system:dict:list`        | 字典管理           | 字典管理   | 菜单 | 进入字典管理页、读取字典类型与字典数据                                 |
-| `system:config:list`      | 参数配置           | 参数配置   | 菜单 | 进入参数配置页、按 key 读取参数                                        |
-| `monitor:loginlog:list`   | 登录日志           | 登录日志   | 菜单 | 进入登录日志页                                                         |
-| `monitor:operlog:list`    | 操作日志           | 操作日志   | 菜单 | 进入操作日志页                                                         |
-| `monitor:online:list`     | 在线用户           | 在线用户   | 菜单 | 进入在线用户页                                                         |
-| `monitor:cache:list`      | 缓存监控           | 缓存监控   | 菜单 | 进入缓存监控页                                                         |
-| `system:job:list`         | 定时任务           | 定时任务   | 菜单 | 进入定时任务页、查看任务与执行日志                                     |
-| `system:file:list`        | 文件管理           | 文件管理   | 菜单 | 进入文件管理页、下载文件                                               |
-| `system:generator:list`   | 代码生成器         | 代码生成器 | 菜单 | 进入代码生成器页、预览生成结果                                         |
-| `ai:chat`                 | AI 操作            | AI 操作    | 菜单 | 进入 AI 页，会话 / 消息 / 操作意图 / 任务的全部读写                    |
-| `biz:serviceitem:list`    | 服务项目           | 服务项目   | 菜单 | 进入页面、读取服务项目列表与详情                                       |
-| `biz:staff:list`          | 美甲师             | 美甲师     | 菜单 | 进入页面、读取美甲师列表、详情与其可做项目                             |
-| `biz:staff:grant`         | 工作台授权         | 工作台授权 | 菜单 | 一个点管住整页：工作台开通申请的列表、通过、驳回                       |
-| `biz:schedule:list`       | 排班管理           | 排班管理   | 菜单 | 进入页面、读取周模板与日期例外                                         |
-| `biz:customer:list`       | 顾客档案           | 顾客档案   | 菜单 | 进入页面、读取顾客列表/详情/其预约                                     |
-| `biz:booking:list`        | 预约管理           | 预约管理   | 菜单 | 进入页面、预约列表、可约时段、预约详情、顾客简要信息                   |
-| `biz:memberlevel:list`    | 会员等级           | 会员等级   | 菜单 | 进入页面、读取会员等级列表与详情                                       |
-| `biz:rechargeplan:list`   | 充值方案           | 充值方案   | 菜单 | 进入页面、读取充值方案                                                 |
-| `biz:cardtype:list`       | 次卡卡种           | 次卡卡种   | 菜单 | 进入页面、读取卡种列表与详情                                           |
-| `biz:member:list`         | 会员管理           | 会员管理   | 菜单 | 进入页面、会员列表/详情/流水/已发券、积分试算                          |
-| `biz:card:list`           | 会员次卡           | 会员次卡   | 菜单 | 进入页面、读取会员持卡列表与详情                                       |
-| `biz:payment:list`        | 支付流水           | 支付流水   | 菜单 | 进入页面、支付单列表/详情/渠道状态查询                                 |
-| `biz:refund:list`         | 退款审批           | 退款审批   | 菜单 | 进入页面、退款申请列表                                                 |
-| `biz:credit:list`         | 挂账主体           | 挂账主体   | 菜单 | 进入页面、读取挂账主体（顾客/公司/员工）                               |
-| `biz:receivable:list`     | 应收台账           | 应收台账   | 菜单 | 进入页面、应收台账列表与账龄汇总                                       |
-| `biz:pointsgoods:list`    | 积分兑换品         | 积分兑换品 | 菜单 | 进入页面、读取兑换品列表与详情                                         |
-| `biz:coupon:list`         | 优惠券模板         | 优惠券模板 | 菜单 | 进入页面、读取券模板列表与详情                                         |
-| `biz:review:list`         | 评价管理           | 评价管理   | 菜单 | 进入页面、评价列表（美甲师身份再被二次收窄）                           |
-| `biz:report:view`         | 报表中心           | 报表中心   | 菜单 | 营收/服务/美甲师/会员/应收 5 类报表的查看                              |
-| `biz:commission:list`     | 提成结算           | 提成结算   | 菜单 | 进入页面、读取提成明细                                                 |
-| `biz:recurrence:list`     | 周期预约           | 周期预约   | 菜单 | 进入页面、读取规则列表与已生成单据                                     |
-| `biz:notice:template`     | 通知模板           | 通知模板   | 菜单 | 进入页面、模板的增删改查                                               |
-| `biz:notice:log`          | 通知记录           | 通知记录   | 菜单 | 进入页面、读取发送记录与详情                                           |
-| `biz:serviceitem:create`  | 服务项目-create    | 服务项目   | 按钮 | 新建服务项目                                                           |
-| `biz:serviceitem:update`  | 服务项目-update    | 服务项目   | 按钮 | 修改服务项目                                                           |
-| `biz:serviceitem:delete`  | 服务项目-delete    | 服务项目   | 按钮 | 删除服务项目（有引用则被拒）                                           |
-| `biz:staff:create`        | 美甲师-create      | 美甲师     | 按钮 | 新建美甲师档案                                                         |
-| `biz:staff:update`        | 美甲师-update      | 美甲师     | 按钮 | 修改美甲师档案                                                         |
-| `biz:staff:delete`        | 美甲师-delete      | 美甲师     | 按钮 | 删除美甲师                                                             |
-| `biz:staff:items`         | 美甲师-items       | 美甲师     | 按钮 | 维护「某美甲师可做哪些项目」                                           |
-| `biz:schedule:update`     | 排班管理-update    | 排班管理   | 按钮 | 整体替换周模板、增删日期例外（请假/自定义）                            |
-| `biz:customer:create`     | 顾客档案-create    | 顾客档案   | 按钮 | 新建顾客（手机号唯一 + 软删策略）                                      |
-| `biz:customer:update`     | 顾客档案-update    | 顾客档案   | 按钮 | 修改顾客、重算派生字段、恢复软删顾客                                   |
-| `biz:customer:delete`     | 顾客档案-delete    | 顾客档案   | 按钮 | 软删顾客                                                               |
-| `biz:booking:create`      | 预约管理-create    | 预约管理   | 按钮 | 创建预约                                                               |
-| `biz:booking:update`      | 预约管理-update    | 预约管理   | 按钮 | 改期、确认、重算（recount）                                            |
-| `biz:booking:cancel`      | 预约管理-cancel    | 预约管理   | 按钮 | 取消预约                                                               |
-| `biz:booking:arrive`      | 预约管理-arrive    | 预约管理   | 按钮 | 标记到店                                                               |
-| `biz:booking:complete`    | 预约管理-complete  | 预约管理   | 按钮 | 标记完工                                                               |
-| `biz:booking:noshow`      | 预约管理-noshow    | 预约管理   | 按钮 | 标记未到店                                                             |
-| `biz:booking:delete`      | 预约管理-delete    | 预约管理   | 按钮 | 删除预约单据                                                           |
-| `biz:booking:manageall`   | 预约管理-manageall | 预约管理   | 按钮 | **不做接口门禁**：服务层判定「美甲师是否只看自己」，持有则解锁全部预约 |
-| `biz:booking:adjust`      | 预约管理-adjust    | 预约管理   | 按钮 | **不做接口门禁**：服务层判定手动改价，缺失时抛 403，必须填原因         |
-| `biz:memberlevel:create`  | 会员等级-create    | 会员等级   | 按钮 | 新建会员等级（含折扣率千分比）                                         |
-| `biz:memberlevel:update`  | 会员等级-update    | 会员等级   | 按钮 | 修改会员等级                                                           |
-| `biz:memberlevel:delete`  | 会员等级-delete    | 会员等级   | 按钮 | 删除会员等级                                                           |
-| `biz:rechargeplan:create` | 充值方案-create    | 充值方案   | 按钮 | 新建充值方案                                                           |
-| `biz:rechargeplan:update` | 充值方案-update    | 充值方案   | 按钮 | 修改充值方案                                                           |
-| `biz:rechargeplan:delete` | 充值方案-delete    | 充值方案   | 按钮 | 删除充值方案                                                           |
-| `biz:cardtype:create`     | 次卡卡种-create    | 次卡卡种   | 按钮 | 新建次卡卡种                                                           |
-| `biz:cardtype:update`     | 次卡卡种-update    | 次卡卡种   | 按钮 | 修改次卡卡种                                                           |
-| `biz:cardtype:delete`     | 次卡卡种-delete    | 次卡卡种   | 按钮 | 删除次卡卡种                                                           |
-| `biz:member:update`       | 会员管理-update    | 会员管理   | 按钮 | 修改会员资料（建档），钱的字段不在这里                                 |
-| `biz:member:adjust`       | 会员管理-adjust    | 会员管理   | 按钮 | 手工调账（余额/积分），需填原因                                        |
-| `biz:member:recount`      | 会员管理-recount   | 会员管理   | 按钮 | 重算会员派生字段（累计消费、等级等）                                   |
-| `biz:member:recharge`     | 会员管理-recharge  | 会员管理   | 按钮 | 储值充值（本金 + 赠送，**默认只给店长**）                              |
-| `biz:member:refund`       | 会员管理-refund    | 会员管理   | 按钮 | 储值退款/冲正（走审批，**默认只给店长**）                              |
-| `biz:member:coupon`       | 会员管理-coupon    | 会员管理   | 按钮 | 给顾客发券（复用券模板）                                               |
-| `biz:card:issue`          | 会员管理-issue     | 会员管理   | 按钮 | 从会员详情发次卡                                                       |
-| `biz:card:use`            | 会员管理-use       | 会员管理   | 按钮 | 从会员详情核销次卡                                                     |
-| `biz:card:revoke`         | 会员次卡-revoke    | 会员次卡   | 按钮 | 撤销核销（回退次数）                                                   |
-| `biz:card:refund`         | 会员次卡-refund    | 会员次卡   | 按钮 | 次卡退款                                                               |
-| `biz:payment:create`      | 收银台-create      | 收银台     | 按钮 | 创建支付单（扫码/线下记账）、主动查单、预约结算                        |
-| `biz:payment:close`       | 收银台-close       | 收银台     | 按钮 | 关单                                                                   |
-| `biz:refund:apply`        | 收银台-apply       | 收银台     | 按钮 | 申请退款（申请与审批分离，前台可申请）                                 |
-| `biz:receivable:settle`   | 收银台-settle      | 收银台     | 按钮 | 销账（从收银台发起）                                                   |
-| `biz:payment:reconcile`   | 支付流水-reconcile | 支付流水   | 按钮 | 渠道对账：差异列表、触发对账、处理差异                                 |
-| `biz:refund:approve`      | 退款审批-approve   | 退款审批   | 按钮 | 通过 / 驳回退款（**只给店长**）                                        |
-| `biz:credit:create`       | 挂账主体-create    | 挂账主体   | 按钮 | 新建挂账主体与额度/账期                                                |
-| `biz:credit:update`       | 挂账主体-update    | 挂账主体   | 按钮 | 修改挂账主体                                                           |
-| `biz:credit:delete`       | 挂账主体-delete    | 挂账主体   | 按钮 | 删除挂账主体                                                           |
-| `biz:receivable:cancel`   | 应收台账-cancel    | 应收台账   | 按钮 | 作废应收单                                                             |
-| `biz:pointsgoods:create`  | 积分兑换品-create  | 积分兑换品 | 按钮 | 新建积分兑换品                                                         |
-| `biz:pointsgoods:update`  | 积分兑换品-update  | 积分兑换品 | 按钮 | 修改积分兑换品                                                         |
-| `biz:pointsgoods:delete`  | 积分兑换品-delete  | 积分兑换品 | 按钮 | 删除积分兑换品                                                         |
-| `biz:points:redeem`       | 积分兑换品-redeem  | 积分兑换品 | 按钮 | 积分兑换下单、兑换记录列表                                             |
-| `biz:points:revert`       | 积分兑换品-revert  | 积分兑换品 | 按钮 | 撤销兑换（积分回退）                                                   |
-| `biz:coupon:create`       | 优惠券模板-create  | 优惠券模板 | 按钮 | 新建券模板                                                             |
-| `biz:coupon:update`       | 优惠券模板-update  | 优惠券模板 | 按钮 | 修改券模板                                                             |
-| `biz:coupon:delete`       | 优惠券模板-delete  | 优惠券模板 | 按钮 | 删除券模板                                                             |
-| `biz:review:create`       | 评价管理-create    | 评价管理   | 按钮 | 代录评价                                                               |
-| `biz:review:reply`        | 评价管理-reply     | 评价管理   | 按钮 | 回复评价                                                               |
-| `biz:review:hide`         | 评价管理-hide      | 评价管理   | 按钮 | 隐藏/显示评价                                                          |
-| `biz:review:delete`       | 评价管理-delete    | 评价管理   | 按钮 | 删除评价                                                               |
-| `biz:report:export`       | 报表中心-export    | 报表中心   | 按钮 | 导出报表文件                                                           |
-| `biz:commission:rule`     | 提成规则-rule      | 提成规则   | 按钮 | 提成规则的增删改查（页面与按钮共用这一个点）                           |
-| `biz:commission:settle`   | 提成结算-settle    | 提成结算   | 按钮 | 结算冻结、冲销                                                         |
-| `biz:recurrence:create`   | 周期预约-create    | 周期预约   | 按钮 | 新建周期预约规则                                                       |
-| `biz:recurrence:update`   | 周期预约-update    | 周期预约   | 按钮 | 修改规则、暂停/恢复/停止、撤销窗口                                     |
-| `biz:recurrence:delete`   | 周期预约-delete    | 周期预约   | 按钮 | 删除规则                                                               |
-| `biz:notice:send`         | 通知模板-send      | 通知模板   | 按钮 | 手工发通知、重发失败记录                                               |
+| 权限点字符串              | 中文名称           | 所属菜单   | 类型 | 典型用途                                                                             |
+| ------------------------- | ------------------ | ---------- | ---- | ------------------------------------------------------------------------------------ |
+| `system:user:list`        | 用户管理           | 用户管理   | 菜单 | 进入用户管理页、查询用户列表                                                         |
+| `system:role:list`        | 角色管理           | 角色管理   | 菜单 | 进入角色管理页、查看角色与已授权菜单                                                 |
+| `system:menu:list`        | 菜单管理           | 菜单管理   | 菜单 | 进入菜单管理页、读取菜单树                                                           |
+| `system:dept:list`        | 部门管理           | 部门管理   | 菜单 | 进入部门管理页、读取部门树                                                           |
+| `system:post:list`        | 岗位管理           | 岗位管理   | 菜单 | 进入岗位管理页                                                                       |
+| `system:dict:list`        | 字典管理           | 字典管理   | 菜单 | 进入字典管理页、读取字典类型与字典数据                                               |
+| `system:config:list`      | 参数配置           | 参数配置   | 菜单 | 进入参数配置页、按 key 读取参数                                                      |
+| `monitor:loginlog:list`   | 登录日志           | 登录日志   | 菜单 | 进入登录日志页                                                                       |
+| `monitor:operlog:list`    | 操作日志           | 操作日志   | 菜单 | 进入操作日志页                                                                       |
+| `monitor:online:list`     | 在线用户           | 在线用户   | 菜单 | 进入在线用户页                                                                       |
+| `monitor:cache:list`      | 缓存监控           | 缓存监控   | 菜单 | 进入缓存监控页                                                                       |
+| `system:job:list`         | 定时任务           | 定时任务   | 菜单 | 进入定时任务页、查看任务与执行日志                                                   |
+| `system:file:list`        | 文件管理           | 文件管理   | 菜单 | 进入文件管理页、下载文件                                                             |
+| `system:generator:list`   | 代码生成器         | 代码生成器 | 菜单 | 进入代码生成器页、预览生成结果                                                       |
+| `ai:chat`                 | AI 操作            | AI 操作    | 菜单 | 进入 AI 页，会话 / 消息 / 操作意图 / 任务的全部读写                                  |
+| `biz:serviceitem:list`    | 服务项目           | 服务项目   | 菜单 | 进入页面、读取服务项目列表与详情                                                     |
+| `biz:staff:list`          | 美甲师             | 美甲师     | 菜单 | 进入页面、读取美甲师列表、详情与其可做项目                                           |
+| `biz:staff:grant`         | 工作台授权         | 工作台授权 | 菜单 | 一个点管住整页：工作台开通申请的列表、通过、驳回                                     |
+| `biz:schedule:list`       | 排班管理           | 排班管理   | 菜单 | 进入页面、读取周模板与日期例外                                                       |
+| `biz:customer:list`       | 顾客档案           | 顾客档案   | 菜单 | 进入页面、读取顾客列表/详情/其预约                                                   |
+| `biz:booking:list`        | 预约管理           | 预约管理   | 菜单 | 进入页面、预约列表、可约时段、预约详情、顾客简要信息                                 |
+| `biz:memberlevel:list`    | 会员等级           | 会员等级   | 菜单 | 进入页面、读取会员等级列表与详情                                                     |
+| `biz:rechargeplan:list`   | 充值方案           | 充值方案   | 菜单 | 进入页面、读取充值方案                                                               |
+| `biz:cardtype:list`       | 次卡卡种           | 次卡卡种   | 菜单 | 进入页面、读取卡种列表与详情                                                         |
+| `biz:member:list`         | 会员管理           | 会员管理   | 菜单 | 进入页面、会员列表/详情/流水/已发券、积分试算                                        |
+| `biz:card:list`           | 会员次卡           | 会员次卡   | 菜单 | 进入页面、读取会员持卡列表与详情                                                     |
+| `biz:payment:list`        | 支付流水           | 支付流水   | 菜单 | 进入页面、支付单列表/详情/渠道状态查询                                               |
+| `biz:refund:list`         | 退款审批           | 退款审批   | 菜单 | 进入页面、退款申请列表                                                               |
+| `biz:credit:list`         | 挂账主体           | 挂账主体   | 菜单 | 进入页面、读取挂账主体（顾客/公司/员工）                                             |
+| `biz:receivable:list`     | 应收台账           | 应收台账   | 菜单 | 进入页面、应收台账列表与账龄汇总                                                     |
+| `biz:pointsgoods:list`    | 积分兑换品         | 积分兑换品 | 菜单 | 进入页面、读取兑换品列表与详情                                                       |
+| `biz:coupon:list`         | 优惠券模板         | 优惠券模板 | 菜单 | 进入页面、读取券模板列表与详情                                                       |
+| `biz:review:list`         | 评价管理           | 评价管理   | 菜单 | 进入页面、评价列表（美甲师身份再被二次收窄）                                         |
+| `biz:report:view`         | 报表中心           | 报表中心   | 菜单 | 营收/服务/美甲师/会员/应收 5 类报表的查看 + **首页经营概览全量版（含金额）**         |
+| `biz:report:home`         | 首页-经营概览      | 首页       | 按钮 | **首页经营概览轻量版**：只有单量与待办，服务端**不下发任何金额字段**（前台默认拥有） |
+| `biz:commission:list`     | 提成结算           | 提成结算   | 菜单 | 进入页面、读取提成明细                                                               |
+| `biz:recurrence:list`     | 周期预约           | 周期预约   | 菜单 | 进入页面、读取规则列表与已生成单据                                                   |
+| `biz:notice:template`     | 通知模板           | 通知模板   | 菜单 | 进入页面、模板的增删改查                                                             |
+| `biz:notice:log`          | 通知记录           | 通知记录   | 菜单 | 进入页面、读取发送记录与详情                                                         |
+| `biz:serviceitem:create`  | 服务项目-create    | 服务项目   | 按钮 | 新建服务项目                                                                         |
+| `biz:serviceitem:update`  | 服务项目-update    | 服务项目   | 按钮 | 修改服务项目                                                                         |
+| `biz:serviceitem:delete`  | 服务项目-delete    | 服务项目   | 按钮 | 删除服务项目（有引用则被拒）                                                         |
+| `biz:staff:create`        | 美甲师-create      | 美甲师     | 按钮 | 新建美甲师档案                                                                       |
+| `biz:staff:update`        | 美甲师-update      | 美甲师     | 按钮 | 修改美甲师档案                                                                       |
+| `biz:staff:delete`        | 美甲师-delete      | 美甲师     | 按钮 | 删除美甲师                                                                           |
+| `biz:staff:items`         | 美甲师-items       | 美甲师     | 按钮 | 维护「某美甲师可做哪些项目」                                                         |
+| `biz:schedule:update`     | 排班管理-update    | 排班管理   | 按钮 | 整体替换周模板、增删日期例外（请假/自定义）                                          |
+| `biz:customer:create`     | 顾客档案-create    | 顾客档案   | 按钮 | 新建顾客（手机号唯一 + 软删策略）                                                    |
+| `biz:customer:update`     | 顾客档案-update    | 顾客档案   | 按钮 | 修改顾客、重算派生字段、恢复软删顾客                                                 |
+| `biz:customer:delete`     | 顾客档案-delete    | 顾客档案   | 按钮 | 软删顾客                                                                             |
+| `biz:booking:create`      | 预约管理-create    | 预约管理   | 按钮 | 创建预约                                                                             |
+| `biz:booking:update`      | 预约管理-update    | 预约管理   | 按钮 | 改期、确认、重算（recount）                                                          |
+| `biz:booking:cancel`      | 预约管理-cancel    | 预约管理   | 按钮 | 取消预约                                                                             |
+| `biz:booking:arrive`      | 预约管理-arrive    | 预约管理   | 按钮 | 标记到店                                                                             |
+| `biz:booking:complete`    | 预约管理-complete  | 预约管理   | 按钮 | 标记完工                                                                             |
+| `biz:booking:noshow`      | 预约管理-noshow    | 预约管理   | 按钮 | 标记未到店                                                                           |
+| `biz:booking:delete`      | 预约管理-delete    | 预约管理   | 按钮 | 删除预约单据                                                                         |
+| `biz:booking:manageall`   | 预约管理-manageall | 预约管理   | 按钮 | **不做接口门禁**：服务层判定「美甲师是否只看自己」，持有则解锁全部预约               |
+| `biz:booking:adjust`      | 预约管理-adjust    | 预约管理   | 按钮 | **不做接口门禁**：服务层判定手动改价，缺失时抛 403，必须填原因                       |
+| `biz:memberlevel:create`  | 会员等级-create    | 会员等级   | 按钮 | 新建会员等级（含折扣率千分比）                                                       |
+| `biz:memberlevel:update`  | 会员等级-update    | 会员等级   | 按钮 | 修改会员等级                                                                         |
+| `biz:memberlevel:delete`  | 会员等级-delete    | 会员等级   | 按钮 | 删除会员等级                                                                         |
+| `biz:rechargeplan:create` | 充值方案-create    | 充值方案   | 按钮 | 新建充值方案                                                                         |
+| `biz:rechargeplan:update` | 充值方案-update    | 充值方案   | 按钮 | 修改充值方案                                                                         |
+| `biz:rechargeplan:delete` | 充值方案-delete    | 充值方案   | 按钮 | 删除充值方案                                                                         |
+| `biz:cardtype:create`     | 次卡卡种-create    | 次卡卡种   | 按钮 | 新建次卡卡种                                                                         |
+| `biz:cardtype:update`     | 次卡卡种-update    | 次卡卡种   | 按钮 | 修改次卡卡种                                                                         |
+| `biz:cardtype:delete`     | 次卡卡种-delete    | 次卡卡种   | 按钮 | 删除次卡卡种                                                                         |
+| `biz:member:update`       | 会员管理-update    | 会员管理   | 按钮 | 修改会员资料（建档），钱的字段不在这里                                               |
+| `biz:member:adjust`       | 会员管理-adjust    | 会员管理   | 按钮 | 手工调账（余额/积分），需填原因                                                      |
+| `biz:member:recount`      | 会员管理-recount   | 会员管理   | 按钮 | 重算会员派生字段（累计消费、等级等）                                                 |
+| `biz:member:recharge`     | 会员管理-recharge  | 会员管理   | 按钮 | 储值充值（本金 + 赠送，**默认只给店长**）                                            |
+| `biz:member:refund`       | 会员管理-refund    | 会员管理   | 按钮 | 储值退款/冲正（走审批，**默认只给店长**）                                            |
+| `biz:member:coupon`       | 会员管理-coupon    | 会员管理   | 按钮 | 给顾客发券（复用券模板）                                                             |
+| `biz:card:issue`          | 会员管理-issue     | 会员管理   | 按钮 | 从会员详情发次卡                                                                     |
+| `biz:card:use`            | 会员管理-use       | 会员管理   | 按钮 | 从会员详情核销次卡                                                                   |
+| `biz:card:revoke`         | 会员次卡-revoke    | 会员次卡   | 按钮 | 撤销核销（回退次数）                                                                 |
+| `biz:card:refund`         | 会员次卡-refund    | 会员次卡   | 按钮 | 次卡退款                                                                             |
+| `biz:payment:create`      | 收银台-create      | 收银台     | 按钮 | 创建支付单（扫码/线下记账）、主动查单、预约结算                                      |
+| `biz:payment:close`       | 收银台-close       | 收银台     | 按钮 | 关单                                                                                 |
+| `biz:refund:apply`        | 收银台-apply       | 收银台     | 按钮 | 申请退款（申请与审批分离，前台可申请）                                               |
+| `biz:receivable:settle`   | 收银台-settle      | 收银台     | 按钮 | 销账（从收银台发起）                                                                 |
+| `biz:payment:reconcile`   | 支付流水-reconcile | 支付流水   | 按钮 | 渠道对账：差异列表、触发对账、处理差异                                               |
+| `biz:refund:approve`      | 退款审批-approve   | 退款审批   | 按钮 | 通过 / 驳回退款（**只给店长**）                                                      |
+| `biz:credit:create`       | 挂账主体-create    | 挂账主体   | 按钮 | 新建挂账主体与额度/账期                                                              |
+| `biz:credit:update`       | 挂账主体-update    | 挂账主体   | 按钮 | 修改挂账主体                                                                         |
+| `biz:credit:delete`       | 挂账主体-delete    | 挂账主体   | 按钮 | 删除挂账主体                                                                         |
+| `biz:receivable:cancel`   | 应收台账-cancel    | 应收台账   | 按钮 | 作废应收单                                                                           |
+| `biz:pointsgoods:create`  | 积分兑换品-create  | 积分兑换品 | 按钮 | 新建积分兑换品                                                                       |
+| `biz:pointsgoods:update`  | 积分兑换品-update  | 积分兑换品 | 按钮 | 修改积分兑换品                                                                       |
+| `biz:pointsgoods:delete`  | 积分兑换品-delete  | 积分兑换品 | 按钮 | 删除积分兑换品                                                                       |
+| `biz:points:redeem`       | 积分兑换品-redeem  | 积分兑换品 | 按钮 | 积分兑换下单、兑换记录列表                                                           |
+| `biz:points:revert`       | 积分兑换品-revert  | 积分兑换品 | 按钮 | 撤销兑换（积分回退）                                                                 |
+| `biz:coupon:create`       | 优惠券模板-create  | 优惠券模板 | 按钮 | 新建券模板                                                                           |
+| `biz:coupon:update`       | 优惠券模板-update  | 优惠券模板 | 按钮 | 修改券模板                                                                           |
+| `biz:coupon:delete`       | 优惠券模板-delete  | 优惠券模板 | 按钮 | 删除券模板                                                                           |
+| `biz:review:create`       | 评价管理-create    | 评价管理   | 按钮 | 代录评价                                                                             |
+| `biz:review:reply`        | 评价管理-reply     | 评价管理   | 按钮 | 回复评价                                                                             |
+| `biz:review:hide`         | 评价管理-hide      | 评价管理   | 按钮 | 隐藏/显示评价                                                                        |
+| `biz:review:delete`       | 评价管理-delete    | 评价管理   | 按钮 | 删除评价                                                                             |
+| `biz:report:export`       | 报表中心-export    | 报表中心   | 按钮 | 导出报表文件                                                                         |
+| `biz:commission:rule`     | 提成规则-rule      | 提成规则   | 按钮 | 提成规则的增删改查（页面与按钮共用这一个点）                                         |
+| `biz:commission:settle`   | 提成结算-settle    | 提成结算   | 按钮 | 结算冻结、冲销                                                                       |
+| `biz:recurrence:create`   | 周期预约-create    | 周期预约   | 按钮 | 新建周期预约规则                                                                     |
+| `biz:recurrence:update`   | 周期预约-update    | 周期预约   | 按钮 | 修改规则、暂停/恢复/停止、撤销窗口                                                   |
+| `biz:recurrence:delete`   | 周期预约-delete    | 周期预约   | 按钮 | 删除规则                                                                             |
+| `biz:notice:send`         | 通知模板-send      | 通知模板   | 按钮 | 手工发通知、重发失败记录                                                             |
 
 ### seed 与代码的交叉核对
 
@@ -447,7 +452,8 @@ title: 权限点与菜单清单
 | `biz:review:reply`                     | `POST /api/v1/biz/reviews/:id/reply`                                                                                                                                                                                                                                                                   | 同上                                                                                                        |
 | `biz:review:hide`                      | `PATCH /api/v1/biz/reviews/:id`                                                                                                                                                                                                                                                                        | 同上                                                                                                        |
 | `biz:review:delete`                    | `DELETE /api/v1/biz/reviews/:id`                                                                                                                                                                                                                                                                       | 同上                                                                                                        |
-| `biz:report:view`                      | `GET /api/v1/biz/reports/overview`、`/revenue`、`/services`、`/staffs`、`/members`、`/receivables`                                                                                                                                                                                                     | `biz/reports/analytics/`                                                                                    |
+| `biz:report:view`                      | `GET /api/v1/biz/reports/overview`、`/revenue`、`/services`、`/staffs`、`/members`、`/receivables`、`/home`（**全量版**）                                                                                                                                                                              | `biz/reports/analytics/`                                                                                    |
+| `biz:report:home`                      | `GET /api/v1/biz/reports/home`（**轻量版**，与上一行是同一接口，权限二选一；轻量版响应里没有金额字段）                                                                                                                                                                                                 | 同上                                                                                                        |
 | `biz:report:export`                    | `GET /api/v1/biz/reports/export`                                                                                                                                                                                                                                                                       | 同上                                                                                                        |
 | `biz:commission:rule`                  | `GET/POST /api/v1/biz/commission-rules`、`PATCH/DELETE /api/v1/biz/commission-rules/:id`                                                                                                                                                                                                               | `biz/reports/commission/`                                                                                   |
 | `biz:commission:list`                  | `GET /api/v1/biz/commission-records`                                                                                                                                                                                                                                                                   | 同上                                                                                                        |

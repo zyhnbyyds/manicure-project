@@ -32,6 +32,10 @@ title: 踩坑记录与排查手册
 | 小程序页面全白 / 语法错误                        | 小程序 · 导入与编译目标      | M3、M10                                     |
 | 小程序图标或图片空白但无报错                     | 小程序 · 渲染规则            | M2、M14、M15                                |
 | TabBar 切不动 / 高亮错位                         | 小程序 · 自定义 TabBar       | 小程序 M16                                  |
+| 轮播图上某一片区域划不动                         | 小程序 · swiper 与浮层       | 小程序 M27                                  |
+| 点卡片里的按钮却跳进了详情页                     | 小程序 · 事件冒泡            | 小程序 M28                                  |
+| 报表某个页签整列 ¥0.00 / 行集取错                | 后台前端 · 宽松响应归一      | 后台前端 W16                                |
+| 改了代码不生效、一直报 `X is not defined`        | 工具链 · 开发者工具缓存      | 工具链 T13                                  |
 | 命令没有输出、文件一个字没改                     | 工具链 · PowerShell          | 工具链 T3                                   |
 | 单文件跑绿、全量跑红                             | 工具链 · 全局 mock 污染      | [测试策略与验收标准](/quality/)「禁止事项」 |
 
@@ -180,6 +184,11 @@ title: 踩坑记录与排查手册
   - **原因**：后端按**扩展名白名单**校验（图片只有 jpg/jpeg/png/gif/webp/svg），而 iPhone 相册的 `.heic`（以及 `.avif`）不在白名单里；`accept: 'image/*'` 恰好把它们列出来。
   - **处置**：用 `~/utils/upload-limits` 的 `IMAGE_ACCEPT`（`image/png,image/jpeg,image/webp,image/gif,image/svg+xml`）+ `MAX_UPLOAD_FILE_SIZE`（与后端 `MAX_FILE_SIZE` 一致的 10MB）。
   - **预防**：显式写 `image/jpeg` 还白捡一个好处 —— **iOS 会在上传前把 HEIC 自动转成 JPEG**，本来传不上的照片反而能传上去。（来源 `pitfalls/web.md` §15，实测）
+- **W16 · 响应里有多个数组时，别让「第一个数组」决定行集**
+  - **症状**：报表中心「应收」页签整列显示 `¥0.00` / 空白，看着像"这家店没有挂账"，而后端明明回了主体明细。
+  - **原因**：`reportRows()` 的兜底策略是「取对象里**第一个**数组字段当行集」，而应收响应里 `buckets`（账龄分桶 3 行）排在 `accounts`（主体明细）**之前** —— 于是表格渲染的是分桶行，而列配置要的是主体字段（`name` / `creditLimit` / `outstanding` / `buckets.0-30`…），全取不到。
+  - **处置**：`reportRows(payload, key?)` 支持显式指定行集字段；`TAB_META.receivables.rowsKey = 'accounts'`。**新增报表页签时，只要响应里有多个数组就必须给 `rowsKey`。**
+  - **预防**：这条属于「宽松响应归一」的通用陷阱 —— 靠猜（第一个数组 / 第一个标量）的兜底逻辑，遇到多数组结构必然取错，而且**不报错**。（来源 `web/src/api/biz/reports.ts` 注释 + 实测响应键序）
 
 ---
 
@@ -320,6 +329,16 @@ title: 踩坑记录与排查手册
   - **原因**：写在 `<view class="page-body">` **上面**的那条注释被写成了 CSS 的收尾（星号加斜杠），而 WXML 注释必须以 `--` + `>` 收尾。注释一直没闭合，把紧跟其后的 `<view class="page-body">` 一起吞成了注释内容 —— 于是开标签少一个，编译器只能在读到文件末尾时抱怨「多了一个结束标签」。**症状离病因 24 行远。**
   - **处置**：找到那条注释改回收尾符；`bun scripts/verify-wxml-tags.mjs` 会直接指出来（它会提示「往上找：多半是某个注释没闭合」）。同一坑在 JS 里也会复现：**JSDoc 里写这个符号组合会提前结束块注释**（本仓 `scripts/verify-wxml-tags.mjs` 第一版就是这么写坏的）。
   - **预防**：`tsc` **不检查 WXML**，所以小程序改动除了 `bunx tsc --noEmit -p miniapp/tsconfig.json`，还要跑一次 `bun scripts/verify-wxml-tags.mjs`（离线、秒级）；改完 WXML 最好在开发者工具里编译一次确认。（来源 `miniapp/miniprogram/pages/notices/index.wxml`、用户报障）
+- **M27 · 盖在 `<swiper>` 上的浮层会**吃掉触摸**：那一片区域划不动**
+  - **症状**：首页头图改成轮播后，压在图上的文案与右下角圆点那一片**划不动**，只有图的上半部分能翻页；`pointer-events: none` 写上去毫无效果。
+  - **原因**：`<swiper>` 的滑动由它自己的触摸监听实现，压在它上面的兄弟节点会成为触摸目标，事件**不会再冒泡回 swiper**；而 `pointer-events` 在 WXSS 里不可靠（WebView 下常被忽略）。
+  - **处置**：**渐变与文案放进 `<swiper-item>` 里**（每屏各带一份，跟着一起滑），只留尺寸很小的自绘圆点在容器上。
+  - **预防**：设计稿要「右下角圆点」时**不能用原生 `indicator-dots`**（只能居中）—— 自绘圆点 + `bindchange` 记下标；`circular` / `autoplay` 下自动轮播同样会触发 `bindchange`。（来源 `pages/index`，实测）
+- **M28 · 卡片里的独立动作必须 `catchtap`；收藏态以服务端返回为准**
+  - **症状**：点「人气款式」卡右上角的收藏心，页面同时跳进了款式详情（体感是"收藏没生效"）。
+  - **原因**：心形是"整卡可点进详情"那张卡的子节点，`bindtap` 默认**冒泡**，父级的 `openService` 也被触发。
+  - **处置**：卡内一切独立动作（收藏、去支付、取消…）用 **`catchtap`**（与既有页面一致）。
+  - **预防**：收藏/取消这类切换，**状态一律以服务端返回的目标状态为准**（`{ favorited }`），不要在本地取反 —— 双击 / 慢网 / 并发点两次时本地取反必然错位；未绑定手机号时**先门禁再发请求**（接口会 400 + needBind，明知失败还打一次只会让"未登录"看起来像"加载失败"）。（来源 `pages/index` + `pages/service-detail` 同一套写法）
 
 ---
 
@@ -386,6 +405,12 @@ title: 踩坑记录与排查手册
   - **原因**：`-replace`（以及 `-creplace`）默认替换**所有**匹配项，不是第一处。
   - **处置**：变异验证优先用 `edit` 工具改单点；非要脚本替换时先数命中数（`(Select-String -Pattern ... | Measure-Object).Count`）或把上下文写长到唯一；变异后**必须 `git diff`** 看清改了哪几行再还原。
   - **预防**：本项目在修"上传的图显示不出来"时因此白跑了一轮全量测试。（来源 `pitfalls/tooling.md` §12）
+- **T13 · 改了代码不生效、一直报 `X is not defined`：开发者工具把**中间态**编译进去了**
+  - **症状**：首页报 `<ReferenceError: PAGE_ICONS is not defined>`，栈指向 `appservice-hotreload/pages/index/index.js:107`；但源码里**根本没有** `PAGE_ICONS`，`tsc --noEmit -p miniapp/tsconfig.json` 也是 exit 0。
+  - **原因**：改动分两步落地 —— 先删掉 `const PAGE_ICONS = [...]`，几秒后才把引用它的那行换掉。**中间那几秒文件是"有引用、无声明"的坏状态**，开发者工具的编译/热重载正好抓到它并留在内存里；之后源码即使改回来，热重载也**不会重建那个模块作用域**，错误便一直复现。
+  - **处置**：① **删/改顶层常量时声明与引用一次改完**（一次写入，别分两次编辑）；② 已踩上就「工具 → 清除缓存 → 清除全部缓存」再编译，或重启开发者工具。
+  - **预防**：报错**先别改代码**，先核实"源码是否真的还有那个符号"：全仓搜一遍 + `tsc -p miniapp/tsconfig.json --outDir <临时目录> --rootDir ./miniprogram --removeComments` 看**产物**里有没有它。产物干净 = 工具缓存问题，此时改代码只会越改越乱。
+    一句话：**`tsc` 绿 ≠ 运行时不报** —— 前者查源码，后者查工具手里那份 bundle。（来源 `pitfalls/miniapp.md` §24，用户报障 + 报错行号反推）
 
 ---
 

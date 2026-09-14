@@ -479,37 +479,38 @@ flowchart TB
 
 ### 2.12 业务·运营报表
 
-| 模块     | 方法   | 路径                                         | 权限点                  | 说明                                               |
-| -------- | ------ | -------------------------------------------- | ----------------------- | -------------------------------------------------- |
-| 评价     | GET    | `/api/v1/biz/reviews`                        | `biz:review:list`       | 评价列表（美甲师只能看自己的评价）                 |
-| 评价     | POST   | `/api/v1/biz/reviews`                        | `biz:review:create`     | 后台代录评价（一单一评）                           |
-| 评价     | POST   | `/api/v1/biz/reviews/:id/reply`              | `biz:review:reply`      | 店家回复评价                                       |
-| 评价     | PATCH  | `/api/v1/biz/reviews/:id`                    | `biz:review:hide`       | 隐藏 / 公开评价                                    |
-| 评价     | DELETE | `/api/v1/biz/reviews/:id`                    | `biz:review:delete`     | 删除评价（软删）                                   |
-| 报表     | GET    | `/api/v1/biz/reports/overview`               | `biz:report:view`       | 经营总览                                           |
-| 报表     | GET    | `/api/v1/biz/reports/revenue`                | `biz:report:view`       | 营收明细（按日/周/月拆渠道，退款冲减）             |
-| 报表     | GET    | `/api/v1/biz/reports/services`               | `biz:report:view`       | 项目排行（次数 / 金额 / 次卡核销占比）             |
-| 报表     | GET    | `/api/v1/biz/reports/staffs`                 | `biz:report:view`       | 美甲师业绩                                         |
-| 报表     | GET    | `/api/v1/biz/reports/members`                | `biz:report:view`       | 会员分析                                           |
-| 报表     | GET    | `/api/v1/biz/reports/receivables`            | `biz:report:view`       | 应收分析                                           |
-| 报表     | GET    | `/api/v1/biz/reports/export`                 | `biz:report:export`     | **导出 CSV**（`type` 必填，`format=csv`）          |
-| 提成规则 | GET    | `/api/v1/biz/commission-rules`               | `biz:commission:rule`   | 提成规则列表                                       |
-| 提成规则 | POST   | `/api/v1/biz/commission-rules`               | `biz:commission:rule`   | 新增规则                                           |
-| 提成规则 | PATCH  | `/api/v1/biz/commission-rules/:id`           | `biz:commission:rule`   | 修改规则（只影响之后计提，不回溯）                 |
-| 提成规则 | DELETE | `/api/v1/biz/commission-rules/:id`           | `biz:commission:rule`   | 删除规则（软删，历史计提保留 `rule_id`）           |
-| 提成记录 | GET    | `/api/v1/biz/commission-records`             | `biz:commission:list`   | 计提记录列表（`staffId` / `period` / `status`）    |
-| 提成记录 | POST   | `/api/v1/biz/commission-settle`              | `biz:commission:settle` | **按期间结算冻结**（`period` = `yyyyMM`）          |
-| 提成记录 | POST   | `/api/v1/biz/commission-records/:id/reverse` | `biz:commission:settle` | 单笔冲销（必填原因，只有 `accrued` 可冲销）        |
-| 通知模板 | GET    | `/api/v1/biz/notice-templates`               | `biz:notice:template`   | 通知模板列表                                       |
-| 通知模板 | POST   | `/api/v1/biz/notice-templates`               | `biz:notice:template`   | 新增模板（校验 `{变量}` 都已声明）                 |
-| 通知模板 | PATCH  | `/api/v1/biz/notice-templates/:id`           | `biz:notice:template`   | 修改模板                                           |
-| 通知模板 | DELETE | `/api/v1/biz/notice-templates/:id`           | `biz:notice:template`   | 删除模板（软删，历史日志保留）                     |
-| 通知记录 | GET    | `/api/v1/biz/notice-logs`                    | `biz:notice:log`        | 通知发送记录                                       |
-| 通知记录 | GET    | `/api/v1/biz/notice-logs/:id`                | `biz:notice:log`        | 记录详情（渲染后内容 + 供应商消息号 + 错误）       |
-| 通知记录 | POST   | `/api/v1/biz/notice-logs/:id/resend`         | `biz:notice:send`       | 重发单条通知                                       |
-| 通知发送 | POST   | `/api/v1/biz/notice/send`                    | `biz:notice:send`       | 手动发送通知                                       |
-| 站内消息 | GET    | `/api/v1/biz/notice/inbox`                   | —                       | 当前后台用户的站内消息（未读 = `read_at IS NULL`） |
-| 站内消息 | POST   | `/api/v1/biz/notice/inbox/read`              | —                       | 批量标记已读（不传 `ids` = 全部已读）              |
+| 模块     | 方法   | 路径                                         | 权限点                                     | 说明                                                                                      |
+| -------- | ------ | -------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| 评价     | GET    | `/api/v1/biz/reviews`                        | `biz:review:list`                          | 评价列表（美甲师只能看自己的评价）                                                        |
+| 评价     | POST   | `/api/v1/biz/reviews`                        | `biz:review:create`                        | 后台代录评价（一单一评）                                                                  |
+| 评价     | POST   | `/api/v1/biz/reviews/:id/reply`              | `biz:review:reply`                         | 店家回复评价                                                                              |
+| 评价     | PATCH  | `/api/v1/biz/reviews/:id`                    | `biz:review:hide`                          | 隐藏 / 公开评价                                                                           |
+| 评价     | DELETE | `/api/v1/biz/reviews/:id`                    | `biz:review:delete`                        | 删除评价（软删）                                                                          |
+| 报表     | GET    | `/api/v1/biz/reports/home`                   | `biz:report:view` **或** `biz:report:home` | **首页经营概览**（按店：营收/单量/成单率/退款率 + 门店对比 + 待办；轻量版不下发金额字段） |
+| 报表     | GET    | `/api/v1/biz/reports/overview`               | `biz:report:view`                          | 经营总览                                                                                  |
+| 报表     | GET    | `/api/v1/biz/reports/revenue`                | `biz:report:view`                          | 营收明细（按日/周/月拆渠道，退款冲减）                                                    |
+| 报表     | GET    | `/api/v1/biz/reports/services`               | `biz:report:view`                          | 项目排行（次数 / 金额 / 次卡核销占比）                                                    |
+| 报表     | GET    | `/api/v1/biz/reports/staffs`                 | `biz:report:view`                          | 美甲师业绩                                                                                |
+| 报表     | GET    | `/api/v1/biz/reports/members`                | `biz:report:view`                          | 会员分析                                                                                  |
+| 报表     | GET    | `/api/v1/biz/reports/receivables`            | `biz:report:view`                          | 应收分析                                                                                  |
+| 报表     | GET    | `/api/v1/biz/reports/export`                 | `biz:report:export`                        | **导出 CSV**（`type` 必填，`format=csv`）                                                 |
+| 提成规则 | GET    | `/api/v1/biz/commission-rules`               | `biz:commission:rule`                      | 提成规则列表                                                                              |
+| 提成规则 | POST   | `/api/v1/biz/commission-rules`               | `biz:commission:rule`                      | 新增规则                                                                                  |
+| 提成规则 | PATCH  | `/api/v1/biz/commission-rules/:id`           | `biz:commission:rule`                      | 修改规则（只影响之后计提，不回溯）                                                        |
+| 提成规则 | DELETE | `/api/v1/biz/commission-rules/:id`           | `biz:commission:rule`                      | 删除规则（软删，历史计提保留 `rule_id`）                                                  |
+| 提成记录 | GET    | `/api/v1/biz/commission-records`             | `biz:commission:list`                      | 计提记录列表（`staffId` / `period` / `status`）                                           |
+| 提成记录 | POST   | `/api/v1/biz/commission-settle`              | `biz:commission:settle`                    | **按期间结算冻结**（`period` = `yyyyMM`）                                                 |
+| 提成记录 | POST   | `/api/v1/biz/commission-records/:id/reverse` | `biz:commission:settle`                    | 单笔冲销（必填原因，只有 `accrued` 可冲销）                                               |
+| 通知模板 | GET    | `/api/v1/biz/notice-templates`               | `biz:notice:template`                      | 通知模板列表                                                                              |
+| 通知模板 | POST   | `/api/v1/biz/notice-templates`               | `biz:notice:template`                      | 新增模板（校验 `{变量}` 都已声明）                                                        |
+| 通知模板 | PATCH  | `/api/v1/biz/notice-templates/:id`           | `biz:notice:template`                      | 修改模板                                                                                  |
+| 通知模板 | DELETE | `/api/v1/biz/notice-templates/:id`           | `biz:notice:template`                      | 删除模板（软删，历史日志保留）                                                            |
+| 通知记录 | GET    | `/api/v1/biz/notice-logs`                    | `biz:notice:log`                           | 通知发送记录                                                                              |
+| 通知记录 | GET    | `/api/v1/biz/notice-logs/:id`                | `biz:notice:log`                           | 记录详情（渲染后内容 + 供应商消息号 + 错误）                                              |
+| 通知记录 | POST   | `/api/v1/biz/notice-logs/:id/resend`         | `biz:notice:send`                          | 重发单条通知                                                                              |
+| 通知发送 | POST   | `/api/v1/biz/notice/send`                    | `biz:notice:send`                          | 手动发送通知                                                                              |
+| 站内消息 | GET    | `/api/v1/biz/notice/inbox`                   | —                                          | 当前后台用户的站内消息（未读 = `read_at IS NULL`）                                        |
+| 站内消息 | POST   | `/api/v1/biz/notice/inbox/read`              | —                                          | 批量标记已读（不传 `ids` = 全部已读）                                                     |
 
 ::: tip 站内消息没有权限点是有意的
 `/biz/notice/inbox*` 是**「我的消息」**，内容天然限定在当前登录用户，不需要（也不应该）用权限点隔离。
