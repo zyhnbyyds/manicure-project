@@ -20,6 +20,7 @@ import type {
   MemberCardStatus,
 } from '~/api/biz/member-cards';
 import { formatDateTime } from '~/composables/useFormat';
+import { numberProps } from '~/utils/form';
 import { useTable } from '~/composables/useTable';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
@@ -241,7 +242,11 @@ const refundFormOptions: LewFormOption[] = [
     label: '退款金额(元)',
     as: 'input-number',
     rule: "Yup.number().required('不能为空')",
-    props: { min: 0, precision: 2, placeholder: '按剩余次数人工核算' },
+    props: numberProps({
+      min: 0,
+      decimals: 2,
+      placeholder: '按剩余次数人工核算',
+    }),
   },
   {
     field: 'reason',

@@ -25,7 +25,7 @@ import {
   LewTabs,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn, LewTabsOption } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import type { PageResult } from '~/types/api';
 import {
   adjustMember,
@@ -1582,7 +1582,11 @@ const balanceTotal = computed(
                 field: 'payAmount',
                 label: '自定义实付(元)',
                 as: 'input-number',
-                props: { min: 0, placeholder: '不走方案时填写' },
+                props: numberProps({
+                  min: 0,
+                  decimals: 2,
+                  placeholder: '不走方案时填写',
+                }),
               },
               {
                 field: 'payChannel',
@@ -1678,7 +1682,7 @@ const balanceTotal = computed(
                 label: '退款金额(元)',
                 as: 'input-number',
                 rule: `Yup.number().required('不能为空')`,
-                props: { min: 0 },
+                props: numberProps({ min: 0, decimals: 2 }),
               },
               {
                 field: 'mode',
@@ -1881,7 +1885,11 @@ const balanceTotal = computed(
                 field: 'price',
                 label: '购卡价(元)',
                 as: 'input-number',
-                props: { min: 0, placeholder: '不填取卡种售价' },
+                props: numberProps({
+                  min: 0,
+                  decimals: 2,
+                  placeholder: '不填取卡种售价',
+                }),
               },
               {
                 field: 'remark',

@@ -1725,6 +1725,7 @@ function handleDelete(row: Booking) {
                 v-model="createForm.depositYuan"
                 width="140px"
                 :min="0"
+                :step="0.01"
                 placeholder="留空按默认定金比例 30%"
               />
             </template>
@@ -1753,6 +1754,7 @@ function handleDelete(row: Booking) {
                 v-model="row.amountYuan"
                 width="140px"
                 :min="0"
+                :step="0.01"
                 placeholder="金额（元）"
               />
               <template v-if="row.channel === 'cash'">
@@ -1763,6 +1765,7 @@ function handleDelete(row: Booking) {
                   v-model="row.receivedYuan"
                   width="130px"
                   :min="0"
+                  :step="0.01"
                   placeholder="选填（找零）"
                 />
               </template>
@@ -1830,6 +1833,7 @@ function handleDelete(row: Booking) {
             <LewInputNumber
               v-model="createForm.adjustYuan"
               width="140px"
+              :step="0.01"
               placeholder="可正可负"
             />
             <LewInput
@@ -2149,6 +2153,7 @@ function handleDelete(row: Booking) {
               v-model="row.amountYuan"
               width="140px"
               :min="0"
+              :step="0.01"
               placeholder="金额（元）"
             />
             <template v-if="row.channel === 'cash'">
@@ -2157,6 +2162,7 @@ function handleDelete(row: Booking) {
                 v-model="row.receivedYuan"
                 width="130px"
                 :min="0"
+                :step="0.01"
                 placeholder="选填（找零）"
               />
             </template>
@@ -2443,6 +2449,7 @@ function handleDelete(row: Booking) {
             v-model="refundForm.amountYuan"
             width="150px"
             :min="0"
+            :step="0.01"
             placeholder="默认取建议值"
           />
           <span class="text-12.5px text-[var(--app-text-muted)]"

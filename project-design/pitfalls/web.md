@@ -209,3 +209,40 @@
   （与后端 `MAX_FILE_SIZE` 一致的 10MB）。**显式写 `image/jpeg` 还白捡一个好处**：
   iOS 会在上传前把 HEIC 自动转成 JPEG，本来传不上的照片反而能传上去。
 - **来源**：实测（做美甲师头像上传时发现；顺带把服务项目图集的 `image/*` 也换掉了）。
+
+---
+
+## 16. `input-number` 写 `precision` 没用 —— 小数被判非法，还被画上删除线
+
+- **现象**：门店编辑里的「纬度」填 `31.229`，数字上多了一条**删除线**；
+  提交/失焦时浏览器还弹「Please enter a valid value. The two nearest valid values are 31 and 32.」。
+  改价、退款金额、充值实付这些框同理（填 `68.5` 元就中招）。
+- **根因**：两层叠加 ——
+  1. lew-ui 的 `LewInputNumber` **没有 `precision` 这个 prop**（`props.d.ts` 里只有
+     `min` / `max` / `step` / `size` / `align` / `width` …），写上去只会落到原生
+     `<input type="number">` 上，而它也不认这个属性 —— 等于完全没生效；
+  2. 原生 input 的 `step` **默认是 1**，于是任何小数都是 `stepMismatch` → `:invalid`；
+     而 lew-ui 的样式里正好有一条
+     `.lew-input-number-view .lew-input-number:invalid { text-decoration: line-through }`，
+     浏览器原生校验提示同时出现。**用户不是「看到提示」，是根本填不进去**。
+- **正确做法**：要小数就显式给 `step`，用 `~/utils/form` 的 `numberProps()`：
+
+  ```ts
+  props: numberProps({ min: 0, decimals: 2 }); // 金额（元）
+  props: numberProps({ min: -90, max: 90, decimals: 6 }); // 经纬度
+  props: numberProps({ min: 1 }); // 整数（step=1）
+  ```
+
+  直接写 `LewInputNumber` 的地方就手写 `:step="0.01"`（收银台 / 应收一早就是这么写的）。
+
+- **排查方法**：把 `as: 'input-number'` 与 `<LewInputNumber>` 的所有出现列出来，
+  逐个问「这个字段会填小数吗」。本次全量过了一遍，改掉 **22 处小数字段**
+  （8 个表单的 `precision`、`service-items` 的价格、`members` 的实付/退款/购卡价、
+  `bookings` 的定金/收款/找零/改价/退款金额），另有 3 处整数把无效的 `precision: 0`
+  换成显式 `step: 1`。
+- **同源的旧账**：`service-items` 的**时长**字段早就踩过同一个坑
+  （写 `step: 15` 让「 60 分钟」反而非法，`
+  注释还留在代码里）—— 当时只改了那一个，没意识到价格字段（元）也一样。
+- **来源**：用户报「编辑门店的经纬度有删除线」（2026-09-14）。定位手法：
+  在浏览器里遍历 `document.styleSheets` 找出命中 `line-through` 的规则，
+  再读 `el.validity.stepMismatch` 确认是 step 冲突。

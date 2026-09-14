@@ -185,7 +185,7 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
 
 - 列表里展示图片：`customRender` 渲染缩略图 + 剩余张数徽标，点击 `openImagePreview(urls, 0, name)`。
 - 表单里 `as: 'upload'` 的缩略图：**lew-ui 2.8.2 没有图片预览，缩略图点了没反应**（见
-  `docs/pitfalls/web.md` §8）。用 `useUploadImagePreview(hostRef, () => urls, () => title)`
+  `project-design/pitfalls/web.md` §8）。用 `useUploadImagePreview(hostRef, () => urls, () => title)`
   接管点击，别自己写「大图预览」缩略图带。
 
 ## 交互约定
@@ -229,9 +229,9 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
   选项晚于组件挂载到达 ⇒ 编辑时回填的已选项一个都不显示（关掉重开又正常，
   看起来像「第一次渲染不出来」）。做法：打开弹窗/抽屉前 `await ensureXxx()`，
   或模板上 `v-if` 门控四态（加载中 / 失败 / 空 / 就绪），拿到新选项再换 `:key` 重建。
-  踩过：美甲师「可做项目」抽屉第一次打开空白。详见 `docs/pitfalls/web.md` §14。
+  踩过：美甲师「可做项目」抽屉第一次打开空白。详见 `project-design/pitfalls/web.md` §14。
 - 浮层盖在 lew-ui 弹窗上时：`z-index` 要用任意值语法（`z-[3000]`，`z-3000` 不会被生成），
-  并且 `Esc` 要在**捕获阶段**拦掉，否则会连底下的弹窗一起关。详见 `docs/pitfalls/web.md` §10。
+  并且 `Esc` 要在**捕获阶段**拦掉，否则会连底下的弹窗一起关。详见 `project-design/pitfalls/web.md` §10。
 - **列表接口手拼 `?storeId=`** → 门店是**请求级上下文**：顶栏切换器写 `x-store-id` 头
   （`store/store-scope.ts` + `request.ts` 拦截器），后端所有单据表都按它筛（列表）/落店（写入）。
   列表用 `useTable` 就好（它内置 `watch(activeStoreId)` 自动重载）；只有自绘的非列表视图
@@ -240,6 +240,13 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
 - **`LewTabs` 的 `@change` 在 lew-ui 2.8.2 里恒不触发**：它的实现是「先把本地值同步成新值，
   再比较旧值 ≠ 新值才 emit」，那个条件永远不成立 —— 表现是「**页签高亮切了、内容没变**」。
   用 `v-model` + `watch(tab)` 驱动，别指望 `@change`（报表页踩过）。
+- **数字输入框要小数就必须给 `step`**：lew-ui 的 `LewInputNumber` **没有 `precision`**
+  （写了不生效），而原生 `<input type="number">` 的 `step` 默认是 `1` → 任何小数都是
+  `:invalid`，lew-ui 会给值画**删除线**，用户根本填不进去（浏览器提示
+  「The two nearest valid values are …」）。用 `~/utils/form` 的 `numberProps()`：
+  `numberProps({ min: 0, decimals: 2 })`（金额元）/ `decimals: 6`（经纬度）/
+  省略 `decimals` 即整数；直接写组件的地方手写 `:step="0.01"`。
+  详见 `project-design/pitfalls/web.md` §16。
 - **报表类页面的字段名一律以后端 `ReportsService` 的类型为准**，不要凭感觉猜 camelCase / snake_case：
   后端概览是**分组结构**（`{ revenue: { net } }`），`reportScalars` 会递归展平成
   `revenue.net` 这种点号路径（明细行同理，如账龄的 `buckets.0-30`）。写错键的后果是

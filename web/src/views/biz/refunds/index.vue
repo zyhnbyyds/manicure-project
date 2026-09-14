@@ -16,7 +16,7 @@ import type {
   LewModalFooterButtonItem,
   LewTableColumn,
 } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import {
   approveRefund,
   createRefund,
@@ -477,7 +477,7 @@ const applyFormOptions: LewFormOption[] = [
     as: 'input-number',
     rule: "Yup.number().required('不能为空')",
     tips: '默认取试算建议金额，可改；改动后必须在原因里写明',
-    props: { min: 0, precision: 2 },
+    props: numberProps({ min: 0, decimals: 2 }),
   },
   {
     field: 'mode',

@@ -26,7 +26,7 @@ import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
 import type { EntityStatus } from '~/types/api';
 import { renderStatus } from '~/utils/render';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
@@ -303,7 +303,7 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     as: 'input-number',
     rule: "Yup.number().typeError('请输入数字').min(0, '不能为负')",
     tips: '单位：元（提交时自动换算为分）',
-    props: { min: 0, step: 1, align: 'left' },
+    props: numberProps({ min: 0, decimals: 2, align: 'left' }),
   },
   {
     field: 'images',

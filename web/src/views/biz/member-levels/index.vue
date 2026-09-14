@@ -11,7 +11,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import {
   createMemberLevel,
   deleteMemberLevel,
@@ -155,14 +155,14 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     as: 'input-number',
     rule: "Yup.number().required('不能为空')",
     tips: '千分比：950 = 9.5 折，1000 = 不打折；必须大于 0 且小于 1000',
-    props: { min: 0, precision: 0 },
+    props: numberProps({ min: 0 }),
   },
   {
     field: 'upgradeAmount',
     label: '升级门槛(元)',
     as: 'input-number',
     tips: '累计消费达到该金额后自动升级（只升不降）',
-    props: { min: 0, precision: 2 },
+    props: numberProps({ min: 0, decimals: 2 }),
   },
   {
     field: 'sort',

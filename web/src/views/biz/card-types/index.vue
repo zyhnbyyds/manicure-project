@@ -11,7 +11,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import {
   createCardType,
   deleteCardType,
@@ -168,21 +168,21 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     as: 'input-number',
     rule: "Yup.number().required('不能为空')",
     tips: '发卡时可改价；积分兑换发出的卡售价为 0',
-    props: { min: 0, precision: 2 },
+    props: numberProps({ min: 0, decimals: 2 }),
   },
   {
     field: 'totalTimes',
     label: '总次数',
     as: 'input-number',
     rule: "Yup.number().required('不能为空').min(1, '至少 1 次')",
-    props: { min: 1, precision: 0 },
+    props: numberProps({ min: 1 }),
   },
   {
     field: 'validDays',
     label: '有效期(天)',
     as: 'input-number',
     tips: '0 = 永久有效',
-    props: { min: 0, precision: 0 },
+    props: numberProps({ min: 0 }),
   },
   {
     field: 'serviceItemIds',

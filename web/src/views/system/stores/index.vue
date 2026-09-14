@@ -11,7 +11,7 @@ import {
   LewTag,
 } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import {
   createStore,
   deleteStore,
@@ -363,13 +363,13 @@ function handleDelete(row: Store) {
                 field: 'latitude',
                 label: '纬度',
                 as: 'input-number',
-                props: { min: -90, max: 90, precision: 6 },
+                props: numberProps({ min: -90, max: 90, decimals: 6 }),
               },
               {
                 field: 'longitude',
                 label: '经度',
                 as: 'input-number',
-                props: { min: -180, max: 180, precision: 6 },
+                props: numberProps({ min: -180, max: 180, decimals: 6 }),
               },
               {
                 field: 'notice',

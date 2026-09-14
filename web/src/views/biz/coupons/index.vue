@@ -12,7 +12,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import {
   createCouponTemplate,
   deleteCouponTemplate,
@@ -158,14 +158,14 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     label: '面额（元）',
     as: 'input-number',
     rule: "Yup.number().min(0.01, '必须大于 0').required('不能为空')",
-    props: { min: 0.01, precision: 2 },
+    props: numberProps({ min: 0.01, decimals: 2 }),
   },
   {
     field: 'thresholdYuan',
     label: '门槛（元）',
     as: 'input-number',
     tips: '0 = 无门槛；应不小于面额',
-    props: { min: 0, precision: 2 },
+    props: numberProps({ min: 0, decimals: 2 }),
   },
   {
     field: 'validDays',

@@ -11,7 +11,7 @@ import {
   LewTable,
 } from 'lew-ui';
 import type { LewFormOption, LewTableColumn } from 'lew-ui';
-import { withPassThroughRule } from '~/utils/form';
+import { numberProps, withPassThroughRule } from '~/utils/form';
 import {
   createRechargePlan,
   deleteRechargePlan,
@@ -146,14 +146,14 @@ const formOptions: LewFormOption[] = withPassThroughRule([
     as: 'input-number',
     rule: "Yup.number().required('不能为空').moreThan(0, '必须大于 0')",
     tips: '顾客实际支付的金额，计入可退本金',
-    props: { min: 0.01, precision: 2 },
+    props: numberProps({ min: 0.01, decimals: 2 }),
   },
   {
     field: 'bonusAmount',
     label: '赠送金额(元)',
     as: 'input-number',
     tips: BONUS_LIMIT_TIPS,
-    props: { min: 0, precision: 2 },
+    props: numberProps({ min: 0, decimals: 2 }),
   },
   {
     field: 'sort',
