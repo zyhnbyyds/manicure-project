@@ -13,8 +13,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   and,
+  asc,
   count,
   eq,
+  gte,
   inArray,
   isNull,
   lt,
@@ -27,6 +29,7 @@ import type { AnyMySqlColumn, MySqlColumn } from 'drizzle-orm/mysql-core';
 import { DatabaseService } from '../../../../database/database.service';
 import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import {
+  listVisibleStores,
   resolveStoreScope,
   storeConditions,
   type StoreContext,
@@ -49,6 +52,16 @@ import {
 } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import { andConditions, localDateRange } from '../../common/query.js';
+import {
+  bookingRates,
+  countBookingStatuses,
+  countBy,
+  permille,
+  resolveHomeRange,
+  resolveTrendWindow,
+  sumBy,
+  type HomeRange,
+} from './home-overview.js';
 import {
   addLocalDays,
   daysBetween,
@@ -127,6 +140,13 @@ export type ReportQuery = {
   storeId?: number | undefined;
 };
 
+/** 首页经营概览的入参（不走报表那套日期区间：区间是档位，环比由服务端算） */
+export type HomeQuery = {
+  range?: HomeRange | undefined;
+  /** 显式门店（不可见 → 403）；不传 = 用顶栏切换器的 `x-store-id` */
+  storeId?: number | undefined;
+};
+
 export type OverviewReport = {
   revenue: {
     gross: number;
@@ -156,6 +176,152 @@ export type OverviewReport = {
     pointsSpent: number;
     cardUsedTimes: number;
     cardIssued: number;
+  };
+};
+
+/**
+ * 首页经营概览（§20.2 口径 + 连锁直营门店维度）。
+ *
+ * ## 三条不可动摇的约定
+ *
+ * 1. **金额只下发给有 `biz:report:view` 的账号**。前台（只有 `biz:report:home`）
+ *    拿到的是 `meta.money = false` 的响应，**响应里根本不存在金额字段** ——
+ *    不是前端 `v-if` 藏起来（那等于把数字发给了不该看到的人，抓包即可见）。
+ * 2. **汇总区间与趋势区间是两件事**：卡片看所选区间（默认今日），趋势固定近 14 日。
+ * 3. **待办是「当前状态」，不随区间变化**：未收款 / 待审批退款 / 今日待确认。
+ */
+export type HomeOverviewReport = {
+  meta: {
+    range: HomeRange;
+    dateFrom: string;
+    dateTo: string;
+    prevDateFrom: string;
+    prevDateTo: string;
+    /** 环比区间与主区间是否等长（本月档的「上月同期」可能被月末夹取） */
+    prevSameLength: boolean;
+    timeZone: string;
+    /** `all` = 全部门店合并（超管未切店）；`stores` = 限可见门店 */
+    storeScope: 'all' | 'stores';
+    /** 顶栏切换器选中的门店（`null` = 全部门店） */
+    activeStoreId: number | null;
+    activeStoreName: string | null;
+    /** 是否下发了金额类指标 */
+    money: boolean;
+    generatedAt: string;
+  };
+  summary: {
+    /** 金额类：仅 `meta.money = true` 时存在 */
+    money?:
+      | {
+          gross: number;
+          refund: number;
+          net: number;
+          prevNet: number | null;
+          /** 净营收 ÷ 完成单量；没有完成单 → null */
+          avgTicket: number | null;
+          refundRatePermille: number | null;
+          refundCountRatePermille: number | null;
+          refundCount: number;
+        }
+      | undefined;
+    bookings: {
+      /** 区间内**创建**的预约（= 下单量，锚点 `created_at`） */
+      created: number;
+      /** 区间内**服务**的预约（锚点 `start_at` = 营业日） */
+      total: number;
+      completed: number;
+      cancelled: number;
+      noShow: number;
+      pending: number;
+      prevCompleted: number | null;
+      /** 成单率 = 完成 ÷ (完成+取消+爽约)，即首页的「下单率」 */
+      completedRatePermille: number | null;
+      arriveRatePermille: number | null;
+      noShowRatePermille: number | null;
+      cancelRatePermille: number | null;
+    };
+    customers: {
+      newCustomers: number;
+      returning: number;
+      /** 新增会员：`biz_customer` 没有门店列 → **全店口径**（前端必须标「全店」） */
+      memberNew: number;
+    };
+    /** 会员类：仅 `meta.money = true` 时存在 */
+    member?:
+      | {
+          rechargePrincipal: number;
+          rechargeBonus: number;
+          pointsIssued: number;
+          pointsSpent: number;
+          cardUsedTimes: number;
+          /** 次卡发售：**全店口径**（`biz_member_card` 没有门店列） */
+          cardIssued: number;
+          /** 期末结存：**全店口径**（余额是全店通兑的一个池子） */
+          balancePrincipalEnd: number;
+          balanceBonusEnd: number;
+        }
+      | undefined;
+  };
+  /** 近 14 个店内本地日，零填充（图表要有稳定行序） */
+  trend: {
+    date: string;
+    created: number;
+    completed: number;
+    net?: number | undefined;
+    gross?: number | undefined;
+    refund?: number | undefined;
+  }[];
+  /**
+   * 门店对比：**恒为可见门店全量**（不受顶栏切换器影响）——
+   * 切到 A 店时这张表还要能回答「B 店今天怎么样」。
+   */
+  stores: {
+    storeId: number;
+    code: string;
+    name: string;
+    isDefault: boolean;
+    created: number;
+    completed: number;
+    cancelled: number;
+    noShow: number;
+    pending: number;
+    completedRatePermille: number | null;
+    pendingPayments: number;
+    pendingRefunds: number;
+    net?: number | undefined;
+    gross?: number | undefined;
+    refund?: number | undefined;
+    avgTicket?: number | null | undefined;
+    refundRatePermille?: number | null | undefined;
+  }[];
+  /** 待办（当前状态，不随区间变化） */
+  todo: {
+    /** 未结清且未取消的预约（还没收钱的活单）= 未付款 + 尾款未清 */
+    pendingPayments: number;
+    /**
+     * 未付款（一分没收）。与 `partialPayments` 分开给，是为了让首页的待办卡
+     * 能**带筛选**跳到预约列表 —— 列表的 `payStatus` 只支持单值，
+     * 合并成一个数字就只能跳「不过滤」的列表，数字与列表对不上。
+     */
+    unpaidPayments: number;
+    /** 尾款未清（收过定金/部分款） */
+    partialPayments: number;
+    /** 待审批退款 */
+    pendingRefunds: number;
+    /** 待确认预约（小程序自助下单，今天及以后） */
+    pendingBookings: number;
+    /** 今日预约总数（按营业日） */
+    todayBookings: number;
+    /** 今天接下来还没开始的预约（最多 5 条） */
+    upcoming: {
+      id: number;
+      bookingNo: string;
+      startAt: string;
+      customerName: string | null;
+      staffName: string | null;
+      status: string;
+      payStatus: string;
+    }[];
   };
 };
 
@@ -266,6 +432,52 @@ const BUCKETS: ReceivableBucket[] = ['0-30', '31-60', '60+'];
 
 /** 默认区间：最近 30 个店内本地日（含当天） */
 export const DEFAULT_REPORT_RANGE_DAYS = 30;
+
+/** 首页概览「全量版」（含金额）权限点：店长及以上 */
+export const HOME_MONEY_PERMISSION = 'biz:report:view';
+
+/** 首页概览「轻量版」权限点：只有单量与待办，**响应里不含任何金额** */
+export const HOME_LIGHT_PERMISSION = 'biz:report:home';
+
+/**
+ * 是否下发金额类指标。
+ *
+ * 前台（只有 `biz:report:home`）拿到的是**结构上就没有金额字段**的响应 ——
+ * 用 `v-if` 藏起来等于把数字发给了不该看到的人（抓包即可见）。
+ */
+function canSeeMoney(actor: RequestActor | null): boolean {
+  if (!actor) return true;
+  return (
+    actor.permissions.includes('*:*:*') ||
+    actor.permissions.includes(HOME_MONEY_PERMISSION)
+  );
+}
+
+/** 一组本地日里最早的那天（并集窗口的起点） */
+function earliestLocalDate(dates: readonly string[]): string {
+  return dates.reduce((earliest, date) => (date < earliest ? date : earliest));
+}
+
+function totalAmount(rows: readonly { amount: number }[]): number {
+  return rows.reduce((total, row) => total + row.amount, 0);
+}
+
+/** 有退款的**单数**（同一单退两笔只算一单；充值退款没有预约，不计） */
+function distinctBookingCount(
+  rows: readonly { bookingId: number | null }[],
+): number {
+  const ids = new Set<number>();
+  for (const row of rows) if (row.bookingId !== null) ids.add(row.bookingId);
+  return ids.size;
+}
+
+/** 金额行的内存形态（按日 / 按店切片的统一载体） */
+type HomeMoneyRow = {
+  storeId: number | null;
+  amount: number;
+  bookingId: number | null;
+  day: string;
+};
 
 /** 导出同步返回的行数上限，超出提示走异步任务（本期 TODO） */
 export const MAX_EXPORT_ROWS = 10_000;
@@ -404,6 +616,368 @@ export class ReportsService {
     actor: RequestActor | null,
   ): Promise<ReceivablesReport> {
     return this.receivablesOf(await this.resolvePartial(input, actor));
+  }
+
+  /* ---------------- 首页经营概览 ---------------- */
+
+  /**
+   * 首页经营概览（三条约定见 `HomeOverviewReport`）。
+   *
+   * ## 查询预算
+   *
+   * 首页是「一打开就并发打一堆接口」的页面，所以刻意把窗口**并成一次查**：
+   * 并集窗口 = min(汇总起点, 环比起点, 趋势起点) ~ 今天，查回来后在内存里
+   * 按店内本地日切片（汇总 / 环比 / 趋势各取各的）。分成三遍查会多 8 次往返。
+   *
+   * 两类门店口径必须分清（这是最容易写错的地方）：
+   * - **汇总 / 趋势 / 待办**：按顶栏切换器选中的门店收窄（选 A 店就只看 A 店）；
+   * - **门店对比表**：恒看**可见门店全量** —— 切到 A 店时这张表还要能回答「B 店今天怎么样」。
+   */
+  async home(
+    input: HomeQuery,
+    actor: RequestActor | null,
+  ): Promise<HomeOverviewReport> {
+    const timeZone = await this.timeZone();
+    const today = shopToday(timeZone);
+    const range = input.range ?? 'today';
+    const window = resolveHomeRange(range, today);
+    const trendWindow = resolveTrendWindow(today);
+    const money = canSeeMoney(actor);
+
+    const picked = await this.storeContext({ storeId: input.storeId }, actor);
+    // 对比表用「可见门店全量」：把切换器选中项摘掉，只保留范围
+    const scopeContext: StoreContext = { ...picked, activeStoreId: null };
+    const pickedStoreId = picked.activeStoreId;
+
+    const base: ResolvedQuery = {
+      timeZone,
+      granularity: 'day',
+      dateFrom: earliestLocalDate([
+        window.dateFrom,
+        window.prevDateFrom,
+        trendWindow.dateFrom,
+      ]),
+      dateTo: today,
+      store: scopeContext,
+    };
+    const summaryQuery: ResolvedQuery = {
+      ...base,
+      dateFrom: window.dateFrom,
+      dateTo: window.dateTo,
+    };
+
+    const [bookingRaw, createdRaw] = await Promise.all([
+      this.bookingRows(base, {}),
+      this.bookingCreatedRows(base),
+    ]);
+
+    const dayOf = (value: Date): string => shopDateOf(value, timeZone);
+    const bookings = bookingRaw.map((row) => ({
+      storeId: row.storeId,
+      status: row.status,
+      customerId: row.customerId,
+      day: dayOf(row.startAt),
+    }));
+    const createdBookings = createdRaw.map((row) => ({
+      storeId: row.storeId,
+      day: dayOf(row.createdAt),
+    }));
+
+    let payments: HomeMoneyRow[] = [];
+    let refunds: HomeMoneyRow[] = [];
+    if (money) {
+      const [paymentRaw, refundRaw] = await Promise.all([
+        this.paymentRows(base),
+        this.refundRows(base),
+      ]);
+      payments = paymentRaw.map((row) => ({
+        storeId: row.storeId,
+        amount: row.receivedAmount,
+        bookingId: row.bookingId,
+        day: dayOf(row.paidAt ?? row.createdAt),
+      }));
+      refunds = refundRaw.map((row) => ({
+        storeId: row.storeId,
+        amount: row.actualAmount,
+        bookingId: row.bookingId,
+        day: dayOf(row.refundedAt ?? row.createdAt),
+      }));
+    }
+
+    const inWindow = <Row extends { day: string }>(
+      rows: readonly Row[],
+      from: string,
+      to: string,
+    ): Row[] => rows.filter((row) => row.day >= from && row.day <= to);
+    /** 按切换器选中的门店收窄（没选 = 可见范围内全部） */
+    const byPicked = <Row extends { storeId: number | null }>(
+      rows: readonly Row[],
+    ): Row[] =>
+      pickedStoreId === null
+        ? [...rows]
+        : rows.filter((row) => row.storeId === pickedStoreId);
+
+    const summaryBookings = byPicked(
+      inWindow(bookings, window.dateFrom, window.dateTo),
+    );
+    const summaryCreated = byPicked(
+      inWindow(createdBookings, window.dateFrom, window.dateTo),
+    );
+    const summaryPayments = byPicked(
+      inWindow(payments, window.dateFrom, window.dateTo),
+    );
+    const summaryRefunds = byPicked(
+      inWindow(refunds, window.dateFrom, window.dateTo),
+    );
+    const prevBookings = byPicked(
+      inWindow(bookings, window.prevDateFrom, window.prevDateTo),
+    );
+    const prevPayments = byPicked(
+      inWindow(payments, window.prevDateFrom, window.prevDateTo),
+    );
+    const prevRefunds = byPicked(
+      inWindow(refunds, window.prevDateFrom, window.prevDateTo),
+    );
+
+    const counts = countBookingStatuses(summaryBookings);
+    const rates = bookingRates(counts);
+    const gross = totalAmount(summaryPayments);
+    const refundAmount = totalAmount(summaryRefunds);
+    const net = gross - refundAmount;
+    const refundCount = distinctBookingCount(summaryRefunds);
+    const prevNet = totalAmount(prevPayments) - totalAmount(prevRefunds);
+    const prevCompleted = prevBookings.filter(
+      (row) => row.status === 'completed',
+    ).length;
+
+    const customers = await this.customerTotalsOf(
+      summaryQuery,
+      summaryBookings.filter((row) => row.status === 'completed'),
+    );
+
+    let member: HomeOverviewReport['summary']['member'];
+    if (money) {
+      const [memberTxns, cardLogs, cardIssued] = await Promise.all([
+        this.memberTransactionRows(summaryQuery),
+        this.cardLogRows(summaryQuery),
+        this.cardIssuedCount(summaryQuery),
+      ]);
+      member = {
+        ...(await this.memberTotalsOf(
+          summaryQuery,
+          byPicked(memberTxns),
+          byPicked(cardLogs),
+        )),
+        cardIssued,
+      };
+    }
+
+    /* -------- 待办（当前状态，不随区间变化） -------- */
+    const now = new Date();
+    const dayStart = shopDayRange(today, timeZone).start;
+    const dayEnd = shopDayRange(today, timeZone).end;
+    const [
+      openUnpaidRows,
+      pendingRefundRows,
+      pendingBookingRows,
+      todayRows,
+      upcomingRows,
+    ] = await Promise.all([
+      this.openUnpaidBookingRows(scopeContext),
+      this.pendingRefundRows(scopeContext),
+      this.pendingBookingRows(scopeContext, dayStart),
+      this.todayBookingRows(picked, dayStart, dayEnd),
+      this.upcomingBookingRows(picked, now, dayEnd),
+    ]);
+    const openUnpaidByStore = countBy(openUnpaidRows, (row) => row.storeId);
+    const pendingRefundByStore = countBy(
+      pendingRefundRows,
+      (row) => row.storeId,
+    );
+    const pickedOpenUnpaid = byPicked(openUnpaidRows);
+
+    /* -------- 趋势（近 14 个本地日，零填充） -------- */
+    const trendFrom = trendWindow.dateFrom;
+    const trendTo = trendWindow.dateTo;
+    const trendCreated = countBy(
+      byPicked(inWindow(createdBookings, trendFrom, trendTo)),
+      (row) => row.day,
+    );
+    const trendCompleted = countBy(
+      byPicked(
+        inWindow(bookings, trendFrom, trendTo).filter(
+          (row) => row.status === 'completed',
+        ),
+      ),
+      (row) => row.day,
+    );
+    const trendGross = sumBy(
+      byPicked(inWindow(payments, trendFrom, trendTo)),
+      (row) => row.day,
+      (row) => row.amount,
+    );
+    const trendRefund = sumBy(
+      byPicked(inWindow(refunds, trendFrom, trendTo)),
+      (row) => row.day,
+      (row) => row.amount,
+    );
+
+    /* -------- 门店对比（可见门店全量） -------- */
+    const { scope: visibleScope, stores: visibleStores } =
+      await listVisibleStores(this.database.db, actor);
+    const scopeWindowBookings = inWindow(
+      bookings,
+      window.dateFrom,
+      window.dateTo,
+    );
+    const scopeWindowCreated = inWindow(
+      createdBookings,
+      window.dateFrom,
+      window.dateTo,
+    );
+    const scopeWindowPayments = inWindow(
+      payments,
+      window.dateFrom,
+      window.dateTo,
+    );
+    const scopeWindowRefunds = inWindow(
+      refunds,
+      window.dateFrom,
+      window.dateTo,
+    );
+
+    const storeRows = visibleStores.map((store) => {
+      const storeBookings = scopeWindowBookings.filter(
+        (row) => row.storeId === store.id,
+      );
+      const storeCounts = countBookingStatuses(storeBookings);
+      const storeRates = bookingRates(storeCounts);
+      const storeGross = totalAmount(
+        scopeWindowPayments.filter((row) => row.storeId === store.id),
+      );
+      const storeRefund = totalAmount(
+        scopeWindowRefunds.filter((row) => row.storeId === store.id),
+      );
+      const storeNet = storeGross - storeRefund;
+      return {
+        storeId: store.id,
+        code: store.code,
+        name: store.name,
+        isDefault: store.isDefault,
+        created: scopeWindowCreated.filter((row) => row.storeId === store.id)
+          .length,
+        completed: storeCounts.completed,
+        cancelled: storeCounts.cancelled,
+        noShow: storeCounts.noShow,
+        pending: storeCounts.pending,
+        completedRatePermille: storeRates.completedRate,
+        pendingPayments: openUnpaidByStore.get(store.id) ?? 0,
+        pendingRefunds: pendingRefundByStore.get(store.id) ?? 0,
+        // 金额类字段整块按权限裁剪：轻量版**不下发**，不是前端藏
+        ...(money
+          ? {
+              net: storeNet,
+              gross: storeGross,
+              refund: storeRefund,
+              avgTicket:
+                storeCounts.completed > 0
+                  ? Math.floor(storeNet / storeCounts.completed)
+                  : null,
+              refundRatePermille: permille(storeRefund, storeGross),
+            }
+          : {}),
+      };
+    });
+
+    return {
+      meta: {
+        range,
+        dateFrom: window.dateFrom,
+        dateTo: window.dateTo,
+        prevDateFrom: window.prevDateFrom,
+        prevDateTo: window.prevDateTo,
+        prevSameLength: window.prevSameLength,
+        timeZone,
+        storeScope: visibleScope === 'all' ? 'all' : 'stores',
+        activeStoreId: pickedStoreId,
+        activeStoreName:
+          visibleStores.find((store) => store.id === pickedStoreId)?.name ??
+          null,
+        money,
+        generatedAt: new Date().toISOString(),
+      },
+      summary: {
+        ...(money
+          ? {
+              money: {
+                gross,
+                refund: refundAmount,
+                net,
+                prevNet,
+                avgTicket:
+                  counts.completed > 0
+                    ? Math.floor(net / counts.completed)
+                    : null,
+                refundRatePermille: permille(refundAmount, gross),
+                refundCountRatePermille: permille(
+                  refundCount,
+                  counts.completed,
+                ),
+                refundCount,
+              },
+            }
+          : {}),
+        bookings: {
+          created: summaryCreated.length,
+          total: counts.total,
+          completed: counts.completed,
+          cancelled: counts.cancelled,
+          noShow: counts.noShow,
+          pending: counts.pending,
+          prevCompleted,
+          completedRatePermille: rates.completedRate,
+          arriveRatePermille: rates.arriveRate,
+          noShowRatePermille: rates.noShowRate,
+          cancelRatePermille: rates.cancelRate,
+        },
+        customers,
+        ...(member ? { member } : {}),
+      },
+      trend: listLocalDates(trendFrom, trendTo).map((date) => ({
+        date,
+        created: trendCreated.get(date) ?? 0,
+        completed: trendCompleted.get(date) ?? 0,
+        ...(money
+          ? {
+              gross: trendGross.get(date) ?? 0,
+              refund: trendRefund.get(date) ?? 0,
+              net: (trendGross.get(date) ?? 0) - (trendRefund.get(date) ?? 0),
+            }
+          : {}),
+      })),
+      stores: storeRows,
+      todo: {
+        pendingPayments: pickedOpenUnpaid.length,
+        unpaidPayments: pickedOpenUnpaid.filter(
+          (row) => row.payStatus === 'unpaid',
+        ).length,
+        partialPayments: pickedOpenUnpaid.filter(
+          (row) => row.payStatus === 'partial',
+        ).length,
+        pendingRefunds: byPicked(pendingRefundRows).length,
+        pendingBookings: pendingBookingRows.length,
+        todayBookings: todayRows.length,
+        upcoming: upcomingRows.map((row) => ({
+          id: row.id,
+          bookingNo: row.bookingNo,
+          startAt: row.startAt.toISOString(),
+          customerName: row.customerName ?? null,
+          staffName: row.staffName ?? null,
+          status: row.status,
+          payStatus: row.payStatus,
+        })),
+      },
+    };
   }
 
   /** 导出 CSV 文本（含 UTF-8 BOM，Excel 直接可开）—— 门店口径与实际报表完全一致 */
@@ -1300,6 +1874,8 @@ export class ReportsService {
       .select({
         id: bizPayments.id,
         bookingId: bizPayments.bookingId,
+        // 门店：首页要按店分组对比，所以行里必须带上门店（阶段 1.8 起单据表都有）
+        storeId: bizPayments.storeId,
         purpose: bizPayments.purpose,
         channel: bizPayments.channel,
         receivedAmount: bizPayments.receivedAmount,
@@ -1344,6 +1920,7 @@ export class ReportsService {
       .select({
         id: bizRefunds.id,
         bookingId: bizRefunds.bookingId,
+        storeId: bizRefunds.storeId,
         actualAmount: bizRefunds.actualAmount,
         refundedAt: bizRefunds.refundedAt,
         createdAt: bizRefunds.createdAt,
@@ -1391,6 +1968,7 @@ export class ReportsService {
       .select({
         id: bizBookings.id,
         status: bizBookings.status,
+        storeId: bizBookings.storeId,
         customerId: bizBookings.customerId,
         staffId: bizBookings.staffId,
         startAt: bizBookings.startAt,
@@ -1488,6 +2066,7 @@ export class ReportsService {
     return this.database.db
       .select({
         type: bizMemberTransactions.type,
+        storeId: bizMemberTransactions.storeId,
         balanceDeltaPrincipal: bizMemberTransactions.balanceDeltaPrincipal,
         balanceDeltaBonus: bizMemberTransactions.balanceDeltaBonus,
         pointsDelta: bizMemberTransactions.pointsDelta,
@@ -1539,6 +2118,8 @@ export class ReportsService {
         type: bizMemberCardLogs.type,
         times: bizMemberCardLogs.times,
         createdAt: bizMemberCardLogs.createdAt,
+        // 核销记录本身没有门店列：门店归属只能顺着关联预约取（散客核销为 null）
+        storeId: bizBookings.storeId,
       })
       .from(bizMemberCardLogs)
       .leftJoin(bizBookings, eq(bizMemberCardLogs.bookingId, bizBookings.id))
@@ -1581,6 +2162,126 @@ export class ReportsService {
         ]),
       );
     return toInt(row?.value);
+  }
+
+  /* ---------------- 首页概览的补充查询 ---------------- */
+
+  /**
+   * 预约单：营业日锚点 = `created_at`（=「今天下了多少单」）。
+   *
+   * 与 `bookingRows`（锚点 `start_at`）**刻意分开**：同一张卡上「今日预约 12 单」
+   * 和「今日完成 8 单」回答的是两个问题，混用一个锚点必错一个。
+   */
+  private bookingCreatedRows(q: ResolvedQuery) {
+    return this.database.db
+      .select({
+        id: bizBookings.id,
+        storeId: bizBookings.storeId,
+        createdAt: bizBookings.createdAt,
+      })
+      .from(bizBookings)
+      .where(
+        andConditions([
+          ...storeConditions(bizBookings.storeId, q.store),
+          isNull(bizBookings.deletedAt),
+          this.dayRange(bizBookings.createdAt, q),
+        ]),
+      );
+  }
+
+  /** 待办「未收款」：还没收钱的活单（未取消、未结清）。**不限时间** —— 欠着就是欠着 */
+  private openUnpaidBookingRows(store: StoreContext) {
+    return this.database.db
+      .select({
+        id: bizBookings.id,
+        storeId: bizBookings.storeId,
+        payStatus: bizBookings.payStatus,
+      })
+      .from(bizBookings)
+      .where(
+        andConditions([
+          ...storeConditions(bizBookings.storeId, store),
+          isNull(bizBookings.deletedAt),
+          inArray(bizBookings.status, PENDING_BOOKING_STATUSES),
+          inArray(bizBookings.payStatus, ['unpaid', 'partial'] as const),
+        ]),
+      );
+  }
+
+  /** 待办「待审批退款」：申请/审批分离（§15.6），审批只给店长 */
+  private pendingRefundRows(store: StoreContext) {
+    return this.database.db
+      .select({ id: bizRefunds.id, storeId: bizRefunds.storeId })
+      .from(bizRefunds)
+      .where(
+        andConditions([
+          ...storeConditions(bizRefunds.storeId, store),
+          eq(bizRefunds.status, 'pending'),
+          isNull(bizRefunds.deletedAt),
+        ]),
+      );
+  }
+
+  /**
+   * 待办「待确认预约」：小程序自助下单落在 `pending`（§9.7）。
+   *
+   * 只算**今天及以后**的：历史遗留的 pending 不是待办，混进来只会让数字永远下不去。
+   */
+  private pendingBookingRows(store: StoreContext, from: Date) {
+    return this.database.db
+      .select({ id: bizBookings.id, storeId: bizBookings.storeId })
+      .from(bizBookings)
+      .where(
+        andConditions([
+          ...storeConditions(bizBookings.storeId, store),
+          isNull(bizBookings.deletedAt),
+          eq(bizBookings.status, 'pending'),
+          gte(bizBookings.startAt, from),
+        ]),
+      );
+  }
+
+  /** 待办「今日预约」：按营业日（`start_at`）落在今天的全部预约 */
+  private todayBookingRows(store: StoreContext, from: Date, to: Date) {
+    return this.database.db
+      .select({ id: bizBookings.id, storeId: bizBookings.storeId })
+      .from(bizBookings)
+      .where(
+        andConditions([
+          ...storeConditions(bizBookings.storeId, store),
+          isNull(bizBookings.deletedAt),
+          gte(bizBookings.startAt, from),
+          lt(bizBookings.startAt, to),
+        ]),
+      );
+  }
+
+  /** 待办「接下来」：今天还没开始的预约，最多 5 条（多了首页就成了列表页） */
+  private upcomingBookingRows(store: StoreContext, from: Date, to: Date) {
+    return this.database.db
+      .select({
+        id: bizBookings.id,
+        bookingNo: bizBookings.bookingNo,
+        startAt: bizBookings.startAt,
+        status: bizBookings.status,
+        payStatus: bizBookings.payStatus,
+        customerName: bizCustomers.name,
+        staffName: bizStaffs.nickname,
+      })
+      .from(bizBookings)
+      .leftJoin(bizCustomers, eq(bizBookings.customerId, bizCustomers.id))
+      .leftJoin(bizStaffs, eq(bizBookings.staffId, bizStaffs.id))
+      .where(
+        andConditions([
+          ...storeConditions(bizBookings.storeId, store),
+          isNull(bizBookings.deletedAt),
+          inArray(bizBookings.status, PENDING_BOOKING_STATUSES),
+          gte(bizBookings.startAt, from),
+          lt(bizBookings.startAt, to),
+        ]),
+      )
+      .orderBy(asc(bizBookings.startAt))
+      .limit(5);
   }
 }
 

@@ -7,7 +7,10 @@ title: 报表与提成核算
 本页覆盖**报表指标口径、营业日切分、查询实现与性能**，以及**提成规则优先级、计提基数、结算冻结与冲销**。
 
 - 代码位置：
-  - `src/modules/biz/reports/analytics/reports.service.ts`（1499 行，6 张报表 + CSV 导出）
+  - `src/modules/biz/reports/analytics/reports.service.ts`（2300+ 行，6 张报表 + 首页概览 + CSV 导出）
+  - `src/modules/biz/reports/analytics/home-overview.ts`（首页概览的纯计算：区间/环比/成单率/退款率，有单测）
+  - `src/modules/biz/reports/analytics/home-overview.spec.ts`（口径回归）
+  - `tests/integration/b15-home-overview.int.spec.ts`（按店 + 轻量版 + 对账等式）
   - `src/modules/biz/reports/analytics/reports.controller.ts`（`/biz/reports`）
   - `src/modules/biz/reports/commission/commission.service.ts`（799 行）
   - `src/modules/biz/reports/commission/commission.controller.ts`
@@ -93,17 +96,18 @@ function periodOf(date: string, granularity: ReportGranularity): string {
 
 ## 报表清单与指标口径
 
-6 个只读接口，全部 `biz:report:view`：
+6 个只读接口，全部 `biz:report:view`；另有 1 个**首页经营概览**接口，权限二选一：
 
-| 接口                           | 内容                                         |
-| ------------------------------ | -------------------------------------------- |
-| `GET /biz/reports/overview`    | 概览（营收 + 预约 + 客户 + 会员 4 组）       |
-| `GET /biz/reports/revenue`     | 按 period 的营收明细（含渠道拆列）           |
-| `GET /biz/reports/services`    | 项目排行（含次卡核销单列）                   |
-| `GET /biz/reports/staffs`      | 美甲师业绩（含提成与评分）                   |
-| `GET /biz/reports/members`     | 会员报表（充值 / 结存 / 积分 / 次卡）        |
-| `GET /biz/reports/receivables` | 应收账龄（见 [挂账与应收](/backend/credit)） |
-| `GET /biz/reports/export`      | CSV 导出，`biz:report:export`                |
+| 接口                           | 内容                                                         | 权限                                                      |
+| ------------------------------ | ------------------------------------------------------------ | --------------------------------------------------------- |
+| `GET /biz/reports/home`        | 首页经营概览（按店：营收 / 单量 / 转化率 / 门店对比 / 待办） | `biz:report:view`（全量）**或** `biz:report:home`（轻量） |
+| `GET /biz/reports/overview`    | 概览（营收 + 预约 + 客户 + 会员 4 组）                       | `biz:report:view`                                         |
+| `GET /biz/reports/revenue`     | 按 period 的营收明细（含渠道拆列）                           | 同上                                                      |
+| `GET /biz/reports/services`    | 项目排行（含次卡核销单列）                                   | 同上                                                      |
+| `GET /biz/reports/staffs`      | 美甲师业绩（含提成与评分）                                   | 同上                                                      |
+| `GET /biz/reports/members`     | 会员报表（充值 / 结存 / 积分 / 次卡）                        | 同上                                                      |
+| `GET /biz/reports/receivables` | 应收账龄（见 [挂账与应收](/backend/credit)）                 | 同上                                                      |
+| `GET /biz/reports/export`      | CSV 导出                                                     | `biz:report:export`                                       |
 
 ### 门店维度（连锁直营）
 
@@ -120,19 +124,58 @@ function periodOf(date: string, granularity: ReportGranularity): string {
 营收 / 退款 / 单量 / 客单价 / 新客回头客 / 项目排行 / 美甲师（单量、分摊营收、提成、评分）/
 应收账龄 / **次卡核销**（挂在预约上的按预约门店；散客核销没有门店可判 → 按店时落空，宁少不多）。
 
-**恒为全店口径的指标**（表里没有 `store_id`，余额是全店通兑的一个池子）：
+**恒为全店口径的指标**（表里没有 `store_id`，或语义上属于整个品牌）：
 
-| 指标                | 为什么                                                  |
-| ------------------- | ------------------------------------------------------- |
-| 储值充退 / 期末结存 | `biz_member_transaction` 无门店列（充值流水也不挂预约） |
-| 积分发放 / 抵扣     | 同上                                                    |
-| 新增会员            | `biz_customer` 无门店列（顾客/手机号全店唯一）          |
-| 次卡发售            | `biz_member_card` 无门店列                              |
+| 指标     | 为什么                                         |
+| -------- | ---------------------------------------------- |
+| 期末结存 | 余额是全店通兑的**一个池子**，没有「A 店余额」 |
+| 新增会员 | `biz_customer` 无门店列（顾客/手机号全店唯一） |
+| 次卡发售 | `biz_member_card` 无门店列                     |
+
+> 阶段 1.12 起**储值充退 / 积分发放抵扣 / 次卡核销已能按发生门店统计**
+> （`biz_member_transaction.store_id`，可空、只作追溯）。分界线是：
+> **「这笔钱发生在哪家店」按店，「这家公司现在有多少」全店。**
 
 这不是漏做，而是**口径选择**：给这些数字按店切分只会得到「A 店余额」这种不存在的概念。
 前端因此必须显式标注（概览卡片的「全店」标签、会员页签顶部的说明），
 否则店长会以为「切到本店后这些数字也是本店的」。若真要按店看充值金额，
 用营收报表的 `purpose=recharge` 那一档（支付单带门店）。
+
+### home（首页经营概览）
+
+首页整页就是这一个接口（阶段 1.13）。口径与报表同源（复用 `paymentRows` / `refundRows` /
+`bookingRows` 与 `memberTotalsOf`），差异在**区间取值方式**与**两套并存的权限**。
+
+**区间是档位，不是日期区间**：`range = today | 7d | 30d | month`（默认 `today`），
+环比固定取日历上的**上一个等长区间**（本月 = 上月同期，天数不足时夹到上月最后一天并置
+`prevSameLength = false`）。趋势图固定近 14 个本地日，与所选区间无关。
+
+| 指标                    | 口径                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `summary.money.*`       | 净营收 = 实收 − 退款；`avgTicket = floor(net / 完成单量)`（无完成单 → `null`）    |
+| `refundRatePermille`    | 退款额 ÷ 实收（**千分比整数**；实收为 0 → `null`，不是 0%）                       |
+| `completedRatePermille` | **成单率（= 首页的「下单率」）** = 完成 ÷ (完成+取消+爽约)，待确认/进行中不进分母 |
+| `arriveRatePermille`    | 到店率 = (到店+完成) ÷ (全部 − 取消)：取消是顾客主动行为，不算「没来」            |
+| `bookings.created`      | 区间内**创建**的预约（锚点 `created_at`）；`total/completed/...` 锚点 `start_at`  |
+| `todo.*`                | **当前状态，不随区间变化**：未付款 / 尾款未清 / 待审批退款 / 待确认预约           |
+| `stores[]`              | 门店对比：**恒为可见门店全量**（不受顶栏切换器影响）                              |
+
+两条与报表**不同**的门店口径（写之前先看这段）：
+
+1. **汇总 / 趋势 / 待办跟随顶栏切换器**（切到 B 店就只看 B 店）；
+2. **门店对比表恒为可见门店全量** —— 切到 A 店时这张表还要能回答「B 店今天怎么样」。
+   对账等式：`Σ stores[].net === summary.money.net`（`b15-home-overview` 用集成测试钉住）。
+
+**权限两套，金额是否下发由服务端决定**：
+
+| 权限              | 谁         | 拿到什么                                                               |
+| ----------------- | ---------- | ---------------------------------------------------------------------- |
+| `biz:report:view` | 店长及以上 | 全量版：含金额（营收 / 退款率 / 客单价 / 储值 / 会员存量）             |
+| `biz:report:home` | 前台       | 轻量版：`meta.money = false`，**响应里不存在金额字段**（不是前端隐藏） |
+
+轻量版权限点挂在**首页菜单下的一个按钮行**（`dashboard_home_overview`），不是挂在首页菜单上 ——
+首页菜单对三个默认角色都授予，挂在菜单上会让**美甲师**自动拿到它，而美甲师通常没有
+`sys_user_store` 授权，一进首页就撞 `resolveStoreScope` 的 403。
 
 ### overview
 

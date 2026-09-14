@@ -443,6 +443,23 @@ export const MENU_SEEDS: MenuSeed[] = [
     icon: 'home',
     sort: 1,
   },
+  /**
+   * 首页经营概览的**轻量版权限点**（前台用）。
+   *
+   * 为什么是一个挂在首页下的按钮行、而不是给首页菜单本身加 permission：
+   * 首页菜单对**三个默认角色都授予**（美甲师也要能打开首页）。如果把
+   * `biz:report:home` 挂在首页菜单上，美甲师会自动拿到它 —— 而美甲师通常
+   * **没有 `sys_user_store` 授权**，一进首页就会撞上 `resolveStoreScope` 的 403。
+   * 挂在按钮行上，就只有白名单里的前台会拿到（见 `FRONTDESK_PERMISSIONS`）。
+   */
+  {
+    parentKey: 'dashboard',
+    name: 'dashboard_home_overview',
+    title: '首页-经营概览（轻量，不含金额）',
+    type: 'F',
+    permission: 'biz:report:home',
+    sort: 1,
+  },
   // ===== 系统管理（目录）=====
   {
     name: 'system',
@@ -810,6 +827,9 @@ function isBizMenu(seed: MenuSeed): boolean {
  * 由店长按需在角色管理里单独勾。
  */
 export const FRONTDESK_PERMISSIONS: readonly string[] = [
+  // 首页经营概览「轻量版」：只有单量与待办，**响应里不含任何金额**
+  // （`biz:report:view` 是含金额的全量版，刻意不给前台 —— 见下面的反向断言单测）
+  'biz:report:home',
   // 预约（本职）：§8.1 注释「店长/前台应有 manageall」「前台能点到店」→ arrive
   'biz:booking:list',
   'biz:booking:create',

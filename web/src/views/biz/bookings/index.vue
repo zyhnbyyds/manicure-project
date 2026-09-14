@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   AlertTriangle,
   CalendarClock,
@@ -186,6 +187,20 @@ const payStatusOptions = (Object.keys(payStatusText) as BookingPayStatus[]).map(
 
 const today = formatDateTime(new Date(), 'YYYY-MM-DD');
 
+/**
+ * 支持从首页待办卡**带筛选**跳进来（`/biz/bookings?payStatus=unpaid`）。
+ *
+ * 只读一次 URL 上的初值，之后筛选项仍是页面自己的状态 —— 不做双向同步：
+ * 用户在列表页改筛选再刷新时，URL 里的旧参数不该把筛选又拽回去。
+ */
+const route = useRoute();
+function initialFilter<K extends 'status' | 'payStatus'>(
+  key: K,
+): string | undefined {
+  const value = route.query[key];
+  return typeof value === 'string' && value ? value : undefined;
+}
+
 const dateMode = ref<'single' | 'range'>('single');
 const query = ref<{
   date?: string;
@@ -195,7 +210,15 @@ const query = ref<{
   status?: BookingStatus;
   payStatus?: BookingPayStatus;
   keyword?: string;
-}>({ date: today });
+}>({
+  date: today,
+  ...(initialFilter('status')
+    ? { status: initialFilter('status') as BookingStatus }
+    : {}),
+  ...(initialFilter('payStatus')
+    ? { payStatus: initialFilter('payStatus') as BookingPayStatus }
+    : {}),
+});
 
 const {
   items,

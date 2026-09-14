@@ -47,7 +47,20 @@ metadata:
 - "营业日"按 `shopDayRange` 切（默认自然日 00:00–24:00；若营业到凌晨需改为按营业结束时间切日）。
 - 导出 `GET /biz/reports/export`：≤1 万行同步 CSV，超过走异步任务（复用 jobs + 文件模块），
   完成后在通知中心提示下载。
-- 权限：`biz:report:view` / `biz:report:export`。
+- 权限：`biz:report:view` / `biz:report:export`；**首页概览另有轻量版权限 `biz:report:home`**（前台，
+  见下）。
+- **首页经营概览**（阶段 1.13，`GET /biz/reports/home`，实现 `analytics/home-overview.ts` + service 的 `home()`）：
+  - 区间是**档位**（`today|7d|30d|month`，默认 today），环比取上一个等长区间（本月 = 上月同期，
+    天数不足时夹到上月月末并置 `prevSameLength=false`）；趋势固定近 14 个本地日；
+  - **成单率（= 首页的「下单率」）= 完成 ÷ (完成+取消+爽约)**，待确认/进行中的单**不进分母**；
+    到店率 = (到店+完成) ÷ (全部 − 取消)（取消是顾客主动行为，不算「没来」）；
+  - 比例一律**千分比整数**，分母为 0 → `null`（前端显示「—」；「退款率 0%」和「还没有营收」是两件事）；
+  - **两类门店口径并存**：汇总/趋势/待办跟顶栏切换器，**门店对比表恒为可见门店全量**；
+    对账等式 `Σ stores[].net === summary.money.net`（`b15-home-overview` 钉住）；
+  - **金额由服务端按权限裁剪**：只有 `biz:report:home` 的账号拿到 `meta.money=false` 且响应里
+    **不存在**金额字段（不是前端 `v-if` 藏）；`biz:report:view`（店长及以上）才是全量版；
+  - 「预约单量」锚点 `created_at`（今天下了多少单），完成/取消/爽约锚点 `start_at`（营业日）——
+    两个锚点刻意分开，混用必错一个。
 
 ## 提成（§20.3）
 

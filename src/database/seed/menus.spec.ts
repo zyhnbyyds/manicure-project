@@ -137,6 +137,20 @@ describe('§15.9 角色建议：默认角色的菜单与权限口径', () => {
     }
   });
 
+  it('前台：拿得到首页经营概览**轻量版**，但拿不到含金额的全量版', () => {
+    const permissions = permissionsOf('frontdesk');
+    expect(permissions).toContain('biz:report:home');
+    // 含金额的全量版只给店长及以上（前台拿到就等于把营收发给了前台）
+    expect(permissions).not.toContain('biz:report:view');
+    expect(permissions).not.toContain('biz:report:export');
+  });
+
+  it('美甲师：不会拿到首页经营概览权限（没绑门店 → 一进首页就 403）', () => {
+    const permissions = permissionsOf('stylist');
+    expect(permissions).not.toContain('biz:report:home');
+    expect(permissions).not.toContain('biz:report:view');
+  });
+
   it('映射里的菜单名都真实存在（写错名字会静默少授权）', () => {
     const allNames = new Set(MENU_SEEDS.map((seed) => seed.name));
     for (const role of ROLE_SEEDS) {
