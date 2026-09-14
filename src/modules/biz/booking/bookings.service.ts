@@ -820,14 +820,22 @@ export class BookingsService implements BookingPort {
       couponId?: number | undefined;
       remark?: string | undefined;
     },
+    requestedStoreId?: number | null,
   ) {
     const bookingConfig = await this.config.booking();
     const tz = bookingConfig.timezone;
     /**
-     * 小程序下单没有后台身份（不接 RBAC），门店取库里的默认门店；
-     * 多店上线后由小程序带上「选定的门店」，这里换成按 id 解析即可。
+     * 门店：小程序带「当前门店」（`x-store-id` 头）就落那家，没带就沿用**默认门店** ——
+     * 与单店期行为一致（老版本小程序 / 访客不带这个头）。
+     *
+     * 顾客没有后台身份（不接 RBAC），所以 `actor` 传 `null`：
+     * `requireCurrentStoreId` 在这种情况下会把显式传入的门店原样采用、否则回落默认门店。
      */
-    const storeId = await requireCurrentStoreId(this.database.db, null, null);
+    const storeId = await requireCurrentStoreId(
+      this.database.db,
+      null,
+      requestedStoreId ?? null,
+    );
 
     // ---- 步骤 2：前置校验全部在事务外（FOR UPDATE 之前不能有普通 SELECT 建立 RR 快照）----
     const customer = await this.customers.requireById(customerId);

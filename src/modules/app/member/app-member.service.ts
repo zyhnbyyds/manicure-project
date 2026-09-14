@@ -30,10 +30,12 @@ import {
   RechargePlanPort,
   RefundPort,
   ReviewPort,
+  StorePort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
 import { BizConfigService } from '../../biz/common/biz-config.service.js';
 import { APP_ACTOR_ID } from '../app-actor.js';
+import { resolveAppStore } from '../common/app-store.js';
 import { inPayRollout } from '../pay-rollout.js';
 import type {
   AppBookingListVo,
@@ -109,6 +111,8 @@ export class AppMemberService {
     private readonly bizConfig: BizConfigService,
     /** 门店档案的**唯一写入口**（顾客自助改资料走它，不直接 update 表） */
     private readonly customers: CustomerPort,
+    /** 门店实体：把 `x-store-id` 头（小程序「当前门店」）解析成门店行 */
+    private readonly stores: StorePort,
   ) {}
 
   /**
@@ -805,6 +809,8 @@ export class AppMemberService {
       couponId?: number | undefined;
       remark?: string | null | undefined;
     },
+    /** 小程序「当前门店」的原始请求头值（没传 → 落默认门店） */
+    rawStoreId?: string,
   ): Promise<AppCreateBookingVo> {
     /**
      * **下单时的次卡核销 / 积分抵扣也要过同一道闸门。**
@@ -823,15 +829,26 @@ export class AppMemberService {
       );
 
     const customerId = await this.requireCustomerId(appUserId);
-    const created = await this.bookingPort.createForCustomer(customerId, {
-      staffId: input.staffId,
-      startAt: input.startAt,
-      serviceItemIds: input.serviceItemIds,
-      memberCardId: input.memberCardId ?? null,
-      pointsToUse: input.pointsToUse,
-      couponId: input.couponId,
-      remark: input.remark ?? undefined,
-    });
+    /*
+     * 门店：顾客选了哪家店就落哪家（`x-store-id` 头 → 校验存在且启用），
+     * 没选 / 传递了停用的店 → 回落默认门店（单店期的老行为，下不了单才是灾难）。
+     * 校验放在这里而不是只依赖建单处：`resolveStoreScope` 对「无后台身份」的顾客
+     * 走的是 privileged 分支，不会校验门店是否存在，直落库会撞外键。
+     */
+    const store = await resolveAppStore(this.stores, rawStoreId);
+    const created = await this.bookingPort.createForCustomer(
+      customerId,
+      {
+        staffId: input.staffId,
+        startAt: input.startAt,
+        serviceItemIds: input.serviceItemIds,
+        memberCardId: input.memberCardId ?? null,
+        pointsToUse: input.pointsToUse,
+        couponId: input.couponId,
+        remark: input.remark ?? undefined,
+      },
+      store?.id ?? null,
+    );
     return {
       id: created.id,
       bookingNo: created.bookingNo,

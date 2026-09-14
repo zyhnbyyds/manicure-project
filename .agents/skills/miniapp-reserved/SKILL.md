@@ -56,6 +56,22 @@ wx.login → code
   验收要求两者结果一致。
 - 在线支付本期走后台 **Native 扫码**；`jsapi` 只是给 P2 留的契约位。
 
+## 当前门店（多店，阶段 1.10）
+
+顾客选的店通过**请求头 `x-store-id`** 传（小程序 `store/shop.ts` 存 id → `utils/request.ts`
+统一注入），后端用 `src/modules/app/common/app-store.ts` 的 `resolveAppStore()` 解析：
+
+- 与后台的 `resolveStoreScope` **不是一回事**：那边看「账号被授权了哪些店」，
+  顾客没有这个概念，只有「选了一家店」；
+- 头里的 id 存在且**启用**才采用，否则（没传 / 乱值 / 已停用）**回落默认门店** ——
+  宁可退化成单店期行为，也不能因为小程序缓存过期就让人下不了单；
+- **已按店生效**：门店档案 `GET /app/shop`、美甲师目录 `GET /app/staffs`、
+  下单 `POST /app/bookings`（落 `biz_booking.store_id`）。
+- **不要按店收窄的**：顾客自己的预约列表（他本来就可能在不同店都有单）。
+
+写 app 域新接口时先问一句：**它跟「哪家店」有关吗？** 有关就读这个头，
+别自己发明 `?storeId=` 参数（两套并存必然分叉）。
+
 ## app 域写接口的三条硬约定
 
 1. **`wx.request` 的 method 里没有 PATCH**（只有 OPTIONS/GET/HEAD/POST/PUT/DELETE/TRACE/CONNECT）——

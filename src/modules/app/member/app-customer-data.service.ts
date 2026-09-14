@@ -25,8 +25,10 @@ import type {
   AppFavoriteToggleVo,
   AppNoticeListVo,
   AppNoticeReadVo,
+  AppShopListVo,
   AppShopVo,
 } from '../dto/app-vo.js';
+import { resolveAppStore } from '../common/app-store.js';
 
 /** 每个顾客最多保存多少个收货地址（防刷，也防「默认地址」被淹没） */
 const MAX_ADDRESSES = 10;
@@ -481,13 +483,14 @@ export class AppCustomerDataService {
    * 门店档案（公开信息）。
    *
    * 数据来源两层，**门店表优先、遗留配置兜底**：
-   * 1. `sys_store` 的默认门店（阶段 0 起门店是实体；多店后这里会变成「按 storeId 取」）；
+   * 1. `sys_store` 的**当前门店** —— 小程序带 `x-store-id` 头就按它取，
+   *    没带 / 传了停用的店就回落默认门店（见 `common/app-store.ts`）；
    * 2. 门店行里为空的字段回落 `biz.shop.*`（`BizConfigService.shopProfile()`）——
    *    老库的门店行是迁移时从配置生成的，可能整列是 null，不兜就会给小程序一片空白。
    */
-  async shopProfile(): Promise<AppShopVo> {
+  async shopProfile(rawStoreId?: string): Promise<AppShopVo> {
     const [store, profile] = await Promise.all([
-      this.stores.findDefault(),
+      resolveAppStore(this.stores, rawStoreId),
       this.bizConfig.shopProfile(),
     ]);
     return {
@@ -507,6 +510,33 @@ export class AppCustomerDataService {
           : (store?.notice ?? profile.notice),
       // 图集：没传过就是空数组（C 端判 length，不用判 null）
       images: store?.images ?? [],
+    };
+  }
+
+  /**
+   * 小程序门店列表（选店页用）。
+   *
+   * 只回**启用中**的门店（`StorePort.listActive()` 已按 `sort` 排好）。
+   * 这里**不做「按距离排序」**：那需要顾客的坐标，而后端既拿不到也不该拿 ——
+   * 距离在**小程序端**算（`utils/geo.ts`），后端只负责把经纬度给全；
+   * 没配坐标的门店 `latitude/longitude` 为 `null`，C 端把算不出距离的排最后。
+   */
+  async listShops(): Promise<AppShopListVo> {
+    const rows = await this.stores.listActive();
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        nameEn: row.nameEn,
+        address: row.address,
+        phone: row.phone,
+        hours: row.hours,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        isDefault: row.isDefault,
+        images: row.images ?? [],
+      })),
     };
   }
 

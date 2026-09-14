@@ -51,6 +51,7 @@ import type {
   StaffReview,
   StaffSchedule,
   RechargePlan,
+  ShopBrief,
   ShopProfile,
   UpdateProfileRequest,
 } from './types';
@@ -290,10 +291,21 @@ export const noticeApi = {
   },
 };
 
-/** 门店档案（公开信息；门店在后台「参数配置」改完最多 10 秒生效，小程序不用发版） */
+/** 门店档案与门店列表（公开信息；门店在后台改完最多 10 秒生效，小程序不用发版） */
 export const shopApi = {
+  /** 当前门店档案：按 `x-store-id` 头取（request 层统一注入），没选过 = 默认门店 */
   get(): Promise<ShopProfile> {
     return request<ShopProfile>({ path: '/app/shop' });
+  },
+  /**
+   * 门店列表（选店页用）。
+   *
+   * 后端按运营的排序返回、**不包含距离** —— 距离由小程序端算
+   * （`utils/geo.ts`：拿 `wx.getLocation` 的坐标与门店坐标比），
+   * 后端既拿不到也不该拿顾客的位置。
+   */
+  list(): Promise<{ items: ShopBrief[] }> {
+    return request<{ items: ShopBrief[] }>({ path: '/app/shops' });
   },
 };
 

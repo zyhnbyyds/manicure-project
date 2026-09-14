@@ -55,6 +55,12 @@
     ]
   },
   "style": "v2",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于按距离为你推荐最近的门店"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"],
   "componentFramework": "glass-easel",
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"

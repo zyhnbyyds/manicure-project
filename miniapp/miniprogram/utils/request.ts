@@ -32,6 +32,7 @@
  * 由 `store/auth` 在模块初始化时把「重新登录」注册进来。
  */
 import { API_BASE, REQUEST_TIMEOUT } from '../config';
+import { storeHeader } from '../store/shop';
 import { clearAuth, getToken } from './token';
 
 /**
@@ -225,6 +226,13 @@ function send<T>(options: RequestOptions, alreadyRetried: boolean): Promise<T> {
   if (useAuth && token) {
     header.Authorization = `Bearer ${token}`;
   }
+  /*
+   * 当前门店（多店）：选了店才发这个头，没选过由后端回落默认门店。
+   * **统一在这一层注入**，页面就不用各自记得传 —— 漏一处就是
+   * 「在 A 店挑的时段、单子落在 B 店」这种事后极难发现的错。
+   */
+  const currentStoreId = storeHeader();
+  if (currentStoreId) header['x-store-id'] = currentStoreId;
 
   const isQueryMethod = method === 'GET';
   const url =

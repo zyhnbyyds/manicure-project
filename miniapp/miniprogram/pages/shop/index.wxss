@@ -110,3 +110,93 @@
   line-height: 1.6;
   color: var(--c-text-sub);
 }
+
+/* ── 选择门店（多店才有；单店期整个区块不渲染） ─────── */
+
+.store-pick {
+  margin-top: 20rpx;
+}
+
+.store-pick__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.store-pick__title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.store-pick__locate {
+  font-size: 22rpx;
+  color: var(--c-primary-deep);
+}
+
+.store-pick__locate.is-busy {
+  color: var(--c-text-sub);
+}
+
+.store {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 0;
+}
+
+/* 相邻项才画分隔线：第一项上方不该有线 */
+.store + .store {
+  border-top: 1rpx solid var(--c-border);
+}
+
+.store__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.store__name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.store--active .store__name {
+  color: var(--c-primary-deep);
+}
+
+.store__tag {
+  margin-left: 8rpx;
+  padding: 0 6rpx;
+  font-size: 20rpx;
+  font-weight: 400;
+  color: var(--c-text-sub);
+  border: 1rpx solid var(--c-border);
+  border-radius: 6rpx;
+}
+
+.store__addr {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.store__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
+}
+
+.store__distance {
+  font-size: 22rpx;
+  color: var(--c-text-sub);
+}
+
+.store__current {
+  padding: 2rpx 8rpx;
+  font-size: 20rpx;
+  color: #fff;
+  background: var(--c-primary);
+  border-radius: 6rpx;
+}

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseIntPipe,
@@ -339,12 +340,32 @@ export class AppCustomerDataController {
   }
 
   /* ------------------------------ 门店档案 ------------------------------ */
+  @Get('shops')
+  @ApiOperation({
+    summary: '门店列表（小程序选店）',
+    description:
+      '启用中的门店，按后台「排序」返回（默认门店带 `isDefault` 标记，但**不保证排第一**）。' +
+      '字段含经纬度与图集：**距离由小程序自己算**，后端不做坐标计算、也拿不到顾客位置。' +
+      '没配坐标的门店 `latitude/longitude` 为 null，客户端把算不出距离的排最后即可。' +
+      '**只要求 app token（免登录可访问）** —— 与门店档案同为公开信息。',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '成功',
+    schema: { $ref: '#/components/schemas/AppShopListVo' },
+  })
+  shops() {
+    return this.customerData.listShops();
+  }
+
   @Get('shop')
   @ApiOperation({
     summary: '门店档案（公开信息）',
     description:
-      '门店名 / 电话 / 地址 / 营业时间 / 经纬度 / 公告：**门店表 `sys_store` 优先**，' +
+      '门店名 / 电话 / 地址 / 营业时间 / 经纬度 / 公告 / 图集：**门店表 `sys_store` 优先**，' +
       '门店字段为空时回落 `sys_config` 的 `biz.shop.*`（两者并存期的兜底）。' +
+      '**取哪家店**：请求头 `x-store-id`（小程序「当前门店」）→ 校验存在且启用 → ' +
+      '否则回落默认门店 —— 顾客切店后这里跟着变。' +
       '**只要求 app token，不要求绑定手机号** —— 这是公开信息，' +
       '与 `/app/service-items` 同为可匿名浏览的目录。',
   })
@@ -353,7 +374,7 @@ export class AppCustomerDataController {
     description: '成功',
     schema: { $ref: '#/components/schemas/AppShopVo' },
   })
-  shop() {
-    return this.customerData.shopProfile();
+  shop(@Headers('x-store-id') rawStoreId?: string) {
+    return this.customerData.shopProfile(rawStoreId);
   }
 }

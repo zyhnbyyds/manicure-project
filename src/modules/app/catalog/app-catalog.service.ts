@@ -6,6 +6,7 @@ import {
   StorePort,
 } from '../../biz/common/ports.js';
 import { parsePagination } from '../../biz/common/query.js';
+import { resolveAppStore } from '../common/app-store.js';
 import {
   appAvailableSlotsQuerySchema,
   appServiceItemIdsSchema,
@@ -56,14 +57,15 @@ export class AppCatalogService {
   async listStaffs(
     rawPage?: string,
     rawPageSize?: string,
+    rawStoreId?: string,
   ): Promise<AppStaffListVo> {
     const { page, pageSize } = parsePagination(rawPage, rawPageSize);
     /*
-     * 门店维度：小程序还没做「选店」，全程按**默认门店** ——
-     * 只回能服务这家店的人（没配过门店的美甲师依旧全店可用，见 biz_staff_store 的约定）。
-     * 将来小程序带 storeId 时，把这里换成请求里的门店即可。
+     * 门店维度：只回**能服务当前门店**的人。
+     * 当前门店 = `x-store-id` 头（小程序选店）→ 校验存在且启用 → 回落默认门店。
+     * 没配过服务门店的美甲师在每家店都可用（`biz_staff_store` 空集合 = 全部门店）。
      */
-    const store = await this.stores.findDefault();
+    const store = await resolveAppStore(this.stores, rawStoreId);
     const rows = await this.staffs.listActive(store?.id);
     const offset = (page - 1) * pageSize;
     const items = rows.slice(offset, offset + pageSize).map((row) => ({

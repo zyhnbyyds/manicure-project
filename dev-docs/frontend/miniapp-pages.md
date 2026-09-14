@@ -88,14 +88,14 @@ app 域**没有收藏与地址接口**，`project-design/HANDOVER-miniapp.md` §
 
 ### 其它（6）
 
-| #   | 页面路径               | 中文名称       | 用途                              | 调用的 app 域接口                                                                    |
-| --- | ---------------------- | -------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
-| 20  | `pages/shop/index`     | 门店信息       | 门店电话 / 地址 / 营业时间 / 导航 | **本地状态/无接口**（数据来自 `config.ts` 的 `SHOP` 常量）                           |
-| 21  | `pages/notices/index`  | 消息中心       | 站内消息列表                      | **本地状态/无接口**                                                                  |
-| 22  | `pages/feedback/index` | 意见反馈       | 反馈表单                          | **本地状态/无接口**                                                                  |
-| 23  | `pages/login/index`    | 登录绑定手机号 | 静默登录 + 手机号授权绑定         | `POST /app/auth/login`（经 `ensureLogin`）、`POST /app/auth/phone`（经 `bindPhone`） |
-| 24  | `pages/mine/index`     | 我的           | 个人中心；工作台申请入口          | `GET /app/member/me`、`GET /app/bookings`、`POST /app/staff/apply`                   |
-| 25  | `pages/theme/index`    | 主题设置       | 7 套预设 + 10 色自定义            | **本地状态/无接口**（`theme/theme.ts` 的 `setPreset` / `setCustomPrimary`）          |
+| #   | 页面路径               | 中文名称       | 用途                                           | 调用的 app 域接口                                                                                              |
+| --- | ---------------------- | -------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 20  | `pages/shop/index`     | 门店信息       | 当前门店信息 + **多店切换** + 定位找最近的门店 | `GET /app/shop`（按当前门店头）、`GET /app/shops`（列表）；距离用 `wx.getLocation` + `utils/geo.ts` **本地**算 |
+| 21  | `pages/notices/index`  | 消息中心       | 站内消息列表                                   | **本地状态/无接口**                                                                                            |
+| 22  | `pages/feedback/index` | 意见反馈       | 反馈表单                                       | **本地状态/无接口**                                                                                            |
+| 23  | `pages/login/index`    | 登录绑定手机号 | 静默登录 + 手机号授权绑定                      | `POST /app/auth/login`（经 `ensureLogin`）、`POST /app/auth/phone`（经 `bindPhone`）                           |
+| 24  | `pages/mine/index`     | 我的           | 个人中心；工作台申请入口                       | `GET /app/member/me`、`GET /app/bookings`、`POST /app/staff/apply`                                             |
+| 25  | `pages/theme/index`    | 主题设置       | 7 套预设 + 10 色自定义                         | **本地状态/无接口**（`theme/theme.ts` 的 `setPreset` / `setCustomPrimary`）                                    |
 
 ### 美甲师工作台（4）
 

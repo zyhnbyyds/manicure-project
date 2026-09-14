@@ -926,6 +926,11 @@ export abstract class BookingPort {
       couponId?: number | undefined;
       remark?: string | undefined;
     },
+    /**
+     * 门店（小程序 `x-store-id` 头解析而来）：**不传 = 库里的默认门店**。
+     * 多店后顾客可以自己选店，这一单就落在那家店。
+     */
+    storeId?: number | null,
   ): Promise<BookingCreateResult>;
   /**
    * 自助取消（A10）：非本人单 → 403；不存在 → 404；

@@ -883,6 +883,40 @@ export const appShopVo = z.object({
 registerComponent('AppShopVo', appShopVo);
 export type AppShopVo = z.infer<typeof appShopVo>;
 
+/**
+ * 小程序门店列表项（`GET /app/shops`）：只给「选店」需要的字段。
+ *
+ * **不返回** `status` / `sort` / `remark` / `timezone` —— 那些是后台运营视角的字段，
+ * 而 `listActive()` 已经过滤过状态，再吐一遍只会让 C 端多一层判断。
+ *
+ * 经纬度**可以是 null**（门店没配坐标）：小程序据此算「离我多远」，
+ * 算不出距离的那些排在列表最后，而不是被丢掉。
+ */
+export const appShopBriefVo = z.object({
+  id: z.number().int(),
+  code: z.string(),
+  name: z.string(),
+  nameEn: z.string().nullable(),
+  address: z.string().nullable(),
+  phone: z.string().nullable(),
+  hours: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  /** 默认门店：小程序没选过店时的兜底，C 端据此标「默认」 */
+  isDefault: z.boolean(),
+  /** 门店图集（第一张当封面） */
+  images: z.array(z.string()),
+});
+registerComponent('AppShopBriefVo', appShopBriefVo);
+export type AppShopBriefVo = z.infer<typeof appShopBriefVo>;
+
+/** `GET /app/shops` 的响应：小程序选店页直接用 */
+export const appShopListVo = z.object({
+  items: z.array(appShopBriefVo),
+});
+registerComponent('AppShopListVo', appShopListVo);
+export type AppShopListVo = z.infer<typeof appShopListVo>;
+
 /* ------------------------------------------------------------------ *
  * 款式收藏（batch4 设计稿「我的收藏」页）
  * ------------------------------------------------------------------ */

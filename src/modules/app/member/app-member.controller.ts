@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   NotImplementedException,
   Param,
@@ -472,13 +473,16 @@ export class AppMemberController {
   @ApiResponse({ status: 409, description: '与本人已有预约重叠' })
   createBooking(
     @Req() request: AppRequest,
+    @Headers('x-store-id') rawStoreId: string | undefined,
     @Body() body: unknown,
   ): Promise<AppCreateBookingVo> {
     const appUser = request.appUser;
     if (!appUser) throw new UnauthorizedException();
+    // 门店由「当前门店」头决定（校验 + 回落默认门店都在 service 里）
     return this.member.createBooking(
       appUser.id,
       appCreateBookingRequestSchema.parse(body),
+      rawStoreId,
     );
   }
 

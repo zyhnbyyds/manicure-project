@@ -34,6 +34,39 @@
       </view>
     </view>
 
+    <!-- 选择门店：只有一家店时不渲染（单店期不该看到「选门店」这个概念） -->
+    <view wx:if="{{stores.length > 1}}" class="card store-pick">
+      <view class="store-pick__head">
+        <view class="store-pick__title">选择门店</view>
+        <view
+          class="store-pick__locate press {{locating ? 'is-busy' : ''}}"
+          bindtap="onLocate"
+        >
+          {{locating ? '定位中…' : (located ? '已按距离排序' : '📍 找最近的门店')}}
+        </view>
+      </view>
+
+      <view
+        wx:for="{{stores}}"
+        wx:key="id"
+        class="store press {{item.id === currentStoreId ? 'store--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onPickStore"
+      >
+        <view class="store__main">
+          <view class="store__name">
+            {{item.name}}
+            <text wx:if="{{item.isDefault}}" class="store__tag">默认</text>
+          </view>
+          <view class="store__addr ellipsis">{{item.address || '未填写地址'}}</view>
+        </view>
+        <view class="store__right">
+          <view wx:if="{{item.distanceText}}" class="store__distance">{{item.distanceText}}</view>
+          <view wx:if="{{item.id === currentStoreId}}" class="store__current">当前</view>
+        </view>
+      </view>
+    </view>
+
     <view class="tips">到店前可以先跟客服约时间，我们会帮你留位。</view>
   </view>
 

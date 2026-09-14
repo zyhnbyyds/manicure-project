@@ -393,19 +393,21 @@ export function demoteToCustomer(): void {
 4. **`wx.request` 没有 PATCH**：需要 PATCH 语义时让后端补一个 POST 动作端点，**不要在客户端硬塞**（类型层就会拦下来）。
 5. **列表响应没有 `total`**：`{ items, page, pageSize }`。
 6. **接口调用只走 `api/index.ts`**：页面不直接碰 `request()`；`api/types.ts` 是返回类型契约。
+7. **当前门店走请求头，不要自己拼 `storeId` 参数**：`store/shop.ts` 存 id →
+   `request.ts` 统一注入 `x-store-id`。美甲师目录、门店档案、下单落店都读它；
+   没选过店**不发这个头**（后端回落默认门店）。多店详情见
+   [多店改造](/data/multi-store) 的阶段 1.10。
 
-::: danger 门店信息目前是**前端常量**
+::: tip 门店信息来自后端，且支持**多店切换**
 
-```ts
-// config.ts
-/**
- * ⚠️ **应该来自后端**：app 域目前没有「门店档案」接口（如 `GET /app/shop`），
- * 所以先集中在这里 —— 改一处即可全局生效；等后端补了接口再换成请求。
- */
-export const SHOP = { name: '美甲小铺', nameEn: 'BEAUTY NAILS', hours: '10:00 - 20:00', phone: '13800000000', ... };
-```
+`GET /app/shop` 按「当前门店」返回档案（门店表优先、`biz.shop.*` 兜底），
+`config.ts` 的 `SHOP` 只剩**首屏兜底**（请求回来即被覆盖，失败也不至于空白）。
+门店名 / 电话 / 地址 / 营业时间在后台改完最多 10 秒生效，**不用发版**。
 
-门店名 / 电话 / 地址 / 营业时间改动需要重新发版。
+**当前门店**存在 `store/shop.ts`（storage key `manicure:store-id`），
+由 `utils/request.ts` 统一注入 `x-store-id` 头 —— 页面不用各自传参。
+后端拿到头会校验「存在且启用」，不合法（没传 / 乱值 / 已停用）就**回落默认门店**：
+宁可退化成单店期的行为，也不能因为小程序本地缓存过期就让顾客下不了单。
 :::
 
 ## 已知限制与 TODO

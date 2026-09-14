@@ -225,6 +225,29 @@ export interface ShopProfile {
   images: string[];
 }
 
+/**
+ * 门店列表项（`/app/shops`，选店页用）。
+ *
+ * 与 `ShopProfile` 的区别：这里是**列表**（每家店都带 id），而 `ShopProfile` 是
+ * 「当前门店的档案」（字段做了空格回落配置的兜底）。
+ */
+export interface ShopBrief {
+  id: number;
+  code: string;
+  name: string;
+  nameEn: string | null;
+  address: string | null;
+  phone: string | null;
+  hours: string | null;
+  /** 经纬度：可能为 null（运营没配）—— C 端把算不出距离的排最后，而不是丢掉 */
+  latitude: number | null;
+  longitude: number | null;
+  /** 默认门店：没选过店时的兜底，列表里标「默认」 */
+  isDefault: boolean;
+  /** 门店图集（第一张当封面） */
+  images: string[];
+}
+
 /** 提交意见反馈的入参（`POST /app/feedback`） */
 export interface CreateFeedbackRequest {
   /** 反馈类型（功能异常 / 体验建议 / 内容问题 / 其他） */

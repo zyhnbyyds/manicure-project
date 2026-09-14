@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Headers, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -64,7 +64,9 @@ export class AppCatalogController {
   @ApiOperation({
     summary: '美甲师列表（启用中）',
     description:
-      '字段只有 id/nickname/avatar/bio，用于小程序端选择美甲师。**免登录可访问**。',
+      '字段只有 id/nickname/avatar/bio，用于小程序端选择美甲师。' +
+      '**按「当前门店」收窄**（请求头 `x-store-id` → 校验启用 → 回落默认门店）：' +
+      '只返回能服务这家店的人，没配过服务门店的人在所有店都可用。**免登录可访问**。',
   })
   @ApiQuery({ name: 'page', required: false, description: '页码', example: 1 })
   @ApiQuery({
@@ -82,8 +84,12 @@ export class AppCatalogController {
     status: 401,
     description: '带了凭证但凭证非法 / 非 app token（访客不带凭证可正常访问）',
   })
-  staffs(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
-    return this.catalog.listStaffs(page, pageSize);
+  staffs(
+    @Headers('x-store-id') rawStoreId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.catalog.listStaffs(page, pageSize, rawStoreId);
   }
 
   @Get('available-slots')
