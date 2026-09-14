@@ -363,6 +363,8 @@ export abstract class MemberAccountPort {
       customerId: number;
       amount: number;
       bookingId?: number | null;
+      /** 门店（阶段 1.12）：独立收付款由入口传，有 `bookingId` 时留空、由落库处顺预约带出 */
+      storeId?: number | null;
       remark?: string | null;
       actorId?: number | null;
     },
@@ -434,6 +436,8 @@ export abstract class MemberCardPort {
       cardTypeId: number;
       payChannel: 'cash' | 'wechat' | 'alipay' | 'balance';
       price?: number;
+      /** 门店（阶段 1.12）：购卡流水归店用，缺省不归属任何门店 */
+      storeId?: number | null;
       remark?: string | null;
       actorId?: number | null;
     },

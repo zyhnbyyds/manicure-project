@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
 import { parsePagination } from '../../common/query.js';
 import { MemberCardsService } from './member-cards.service';
@@ -49,7 +50,7 @@ registerComponent('UseMemberCardRequest', useSchema);
 registerComponent('RevertMemberCardRequest', revertSchema);
 registerComponent('RefundMemberCardRequest', refundSchema);
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = { user: RequestActor };
 
 const CARD_STATUS = ['active', 'used_up', 'expired', 'refunded'] as const;
 
@@ -103,7 +104,7 @@ export class MemberCardsController {
   @ApiBody({ schema: { $ref: '#/components/schemas/IssueMemberCardRequest' } })
   @ApiResponse({ status: 200, description: '成功' })
   issue(@Body() body: unknown, @Req() request: AuthRequest) {
-    return this.cards.issue(issueSchema.parse(body), request.user.id);
+    return this.cards.issue(issueSchema.parse(body), request.user);
   }
 
   @Post(':id/use')
@@ -155,7 +156,7 @@ export class MemberCardsController {
     @Req() request: AuthRequest,
   ) {
     const input = refundSchema.parse(body);
-    return this.cards.refund(id, input.amount, input.reason, request.user.id);
+    return this.cards.refund(id, input.amount, input.reason, request.user);
   }
 }
 

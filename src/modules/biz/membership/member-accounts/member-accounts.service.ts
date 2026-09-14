@@ -8,17 +8,22 @@ import {
   and,
   desc,
   eq,
+  getTableColumns,
   gte,
   inArray,
   isNull,
   sql,
   type SQL,
 } from 'drizzle-orm';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
 import { DatabaseService } from '../../../../database/database.service';
 import {
+  bizBookings,
   bizCustomers,
   bizMemberTransactions,
   bizRechargePlans,
+  sysStores,
 } from '../../../../database/schema/index.js';
 import { BizConfigService } from '../../common/biz-config.service.js';
 import {
@@ -47,6 +52,9 @@ import {
 
 export type CustomerRow = typeof bizCustomers.$inferSelect;
 export type MemberTransactionRow = typeof bizMemberTransactions.$inferSelect;
+export type MemberTransactionListRow = MemberTransactionRow & {
+  storeName: string | null;
+};
 
 /** 流水类型（`biz_member_transaction.type`） */
 export type LedgerType = MemberTransactionRow['type'];
@@ -125,6 +133,13 @@ type LedgerInput = {
   reversalOf?: number | null | undefined;
   remark?: string | null | undefined;
   actorId?: number | null | undefined;
+  /**
+   * 门店（阶段 1.12「资产通兑、流水归店」）。
+   *
+   * **传了就用**；没传但带了 `bookingId`，落库时从预约行顺带出门店；
+   * 两样都没有 = 不归属任何店（NULL）。
+   */
+  storeId?: number | null | undefined;
 };
 
 type EarningInput = {
@@ -133,6 +148,7 @@ type EarningInput = {
   type: 'consume' | 'card_buy';
   bookingId?: number | null | undefined;
   cardId?: number | null | undefined;
+  storeId?: number | null | undefined;
   payChannel?: PayChannel | null | undefined;
   remark?: string | null | undefined;
   actorId?: number | null | undefined;
@@ -236,6 +252,7 @@ export class MemberAccountsService extends MemberAccountPort {
       amount: number;
       bookingId?: number | null;
       paymentId?: number | null;
+      storeId?: number | null;
       remark?: string | null;
       actorId?: number | null;
     },
@@ -287,6 +304,7 @@ export class MemberAccountsService extends MemberAccountPort {
       pointsAfter: after.points,
       payChannel: 'balance',
       bookingId: input.bookingId ?? null,
+      storeId: input.storeId ?? null,
       remark: input.remark ?? '储值余额支付',
       actorId: input.actorId ?? null,
     });
@@ -348,6 +366,7 @@ export class MemberAccountsService extends MemberAccountPort {
     input: {
       customerId: number;
       points: number;
+      storeId?: number | null;
       remark?: string | null;
       actorId?: number | null;
     },
@@ -378,6 +397,7 @@ export class MemberAccountsService extends MemberAccountPort {
       balancePrincipalAfter: after.balancePrincipal,
       balanceBonusAfter: after.balanceBonus,
       pointsAfter: after.points,
+      storeId: input.storeId ?? null,
       remark: input.remark ?? '积分回补',
       actorId: input.actorId ?? null,
     });
@@ -459,6 +479,7 @@ export class MemberAccountsService extends MemberAccountPort {
       payChannel: toLedgerChannel(input.payChannel),
       bookingId: input.bookingId ?? null,
       cardId: input.cardId ?? null,
+      storeId: input.storeId ?? null,
       remark: input.remark ?? null,
       actorId: input.actorId ?? null,
     });
@@ -504,6 +525,7 @@ export class MemberAccountsService extends MemberAccountPort {
       amount: number;
       bookingId?: number | null;
       cardId?: number | null;
+      storeId?: number | null;
       reversalOf?: number | null;
       remark?: string | null;
       actorId?: number | null;
@@ -541,6 +563,7 @@ export class MemberAccountsService extends MemberAccountPort {
       pointsAfter: after.points,
       bookingId: input.bookingId ?? null,
       cardId: input.cardId ?? null,
+      storeId: input.storeId ?? null,
       reversalOf: input.reversalOf ?? null,
       remark: input.remark ?? '退款冲减',
       actorId: input.actorId ?? null,
@@ -626,6 +649,7 @@ export class MemberAccountsService extends MemberAccountPort {
       amount?: number | undefined;
       cardId?: number | null | undefined;
       bookingId?: number | null | undefined;
+      storeId?: number | null | undefined;
       payChannel?: LedgerPayChannel | null | undefined;
       remark?: string | null | undefined;
       actorId?: number | null | undefined;
@@ -641,6 +665,7 @@ export class MemberAccountsService extends MemberAccountPort {
       pointsAfter: after.points,
       cardId: input.cardId ?? null,
       bookingId: input.bookingId ?? null,
+      storeId: input.storeId ?? null,
       payChannel: input.payChannel ?? null,
       remark: input.remark ?? null,
       actorId: input.actorId ?? null,
@@ -828,7 +853,7 @@ export class MemberAccountsService extends MemberAccountPort {
     pageSize: number,
     filter: TransactionListFilter = {},
   ): Promise<{
-    items: MemberTransactionRow[];
+    items: MemberTransactionListRow[];
     page: number;
     pageSize: number;
   }> {
@@ -847,8 +872,12 @@ export class MemberAccountsService extends MemberAccountPort {
     );
     if (range) conditions.push(range);
     const items = await this.database.db
-      .select()
+      .select({
+        ...getTableColumns(bizMemberTransactions),
+        storeName: sysStores.name,
+      })
       .from(bizMemberTransactions)
+      .leftJoin(sysStores, eq(bizMemberTransactions.storeId, sysStores.id))
       .where(andConditions(conditions))
       .orderBy(desc(bizMemberTransactions.id))
       .limit(safePageSize)
@@ -864,7 +893,7 @@ export class MemberAccountsService extends MemberAccountPort {
   async recharge(
     customerId: number,
     input: RechargeInput,
-    actorId: number,
+    actor: RequestActor,
   ): Promise<{
     transactionId: number;
     payAmount: number;
@@ -899,6 +928,8 @@ export class MemberAccountsService extends MemberAccountPort {
         `单次充值不得低于 ${(minRechargeAmount / CENTS_PER_YUAN).toFixed(2)} 元`,
       );
 
+    const storeId = await requireCurrentStoreId(this.database.db, actor);
+    const actorId = actor.id;
     return this.database.db.transaction(async (tx) => {
       const before = await this.lockCustomerRow(tx, customerId);
       await tx
@@ -923,6 +954,7 @@ export class MemberAccountsService extends MemberAccountPort {
         pointsAfter: after.points,
         payChannel: toLedgerChannel(input.payChannel),
         planId,
+        storeId,
         remark:
           input.remark ??
           `充值 ${(payAmount / CENTS_PER_YUAN).toFixed(2)} 元${
@@ -975,7 +1007,7 @@ export class MemberAccountsService extends MemberAccountPort {
   async refundMember(
     customerId: number,
     input: MemberRefundInput,
-    actorId: number,
+    actor: RequestActor,
   ): Promise<{
     transactionId: number;
     mode: 'balance' | 'cash';
@@ -989,6 +1021,8 @@ export class MemberAccountsService extends MemberAccountPort {
 
     const reversalOf = input.reversalOf ?? null;
     const reasonText = input.reason?.trim() || '未填写原因';
+    const storeId = await requireCurrentStoreId(this.database.db, actor);
+    const actorId = actor.id;
     return this.database.db.transaction(async (tx) => {
       if (reversalOf !== null)
         await this.requireTransaction(tx, customerId, reversalOf);
@@ -1003,6 +1037,7 @@ export class MemberAccountsService extends MemberAccountPort {
           balanceBonusAfter: row.balanceBonus,
           pointsAfter: row.points,
           reversalOf,
+          storeId,
           remark: `现金冲正：${reasonText}`,
           actorId,
         });
@@ -1052,6 +1087,7 @@ export class MemberAccountsService extends MemberAccountPort {
         balanceBonusAfter: after.balanceBonus,
         pointsAfter: after.points,
         reversalOf,
+        storeId,
         remark: `储值冲正：${reasonText}`,
         actorId,
       });
@@ -1063,7 +1099,7 @@ export class MemberAccountsService extends MemberAccountPort {
   async adjustMember(
     customerId: number,
     input: MemberAdjustInput,
-    actorId: number,
+    actor: RequestActor,
   ): Promise<{ transactionId: number | null; levelChanged: boolean }> {
     const reason = input.reason?.trim();
     if (!reason) throw new BadRequestException('手工调整必须填写原因');
@@ -1076,6 +1112,8 @@ export class MemberAccountsService extends MemberAccountPort {
     if (!hasDelta && !hasLevel)
       throw new BadRequestException('请至少填写一项调整内容');
 
+    const storeId = await requireCurrentStoreId(this.database.db, actor);
+    const actorId = actor.id;
     return this.database.db.transaction(async (tx) => {
       await this.lockCustomerRow(tx, customerId);
       let transactionId: number | null = null;
@@ -1128,6 +1166,7 @@ export class MemberAccountsService extends MemberAccountPort {
           balancePrincipalAfter: after.balancePrincipal,
           balanceBonusAfter: after.balanceBonus,
           pointsAfter: after.points,
+          storeId,
           remark: `手工调整：${reason}`,
           actorId,
         });
@@ -1151,6 +1190,7 @@ export class MemberAccountsService extends MemberAccountPort {
             balancePrincipalAfter: after.balancePrincipal,
             balanceBonusAfter: after.balanceBonus,
             pointsAfter: after.points,
+            storeId,
             remark: `手工调级：${reason}`,
             actorId,
           });
@@ -1198,6 +1238,24 @@ export class MemberAccountsService extends MemberAccountPort {
 
   /** 写流水（唯一入口）：只 INSERT，`*_after` 快照由调用方保证准确性 */
   private async writeLedger(tx: BizTx, input: LedgerInput): Promise<number> {
+    /*
+     * 门店归属：显式传了直接用；否则若有预约，顺带出「这笔钱发生在哪家店」——
+     * 消费 / 余额支付 / 积分抵扣 / 退款冲减全都天然归店，调用方不用每个都记着传。
+     * 注意：这**只是追溯**，不拆资产池（余额/积分仍全店通兑）。
+     */
+    let storeId = input.storeId ?? null;
+    if (
+      storeId === null &&
+      input.bookingId !== undefined &&
+      input.bookingId !== null
+    ) {
+      const [booking] = await tx
+        .select({ storeId: bizBookings.storeId })
+        .from(bizBookings)
+        .where(eq(bizBookings.id, input.bookingId))
+        .limit(1);
+      if (booking) storeId = booking.storeId;
+    }
     const result = await tx.insert(bizMemberTransactions).values({
       customerId: input.customerId,
       type: input.type,
@@ -1213,6 +1271,7 @@ export class MemberAccountsService extends MemberAccountPort {
       cardId: input.cardId ?? null,
       planId: input.planId ?? null,
       reversalOf: input.reversalOf ?? null,
+      storeId,
       remark: input.remark ? input.remark.slice(0, 200) : null,
       createdBy: input.actorId ?? null,
     });

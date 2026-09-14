@@ -97,22 +97,23 @@ tests/integration/                # b1~b7 集成测试（真实 MySQL + harness�
 
 ## 技能索引（按模块加载）
 
-| 技能                 | 何时加载                                      |
-| -------------------- | --------------------------------------------- |
-| `data-model`         | 建表 / 改表 / 生成迁移 / 命名与索引           |
-| `money-invariants`   | **任何**涉及金额、余额、积分、次卡的写入      |
-| `base-data`          | 服务项目 / 美甲师 / 美甲师可做项目 / 顾客档案 |
-| `scheduling`         | 排班、请假、班次与既有预约冲突                |
-| `booking-core`       | 可约时段、下单、改期、冲突与锁、状态流转      |
-| `membership`         | 会员等级 / 积分 / 储值 / 次卡 / 算价          |
-| `cashier-payment`    | 在线支付、定金尾款、混合支付、退款、对账      |
-| `credit-receivable`  | 挂账主体、应收、销账、账龄                    |
-| `notification`       | 短信 / 站内消息、模板、重试                   |
-| `operations-reports` | 评价、报表口径、提成                          |
-| `recurring-bookings` | 周期预约规则与批量生成                        |
-| `miniapp-reserved`   | `/api/v1/app/**` 与 `app_` 表                 |
-| `web-frontend`       | 任意后台页面、收银台、表单与权限按钮          |
-| `testing-acceptance` | 写验收 / 集成测试 / 判断"做完了没"            |
+| 技能                 | 何时加载                                       |
+| -------------------- | ---------------------------------------------- |
+| `data-model`         | 建表 / 改表 / 生成迁移 / 命名与索引            |
+| `store-scope`        | **多店维度**：加门店列、按店筛选、按店统计口径 |
+| `money-invariants`   | **任何**涉及金额、余额、积分、次卡的写入       |
+| `base-data`          | 服务项目 / 美甲师 / 美甲师可做项目 / 顾客档案  |
+| `scheduling`         | 排班、请假、班次与既有预约冲突                 |
+| `booking-core`       | 可约时段、下单、改期、冲突与锁、状态流转       |
+| `membership`         | 会员等级 / 积分 / 储值 / 次卡 / 算价           |
+| `cashier-payment`    | 在线支付、定金尾款、混合支付、退款、对账       |
+| `credit-receivable`  | 挂账主体、应收、销账、账龄                     |
+| `notification`       | 短信 / 站内消息、模板、重试                    |
+| `operations-reports` | 评价、报表口径、提成                           |
+| `recurring-bookings` | 周期预约规则与批量生成                         |
+| `miniapp-reserved`   | `/api/v1/app/**` 与 `app_` 表                  |
+| `web-frontend`       | 任意后台页面、收银台、表单与权限按钮           |
+| `testing-acceptance` | 写验收 / 集成测试 / 判断"做完了没"             |
 
 ## 完成定义（DoD）
 

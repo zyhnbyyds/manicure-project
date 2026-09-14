@@ -1303,6 +1303,16 @@ export const bizMemberTransactions = mysqlTable(
   {
     id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     customerId: int('customer_id', { unsigned: true }).notNull(),
+    /**
+     * 门店（可空 = 这笔流水不归属任何一家店；阶段 1.12「资产通兑、流水归店」）。
+     *
+     * - 有 `bookingId` 的流水（消费 / 余额支付 / 积分抵扣 / 退款冲减）落库时**顺预约带出**；
+     * - 独立收付款（充值 / 冲正 / 调整）由入口注入当前门店；
+     * - 查不到的（定时任务 / 系统自动）留空。
+     *
+     * **只作追溯与按店查询**，不代表资产拆店 —— 余额 / 积分 / 结存仍是全店通兑的池子。
+     */
+    storeId: int('store_id', { unsigned: true }),
     type: mysqlEnum('type', [
       'recharge',
       'consume',
@@ -1346,6 +1356,7 @@ export const bizMemberTransactions = mysqlTable(
     index('idx_txn_customer').on(table.customerId, table.id),
     index('idx_txn_booking').on(table.bookingId),
     index('idx_txn_type_created').on(table.type, table.createdAt),
+    index('idx_txn_store').on(table.storeId),
     foreignKey({
       columns: [table.customerId],
       foreignColumns: [bizCustomers.id],
@@ -1365,6 +1376,11 @@ export const bizMemberTransactions = mysqlTable(
       columns: [table.planId],
       foreignColumns: [bizRechargePlans.id],
       name: 'fk_txn_plan',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [sysStores.id],
+      name: 'fk_txn_store',
     }).onDelete('set null'),
   ],
 );

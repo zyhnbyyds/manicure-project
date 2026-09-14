@@ -3,22 +3,23 @@ name: data-model
 description: 61 张表的分组清单、命名与索引约定、软删与物理删豁免、Drizzle 迁移流程与派生字段口径。新增/修改表、生成迁移、设计索引、排查唯一索引与软删冲突时加载本技能。
 whenToUse: 建表或改表、跑 db:generate/db:migrate、加索引、处理唯一约束、弄清楚某张表归哪个模块时。
 metadata:
-  version: '1.1.0'
+  version: '1.2.0'
   spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §3 / §4.1~§4.6
 ---
 
 # 数据模型与迁移
 
-## 表分组（共 66 张，全部在 `src/database/schema/index.ts`）
+## 表分组（共 67 张，全部在 `src/database/schema/index.ts`）
 
 > ⚠️ **数量与分组以 schema 文件为准**：历史上这里的清单是 32 张（spec §4.1 的早期设计），
-> 现状是 **66 张 = 业务 `biz_*` 34 / 系统 `sys_*` 22 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
+> 现状是 **67 张 = 业务 `biz_*` 35 / 系统 `sys_*` 22 / AI `ai_*` 7 / 小程序身份 `app_*` 3**。
 > 逐张字段表见开发者文档 `dev-docs/data/business-tables.md` 与 `dev-docs/data/system-tables.md`。
-> 下面按功能分组列出 _\*biz_* 业务表 34 张_*（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
+> 下面按功能分组列出 _\*biz_* 业务表 35 张_*（`sys_*` / `ai_*` / `app_*` 见上面的文档）：
 
-**A. 基础数据（6）**
-`biz_service_item`、`biz_staff`、`biz_staff_service_item`、`biz_customer`（兼会员档案）、
+**A. 基础数据（7）**
+`biz_service_item`、`biz_staff`、`biz_staff_service_item`、`biz_staff_store`（美甲师 ↔ 可服务门店，
+空集合 = 全部门店）、`biz_customer`（兼会员档案）、
 `biz_staff_weekly_shift`、`biz_staff_schedule_override`
 
 **B. 预约（3）**
@@ -50,6 +51,18 @@ metadata:
 - 外键显式命名：`fk_<表简称>_<目标>`（如 `fk_booking_item_booking`）；索引 `idx_*`，唯一索引 `uq_*`。
 - 单号类字段一律「主键回填」：`B{yyyyMMdd}{id}`、`P{...}`、`R{...}`、`A{...}`、`C{...}`、`X{...}`、`M{...}`，
   各带 `uq_*` UNIQUE；**不要**用"查当日最大号 +1"（跨美甲师并发必然重号）。
+- **门店列 `store_id` 分两类**（多店改造，逐表口径见 `dev-docs/data/multi-store.md`）：
+
+  | 表类型                                           | 列形态                             | 理由                                                                             |
+  | ------------------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------- |
+  | **单据类**（预约 / 收款 / 退款 / 应收）          | `NOT NULL` + FK                    | 建单时必然知道落哪家店，缺了就是脏数据                                           |
+  | **流水 / 日志类**（`biz_member_transaction` 等） | **可空** + FK `ON DELETE SET NULL` | 定时任务 / 系统自动 / 历史数据**没有门店可归**，强行 `NOT NULL` 就是编一个假门店 |
+
+  排班（`biz_staff_weekly_shift` / `override`）也是**可空**：`NULL` = 通用层（对所有可服务门店生效），
+  填了 = 该门店专属层。**可空是语义，不是偷懒** —— 回填时别顺手把 `NULL` 填成默认门店。
+
+- **`store_id` 不要注册进 `defineRelations`**：有外键的列同时声明双向关系会让 drizzle 抛
+  `Cannot read properties of undefined (reading 'through')`；联查一律用 `leftJoin`。
 
 ## 软删豁免（§3 已声明，改表时别漏）
 
@@ -104,6 +117,12 @@ bun run db:migrate
 
 - schema 是**单文件**，新增表要同时导出并加入 `defineRelations`，否则关系查询不可用。
 - 加字段一律**可空或带默认值**（表已上线后再加 NOT NULL 会让迁移失败）。
+- **给非空表加 `NOT NULL` 列必须三步走**：加可空列 → 回填 → `MODIFY ... NOT NULL`。
+  直接 `ADD ... NOT NULL` 会让 MySQL 补隐式 `0`（不存在的门店 id），随后加外键**必失败**。
+  反过来，**流水 / 日志类表刻意用可空**：没有门店可归的行本来就存在，别硬填。
+- **判断 schema 与库是否一致要查 `information_schema.REFERENTIAL_CONSTRAINTS`，不要信 snapshot** ——
+  drizzle snapshot 曾认为 `sys_user_store` 的外键带 `ON DELETE CASCADE` 而 SQL 里没生成，
+  此后 `db:generate` 一直只说「No schema changes」，漂移只能手写迁移修。
 - 金额字段用 `int unsigned`（分）；折扣率/提成比例用千分比整数；比例类上限用 `*_permille`。
 - json 列要写 `$type<T>()` 带上类型（如 `json('images').$type<string[]>()`），
   否则读出来是 `unknown`，调用方到处要 cast；可空列的类型里**不要**再手写 `| null`，

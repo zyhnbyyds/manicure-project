@@ -191,9 +191,8 @@ interface OverviewMeta {
   /**
    * `true` = **全店口径**：不随门店筛选变化。
    *
-   * 会员资产类指标（储值 / 积分 / 结存 / 次卡发售 / 新增会员）所在的表没有门店列 ——
-   * 余额是全店通兑的一个池子，按店切分没有意义，所以后端刻意不过滤、
-   * 前端也必须显式标注，否则店长会以为「切到本店后这些数字也是本店的」。
+   * 会员资产存量（余额结存）以及仍无门店归属的新增会员 / 次卡发售是全店口径。
+   * 充值与积分等流水发生额已经能按发生门店统计；资产池本身仍全店通兑，不能伪造「A 店余额」。
    */
   globalScope?: boolean;
 }
@@ -217,7 +216,7 @@ const OVERVIEW_META: OverviewMeta[] = [
   { label: '未完成（待处理）', keys: ['bookings.pending'], kind: 'number' },
   { label: '新客数', keys: ['customers.newCustomers'], kind: 'number' },
   { label: '回头客数', keys: ['customers.returning'], kind: 'number' },
-  // 以下“全店口径”：会员资产 / 积分 / 结存 / 发售都没有门店列（见 globalScope 注释）
+  // 新增会员无归属门店，仍是全店口径；充值/积分流水已按发生门店统计
   {
     label: '新增会员',
     keys: ['customers.memberNew'],
@@ -228,13 +227,11 @@ const OVERVIEW_META: OverviewMeta[] = [
     label: '储值充值',
     keys: ['member.rechargePrincipal'],
     kind: 'money',
-    globalScope: true,
   },
   {
     label: '储值赠送',
     keys: ['member.rechargeBonus'],
     kind: 'money',
-    globalScope: true,
   },
   {
     label: '期末本金结存',
@@ -252,13 +249,11 @@ const OVERVIEW_META: OverviewMeta[] = [
     label: '积分发放',
     keys: ['member.pointsIssued'],
     kind: 'number',
-    globalScope: true,
   },
   {
     label: '积分抵扣',
     keys: ['member.pointsSpent'],
     kind: 'number',
-    globalScope: true,
   },
   // 次卡核销能归属到门店（顺关联预约找），所以不是全店口径
   { label: '次卡核销', keys: ['member.cardUsedTimes'], kind: 'number' },
@@ -306,7 +301,7 @@ const TAB_META: Record<ReportTabKey, TabMeta> = {
   members: {
     mode: 'table',
     globalScopeNote:
-      '会员资产全店通兑：本表除「次卡核销」外都是全店口径，不随门店筛选变化',
+      '会员资产仍全店通兑：充值/积分/次卡核销按发生门店统计；期末结存、新增会员仍是全店口径',
     columns: [
       { title: '期间', keys: ['period'], kind: 'text', width: 140 },
       {
@@ -321,14 +316,12 @@ const TAB_META: Record<ReportTabKey, TabMeta> = {
         keys: ['recharge'],
         kind: 'money',
         width: 120,
-        globalScope: true,
       },
       {
         title: '储值赠送',
         keys: ['bonus'],
         kind: 'money',
         width: 120,
-        globalScope: true,
       },
       {
         title: '期末结存',
@@ -342,14 +335,12 @@ const TAB_META: Record<ReportTabKey, TabMeta> = {
         keys: ['pointsIssued'],
         kind: 'number',
         width: 110,
-        globalScope: true,
       },
       {
         title: '积分抵扣',
         keys: ['pointsSpent'],
         kind: 'number',
         width: 110,
-        globalScope: true,
       },
       { title: '次卡核销', keys: ['cardUsed'], kind: 'number', width: 110 },
     ],

@@ -3,7 +3,7 @@ name: money-invariants
 description: 资金相关写入的红线：金额事实的唯一来源、条件更新模板（余额/次数/积分/销账/退款/回调）、全局锁顺序、只追加与冲正、对账等式。任何涉及钱、余额、积分、次卡、应收的写入都必须先加载本技能。
 whenToUse: 写任何改动余额 / 积分 / 次卡次数 / 支付单 / 退款单 / 应收的代码；评审他人资金代码；排查账实不符。
 metadata:
-  version: '1.0.0'
+  version: '1.1.0'
   spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §6.5 / §6.6 / §15.7 / §17
 ---
@@ -68,6 +68,9 @@ UPDATE biz_receivable
   `sys_notice_log` 只插入，不更新不删除。
 - 纠错一律**反向流水**：`reversal_of` 指向原流水，`remark` 写原因；原记录保持不动。
 - 支付单/退款单作废用状态（`closed` / `failed` / `rejected`），不物理删。
+- **新增资金流水要带门店归属**（阶段 1.12）：`biz_member_transaction.store_id` 由**唯一写入口
+  `writeLedger` 统一决定** —— 有 `bookingId` 就顺预约带出，独立收付款由入口解析当前门店，
+  都没有则留空。**不要在每个调用点自己传**（漏一个就是一条没有门店的资金流水，最难发现）。
 
 ## 5. 定时任务不碰钱
 
@@ -105,6 +108,7 @@ SUM(points_delta)            = biz_customer.points
 - [ ] 锁顺序符合 §6.6，事务内一律 `tx`
 - [ ] 派生字段只由 `recalc` / 会员账务 service 写
 - [ ] 新增写入只插不改；纠错走反向流水
+- [ ] 新增资金流水带上门店归属（走 `writeLedger` 唯一入口，不在调用点各自传）
 - [ ] 幂等：同一请求重放 N 次结果一致（写集成测试）
 - [ ] 并发：同一会员并发扣减不会变负（写集成测试）
 - [ ] 不涉钱的定时任务真的没碰钱

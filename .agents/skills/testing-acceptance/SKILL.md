@@ -3,7 +3,7 @@ name: testing-acceptance
 description: 测试与验收：真实 MySQL 集成测试入口（.env.test + 独立库 + 建表清表）、bun test 约定、B1~B6 验收清单、并发/幂等/时区用例写法、以及"做完了没"的完成定义。写测试、判断交付是否达标、准备上线前加载。
 whenToUse: 写验收或集成测试；准备提交/上线前自检；复现并发、超订、账实不符类问题。
 metadata:
-  version: '1.0.0'
+  version: '1.1.0'
   spec: project-design/superpowers/specs/2026-09-11-nail-salon-booking-design.md
   sections: §12 / §11 / §6.2 / §6.6
 ---
@@ -75,6 +75,8 @@ bun test tests/integration/e2e-full-flow.int.spec.ts   # 11 步，约 2.5s
 - 并发 10 笔余额支付：只成功到余额用尽，**余额不为负**
 - 次卡：10 次用完 → `used_up`；第 11 次被拒；撤销后回补；过期卡不可核销
 - 流水只追加（代码评审 + 接口层无更新/删除入口）
+- 流水带门店（阶段 1.12，`b14-member-ledger-store`）：B 店充值 → 流水记 B 且带 `storeName`；
+  B 店建单收款 → 消费流水**顺预约**记 B；无预约的历史流水留空
 
 **B3 收银**
 
@@ -91,6 +93,9 @@ bun test tests/integration/e2e-full-flow.int.spec.ts   # 11 步，约 2.5s
 - 营收可手工复核（现金 + 在线 + 退款三笔）
 - 提成金额正确；退款/取消 → `reversed`；结算后不可改
 - 导出：小数据同步 CSV，超 1 万行异步
+- 报表按店（阶段 1.8 / 1.12，`b10-report-store` + `b14-member-ledger-store`）：店长**不传参数**
+  也只统计本店、显式筛别家 → 403、`x-store-id` 头同样生效；**发生额按店、期末结存 / 新增会员 /
+  次卡发售恒全店**（后者不随门店筛选变化）
 
 **B5 运营**
 
@@ -151,6 +156,9 @@ function chainFor(result: unknown) {
 - `select().where()` 的返回值语义是**行数组**。`findOne` 场景要喂 `[[row]]`（一次查询返回一行），
   不是 `[row]`。喂错会报 `TypeError: {} is not iterable`。
 - 用 `selectResults` 队列按调用顺序喂结果，`where` 的入参也顺手收集起来供 SQL 断言用。
+- **队列要给「门店解析」留一格**：service 里调 `requireCurrentStoreId` 会先插一次
+  `defaultStoreId()` 查询，队列头少一格就报「系统里还没有门店」——看起来像业务错了，
+  其实是 mock 队列短了一格（见 `member-cards.service.spec.ts` 的 `DEFAULT_STORE`）。
 
 **2. 条件更新的唯一闸门：用 `affectedRows` 队列驱动分支**
 
@@ -225,3 +233,7 @@ expect(sqlText(gateWhere)).toContain('settled_amount + 10000 <= amount'); // 裸
 - 断言 `Math.trunc` 类归一化时把 `1.4` 当非法输入 → 取整后是 `1`，其实合法；要用 `0.4`。
 - 显式传 `tx` 的服务方法（如 `assertCreditAvailable`）在单测里传 `{}` → 报
   `tx.select is not a function`，要从 harness 里拿那个 mock 出来的 `tx`。
+- **两个 `bun test` 并行跑集成测试会互相踩**：它们共用同一个测试库（`.env.test` + `TRUNCATE`），
+  症状是莫名其妙的 **404 / 记录凭空消失**（A 用例刚建的预约被 B 用例的 `resetBusinessData()` 清掉），
+  单跑立刻全绿。**集成测试必须串行**，别在同一个仓库上同时起两个 `bun test` ——
+  更别把它和全量 `bun run test`（含集成用例）一起并行跑。

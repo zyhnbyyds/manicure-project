@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
 import { parsePagination } from '../../common/query.js';
 import { MemberAccountsService } from '../member-accounts/member-accounts.service.js';
@@ -69,7 +70,7 @@ registerComponent('RechargeMemberRequest', rechargeSchema);
 registerComponent('RefundMemberRequest', refundSchema);
 registerComponent('AdjustMemberRequest', adjustSchema);
 
-type AuthRequest = { user: { id: number } };
+type AuthRequest = { user: RequestActor };
 
 const LEDGER_TYPES = [
   'recharge',
@@ -192,11 +193,7 @@ export class MembersController {
     @Body() body: unknown,
     @Req() request: AuthRequest,
   ) {
-    return this.accounts.recharge(
-      id,
-      rechargeSchema.parse(body),
-      request.user.id,
-    );
+    return this.accounts.recharge(id, rechargeSchema.parse(body), request.user);
   }
 
   @Post(':id/refund')
@@ -215,7 +212,7 @@ export class MembersController {
     return this.accounts.refundMember(
       id,
       refundSchema.parse(body),
-      request.user.id,
+      request.user,
     );
   }
 
@@ -233,7 +230,7 @@ export class MembersController {
     return this.accounts.adjustMember(
       id,
       adjustSchema.parse(body),
-      request.user.id,
+      request.user,
     );
   }
 

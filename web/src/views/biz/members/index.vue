@@ -473,6 +473,13 @@ const txnColumns: LewTableColumn[] = [
       (row as unknown as MemberTransaction).type,
   },
   {
+    title: '发生门店',
+    field: 'storeName',
+    width: 140,
+    customRender: ({ row }) =>
+      (row as unknown as MemberTransaction).storeName ?? '历史/系统',
+  },
+  {
     title: '业务金额(元)',
     field: 'amount',
     width: 120,
@@ -1439,7 +1446,7 @@ const balanceTotal = computed(
           class="app-card overflow-hidden"
         >
           <p class="page-subtitle m-0 px-3 pt-3">
-            流水只追加、不可修改或删除；对账不平时请使用「重算」修复。
+            资产全店通兑，流水记录发生门店；历史/系统流水可能无门店。流水只追加、不可修改或删除。
           </p>
           <LewTable
             :columns="txnColumns"

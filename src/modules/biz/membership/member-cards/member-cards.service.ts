@@ -17,6 +17,8 @@ import {
   sql,
 } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
 import {
   bizCustomers,
   bizMemberCardLogs,
@@ -45,6 +47,8 @@ export type IssueCardInput = {
   payChannel: CardPayChannel;
   /** 可改价；缺省用卡种售价 */
   price?: number | undefined;
+  /** 门店（阶段 1.12「资产通兑、流水归店」）：只影响 `card_buy` 流水归属，卡本身仍全店通用 */
+  storeId?: number | null | undefined;
   remark?: string | null | undefined;
   actorId?: number | null | undefined;
   /**
@@ -153,6 +157,7 @@ export class MemberCardsService extends MemberCardPort {
         type: 'card_buy',
         cardId: id,
         payChannel: input.payChannel,
+        storeId: input.storeId ?? null,
         remark: input.remark ?? `购卡：${cardType.name}`,
         actorId: input.actorId ?? null,
       });
@@ -329,8 +334,11 @@ export class MemberCardsService extends MemberCardPort {
       price?: number | undefined;
       remark?: string | null | undefined;
     },
-    actorId: number,
+    actor: RequestActor,
   ): Promise<{ id: number; cardNo: string; expireAt: Date | null }> {
+    // 购卡是**独立收款**（不挂预约），门店只能由入口解析（阶段 1.12）
+    const storeId = await requireCurrentStoreId(this.database.db, actor);
+    const actorId = actor.id;
     return this.database.db.transaction(async (tx) => {
       const cardType = await this.cardTypes.requireActiveCardType(
         tx,
@@ -342,6 +350,7 @@ export class MemberCardsService extends MemberCardPort {
         await this.accounts.applyBalancePayment(tx, {
           customerId: input.customerId,
           amount: price,
+          storeId,
           remark: `购卡：${cardType.name}`,
           actorId,
         });
@@ -350,6 +359,7 @@ export class MemberCardsService extends MemberCardPort {
         cardTypeId: input.cardTypeId,
         payChannel: input.payChannel,
         price,
+        storeId,
         remark: input.remark ?? null,
         actorId,
       });
@@ -514,12 +524,15 @@ export class MemberCardsService extends MemberCardPort {
     cardId: number,
     amount: number,
     reason: string,
-    actorId: number,
+    actor: RequestActor,
   ): Promise<void> {
     const money = Math.trunc(amount);
     if (!Number.isFinite(money) || money < 0)
       throw new BadRequestException('退款金额必须是非负整数（分）');
     if (!reason?.trim()) throw new BadRequestException('退卡必须填写原因');
+    // 退卡也是**独立收付款**（卡不挂预约）：门店由入口解析（阶段 1.12）
+    const storeId = await requireCurrentStoreId(this.database.db, actor);
+    const actorId = actor.id;
 
     await this.database.db.transaction(async (tx) => {
       const card = await this.requireCard(tx, cardId);
@@ -543,6 +556,7 @@ export class MemberCardsService extends MemberCardPort {
           customerId: card.customerId,
           amount: money,
           cardId,
+          storeId,
           remark: `退卡：${reason.trim()}`,
           actorId,
         });
@@ -551,6 +565,7 @@ export class MemberCardsService extends MemberCardPort {
           customerId: card.customerId,
           type: 'card_revert',
           cardId,
+          storeId,
           remark: `退卡（退款 0 元）：${reason.trim()}`,
           actorId,
         });

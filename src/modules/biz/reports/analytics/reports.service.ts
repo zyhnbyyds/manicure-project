@@ -341,8 +341,8 @@ type ResolvedQuery = {
   channel?: ReportChannel | undefined;
   purpose?: PaymentPurpose | undefined;
   /**
-   * 门店上下文（阶段 1.8）。单据类指标（营收 / 单量 / 项目 / 美甲师 / 应收 / 次卡核销）
-   * 全部按它过滤；**会员资产类指标恒为全店口径**，理由见 `memberTransactionRows` 的注释。
+   * 门店上下文（阶段 1.8 / 1.12）。单据与会员流水发生额按它过滤；
+   * 会员资产存量（余额结存）仍是全店通兑池，不按店切割。
    */
   store: StoreContext;
 };
@@ -1478,13 +1478,11 @@ export class ReportsService {
   }
 
   /**
-   * 会员流水（区间内）：充值 / 积分 / 结存增量的唯一事实来源。
+   * 会员流水发生额（区间内）：充值 / 积分按流水发生门店过滤。
    *
-   * **刻意不按门店过滤**（阶段 1.8 的口径边界）：这张表没有 `store_id`，
-   * 而「储值余额 / 积分 / 结存」在连锁直营下是**全店通兑的一个池子** ——
-   * 余额不属于任何一家店，按店切分反而会得出「A 店余额」这种不存在的概念。
-   * 前端会给这几项打「全店口径」标签。充值金额若非要按店看，看营收报表的
-   * `purpose=recharge` 那一档（支付单有门店）。
+   * 阶段 1.12 只做「资产通兑、流水归店」：切到某店时，这里回答的是
+   * 「该店发生了多少充值/积分变动」，不是「该店拥有多少余额」。历史无门店流水
+   * 在按店视角下不硬塞进任何门店，避免看似完整、实际串账。
    */
   private memberTransactionRows(q: ResolvedQuery) {
     return this.database.db
@@ -1496,10 +1494,15 @@ export class ReportsService {
         createdAt: bizMemberTransactions.createdAt,
       })
       .from(bizMemberTransactions)
-      .where(this.dayRange(bizMemberTransactions.createdAt, q));
+      .where(
+        andConditions([
+          ...storeConditions(bizMemberTransactions.storeId, q.store),
+          this.dayRange(bizMemberTransactions.createdAt, q),
+        ]),
+      );
   }
 
-  /** 区间期初余额（本金 + 赠送） */
+  /** 区间期初余额（本金 + 赠送）：资产存量全店通兑，刻意不按门店过滤 */
   private async openingBalanceRows(q: ResolvedQuery): Promise<number> {
     const [row] = await this.database.db
       .select({
@@ -1511,7 +1514,7 @@ export class ReportsService {
     return toInt(row?.principal) + toInt(row?.bonus);
   }
 
-  /** 余额增量流水（用于按日累计期末结存） */
+  /** 余额增量流水（用于按日累计全店期末结存，刻意不按门店过滤） */
   private balanceDeltaRows(q: ResolvedQuery) {
     return this.database.db
       .select({

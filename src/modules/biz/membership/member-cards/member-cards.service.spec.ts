@@ -1,8 +1,24 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import { MemberCardsService } from './member-cards.service.js';
 
 type Row = Record<string, unknown>;
+
+/**
+ * 操作人：带门店特权（`*:*:*`）。
+ *
+ * 阶段 1.12 起购卡 / 退卡要解析「当前门店」（独立收付款没有预约可继承），
+ * 特权账号的 `requireCurrentStoreId` 只多查一次默认门店 —— 见 `DEFAULT_STORE`。
+ */
+const ACTOR: RequestActor = {
+  id: 3,
+  roles: ['admin'],
+  permissions: ['*:*:*'],
+};
+
+/** `defaultStoreId()` 的查询结果：解析当前门店时排在所有业务查询之前 */
+const DEFAULT_STORE: Row[] = [{ id: 1 }];
 
 function chainFor(result: unknown) {
   const make = (): Record<string, unknown> => {
@@ -342,30 +358,32 @@ describe('MemberCardsService（§15.5 次卡）', () => {
   describe('refund：退卡', () => {
     it('退款金额非法时抛 BadRequestException', async () => {
       const h = createHarness();
-      await expect(h.service.refund(1, -1, '原因', 1)).rejects.toThrow(
+      await expect(h.service.refund(1, -1, '原因', ACTOR)).rejects.toThrow(
         '退款金额必须是非负整数（分）',
       );
     });
 
     it('未填原因时抛 BadRequestException', async () => {
       const h = createHarness();
-      await expect(h.service.refund(1, 100, '   ', 1)).rejects.toThrow(
+      await expect(h.service.refund(1, 100, '   ', ACTOR)).rejects.toThrow(
         '退卡必须填写原因',
       );
     });
 
     it('已退的卡不能重复退', async () => {
       const h = createHarness({
-        selectResults: [[card({ status: 'refunded' })]],
+        selectResults: [DEFAULT_STORE, [card({ status: 'refunded' })]],
       });
-      await expect(h.service.refund(1, 100, '原因', 1)).rejects.toThrow(
+      await expect(h.service.refund(1, 100, '原因', ACTOR)).rejects.toThrow(
         '该卡已退',
       );
     });
 
     it('退款金额 > 0 时冲减累计消费与积分', async () => {
-      const h = createHarness({ selectResults: [[card()]] });
-      await h.service.refund(1, 5000, '不再需要', 3);
+      const h = createHarness({
+        selectResults: [DEFAULT_STORE, [card()]],
+      });
+      await h.service.refund(1, 5000, '不再需要', ACTOR);
       expect(h.accounts.reverseEarning).toHaveBeenCalledWith(
         h.tx,
         expect.objectContaining({ amount: 5000, cardId: 1 }),
@@ -374,8 +392,10 @@ describe('MemberCardsService（§15.5 次卡）', () => {
     });
 
     it('退款金额为 0 时只留痕，不冲减消费', async () => {
-      const h = createHarness({ selectResults: [[card()]] });
-      await h.service.refund(1, 0, '作废', 3);
+      const h = createHarness({
+        selectResults: [DEFAULT_STORE, [card()]],
+      });
+      await h.service.refund(1, 0, '作废', ACTOR);
       expect(h.accounts.reverseEarning).not.toHaveBeenCalled();
       expect(h.accounts.recordLedgerOnly).toHaveBeenCalledWith(
         h.tx,
@@ -418,10 +438,10 @@ describe('MemberCardsService（§15.5 次卡）', () => {
 
   describe('issue：后台发卡', () => {
     it('储值支付购卡时先条件扣款再发卡', async () => {
-      const h = createHarness();
+      const h = createHarness({ selectResults: [DEFAULT_STORE] });
       const result = await h.service.issue(
         { customerId: 9, cardTypeId: 1, payChannel: 'balance' },
-        3,
+        ACTOR,
       );
       expect(h.accounts.applyBalancePayment).toHaveBeenCalledWith(
         h.tx,
@@ -436,20 +456,20 @@ describe('MemberCardsService（§15.5 次卡）', () => {
     });
 
     it('非储值渠道不触发余额扣款', async () => {
-      const h = createHarness();
+      const h = createHarness({ selectResults: [DEFAULT_STORE] });
       await h.service.issue(
         { customerId: 9, cardTypeId: 1, payChannel: 'cash' },
-        3,
+        ACTOR,
       );
       expect(h.accounts.applyBalancePayment).not.toHaveBeenCalled();
     });
 
     it('卡价非法时拒绝', async () => {
-      const h = createHarness();
+      const h = createHarness({ selectResults: [DEFAULT_STORE] });
       await expect(
         h.service.issue(
           { customerId: 9, cardTypeId: 1, payChannel: 'cash', price: -1 },
-          3,
+          ACTOR,
         ),
       ).rejects.toThrow('卡价不能为负');
     });

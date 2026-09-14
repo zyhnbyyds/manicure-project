@@ -51,6 +51,9 @@ export interface MemberDetail extends Member {
 export interface MemberTransaction {
   id: number;
   customerId: number;
+  /** 流水发生门店；历史/系统流水可能为空 */
+  storeId: number | null;
+  storeName: string | null;
   type:
     | 'recharge'
     | 'consume'
