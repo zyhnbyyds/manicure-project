@@ -176,3 +176,19 @@
      或把上下文写长到唯一；
   3. 变异后**必须** `git diff` 看清改了哪几行再还原，别凭记忆。
 - **来源**：实测（本次修「上传的图显示不出来」时自己踩的，白跑了一轮全量测试）。
+
+---
+
+## 13. pwsh 控制台默认 GBK，git / gh 的中文输出全是乱码 —— 别据此以为「数据写坏了」
+
+- **现象**：`git log --oneline` 显示 `fix(app): 鎴戠殑棰勭害...`，
+  `gh release view` 显示 `name: 1.0.0 鈥?棣栦釜姝ｅ紡鐗堟湰`。看起来像提交信息 / Release 标题被写坏了。
+- **根因**：PowerShell 控制台（含工具内置终端）默认代码页 936（GBK），而 git / gh 吐的是 UTF-8 字节
+  → 按 GBK 解码就成了花屏。**乱码只发生在「显示」这一步，不在「写入」那一步。**
+- **正确做法**：开一次
+  `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`，之后 git / gh / node 的中文都正常；
+  写文件用 `Set-Content -Encoding utf8`（pwsh 7 写出的是无 BOM UTF-8，git 与 gh 都认）。
+- **判别依据**：`鈥` / `鎴` / `锛` 这种「一个字符位挤着两个符号」的形态是
+  **UTF-8 被当成 GBK 读**的典型特征；真损坏会显示成 `?` 或 `&#xxx;`。
+- **怎么发现的**：发布 1.0.0 时 `gh release create` 的标题在终端是乱码，以为 notes 写坏了；
+  切到 UTF-8 再 `gh release view v1.0.0 --json body` 读回，3533 字符中文正文完全正常 —— 虚惊一场。
