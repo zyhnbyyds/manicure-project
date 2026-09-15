@@ -93,6 +93,7 @@ export default defineConfig({
           text: '总览',
           items: [
             { text: '项目总览与技术基线', link: '/overview/' },
+            { text: '整体架构图', link: '/overview/architecture-map' },
             { text: '三端架构与请求生命周期', link: '/overview/architecture' },
             { text: '目录结构与代码地图', link: '/overview/structure' },
             { text: '本地开发与命令手册', link: '/overview/getting-started' },
