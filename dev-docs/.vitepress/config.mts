@@ -142,6 +142,7 @@ export default defineConfig({
           items: [
             { text: '测试策略与验收标准', link: '/quality/' },
             { text: '构建 · 部署 · 运维', link: '/quality/deploy' },
+            { text: 'Docker 一键部署', link: '/quality/docker' },
             { text: '踩坑记录与排查手册', link: '/quality/pitfalls' },
           ],
         },

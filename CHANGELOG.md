@@ -6,6 +6,17 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 面向门店人员的操作说明见 `docs/`，面向开发者的技术文档见 `dev-docs/`。
 
+## 未发布
+
+### 新增
+
+- **Docker 一键部署**：`deploy/up.sh`（Linux / macOS）与 `deploy/up.ps1`（Windows）一条命令拉起
+  后端、后台前端、MySQL 8.4、Redis 7。首次启动自动生成 JWT 密钥与管理员密码，自动建库、跑迁移、灌种子数据，
+  数据落在 `mysql-data` / `redis-data` / `uploads` 三个命名卷里，`down` 不丢数据。
+  含后端三阶段 `Dockerfile`、前端 `web/Dockerfile` + `web/nginx.conf`（静态托管 + `/api/` 反向代理）、
+  `deploy/api-entrypoint.sh`（等库 → 迁移 → 按需种子 → 起服务）与 `deploy/env.example` 环境变量模板。
+  详见 [Docker 一键部署](./dev-docs/quality/docker.md)。
+
 ## 1.0.0 — 2026-09-15
 
 首个正式版本。数据库 61 张表，实施批次 B1~B6 全部交付。

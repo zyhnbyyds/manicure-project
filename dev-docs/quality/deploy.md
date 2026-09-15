@@ -7,8 +7,9 @@ title: 构建 · 部署 · 运维
 本页是**上线与值守手册**：三端怎么构建、后端怎么托管、数据库怎么迁、文档站怎么发、
 以及上线前那批**与代码无关但决定上线日**的人工门禁。
 
-相关页：[测试策略与验收标准](/quality/) · [配置与环境变量](/overview/config) ·
-[迁移 · 种子数据 · 派生口径](/data/migrations-seeds) · [相关文档与资料库](/appendix/related-docs)。
+相关页：[测试策略与验收标准](/quality/) · [Docker 一键部署](/quality/docker) ·
+[配置与环境变量](/overview/config) · [迁移 · 种子数据 · 派生口径](/data/migrations-seeds) ·
+[相关文档与资料库](/appendix/related-docs)。
 
 ## 一、构建
 

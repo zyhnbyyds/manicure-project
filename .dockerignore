@@ -1,0 +1,36 @@
+# Docker 构建上下文排除清单（根 Dockerfile 与 web/Dockerfile 共用）
+#
+# 目标：把构建上下文压到最小，同时**确保构建真正需要的文件留下**。
+# 构建需要：package.json / bun.lock / bunfig.toml / tsconfig*.json / src/ /
+#          deploy/ / web/（前端源码）/ nest-cli.json
+
+# ── 依赖与产物（镜像里自己装、自己构建） ──────────────────────────
+node_modules
+**/node_modules
+output
+dist
+coverage
+*.log
+
+# ── 环境与密钥：绝不进镜像 ────────────────────────────────────────
+# compose 通过 env_file 注入，不打进层里（否则 `docker history` 能翻出密钥）
+.env
+.env.*
+deploy/.env
+
+# ── 运行时数据 ────────────────────────────────────────────────────
+uploads
+logs
+
+# ── 与镜像无关的大目录 ────────────────────────────────────────────
+# .agents 里有 31MB 微信支付知识库，miniapp 有自己的 node_modules —— 都不参与构建
+.git
+.github
+.agents
+.workbuddy-ai
+miniapp
+docs
+dev-docs
+project-design
+tests
+scripts

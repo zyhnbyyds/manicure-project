@@ -312,6 +312,27 @@ bun run test:coverage
 
 ## 部署
 
+### Docker 一键部署（推荐）
+
+后端 + 后台前端 + MySQL + Redis 四件套，一条命令拉起；首次启动自动生成密钥、建库、跑迁移与种子数据，
+数据落在命名卷里（`down` 不删数据）：
+
+```powershell
+# Windows：生成随机密钥与管理员密码后构建启动
+powershell -ExecutionPolicy Bypass -File deploy\up.ps1
+```
+
+```bash
+# Linux / macOS
+sh deploy/up.sh
+```
+
+起来后访问 `http://<服务器 IP>/`（入口端口是 `deploy/.env` 里的 `WEB_PORT`，默认 80），
+脚本会打印首次生成的管理员账号密码。数据卷、备份恢复、升级与排障见
+[`dev-docs/quality/docker.md`](./dev-docs/quality/docker.md)。
+
+### PM2 部署
+
 后端用 PM2 部署（配置见 [`ecosystem.config.js`](./ecosystem.config.js)）：
 
 ```bash

@@ -13,7 +13,7 @@ title: 测试策略与验收标准
 
 相关实现页：[预约主链路实现](/backend/booking) · [排班与可约时段算法](/backend/scheduling) ·
 [收银与支付通道接入](/backend/payment) · [迁移 · 种子数据 · 派生口径](/data/migrations-seeds) ·
-[本地开发与命令手册](/overview/getting-started)。
+[本地开发与命令手册](/overview/getting-started) · [Docker 一键部署](/quality/docker)。
 
 ## 一、测试体系全景
 

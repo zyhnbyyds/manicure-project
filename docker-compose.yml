@@ -1,0 +1,121 @@
+# 美甲店管理系统 —— Docker 一键部署编排
+#
+# 一条命令起全套（MySQL + Redis + API + 后台前端）：
+#   docker compose --env-file deploy/.env up -d --build
+# 或直接用封装脚本（首次会自动生成 deploy/.env 与随机密钥）：
+#   ./deploy/up.sh          （Linux / macOS）
+#   ./deploy/up.ps1         （Windows PowerShell）
+#
+# 变量两个来源，注意区别：
+#   --env-file deploy/.env   给**本文件**做 ${} 插值（端口、密码这类编排参数）
+#   env_file: deploy/.env    给**容器**注入环境变量（业务配置）
+# 同一个文件两用，改一处即可。
+
+name: manicure
+
+services:
+  # ── 数据库 ───────────────────────────────────────────────────────
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    # 时区必须显式指定：业务按「店内本地日」切分营业日 / 可约时段 / 报表日界，
+    # MySQL 默认 UTC 会让日界整体偏 8 小时。
+    command: ['--default-time-zone=+08:00']
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 deploy/.env 设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-manicure}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # 用 MySQL 官方镜像自带的 healthcheck.sh：它自己从容器环境里取 root 凭据，
+      # 不必在 compose 里写 $$MYSQL_ROOT_PASSWORD —— 那种写法一旦密码含 shell 特殊字符
+      # 就会解析失败，表现为「db 永远 unhealthy、api 一直不启动」。
+      # --connect 探连通性，--innodb_initialized 确保首次数据目录初始化已完成。
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    # 默认不对宿主机暴露。需要本机用客户端连库调试时再打开：
+    # ports:
+    #   - '${MYSQL_PORT:-3306}:3306'
+
+  # ── 缓存 / 限流 / 幂等辅助 ───────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    # ports:
+    #   - '${REDIS_PORT:-6379}:6379'
+
+  # ── 后端 API ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - deploy/.env
+    environment:
+      # 下面三项必须覆盖 .env：容器之间用服务名互访，不能是 127.0.0.1。
+      # compose 的 environment 优先级高于 env_file，所以这里写死是安全的。
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/${MYSQL_DATABASE:-manicure}
+      REDIS_URL: redis://redis:6379
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      # 上传的文件（服务项目图集 / 门店图集）必须落在卷里，否则重建容器就没了
+      - uploads:/app/uploads
+    healthcheck:
+      # 项目没有 /health 端点，这里只判断「能拿到 HTTP 响应」——
+      # 404 / 401 都说明服务已经起来了。端口与容器内 PORT 保持一致（默认 3000）。
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          'const r = await fetch("http://127.0.0.1:3000/").catch(() => null); process.exit(r ? 0 : 1);',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # 首启要迁移 + 播种，给足冷启动时间
+      start_period: 90s
+    # 需要直连后端 / 看 Swagger 时打开（日常访问走 web 的 /api 反代即可）：
+    # ports:
+    #   - '${API_PORT:-3000}:3000'
+
+  # ── 后台前端（nginx 托管 + 反代 API） ────────────────────────────
+  web:
+    build:
+      # 上下文必须是仓库根：vite 把产物写到仓库根的 output/web
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        # 前端请求的 API 前缀。同源部署（走 nginx 反代）保持默认即可
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-80}:80'
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+
+volumes:
+  mysql-data:
+  redis-data:
+  uploads:
