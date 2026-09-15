@@ -4,7 +4,7 @@ title: 退款判责与对账
 
 # 退款判责与对账
 
-本页覆盖**退款判责规则、申请 / 审批分离、执行期幂等与同事务回写**，以及**渠道对账差异**的落库与人工处理。
+本页覆盖**退款阶段分流（服务开始前无理由全退 / 服务中店长手动）、判责规则（已降级为参考建议）、执行期幂等与同事务回写**，以及**渠道对账差异**的落库与人工处理。
 
 - 代码位置：
   - `src/modules/biz/payment/refunds/refunds.service.ts`（880 行）/ `refunds.controller.ts`
@@ -12,7 +12,39 @@ title: 退款判责与对账
 - 表：`biz_refund`、`biz_refund_policy`、`biz_payment_diff`（`src/database/schema/index.ts`）
 - 定时任务：`reconcilePayments`（每日 6:30）、`markOverdueReceivables`（见 [挂账与应收](/backend/credit)）
 
-## 判责规则
+## 退款阶段：按「当前时间 vs 预约开始时间」分流
+
+退款**不再是「申请 → 待审批 → 审批执行」两段式**：`POST /biz/refunds` 建单后**当场执行**。
+
+| 阶段                      | 判定                              | 退款金额                                                                        | 谁能发起                            |
+| ------------------------- | --------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| `before_start` 服务开始前 | `now < biz_booking.start_at`      | **无理由全额退**：锁定为该支付单剩余可退（忽略前端传值），`liable` 强制 `store` | 任何有 `biz:refund:apply` 的人      |
+| `in_service` 服务中       | `now >= start_at`（**含已完成**） | **店长手动填写** `actualAmount`，上限 = 该支付单剩余可退                        | 需要 `biz:refund:approve`，否则 403 |
+
+```ts
+// src/modules/biz/payment/refunds/refunds.service.ts
+export function resolveRefundStage(
+  startAt: Date | null,
+  at: Date,
+): RefundStage {
+  if (!startAt) return 'before_start'; // 只有 paymentId（无预约）→ 按开始前处理
+  return at.getTime() < startAt.getTime() ? 'before_start' : 'in_service';
+}
+```
+
+- **只看时间，不看预约状态**：`pending` 但已过开始时间也算 `in_service`。
+- 阶段落库到 `biz_refund.refund_stage`（历史数据为 `NULL`：加列之前按 `hours_before` 判责）。
+- 新流程下 `deduct_amount` 恒 `0`、`policy_id` 恒 `NULL` —— 判责规则**不再参与金额计算**，
+  只在 `preview.policySuggestAmount` 里作为参考出现。
+- 服务中退款被 403 / 400 挡下的三种情况：无 `biz:refund:approve`、未填 `actualAmount`、金额 > 剩余可退。
+- `POST /:id/approve` 与 `POST /:id/reject` **保留**，现在用于 `failed` 单重试与历史 `pending` 单收尾。
+
+## 判责规则（已降级为参考建议）
+
+::: warning 规则不再决定退款额
+服务开始前 = 全额退；服务中 = 店长定多少退多少。`biz_refund_policy` 的存在意义只剩
+「给店长一个参考数字」（`preview.policySuggestAmount`）与历史数据的可解释性。
+:::
 
 ### 表结构
 
@@ -113,61 +145,76 @@ private async matchPolicy(cancelAt: Date, startAt: Date, policyId: number | unde
 | `paidAmount`                              | 预约毛实收 = Σ 成功支付单 `received_amount`                                                                  |
 | `refundedAmount`                          | Σ 成功退款单 `actual_amount`                                                                                 |
 | `refundableAmount`                        | `paidAmount − refundedAmount`                                                                                |
-| `suggestAmount`                           | 判责建议退款额                                                                                               |
-| `deductAmount`                            | `refundableAmount − suggestAmount`（夹到 ≥ 0）                                                               |
+| `stage` / `stageLabel`                    | 退款阶段：`before_start` 服务开始前 / `in_service` 服务中（含已完成）                                        |
+| `suggestAmount`                           | **本次实际建议退款额**：服务开始前 = 剩余可退全额；服务中 = `0`（等店长手动填）                              |
+| `lockedAmount`                            | `true` = 金额由服务端锁定，前端应只读                                                                        |
+| `policySuggestAmount`                     | 按老判责规则算出的**参考值**，不参与写账                                                                     |
+| `deductAmount`                            | `refundableAmount − policySuggestAmount`（夹到 ≥ 0），同属参考口径                                           |
 | `payments[]`                              | **逐笔可退明细**（`paymentId` / `paymentNo` / `channel` / `amount` / `refundedAmount` / `refundableAmount`） |
 
 ::: warning 退款单必须挂在**具体支付单**上
 `biz_refund.payment_id` 是 NOT NULL。所以混合支付的预约要退完，需要**按支付单分别申请 / 审批** —— `preview` 的 `payments[]` 就是给前端逐笔操作用的。
 :::
 
-## 申请 / 审批分离
+## 申请即执行
 
-| 步骤       | 接口                            | 权限点                   | 说明                  |
-| ---------- | ------------------------------- | ------------------------ | --------------------- |
-| 试算       | `POST /biz/refunds/preview`     | `biz:refund:apply`       | 只读，不改账          |
-| 申请       | `POST /biz/refunds`             | `biz:refund:apply`       | 生成 `pending` 退款单 |
-| 列表       | `GET /biz/refunds`              | `biz:refund:list`        |                       |
-| 审批并执行 | `POST /biz/refunds/:id/approve` | **`biz:refund:approve`** | 默认只给店长          |
-| 驳回       | `POST /biz/refunds/:id/reject`  | **`biz:refund:approve`** | **必填原因**          |
+| 步骤           | 接口                            | 权限点                                                         | 说明                                    |
+| -------------- | ------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
+| 试算           | `POST /biz/refunds/preview`     | `biz:refund:apply`                                             | 只读，不改账                            |
+| **申请并执行** | `POST /biz/refunds`             | 服务开始前 `biz:refund:apply`；服务中 **`biz:refund:approve`** | **建单后当场执行，不落 `pending`**      |
+| 列表           | `GET /biz/refunds`              | `biz:refund:list`                                              | 可按 `stage` 过滤（店长只看本店）       |
+| 重试执行       | `POST /biz/refunds/:id/approve` | **`biz:refund:approve`**                                       | 主要给 `failed` 单重试                  |
+| 驳回           | `POST /biz/refunds/:id/reject`  | **`biz:refund:approve`**                                       | **必填原因**，只对历史 `pending` 单有效 |
 
 权限点字符串核实于 `src/database/seed/menus.ts` 的 `BIZ_PAGES`：`biz_refunds` 页面 `permission: 'biz:refund:list'`、按钮 `biz:refund:approve`；收银台页面挂 `biz:refund:apply`。
 
 预约侧还有两个便捷入口（`src/modules/biz/booking/bookings.controller.ts`）：`GET /biz/bookings/:id/refund-preview`、`POST /biz/bookings/:id/refund`，权限同为 `biz:refund:apply`。
 
-### 申请
+### 申请（`apply`）
 
-申请时把「判责基数」与「实际退款额」分别落库：
-
-```
-biz_refund.amount        = 申请退款金额（判责基数）
-biz_refund.actual_amount = 实际退款额
-biz_refund.deduct_amount = amount − actual_amount
-```
+金额**完全由阶段决定**，不再走判责计算：
 
 ```ts
-// src/modules/biz/payment/refunds/refunds.service.ts:202
-async apply(input: RefundApplyInput, actorId: number): Promise<RefundRow> {
-  const reason = input.reason?.trim();
-  if (!reason) throw new BadRequestException('退款原因必填');
-  if (reason.length < 2) throw new BadRequestException('退款原因过于简单');
+// src/modules/biz/payment/refunds/refunds.service.ts
+const remaining = payment.amount - payment.refundedAmount;
+if (remaining <= 0) throw new ConflictException('该支付单已无可退金额');
 
-  const payment = await this.resolvePayment(input);
-  // 原路退回只有在线支付可用
-  if (input.mode === 'original' && !ONLINE_CHANNELS.includes(payment.channel as OnlineChannel))
-    throw new BadRequestException('该支付单不是在线支付，原路退回不可用，请选择现金退或退入储值余额');
-
-  const remaining = payment.amount - payment.refundedAmount;
-  if (remaining <= 0) throw new ConflictException('该支付单已无可退金额');
-  ...
-  const actualAmount = Math.trunc(input.actualAmount ?? suggested);
-  if (actualAmount > amount) throw new BadRequestException('实际退款金额不得超过申请退款金额');
+const stage = resolveRefundStage(booking?.startAt ?? null, new Date());
+if (stage === 'before_start') {
+  amount = remaining; // 服务开始前：无理由全额退，**忽略前端传值**（防止用旧参数绕过锁定）
+  liable = 'store'; // 无理由退 → 不判顾客责
+} else {
+  if (!hasPermission(actor, 'biz:refund:approve'))
+    throw new ForbiddenException(
+      '预约已开始，退款需店长处理（权限 biz:refund:approve）',
+    );
+  const manual = input.actualAmount ?? input.amount;
+  if (manual === undefined || manual === null)
+    throw new BadRequestException('服务开始后退款必须手动填写退款金额');
+  amount = Math.trunc(manual);
+  if (amount <= 0) throw new BadRequestException('退款金额必须大于 0');
+  if (amount > remaining)
+    throw new BadRequestException(
+      `退款金额不得超过该支付单剩余可退金额 ${remaining} 分`,
+    );
+  liable = input.liable ?? 'store';
 }
 ```
 
+落库口径：
+
+```
+biz_refund.amount        = actual_amount = 实退额
+biz_refund.deduct_amount = 0（新流程无判责扣减）
+biz_refund.policy_id     = NULL（不依据任何规则）
+biz_refund.refund_stage  = before_start | in_service
+```
+
 - `resolvePayment()`：显式 `paymentId` 优先（只接受 `success` / `partial_refunded`），否则按 `bookingId` 取「最近一笔仍可退」的支付单；
-- `amount` 默认 = 该支付单剩余可退，`actualAmount` 默认 = 判责建议值；两者都可由人工覆盖，但**原因必填**；
-- 申请会写一条 `biz_payment_log(event='refund', raw.action='apply')`。
+- `reason` 必填且至少 2 个字符；
+- 建单后写 `biz_payment_log(raw.action='apply')`（raw 里带 `stage`），紧接着调 `this.approve(id, actor.id)` 执行
+  —— **没有复制第二份执行链路，资金顺序只有一份**（money-invariants 第 1 条）；
+- 返回体比退款单多两个字段：`refundStage` 与 `executed`（`executed = status === 'success'`）。
 
 ### 去向 `mode`
 
@@ -178,7 +225,9 @@ async apply(input: RefundApplyInput, actorId: number): Promise<RefundRow> {
 | `balance`  | 退入储值余额 | 无渠道调用；**只回补实付本金 `principal`**，赠送不退                    |
 
 ::: tip 三条硬约束的位置
-`liable=customer` 按规则扣减、`liable=store` / `force_majeure` 全退、金额可改但必须填原因 —— 分别落实在 `assess()`（`refunds.service.ts:688`）、`apply()` 的 `reason` 校验与 `actualAmount` 覆盖上。规则**只给建议**，没有任何地方用规则值直接改账。
+服务开始前锁定全额（`lockedAmount=true`）、服务中必须店长手动填且夹到剩余可退以内、原因必填 ——
+分别落实在 `apply()` 的阶段分支、`apply()` 的 `reason` 校验与 `amount > remaining` 判断上。
+`assess()` 与 `biz_refund_policy` 现在**只出现在 `preview` 的参考字段里**，没有任何地方用规则值直接改账。
 :::
 
 ## 执行期安全：只退一次

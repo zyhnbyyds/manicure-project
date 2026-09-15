@@ -34,7 +34,7 @@ features:
     linkText: 阅读实现
   - icon: 💳
     title: 支付与退款
-    details: 微信 Native / 支付宝当面付接入、回调验签与幂等、主动查单关单、退款判责与渠道对账。
+    details: 微信 Native / 支付宝当面付接入、回调验签与幂等、主动查单关单、退款阶段分流与渠道对账。
     link: /backend/payment
     linkText: 阅读实现
   - icon: 🔐

@@ -466,9 +466,15 @@ async function pollStatus(paymentId: number) {
 2. **关弹窗前主动查一次**：「关掉弹窗**不等于**这笔没付：顾客可能刚扫完码。关闭前主动查一次通道，否则这笔只能等后端定时查单（最长 2 分钟），期间店员很可能再收一次钱」；
 3. **倒计时**用 `expireAt` 算剩余秒数（缺省按 5 分钟），每秒更新。
 
-### 退款审批（`web/src/views/biz/refunds/index.vue`）
+### 退款管理（`web/src/views/biz/refunds/index.vue`）
 
-默认只看 `pending`；弹窗展示**判责依据**（命中规则、距开始时间、扣减金额），数据来自 `POST /biz/refunds/preview`；金额可改但**必须填原因**（后端 schema 的 `reason` 是 `min(2).max(200)` 必填）；「驳回」用**独立 `formKey`** 的弹窗（同文件 345 行注释）。申请按钮 `v-permission="'biz:refund:apply'"`，审批走 `biz:refund:approve`。
+页面按**服务阶段**分流：列表带「阶段」筛选（服务开始前 / 服务中）与状态筛选；弹窗先点「判定阶段 / 试算」（`POST /biz/refunds/preview`）拿到 `stage` / `lockedAmount` / `suggestAmount`，试算结果区展示「退款阶段 / 距开始 / 可退上限 / 建议退款额 / 按规则参考」五行。
+
+- `lockedAmount = true`（服务开始前）→ 金额 `disabled` 且提交时不传 `amount`（服务端强制全额，防绕过锁定），不发「责任」字段；
+- `stage = in_service` → 金额必填、出现「责任」下拉，提交前本地校验 `0 < amount ≤ refundableAmount`；
+- 提交走 `confirmDanger` 二次确认（文案区分「确认全额退款」/「确认退款」），成功后提示「退款已执行」；
+- 「驳回」用**独立 `formKey`** 的弹窗；操作列对 `pending | failed` 才给动作，`failed` 显示「重试执行」；
+- 发起按钮 `v-permission="'biz:refund:apply'"`，服务中退款由后端校验 `biz:refund:approve`。
 
 ### 报表（`web/src/views/biz/reports/index.vue`）
 

@@ -740,45 +740,49 @@ UPDATE biz_customer_coupon
 
 ### biz_refund —— 退款单
 
-判责金额 + **申请 / 审批分离**。执行时机在审批通过之后。
+按**服务阶段**分流：服务开始前无理由全额退、服务中由店长手动定额；**建单即执行**（不落 `pending` 等审批）。
 
-| 字段                | 类型                                       | 必填/默认      | 说明                       | 口径与坑                                                   |
-| ------------------- | ------------------------------------------ | -------------- | -------------------------- | ---------------------------------------------------------- |
-| `id`                | `int unsigned`                             | PK 自增        | 主键                       | —                                                          |
-| `refund_no`         | `varchar(32)`                              | 必填           | 退款单号 `R{yyyyMMdd}{id}` | 唯一                                                       |
-| `payment_id`        | `int unsigned`                             | 必填           | 原支付单                   | `RESTRICT`                                                 |
-| `booking_id`        | `int unsigned`                             | 可空           | 关联预约                   | `SET NULL`                                                 |
-| `customer_id`       | `int unsigned`                             | 必填           | 顾客                       | —                                                          |
-| `amount`            | `int unsigned`                             | 必填           | 申请退款额（分）           | 上限 = 支付单已收 − 已退                                   |
-| `actual_amount`     | `int unsigned`                             | 默认 `0`       | **实退额（分）**           | 净营收按它扣减                                             |
-| `deduct_amount`     | `int unsigned`                             | 默认 `0`       | 判责扣款（分）             | `amount − actual_amount`                                   |
-| `mode`              | `enum('original','cash','balance')`        | 必填           | 退款方式                   | 原路 / 现金 / 退到余额                                     |
-| `policy_id`         | `int unsigned`                             | 可空           | 依据的判责规则             | 只给建议，店长可改                                         |
-| `liable`            | `enum('store','customer','force_majeure')` | 默认 `store`   | 判责方                     | 影响扣款比例                                               |
-| `reason`            | `varchar(200)`                             | 必填           | 退款原因                   | 受 `biz.member.refundNeedReason` 约束                      |
-| `status`            | `enum`                                     | 默认 `pending` | 状态机                     | `pending` → `approved` / `rejected` → `success` / `failed` |
-| `apply_by`          | `int unsigned`                             | 必填           | 申请人                     | 与审批人**必须不同**（分离）                               |
-| `apply_at`          | `datetime`                                 | 必填           | 申请时刻                   | —                                                          |
-| `approve_by`        | `int unsigned`                             | 可空           | 审批人                     | —                                                          |
-| `approve_at`        | `datetime`                                 | 可空           | 审批时刻                   | —                                                          |
-| `reject_reason`     | `varchar(200)`                             | 可空           | 驳回原因                   | —                                                          |
-| `channel_refund_id` | `varchar(64)`                              | 可空           | 渠道退款单号               | —                                                          |
-| `refunded_at`       | `datetime`                                 | 可空           | 退款成功时刻               | 报表按它归日                                               |
-| `remark`            | `varchar(200)`                             | 可空           | 备注                       | —                                                          |
+| 字段                | 类型                                       | 必填/默认      | 说明                       | 口径与坑                                                    |
+| ------------------- | ------------------------------------------ | -------------- | -------------------------- | ----------------------------------------------------------- |
+| `id`                | `int unsigned`                             | PK 自增        | 主键                       | —                                                           |
+| `refund_no`         | `varchar(32)`                              | 必填           | 退款单号 `R{yyyyMMdd}{id}` | 唯一                                                        |
+| `payment_id`        | `int unsigned`                             | 必填           | 原支付单                   | `RESTRICT`                                                  |
+| `booking_id`        | `int unsigned`                             | 可空           | 关联预约                   | `SET NULL`；为空 → 阶段按 `before_start`                    |
+| `customer_id`       | `int unsigned`                             | 必填           | 顾客                       | —                                                           |
+| `amount`            | `int unsigned`                             | 必填           | 申请退款额（分）           | 新流程恒 = `actual_amount`                                  |
+| `actual_amount`     | `int unsigned`                             | 默认 `0`       | **实退额（分）**           | 净营收按它扣减                                              |
+| `deduct_amount`     | `int unsigned`                             | 默认 `0`       | 判责扣款（分）             | 新流程恒为 `0`（无判责扣减）                                |
+| `mode`              | `enum('original','cash','balance')`        | 必填           | 退款方式                   | 原路 / 现金 / 退到余额                                      |
+| `policy_id`         | `int unsigned`                             | 可空           | 依据的判责规则             | 新流程一律 `NULL`（规则已降级为参考）                       |
+| `refund_stage`      | `enum('before_start','in_service')`        | 可空           | 退款阶段                   | 按「退款时点 vs `start_at`」判定；加列前的历史数据为 `NULL` |
+| `liable`            | `enum('store','customer','force_majeure')` | 默认 `store`   | 判责方                     | 服务开始前强制 `store`                                      |
+| `reason`            | `varchar(200)`                             | 必填           | 退款原因                   | 受 `biz.member.refundNeedReason` 约束                       |
+| `status`            | `enum`                                     | 默认 `pending` | 状态机                     | `pending`/`approved` → `success` / `failed`（见下）         |
+| `apply_by`          | `int unsigned`                             | 必填           | 发起人                     | 新流程中同时也是执行人（除非 `failed` 重试）                |
+| `apply_at`          | `datetime`                                 | 必填           | 申请时刻                   | —                                                           |
+| `approve_by`        | `int unsigned`                             | 可空           | 执行人                     | 渠道失败重试时会被重写                                      |
+| `approve_at`        | `datetime`                                 | 可空           | 执行时刻                   | —                                                           |
+| `reject_reason`     | `varchar(200)`                             | 可空           | 驳回原因                   | 只对历史 `pending` 单有效                                   |
+| `channel_refund_id` | `varchar(64)`                              | 可空           | 渠道退款单号               | 渠道失败的单为空，可据此判断「没打渠道」                    |
+| `refunded_at`       | `datetime`                                 | 可空           | 退款成功时刻               | 报表按它归日                                                |
+| `remark`            | `varchar(200)`                             | 可空           | 备注                       | —                                                           |
 
 **索引与约束**：`uq_refund_no`、`idx_refund_payment`、`idx_refund_status(status, created_at)`、
 `idx_refund_booking`；`fk_refund_payment` `RESTRICT`、`fk_refund_booking` `SET NULL`。
 
-**状态机与幂等**：执行退款用条件更新
+**状态机与幂等**：`apply()` 建单后**当场**执行（`pending → approved → success`），没有人工审批环节；
+`failed` 单可用 `POST /:id/approve` 重试。落地用条件更新
 `UPDATE biz_refund SET status='success', channel_refund_id=?, refunded_at=? WHERE id=? AND status='approved'`，
 `affectedRows = 0` 表示已被处理。成功后**同事务**回写预约 `refund_amount`、
-按比例回减 `total_spent` 与积分、冲销提成。
+按比例回减 `total_spent` 与积分、冲销提成。额度预留在打渠道**之前**完成（见
+[退款判责与对账](/backend/refund-reconcile)），渠道失败则释放预留并置 `failed`。
 
 **相关代码**：`src/modules/biz/payment/refunds/refunds.service.ts`。
 
 ### biz_refund_policy —— 退款判责规则
 
-「提前 X 小时 → 退 Y‰」的档位表。
+「提前 X 小时 → 退 Y‰」的档位表。**已降级为参考**：退款金额现按服务阶段决定，规则只用来算
+`preview.policySuggestAmount` 给店长看，不参与写账。
 
 | 字段              | 类型                        | 必填/默认     | 说明             | 口径与坑                            |
 | ----------------- | --------------------------- | ------------- | ---------------- | ----------------------------------- |

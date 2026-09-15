@@ -73,7 +73,7 @@ bun run test
 | 文件                                   | 覆盖（对应批次）                                                                                                                                                                                         |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `b1-booking.int.spec.ts`               | 可约时段 / 缓冲对称性 / 时区 / 格子与班次校验 / **并发恰好 1 成功** / 单号唯一 / 排班冲突保护 / 定时任务幂等（B1）                                                                                       |
-| `b2-b3-money.int.spec.ts`              | 算价与等级折扣 / 账务不变量 / 充值 / **并发余额支付不为负** / 次卡 / 积分兑换 / 定金尾款 / 混合支付 / 退款判责审批 / 对账差异（B2、B3）                                                                  |
+| `b2-b3-money.int.spec.ts`              | 算价与等级折扣 / 账务不变量 / 充值 / **并发余额支付不为负** / 次卡 / 积分兑换 / 定金尾款 / 混合支付 / **退款按阶段分流** / 对账差异（B2、B3）                                                            |
 | `b3-online-settle.int.spec.ts`         | 在线渠道结算：pending 单 + 渠道下单 + `code_url`；**渠道未配置 → 409 且不留 pending 单**                                                                                                                 |
 | `b3-refund-reserve.int.spec.ts`        | 退款额度预留：渠道失败必须释放、成功占用、第二笔不过额                                                                                                                                                   |
 | `b4-b6.int.spec.ts`                    | 挂账额度与 used_amount / 销账 / 提成计提与结算 / 净营收可复核 / 评价一单一评 / 周期预约 / 美甲师可做项目 / 通知未配置降级 / app 域双向拒绝（B4、B5、B6）                                                 |
@@ -326,7 +326,8 @@ spec §12 的验收标准、以及 `.agents/skills/testing-acceptance/SKILL.md` 
 - [ ] 混合支付 2 张支付单 → `paid` + `pay_channel_summary='balance,cash'` —— `b2-b3-money.int.spec.ts`
 - [ ] 回调重放 3 次只生效一次；**金额不一致的回调被拒**并写 `callback_invalid` —— `b6-app-wxpay-notify.int.spec.ts`、`payments.service.spec.ts`
 - [ ] 超时关单；关单后回调不影响账（但**迟到的支付成功仍要落地**） —— `b6-app-wxpay-notify.int.spec.ts` · `closeExpired()`
-- [ ] 判责：不同提前量 → 建议金额正确；审批只能执行一次 —— `b2-b3-money.int.spec.ts` · `RefundsService`
+- [ ] 退款阶段：服务开始前全额直退（前端传小额也全额）；服务中无 `biz:refund:approve` → 403 / 未填金额 → 400 / 超额 → 400；`failed` 单可重试 —— `b2-b3-money.int.spec.ts` · `RefundsService`
+- [ ] 退款额度预留：渠道失败释放额度、并发两笔只成功一笔且渠道只调一次 —— `b3-refund-reserve.int.spec.ts` · `RefundsService`
 - [ ] 对账：造两类差异 → 落库、可处理、重跑不重复 —— `b2-b3-money.int.spec.ts` · `PaymentDiffsService`
 - [ ] 在线渠道未配置 → 409 且**不留 pending 单** —— `b3-online-settle.int.spec.ts`（重构时必须保留的行为）
 - [ ] 退款额度预留：渠道失败释放、成功占用、第二笔不过额 —— `b3-refund-reserve.int.spec.ts`

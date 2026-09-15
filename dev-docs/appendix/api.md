@@ -352,24 +352,24 @@ flowchart TB
 
 ### 2.9 业务·预约
 
-| 方法   | 路径                                               | 权限点                 | 说明                                       | 备注                                                                                                                                                                                                           |
-| ------ | -------------------------------------------------- | ---------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/biz/bookings/available-slots`             | `biz:booking:list`     | 查询可约时段（店内本地日）                 | `staffId` + `date` + `serviceItemIds` 必填；`channel=admin\|miniapp`                                                                                                                                           |
-| GET    | `/api/v1/biz/bookings`                             | `biz:booking:list`     | 预约列表                                   | **无 `total`**，前端多取一条判 `hasMore`；筛选项 `status` / `payStatus` / `staffId` / `customerId` / `date` / `keyword` / `collectable`（收银台队列专用：`collectable=true` 排掉已取消与爽约，预约列表不要传） |
-| GET    | `/api/v1/biz/bookings/customers/:customerId/brief` | `biz:booking:list`     | 顾客账务摘要（折扣 / 余额）                | 创建弹窗用                                                                                                                                                                                                     |
-| GET    | `/api/v1/biz/bookings/:id`                         | `biz:booking:list`     | 预约详情（含项目明细与支付单）             |                                                                                                                                                                                                                |
-| POST   | `/api/v1/biz/bookings`                             | `biz:booking:create`   | **创建预约**（建单 + 收定金/全款，同事务） | 时段被占 / 顾客同时段已有单 → `409`                                                                                                                                                                            |
-| PATCH  | `/api/v1/biz/bookings/:id`                         | `biz:booking:update`   | **改期 / 改美甲师 / 改项目**               | 锁 + 复检                                                                                                                                                                                                      |
-| POST   | `/api/v1/biz/bookings/:id/confirm`                 | `biz:booking:update`   | 确认预约（`pending` → `confirmed`）        | 幂等：已是 `confirmed` → `changed: false`                                                                                                                                                                      |
-| POST   | `/api/v1/biz/bookings/:id/arrive`                  | `biz:booking:arrive`   | 顾客到店（`confirmed` → `arrived`）        | 幂等                                                                                                                                                                                                           |
-| POST   | `/api/v1/biz/bookings/:id/complete`                | `biz:booking:complete` | 服务完成（`arrived` → `completed`）        | 累加到店统计 + 计提提成；幂等                                                                                                                                                                                  |
-| POST   | `/api/v1/biz/bookings/:id/settle`                  | `biz:payment:create`   | **结算尾款 / 挂账 / 补收**                 | 支持混合支付；权限点是支付类而非预约类                                                                                                                                                                         |
-| POST   | `/api/v1/biz/bookings/:id/no-show`                 | `biz:booking:noshow`   | 标记爽约（`confirmed` → `no_show`）        | `reason` 必填                                                                                                                                                                                                  |
-| POST   | `/api/v1/biz/bookings/:id/cancel`                  | `biz:booking:cancel`   | **取消预约**                               | 有实收时提示走退款流程；`reason` 必填                                                                                                                                                                          |
-| GET    | `/api/v1/biz/bookings/:id/refund-preview`          | `biz:refund:apply`     | 退款判责试算                               | 只读                                                                                                                                                                                                           |
-| POST   | `/api/v1/biz/bookings/:id/refund`                  | `biz:refund:apply`     | 发起退款（生成待审批退款单）               | 不自带审批；审批在 `/biz/refunds/:id/approve`                                                                                                                                                                  |
-| POST   | `/api/v1/biz/bookings/:id/recount`                 | `biz:booking:update`   | 对账修复：重算时长 / 结束时间与资金字段    | **幂等**                                                                                                                                                                                                       |
-| DELETE | `/api/v1/biz/bookings/:id`                         | `biz:booking:delete`   | 软删（仅误录清理）                         | 有实收时拒绝，须先退款                                                                                                                                                                                         |
+| 方法   | 路径                                               | 权限点                                    | 说明                                       | 备注                                                                                                                                                                                                           |
+| ------ | -------------------------------------------------- | ----------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/biz/bookings/available-slots`             | `biz:booking:list`                        | 查询可约时段（店内本地日）                 | `staffId` + `date` + `serviceItemIds` 必填；`channel=admin\|miniapp`                                                                                                                                           |
+| GET    | `/api/v1/biz/bookings`                             | `biz:booking:list`                        | 预约列表                                   | **无 `total`**，前端多取一条判 `hasMore`；筛选项 `status` / `payStatus` / `staffId` / `customerId` / `date` / `keyword` / `collectable`（收银台队列专用：`collectable=true` 排掉已取消与爽约，预约列表不要传） |
+| GET    | `/api/v1/biz/bookings/customers/:customerId/brief` | `biz:booking:list`                        | 顾客账务摘要（折扣 / 余额）                | 创建弹窗用                                                                                                                                                                                                     |
+| GET    | `/api/v1/biz/bookings/:id`                         | `biz:booking:list`                        | 预约详情（含项目明细与支付单）             |                                                                                                                                                                                                                |
+| POST   | `/api/v1/biz/bookings`                             | `biz:booking:create`                      | **创建预约**（建单 + 收定金/全款，同事务） | 时段被占 / 顾客同时段已有单 → `409`                                                                                                                                                                            |
+| PATCH  | `/api/v1/biz/bookings/:id`                         | `biz:booking:update`                      | **改期 / 改美甲师 / 改项目**               | 锁 + 复检                                                                                                                                                                                                      |
+| POST   | `/api/v1/biz/bookings/:id/confirm`                 | `biz:booking:update`                      | 确认预约（`pending` → `confirmed`）        | 幂等：已是 `confirmed` → `changed: false`                                                                                                                                                                      |
+| POST   | `/api/v1/biz/bookings/:id/arrive`                  | `biz:booking:arrive`                      | 顾客到店（`confirmed` → `arrived`）        | 幂等                                                                                                                                                                                                           |
+| POST   | `/api/v1/biz/bookings/:id/complete`                | `biz:booking:complete`                    | 服务完成（`arrived` → `completed`）        | 累加到店统计 + 计提提成；幂等                                                                                                                                                                                  |
+| POST   | `/api/v1/biz/bookings/:id/settle`                  | `biz:payment:create`                      | **结算尾款 / 挂账 / 补收**                 | 支持混合支付；权限点是支付类而非预约类                                                                                                                                                                         |
+| POST   | `/api/v1/biz/bookings/:id/no-show`                 | `biz:booking:noshow`                      | 标记爽约（`confirmed` → `no_show`）        | `reason` 必填                                                                                                                                                                                                  |
+| POST   | `/api/v1/biz/bookings/:id/cancel`                  | `biz:booking:cancel`                      | **取消预约**                               | 有实收时提示走退款流程；`reason` 必填                                                                                                                                                                          |
+| GET    | `/api/v1/biz/bookings/:id/refund-preview`          | `biz:refund:apply`                        | 退款阶段试算                               | 只读                                                                                                                                                                                                           |
+| POST   | `/api/v1/biz/bookings/:id/refund`                  | `biz:refund:apply` / `biz:refund:approve` | 发起退款（**建单即执行**）                 | 服务中需店长，金额必填                                                                                                                                                                                         |
+| POST   | `/api/v1/biz/bookings/:id/recount`                 | `biz:booking:update`                      | 对账修复：重算时长 / 结束时间与资金字段    | **幂等**                                                                                                                                                                                                       |
+| DELETE | `/api/v1/biz/bookings/:id`                         | `biz:booking:delete`                      | 软删（仅误录清理）                         | 有实收时拒绝，须先退款                                                                                                                                                                                         |
 
 **周期预约**（`src/modules/biz/operations/recurrences/recurrences.controller.ts`，前缀 `biz/recurrences`）：
 
@@ -449,33 +449,33 @@ flowchart TB
 
 ### 2.11 业务·收银资金
 
-| 模块     | 方法   | 路径                                  | 权限点                  | 说明                                           | 备注                            |
-| -------- | ------ | ------------------------------------- | ----------------------- | ---------------------------------------------- | ------------------------------- |
-| 支付单   | GET    | `/api/v1/biz/payments`                | `biz:payment:list`      | 支付单列表                                     | 分页                            |
-| 支付单   | POST   | `/api/v1/biz/payments`                | `biz:payment:create`    | **支付下单 / 线下收款记账**                    | 在线渠道返回二维码              |
-| 支付单   | GET    | `/api/v1/biz/payments/:id`            | `biz:payment:list`      | 支付单详情（含 `payment_log` 轨迹）            |                                 |
-| 支付单   | GET    | `/api/v1/biz/payments/:id/status`     | `biz:payment:list`      | **收银台轮询支付状态**（轻量）                 |                                 |
-| 支付单   | POST   | `/api/v1/biz/payments/:id/query`      | `biz:payment:create`    | **主动向渠道查单**（回调丢失兜底）             | 走与回调同一条幂等落地          |
-| 支付单   | POST   | `/api/v1/biz/payments/:id/close`      | `biz:payment:close`     | **关单**（仅待支付）                           |                                 |
-| 支付回调 | POST   | `/api/v1/biz/payments/notify/wxpay`   | —                       | 微信支付回调                                   | **公开端点**，自行验签 + 幂等   |
-| 支付回调 | POST   | `/api/v1/biz/payments/notify/alipay`  | —                       | 支付宝回调                                     | **公开端点**，应答 `text/plain` |
-| 退款     | POST   | `/api/v1/biz/refunds/preview`         | `biz:refund:apply`      | 退款判责试算（只读）                           |                                 |
-| 退款     | POST   | `/api/v1/biz/refunds`                 | `biz:refund:apply`      | 发起退款（生成待审批单）                       |                                 |
-| 退款     | GET    | `/api/v1/biz/refunds`                 | `biz:refund:list`       | 退款单列表                                     | 分页                            |
-| 退款     | POST   | `/api/v1/biz/refunds/:id/approve`     | `biz:refund:approve`    | **批准并执行退款**                             | 与申请分离                      |
-| 退款     | POST   | `/api/v1/biz/refunds/:id/reject`      | `biz:refund:approve`    | 驳回退款申请（必填原因）                       |                                 |
-| 对账差异 | GET    | `/api/v1/biz/payment-diffs`           | `biz:payment:reconcile` | 对账差异列表                                   | 分页                            |
-| 对账差异 | POST   | `/api/v1/biz/payment-diffs/reconcile` | `biz:payment:reconcile` | **触发指定日期对账**                           | 可重入，不产生重复差异          |
-| 对账差异 | PATCH  | `/api/v1/biz/payment-diffs/:id`       | `biz:payment:reconcile` | 标记差异已处理 / 忽略（必须填备注）            |                                 |
-| 挂账主体 | GET    | `/api/v1/biz/credit-accounts`         | `biz:credit:list`       | 主体列表（额度与已挂未结金额）                 |                                 |
-| 挂账主体 | POST   | `/api/v1/biz/credit-accounts`         | `biz:credit:create`     | 新增挂账主体                                   |                                 |
-| 挂账主体 | PATCH  | `/api/v1/biz/credit-accounts/:id`     | `biz:credit:update`     | 修改挂账主体                                   |                                 |
-| 挂账主体 | DELETE | `/api/v1/biz/credit-accounts/:id`     | `biz:credit:delete`     | 删除主体（有未结应收 → 拒绝）                  |                                 |
-| 应收台账 | GET    | `/api/v1/biz/receivables/summary`     | `biz:receivable:list`   | 挂账汇总（账龄 0-30 / 31-60 / 60+ 与逾期金额） | **必须声明在 `:id` 之前**       |
-| 应收台账 | GET    | `/api/v1/biz/receivables`             | `biz:receivable:list`   | 应收台账列表                                   | 分页                            |
-| 应收台账 | GET    | `/api/v1/biz/receivables/:id`         | `biz:receivable:list`   | 应收单详情（含销账记录）                       |                                 |
-| 应收台账 | POST   | `/api/v1/biz/receivables/:id/settle`  | `biz:receivable:settle` | **销账**（多笔混合；在线渠道返回二维码）       | 销账不得超额                    |
-| 应收台账 | POST   | `/api/v1/biz/receivables/:id/cancel`  | `biz:receivable:cancel` | 作废应收单（必填原因，仅未销账时）             |                                 |
+| 模块     | 方法   | 路径                                  | 权限点                                    | 说明                                           | 备注                            |
+| -------- | ------ | ------------------------------------- | ----------------------------------------- | ---------------------------------------------- | ------------------------------- |
+| 支付单   | GET    | `/api/v1/biz/payments`                | `biz:payment:list`                        | 支付单列表                                     | 分页                            |
+| 支付单   | POST   | `/api/v1/biz/payments`                | `biz:payment:create`                      | **支付下单 / 线下收款记账**                    | 在线渠道返回二维码              |
+| 支付单   | GET    | `/api/v1/biz/payments/:id`            | `biz:payment:list`                        | 支付单详情（含 `payment_log` 轨迹）            |                                 |
+| 支付单   | GET    | `/api/v1/biz/payments/:id/status`     | `biz:payment:list`                        | **收银台轮询支付状态**（轻量）                 |                                 |
+| 支付单   | POST   | `/api/v1/biz/payments/:id/query`      | `biz:payment:create`                      | **主动向渠道查单**（回调丢失兜底）             | 走与回调同一条幂等落地          |
+| 支付单   | POST   | `/api/v1/biz/payments/:id/close`      | `biz:payment:close`                       | **关单**（仅待支付）                           |                                 |
+| 支付回调 | POST   | `/api/v1/biz/payments/notify/wxpay`   | —                                         | 微信支付回调                                   | **公开端点**，自行验签 + 幂等   |
+| 支付回调 | POST   | `/api/v1/biz/payments/notify/alipay`  | —                                         | 支付宝回调                                     | **公开端点**，应答 `text/plain` |
+| 退款     | POST   | `/api/v1/biz/refunds/preview`         | `biz:refund:apply`                        | 退款阶段试算（只读）                           |                                 |
+| 退款     | POST   | `/api/v1/biz/refunds`                 | `biz:refund:apply` / `biz:refund:approve` | 发起退款（建单即执行）                         |                                 |
+| 退款     | GET    | `/api/v1/biz/refunds`                 | `biz:refund:list`                         | 退款单列表                                     | 分页                            |
+| 退款     | POST   | `/api/v1/biz/refunds/:id/approve`     | `biz:refund:approve`                      | **重试执行退款**（失败单）                     | 幂等                            |
+| 退款     | POST   | `/api/v1/biz/refunds/:id/reject`      | `biz:refund:approve`                      | 驳回退款申请（必填原因）                       |                                 |
+| 对账差异 | GET    | `/api/v1/biz/payment-diffs`           | `biz:payment:reconcile`                   | 对账差异列表                                   | 分页                            |
+| 对账差异 | POST   | `/api/v1/biz/payment-diffs/reconcile` | `biz:payment:reconcile`                   | **触发指定日期对账**                           | 可重入，不产生重复差异          |
+| 对账差异 | PATCH  | `/api/v1/biz/payment-diffs/:id`       | `biz:payment:reconcile`                   | 标记差异已处理 / 忽略（必须填备注）            |                                 |
+| 挂账主体 | GET    | `/api/v1/biz/credit-accounts`         | `biz:credit:list`                         | 主体列表（额度与已挂未结金额）                 |                                 |
+| 挂账主体 | POST   | `/api/v1/biz/credit-accounts`         | `biz:credit:create`                       | 新增挂账主体                                   |                                 |
+| 挂账主体 | PATCH  | `/api/v1/biz/credit-accounts/:id`     | `biz:credit:update`                       | 修改挂账主体                                   |                                 |
+| 挂账主体 | DELETE | `/api/v1/biz/credit-accounts/:id`     | `biz:credit:delete`                       | 删除主体（有未结应收 → 拒绝）                  |                                 |
+| 应收台账 | GET    | `/api/v1/biz/receivables/summary`     | `biz:receivable:list`                     | 挂账汇总（账龄 0-30 / 31-60 / 60+ 与逾期金额） | **必须声明在 `:id` 之前**       |
+| 应收台账 | GET    | `/api/v1/biz/receivables`             | `biz:receivable:list`                     | 应收台账列表                                   | 分页                            |
+| 应收台账 | GET    | `/api/v1/biz/receivables/:id`         | `biz:receivable:list`                     | 应收单详情（含销账记录）                       |                                 |
+| 应收台账 | POST   | `/api/v1/biz/receivables/:id/settle`  | `biz:receivable:settle`                   | **销账**（多笔混合；在线渠道返回二维码）       | 销账不得超额                    |
+| 应收台账 | POST   | `/api/v1/biz/receivables/:id/cancel`  | `biz:receivable:cancel`                   | 作废应收单（必填原因，仅未销账时）             |                                 |
 
 ### 2.12 业务·运营报表
 
@@ -756,40 +756,40 @@ AI 域还受 `AI_ENABLED`（默认 `false`）、`DEEPSEEK_API_KEY` 控制，细�
 - **实现**：直接复用后台 `PaymentPort.handleNotify`（JSAPI 与 Native 的 V3 回调报文**完全一致**，同一商户号 + 同一平台证书，验签解密逻辑通用），通道标识为 `wxpay_native`。**资金逻辑一行都没有重写。**
 - **验签 / 金额校验 / 幂等闸门 / 3 秒应答**：同 §3.12。报文形态不符契约时**只记 warn，仍按验签结果处理**，并同样回渠道应答（而不是 HTTP 400）。
 
-### 3.15 退款判责试算 `POST /api/v1/biz/refunds/preview`
+### 3.15 退款阶段试算 `POST /api/v1/biz/refunds/preview`
 
 - **权限点**：`biz:refund:apply`
-- **请求要点**：`bookingId`（必填）、`cancelAt?`（取消时点，缺省取当前时间）、`liable?`（`store` / `customer` / `force_majeure`，默认 `customer`）。
-- **响应要点**：建议退款额与命中规则说明。**只读，不落库**。
+- **请求要点**：`bookingId`（必填）、`cancelAt?`（判定时点，缺省取当前时间）、`liable?`。
+- **响应要点**：`stage` / `stageLabel`（服务开始前 / 服务中）、`suggestAmount`（开始前 = 剩余可退全额；服务中 = `0`）、`lockedAmount`（金额是否锁定）、`refundableAmount`、`payments[]` 逐笔明细；`policySuggestAmount` 是判责规则的**参考值**。**只读，不落库**。
 - **幂等**：只读。
 - **常见错误码**：`400`（时间格式）、`404`（预约不存在）。
 
-### 3.16 发起退款 `POST /api/v1/biz/refunds`（或 `POST /biz/bookings/:id/refund`）
+### 3.16 发起并执行退款 `POST /api/v1/biz/refunds`（或 `POST /biz/bookings/:id/refund`）
 
-- **权限点**：`biz:refund:apply`
+- **权限点**：服务开始前 `biz:refund:apply`；**服务中需 `biz:refund:approve`**（否则 `403`）
 - **请求要点**：
   - `paymentId` / `bookingId` —— **二选一**
-  - `amount?`（申请退款额，分，默认剩余可退）、`actualAmount?`（实际退款额，分，默认判责建议值）
+  - `actualAmount?`（实退额，分）：**服务开始前传了也会被忽略**（服务端锁定为剩余可退全额）；**服务中必填**，上限 = 该支付单剩余可退
   - `mode`（必填）：`original` 原路 / `cash` 现金 / `balance` 退入储值
-  - `reason`（必填，2~200 字）、`liable?`、`policyId?`
+  - `reason`（必填，2~200 字）、`liable?`（服务中可选，默认 `store`）
   - 预约维度的入口 `bookings/:id/refund` 字段略少：`amount?` / `mode` / `reason` / `liable?` / `remark?`
-- **响应要点**：生成**待审批**退款单，不立即出款。
+- **响应要点**：退款单**建单后当场执行**（不再等人工审批），响应额外带 `refundStage` 与 `executed`（`true` = 已成功出款）。
 - **幂等键**：渠道退款以 **`refund_no`（商户退款单号）** 为幂等键，渠道侧天然幂等。业务侧同一支付单的「剩余可退额」由条件更新守护。
-- **常见错误码**：`400`（`mode` / `reason` 缺失或过短）、`404`、`409`（金额超过剩余可退）。
+- **常见错误码**：`400`（缺 `mode` / `reason`、服务中未填或超额、非在线渠道选 `original`）、`403`（服务中无店长权限）、`404`、`409`（该支付单已无可退金额 / 渠道退款失败）。
 
-### 3.17 退款审批 `POST /api/v1/biz/refunds/:id/approve`
+### 3.17 重试执行退款 `POST /api/v1/biz/refunds/:id/approve`
 
-- **权限点**：`biz:refund:approve`（**与申请的 `biz:refund:apply` 分离**；默认只给店长）
-- **请求要点**：无 body（金额与去向已在申请时确定）。
-- **响应要点**：退款单置 `approved` 并执行渠道退款；原路退回是**事务外网络 IO**。
-- **幂等键**：`refund_no` 渠道侧幂等；单据状态条件更新，重复审批不会重复出款。
-- **常见错误码**：`404`、`409`（单据不是 `pending`，或渠道退款失败）。
+- **权限点**：`biz:refund:approve`
+- **请求要点**：无 body。
+- **响应要点**：主要给 `failed` 单重试（历史 `pending` 单也能执行）；原路退回是**事务外网络 IO**。
+- **幂等键**：`refund_no` 渠道侧幂等；单据状态条件更新，重复调用不会重复出款，已成功的单直接返回「已处理」。
+- **常见错误码**：`404`、`409`（单据已被驳回 / 正在处理中 / 渠道退款失败）。
 
 ### 3.18 驳回退款 `POST /api/v1/biz/refunds/:id/reject`
 
 - **权限点**：`biz:refund:approve`
 - **请求要点**：`{ reason }`（必填，2~200 字）。
-- **响应要点**：置 `rejected`。
+- **响应要点**：置 `rejected`。**只对历史 `pending` 单有效**（新流程建单即执行，不会停在待审批）。
 - **常见错误码**：`400`、`409`。
 
 ### 3.19 销账 `POST /api/v1/biz/receivables/:id/settle`

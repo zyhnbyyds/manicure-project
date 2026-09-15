@@ -338,7 +338,7 @@ if (process.env.NODE_ENV === 'production') {
 
 `POST /app/bookings/:id/cancel`：
 
-> 仅本人可取消（他人单 403）；`pending` / `confirmed` 均可；`reason` 必填。**已有实收时不自动退款**，响应带 `warning` 提示走退款审批。
+> 仅本人可取消（他人单 403）；`pending` / `confirmed` 均可；`reason` 必填。**已有实收时不自动退款**，响应带 `warning` 提示到退款页发起（服务开始前提交即全额退回）。
 
 `POST /app/reviews` 的三道约束全在服务端：**仅本人**（按预约事实校验归属）→ **仅已完成**（未完成 400）→ **一单一评**（二次提交 409）。`customer_id` / `staff_id` 由预约事实带出，客户端只能决定打分与文字。
 
