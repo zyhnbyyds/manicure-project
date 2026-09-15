@@ -122,6 +122,23 @@ services:
     environment:
       TZ: ${TZ:-Asia/Shanghai}
 
+  # ── 文档站（可选，默认不启动） ───────────────────────────────────
+  # 单独一个 nginx 容器托管两套 VitePress 静态站（对客手册 + 开发文档）。
+  # 它与主栈**完全解耦**：不依赖 db/redis/api，主栈也不需要它 —— 所以挂了 profile，
+  # 不加 `--profile docs` 时 `docker compose up` 不会创建它。启用：
+  #   docker compose --env-file deploy/.env --profile docs up -d --build
+  docs:
+    build:
+      # 同 web：上下文必须是仓库根（要同时读 docs/ 与 dev-docs/）
+      context: .
+      dockerfile: deploy/docs.Dockerfile
+    profiles: ['docs']
+    restart: unless-stopped
+    ports:
+      - '${DOCS_PORT:-8080}:80'
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+
 volumes:
   mysql-data:
   redis-data:

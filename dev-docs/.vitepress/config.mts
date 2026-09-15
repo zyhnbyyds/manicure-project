@@ -32,7 +32,18 @@ export default defineConfig({
     darkModeSwitchTitle: '切换到深色',
     sidebarMenuLabel: '目录',
     returnToTopLabel: '回到顶部',
-    lastUpdatedText: '最后更新',
+    // ⚠️ VitePress 2 改了 API：1.x 的扁平选项 `lastUpdatedText` 已被废弃，
+    //    改成对象形式 `lastUpdated: { text, formatOptions }`。
+    //    **旧写法不报错、静默忽略** —— 症状是页脚永远显示英文 "Last updated"。
+    lastUpdated: {
+      text: '最后更新',
+      // 不加 forceLocale 时时间跟随**浏览器** locale，中文站也会显示 "Sep 14, 2026"
+      formatOptions: {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        forceLocale: true,
+      },
+    },
     search: {
       provider: 'local',
       options: {

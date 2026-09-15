@@ -24,13 +24,19 @@ logs
 
 # ── 与镜像无关的大目录 ────────────────────────────────────────────
 # .agents 里有 31MB 微信支付知识库，miniapp 有自己的 node_modules —— 都不参与构建
-.git
+# ⚠️ .git **不能排除**：deploy/docs.Dockerfile 要靠它算文档的「最后更新」时间。
+#    它只会进后端镜像的 build 阶段（`COPY . .`），运行时阶段是精确 COPY，
+#    不会进最终镜像，也不会随产物发出去。
 .github
 .agents
 .workbuddy-ai
 miniapp
-docs
-dev-docs
 project-design
 tests
 scripts
+
+# ⚠️ docs/ 与 dev-docs/ **不能排除**：deploy/docs.Dockerfile 要拿它们构建文档站镜像。
+#    两者加起来只有 ~2MB（markdown + 截图），对另两个镜像的上下文影响可忽略。
+#    但本地构建产物必须排除 —— 否则会把旧的 dist 拷进镜像再被覆盖，白白撑大上下文：
+**/.vitepress/dist
+**/.vitepress/cache

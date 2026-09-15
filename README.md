@@ -365,6 +365,14 @@ cd dev-docs && bun run build                   # 产物 .vitepress/dist
 
 `DOCS_BASE=/manicure/dev-docs/` 可把站点部署到子路径（两站同机时用不同子路径区分）。
 
+也可以交给 Docker 一起部 —— `docs` 服务把两套站合并成一个容器（**默认不启动**）：
+
+```bash
+docker compose --env-file deploy/.env --profile docs up -d --build
+# 门店操作手册 http://127.0.0.1:8080/docs/
+# 开发者文档   http://127.0.0.1:8080/dev-docs/
+```
+
 ## 文档与协作
 
 项目文档按**读者**分三层，不要混用：

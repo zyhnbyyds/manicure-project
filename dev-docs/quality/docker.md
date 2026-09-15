@@ -76,26 +76,109 @@ docker compose --env-file deploy/.env up -d --build
 
 ```mermaid
 flowchart LR
-  U(["浏览器"]) --> W["web :80<br/>nginx + Vue 静态产物"]
-  W -->|"/api/ 反向代理"| A["api :3000<br/>NestJS + Fastify"]
+  U(["浏览器<br/>http://127.0.0.1/"]) -->|"${WEB_PORT:-80}"| W["web 容器<br/>nginx :80"]
+  W -->|"① 静态请求<br/>/assets/ · /index.html · SPA 回退"| F["/usr/share/nginx/html<br/>Vite 构建产物"]
+  W -->|"② /api/ 开头的请求<br/>proxy_pass http://api:3000"| A["api 容器 :3000<br/>NestJS + Fastify"]
   A --> D[("db :3306<br/>MySQL 8.4")]
   A --> R[("redis :6379<br/>Redis 7")]
   A --> V["uploads 卷<br/>上传的图片"]
 ```
 
-### 2.1 四个服务
+### 2.1 五个服务（后一个是可选的）
 
-| 服务    | 镜像                               | 对外端口                | 健康检查                                | 数据卷                          |
-| ------- | ---------------------------------- | ----------------------- | --------------------------------------- | ------------------------------- |
-| `db`    | `mysql:8.4`                        | 不映射（同网络内 3306） | `mysqladmin ping -h 127.0.0.1 --silent` | `mysql-data` → `/var/lib/mysql` |
-| `redis` | `redis:7-alpine`（`--appendonly`） | 不映射（同网络内 6379） | `redis-cli ping`                        | `redis-data` → `/data`          |
-| `api`   | 本地构建（`Dockerfile`）           | 不映射（同网络内 3000） | `fetch http://127.0.0.1:3000/`          | `uploads` → `/app/uploads`      |
-| `web`   | 本地构建（`web/Dockerfile`）       | `${WEB_PORT:-80}` → 80  | —                                       | —                               |
+| 服务    | 镜像                                 | 对外端口                  | 健康检查                                | 数据卷                          |
+| ------- | ------------------------------------ | ------------------------- | --------------------------------------- | ------------------------------- |
+| `db`    | `mysql:8.4`                          | 不映射（同网络内 3306）   | `mysqladmin ping -h 127.0.0.1 --silent` | `mysql-data` → `/var/lib/mysql` |
+| `redis` | `redis:7-alpine`（`--appendonly`）   | 不映射（同网络内 6379）   | `redis-cli ping`                        | `redis-data` → `/data`          |
+| `api`   | 本地构建（`Dockerfile`）             | 不映射（同网络内 3000）   | `fetch http://127.0.0.1:3000/`          | `uploads` → `/app/uploads`      |
+| `web`   | 本地构建（`web/Dockerfile`）         | `${WEB_PORT:-80}` → 80    | —                                       | —                               |
+| `docs`  | 本地构建（`deploy/docs.Dockerfile`） | `${DOCS_PORT:-8080}` → 80 | —                                       | —                               |
 
-启动顺序靠 `depends_on: condition: service_healthy` 串起来：
+前四个是主栈，靠 `depends_on: condition: service_healthy` 串起来：
 **db + redis 健康 → api 起 → api 健康 → web 起**。所以第一次 `up` 会有 1~2 分钟看起来"没动静"。
 
-### 2.2 三个命名卷
+`docs` 是**可选**的第五个服务，挂了 `profiles: ['docs']`，**默认根本不参与** `docker compose up`
+（实测：不带 profile 时 `config --services` 只列出前四个），与主栈零依赖关系。
+启用方式与细节见第五节。
+
+### 2.2 请求怎么进来：nginx 反代
+
+⚠️ **没有独立的 nginx 容器** —— nginx 就跑在 `web` 容器里（基础镜像 `nginx:1.27-alpine`）。
+容器名叫 `web` 是因为它在编排里扮演「前端入口」，**「前端」和「网关」是同一个容器**：
+
+```bash
+docker compose --env-file deploy/.env exec web nginx -v   # nginx/1.27.5
+docker compose --env-file deploy/.env exec web nginx -t   # 校验配置
+docker compose --env-file deploy/.env exec web ps -o pid,user,args   # 1 个 master + 16 个 worker
+```
+
+`web` 是**唯一**映射宿主端口的服务，`api` / `db` / `redis` 都只在 compose 网络内可达 ——
+也就是说**所有外部流量都必须经过这个 nginx**。
+
+请求按 URL 前缀分成两类，由 `web/nginx.conf` 里的 location 分流：
+
+| 请求                                | 命中 location                                 | 谁处理           | 依据                                              |
+| ----------------------------------- | --------------------------------------------- | ---------------- | ------------------------------------------------- |
+| `/assets/index-*.js`、`/index.html` | `location /assets/`、`location = /index.html` | **nginx 自己**   | 从磁盘 `/usr/share/nginx/html` 直接返回，不经后端 |
+| `/api/v1/biz/bookings`              | `location /api/`                              | **反代给 `api`** | `proxy_pass http://api:3000`                      |
+| `/biz/cashier`（前端路由）          | `location /`                                  | **nginx 自己**   | `try_files $uri $uri/ /index.html` SPA 回退       |
+
+access log 里能同时看到这两类，证明是同一个 nginx 在分流：
+
+```text
+172.18.0.1 "GET /assets/payments-BKtDmue8.js"          200 635   ← 静态，nginx 直接给
+172.18.0.1 "GET /api/v1/biz/reports/home?range=today"  200 671   ← 动态，反代给 api
+```
+
+#### `proxy_pass` 故意不写路径（最容易改错的一处）
+
+```nginx
+location /api/ {
+    proxy_pass http://api:3000;      # ← 不写尾斜杠，也不写路径
+}
+```
+
+nginx 的规则：`proxy_pass` 只写到 `scheme://host:port`（**没有 URI 部分**）时，原始 URI **原样透传**。
+所以 `/api/v1/auth/login` 到后端仍是 `/api/v1/auth/login`，正好对上后端的 `globalPrefix = 'api/v1'`
+（`src/main.ts`）。
+
+⚠️ 手滑写成 `proxy_pass http://api:3000/;`（带尾斜杠）就会把 `/api/` 这段替换掉，
+请求变成 `/v1/auth/login` → **全部 404**。这是反向代理最常见的翻车点。
+
+#### 三个场景的转发方式不同
+
+前端代码里始终只写 `/api/v1/xxx` 这种**相对路径**，由运行环境决定它被导到哪：
+
+| 场景            | 谁转发                    | 配置位置                               | 后端地址                             |
+| --------------- | ------------------------- | -------------------------------------- | ------------------------------------ |
+| **Docker 部署** | **nginx**（`web` 容器内） | `web/nginx.conf`                       | `http://api:3000`（compose 服务名）  |
+| **本地开发**    | **Vite dev server**       | `web/vite.config.ts` 的 `server.proxy` | `http://localhost:3000`              |
+| **小程序**      | **不经过任何转发**        | —                                      | `miniapp/miniprogram/config.ts` 直连 |
+
+所以**本地开发时 nginx 完全不存在**，是 Vite 在做 `/api` 代理。两边最终效果一致，前端代码不用改。
+
+::: warning `nginx -t` 必须在容器内跑
+`docker run --rm --entrypoint nginx manicure-web -t` 会报 `host not found in upstream "api"` ——
+那个容器不在 compose 网络里，解析不了服务名 `api`。**这不是配置错误**，是验证方式错了。
+在网络内验才是有效验证（`docker compose --env-file deploy/.env exec web nginx -t`）。
+:::
+
+::: tip 为什么 nginx 和前端产物合并成一个容器
+
+- 少一个容器、少一跳网络，静态文件不必跨容器传；
+- 生命周期天然一致，不会出现「镜像版本对不上」；
+- **同源**：浏览器看到的永远是同一个 origin，没有跨域问题，后端也就不必配 `CORS_ORIGINS` 放行前端域名。
+
+代价是改 nginx 配置或换前端代码都要 `up -d --build web` 重建镜像。
+:::
+
+::: warning nginx 只在启动时解析一次上游 IP
+`proxy_pass http://api:3000` 里的主机名是**启动时**解析并缓存进 nginx 进程的。
+`docker compose restart api` 让 api 换了 IP 之后，nginx 仍打旧地址 → 页面 **502**。
+处理：`docker compose --env-file deploy/.env restart web` 让它重新解析。
+:::
+
+### 2.3 三个命名卷
 
 | 卷名                  | 装什么                  | 备份命令                   |
 | --------------------- | ----------------------- | -------------------------- |
@@ -108,7 +191,7 @@ flowchart LR
 等于清库。生产上除非确定要重装，否则别加 `-v`。
 :::
 
-### 2.3 为什么 db / redis 不对外映射端口
+### 2.4 为什么 db / redis 不对外映射端口
 
 安全默认：数据库和 Redis 只暴露给同一 compose 网络里的 `api`，宿主机与外网都连不上。
 需要本地用客户端连库调试时，把 `docker-compose.yml` 里对应服务被注释的 `ports` 打开即可：
@@ -218,20 +301,98 @@ docker compose --env-file deploy/.env up -d --build
 | 代码                                                 | `up -d --build`                                        |
 | `SEED_ADMIN_PASSWORD`                                | 只影响「库里还没有 admin」时的首次种子，改旧库密码无效 |
 
-## 五、文件分工
+## 五、可选的文档站
 
-| 文件                       | 作用                        | 关键点                                                                                |
-| -------------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
-| `Dockerfile`               | 后端三阶段镜像              | `deps`（装全部依赖）→ `build`（`bun run build`）→ `runtime`（只装生产依赖）           |
-| `web/Dockerfile`           | 前端构建 + nginx 托管       | 构建上下文是**仓库根**，产物从 `/repo/output/web` 拷进 nginx                          |
-| `web/nginx.conf`           | 静态托管 + `/api/` 反代     | `client_max_body_size 12m`（后端 multipart 限 10 MB）、gzip、SPA fallback `try_files` |
-| `docker-compose.yml`       | 编排四件套                  | `env_file` 注容器、`environment` 覆盖库/Redis 地址（`db` / `redis` 服务名当主机名）   |
-| `deploy/api-entrypoint.sh` | 容器入口                    | 等库 → 迁移 → 按需种子 → `exec` 起服务                                                |
-| `deploy/env.example`       | 环境变量模板                | `deploy/.env` 由它生成；**没有前导点**，所以不会被 `.gitignore` 的 `.env.*` 规则吞掉  |
-| `deploy/up.sh` / `up.ps1`  | 一键脚本（Linux / Windows） | 生成配置（随机密钥）→ `up -d --build` → 打印账号密码                                  |
-| `.dockerignore`            | 构建上下文瘦身              | 排除 `node_modules`、`miniapp/`、`docs/`、`tests/`、`output/` 等，两个镜像共用        |
+仓库里有两套 VitePress 2 静态站，它们与业务运行期**完全无关** —— 文档是构建期资料，
+后端镜像用不到，而 `dev-docs` 还带 mermaid 这类重依赖。所以它们被做成一个可选容器。
 
-### 5.1 五个已经在文件里处理掉的坑
+| 目录        | 内容                               | 读者     |
+| ----------- | ---------------------------------- | -------- |
+| `docs/`     | 门店操作手册（收银、退款、会员…）  | 门店人员 |
+| `dev-docs/` | 开发者文档（架构、数据模型、本页） | 开发者   |
+
+### 5.1 启用与访问
+
+```bash
+# 只起文档站（主栈不受影响）
+docker compose --env-file deploy/.env --profile docs up -d --build
+
+# 主栈 + 文档站一起
+docker compose --env-file deploy/.env --profile docs up -d --build
+```
+
+起来后在**同一个容器**的两个子路径下访问：
+
+| 地址                              | 结果              |
+| --------------------------------- | ----------------- |
+| `http://127.0.0.1:8080/`          | 302 跳到 `/docs/` |
+| `http://127.0.0.1:8080/docs/`     | 门店操作手册      |
+| `http://127.0.0.1:8080/dev-docs/` | 开发者文档        |
+
+端口由 `DOCS_PORT` 控制（默认 8080）。⚠️ 如果你之前把 `WEB_PORT` 也改成了 8080，
+这里必须换一个，否则两个容器会抢同一个宿主端口。
+
+### 5.2 单独更新文档 / 关闭它
+
+改了 markdown 只想刷新文档站时，**不需要**碰主栈：
+
+```bash
+docker compose --env-file deploy/.env --profile docs up -d --build docs
+```
+
+关掉（同样不影响主栈）：
+
+```bash
+docker compose --env-file deploy/.env --profile docs stop docs
+docker compose --env-file deploy/.env --profile docs rm -f docs
+```
+
+### 5.3 两个容易踩的地方
+
+**一、`DOCS_BASE` 结尾必须带 `/`。** 两套站同机部署、靠子路径区分，构建时分别注入
+`DOCS_BASE=/docs/` 与 `DOCS_BASE=/dev-docs/`（由 `.vitepress/config.mts` 的
+`process.env.DOCS_BASE ?? '/'` 读取）。这个变量同时决定产物内部的 CSS/JS/站内链接前缀 ——
+漏了尾斜杠会变成「HTML 能打开、但资源和跳转全 404」，比直接构建失败更难查。
+
+**二、构建阶段必须装 `git`，而且还要拷 `.git`。** 两套站都开了 `lastUpdated: true`，
+VitePress 会调 `git log` 取每页的最后修改时间，而 `oven/bun:1.4-alpine` **不带 git**：
+
+```text
+build error:
+Executable not found in $PATH: "git"
+```
+
+⚠️ 这类失败**本地完全正常**（宿主机有 git），最容易被误判成「配置写错了」。
+`deploy/docs.Dockerfile` 里用 `apk add --no-cache git` 加 `COPY .git ./.git` 解决 ——
+两者缺一不可（只有 git 而没有仓库历史，`git log` 同样是空的）。
+它们都只存在于构建层，运行镜像是 nginx，不带 git。
+
+### 5.4 为什么两个站合并成一个容器
+
+- 少一个容器、少一份 nginx；两站都是纯静态，彼此没有依赖；
+- 与主栈**完全解耦**：它不依赖 db/redis/api，主栈也不依赖它 —— 所以能用 profile 隔离，
+  也能在不重启业务的前提下单独重建。
+
+⚠️ 一个已知的小取舍：`docs` 的 nginx 里写了 `error_page 404 /docs/404.html`，
+所以 `/dev-docs/` 下访问不存在的路径也会显示**手册的** 404 页。影响很小，
+若在意可以给两站各自加 `error_page`。
+
+## 六、文件分工
+
+| 文件                       | 作用                        | 关键点                                                                                   |
+| -------------------------- | --------------------------- | ---------------------------------------------------------------------------------------- |
+| `Dockerfile`               | 后端三阶段镜像              | `deps`（装全部依赖）→ `build`（`bun run build`）→ `runtime`（只装生产依赖）              |
+| `web/Dockerfile`           | 前端构建 + nginx 托管       | 构建上下文是**仓库根**，产物从 `/repo/output/web` 拷进 nginx                             |
+| `web/nginx.conf`           | 静态托管 + `/api/` 反代     | `client_max_body_size 12m`（后端 multipart 限 10 MB）、gzip、SPA fallback `try_files`    |
+| `docker-compose.yml`       | 编排四件套                  | `env_file` 注容器、`environment` 覆盖库/Redis 地址（`db` / `redis` 服务名当主机名）      |
+| `deploy/api-entrypoint.sh` | 容器入口                    | 等库 → 迁移 → 按需种子 → `exec` 起服务                                                   |
+| `deploy/env.example`       | 环境变量模板                | `deploy/.env` 由它生成；**没有前导点**，所以不会被 `.gitignore` 的 `.env.*` 规则吞掉     |
+| `deploy/up.sh` / `up.ps1`  | 一键脚本（Linux / Windows） | 生成配置（随机密钥）→ `up -d --build` → 打印账号密码                                     |
+| `deploy/docs.Dockerfile`   | 文档站镜像（可选）          | 构建两套 VitePress 站 → nginx；`DOCS_BASE` 定子路径；构建期需 `git` + `.git`             |
+| `deploy/docs.nginx.conf`   | 文档站 nginx 配置           | `/docs/` 与 `/dev-docs/` 两个 location；`try_files` 带 `$uri.html`（`cleanUrls` 需要）   |
+| `.dockerignore`            | 构建上下文瘦身              | 排除 `node_modules`、`miniapp/`、`tests/` 等；⚠️ `docs/`、`dev-docs/`、`.git` **不能排** |
+
+### 6.1 六个已经在文件里处理掉的坑
 
 1. **前端产物不是 `web/dist`。** `web/vite.config.ts` 把 `outDir` 指到了 `../output/web`，
    已经超出了 `web/` 目录。所以 `web/Dockerfile` 的构建上下文必须是**仓库根**，
@@ -295,7 +456,18 @@ docker compose --env-file deploy/.env up -d --build
    **类型门禁交给本地/CI 的 `bun run typecheck`**（本地 `exit=0`，已验证通过）——
    镜像只负责产出可部署产物，不重复承担类型检查职责。
 
-## 六、排障
+6. **文档站镜像必须自带 `git`，并且要拷 `.git`。** 两套站的 `lastUpdated: true` 会让
+   VitePress 调 `git log` 取每页的最后修改时间，而 `oven/bun:1.4-alpine` **不带 git**，
+   于是构建直接失败在 `build error: Executable not found in $PATH: "git"`。
+
+   ⚠️ 这条与上面第 5 条是**同一类坑**（构建期隐含依赖）：**本地能过、容器里挂**，
+   极易被误判成配置写错。实测的处置是 `apk add --no-cache git` 加 `COPY .git ./.git`，
+   两者缺一不可 —— 只装 git 而没有仓库历史，`git log` 同样是空的。
+   `.dockerignore` 里也因此**不能**排除 `.git`（否则 `COPY` 直接报找不到源）。
+   代价是后端镜像 `COPY . .` 那层更容易失效；但 `.git` 只进构建层，
+   不进最终镜像（运行时是精确 `COPY output/ src/ tsconfig.json`）。
+
+## 七、排障
 
 | 现象                                                              | 可能原因                                                                                       | 处理                                                                                                                                                                                                              |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -312,31 +484,40 @@ docker compose --env-file deploy/.env up -d --build
 | `bun: command not found`                                          | 基础镜像被换成非 bun 镜像                                                                      | 基础镜像必须是 `oven/bun:1.4-alpine`                                                                                                                                                                              |
 | 80 端口被占                                                       | 宿主机已有 nginx                                                                               | 改 `deploy/.env` 的 `WEB_PORT`                                                                                                                                                                                    |
 | 构建很慢 / 上下文几百 MB                                          | `.dockerignore` 没生效                                                                         | 确认它和 `Dockerfile` 都在仓库根，且真的执行了 `--build`                                                                                                                                                          |
+| `docs` 构建报 `Executable not found in $PATH: "git"`              | 基础镜像不带 git，而站点开了 `lastUpdated`                                                     | 已在 `deploy/docs.Dockerfile` 里装 git；若仍失败，检查 `.git` 是否被 `.dockerignore` 排掉                                                                                                                         |
+| 文档站能开、但资源和跳转全 404                                    | `DOCS_BASE` 漏了结尾 `/`，或与 nginx 子路径不一致                                              | 构建时必须带尾斜杠，且产物要放在 `/usr/share/nginx/html/{docs,dev-docs}`                                                                                                                                          |
+| 启动 `docs` 报端口占用                                            | `DOCS_PORT` 与 `WEB_PORT` 撞车                                                                 | 改 `deploy/.env` 的 `DOCS_PORT`                                                                                                                                                                                   |
+| 文档站访问不存在的路径显示的是手册 404                            | 两站共用一个 `error_page`                                                                      | 已知取舍，见 5.4                                                                                                                                                                                                  |
+| 文档站页脚显示英文 `Last updated`                                 | VitePress 2 已废弃扁平的 `lastUpdatedText`，旧写法不报错、静默忽略                             | 改用对象形式 `themeConfig.lastUpdated: { text, formatOptions }`（两个站都已修）                                                                                                                                   |
 
-## 七、什么情况下不该用这套
+## 八、什么情况下不该用这套
 
 - **已有 PM2 + 外部 MySQL/Redis**：继续用 [构建 · 部署 · 运维](/quality/deploy) 的 PM2 方案，别为容器而容器；
 - **要多机 / 高可用**：这是单机 compose，MySQL 无主从、Redis 单实例，扩展性有限；
 - **小程序内 JSAPI 支付**：仍需 HTTPS 域名 + 备案 + 服务器域名白名单，Docker 不解决备案问题。
 
-## 八、本页结论的验证边界
+## 九、本页结论的验证边界
 
 本页结论**在真实 Docker Desktop 上完整跑通过一次**，不是纸面推演。逐项交代做了什么、
 看到什么：
 
-| 项                                                                | 状态                                                                                              |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `docker compose config`（插值 / 健康检查 / 卷 / 端口 / env 注入） | ✅ 已通过                                                                                         |
-| `deploy/api-entrypoint.sh`、`deploy/up.sh` 语法                   | ✅ 已通过 `bash -n`                                                                               |
-| `deploy/up.ps1` 语法                                              | ✅ 已通过 PowerShell 解析器（零错误）                                                             |
-| `deploy/.env` 的忽略规则                                          | ✅ 已被 `.gitignore` 忽略；`deploy/env.example` 可正常纳入版本                                    |
-| 两个镜像构建                                                      | ✅ `manicure-api:latest`、`manicure-web:latest` 均构建成功                                        |
-| 四个容器起来并互相等到健康                                        | ✅ db / redis / api 均 `healthy`，web `Up`（web 无健康检查）                                      |
-| 迁移 + 种子在容器内自动执行                                       | ✅ `[migrate] Database migrations completed.`，种子写入 121 菜单 / 32 配置 / 11 服务项 / 4 美甲师 |
-| 前端静态产物可访问                                                | ✅ `/assets/index-*.js` → `200`，`application/javascript`                                         |
-| nginx → api 反代链路                                              | ✅ 伪造凭据 `POST /api/v1/auth/login` → `401`（业务响应，链路通）                                 |
-| 真实登录与鉴权                                                    | ✅ `admin` 登录 → `200` 且返回 `accessToken`；带令牌 `GET /api/v1/auth/profile` → `200`           |
-| 浏览器入口可用                                                    | ✅ `http://127.0.0.1/` → `200`（⚠️ 用 `localhost` 会超时，见第六节）                              |
+| 项                                                                | 状态                                                                                                                                     |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `docker compose config`（插值 / 健康检查 / 卷 / 端口 / env 注入） | ✅ 已通过                                                                                                                                |
+| `deploy/api-entrypoint.sh`、`deploy/up.sh` 语法                   | ✅ 已通过 `bash -n`                                                                                                                      |
+| `deploy/up.ps1` 语法                                              | ✅ 已通过 PowerShell 解析器（零错误）                                                                                                    |
+| `deploy/.env` 的忽略规则                                          | ✅ 已被 `.gitignore` 忽略；`deploy/env.example` 可正常纳入版本                                                                           |
+| 两个镜像构建                                                      | ✅ `manicure-api:latest`、`manicure-web:latest` 均构建成功                                                                               |
+| 四个容器起来并互相等到健康                                        | ✅ db / redis / api 均 `healthy`，web `Up`（web 无健康检查）                                                                             |
+| 迁移 + 种子在容器内自动执行                                       | ✅ `[migrate] Database migrations completed.`，种子写入 121 菜单 / 32 配置 / 11 服务项 / 4 美甲师                                        |
+| 前端静态产物可访问                                                | ✅ `/assets/index-*.js` → `200`，`application/javascript`                                                                                |
+| nginx → api 反代链路                                              | ✅ 伪造凭据 `POST /api/v1/auth/login` → `401`（业务响应，链路通）                                                                        |
+| 真实登录与鉴权                                                    | ✅ `admin` 登录 → `200` 且返回 `accessToken`；带令牌 `GET /api/v1/auth/profile` → `200`                                                  |
+| 浏览器入口可用                                                    | ✅ `http://127.0.0.1/` → `200`（⚠️ 用 `localhost` 会超时，见第七节）                                                                     |
+| 文档站容器（`--profile docs`）                                    | ✅ `/docs/`、`/dev-docs/`、二级页 `/docs/member/customers` 均 `200`；静态资源 `200`；`nginx -t` 通过；不存在的路径返回 `404`（而非 200） |
+| 文档站与主栈互不影响                                              | ✅ 起 `docs` 前后主栈四个容器状态不变；不带 `--profile docs` 时 `config --services` 只列 4 个                                            |
+| 文档站 mermaid 渲染                                               | ✅ 浏览器实测 `dev-docs/quality/docker` 渲染出 2 个 `<svg>`                                                                              |
+| 文档站「最后更新」文案                                            | ✅ 页脚显示「最后更新: 2026年9月15日 15:11」（修复了 VitePress 2 已废弃的 `lastUpdatedText`）                                            |
 
 未覆盖的部分也说明白：
 

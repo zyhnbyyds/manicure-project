@@ -382,6 +382,35 @@ cd dev-docs && bun install && DOCS_BASE=/manicure-project/dev-docs/ bun run buil
 2. 站点用的是**本地搜索**（`search.provider: 'local'`），没有跨域依赖，Pages 上可直接用。
    :::
 
+### 5.4 Docker 一键部署（自建服务器推荐）
+
+`docker-compose.yml` 里的 `docs` 服务把**两套站合并**构建成一个 nginx 静态镜像，
+挂 `profiles: ['docs']`，默认不启动：
+
+```bash
+docker compose --env-file deploy/.env --profile docs up -d --build
+# 门店操作手册  http://<host>:8080/docs/
+# 开发者文档    http://<host>:8080/dev-docs/
+```
+
+与上面手工部署的几处不同，值得知道：
+
+- **`DOCS_BASE` 由镜像在构建时注入**（`/docs/` 与 `/dev-docs/`），不用你手动设；
+- 产物落在与 URL **同名**的目录（`/usr/share/nginx/html/{docs,dev-docs}`），
+  所以 nginx 用 `root` + `try_files` 就够了，**不必用 `alias`**
+  —— `alias` 和 `try_files` 一起用时行为很反直觉，能避则避；
+- 构建阶段需要 `git`：站点开了 `lastUpdated`，VitePress 会调 `git log` 取每页修改时间，
+  而 `oven/bun:*-alpine` 基础镜像不带 git（本地能过、容器里报
+  `Executable not found in $PATH: "git"`），需要 `apk add --no-cache git` 加 `COPY .git ./.git`。
+
+只更新文档、不动业务时可以单独重建：
+
+```bash
+docker compose --env-file deploy/.env --profile docs up -d --build docs
+```
+
+细节（卷、健康检查、排障）见 [Docker 一键部署](/quality/docker)。
+
 ## 六、上线前人工门禁
 
 来源：`project-design/HANDOVER-miniapp.md` 第 5 节「人工门禁现状」。

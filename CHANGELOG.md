@@ -16,6 +16,19 @@
   含后端三阶段 `Dockerfile`、前端 `web/Dockerfile` + `web/nginx.conf`（静态托管 + `/api/` 反向代理）、
   `deploy/api-entrypoint.sh`（等库 → 迁移 → 按需种子 → 起服务）与 `deploy/env.example` 环境变量模板。
   详见 [Docker 一键部署](./dev-docs/quality/docker.md)。
+- **文档站可选容器**：`docs` 服务把 `docs/`（门店操作手册）与 `dev-docs/`（开发者文档）两套
+  VitePress 站合并构建成一个 nginx 静态镜像，挂 `profiles: ['docs']`，因此**默认不参与**
+  `docker compose up`，与主栈零依赖关系。带 `--profile docs` 启用后同容器双路径访问
+  （`/docs/`、`/dev-docs/`，端口 `DOCS_PORT` 默认 8080）。
+  含 `deploy/docs.Dockerfile` 与 `deploy/docs.nginx.conf`。
+  详见 [Docker 一键部署](./dev-docs/quality/docker.md) 第五节。
+
+### 修复
+
+- **文档站页脚的“最后更新”显示英文**：VitePress 2 已废弃扁平的 `themeConfig.lastUpdatedText`，
+  旧写法**不报错、静默忽略**，导致页脚一直显示 `Last updated: Sep 14, 2026, 10:26 AM`。
+  改用对象形式 `lastUpdated: { text, formatOptions }`，并用 `forceLocale: true` 让时间格式
+  跟随站点 `lang`（现为“最后更新: 2026年9月15日 15:11”）。`docs/` 与 `dev-docs/` 两站均已修正。
 
 ## 1.0.0 — 2026-09-15
 
