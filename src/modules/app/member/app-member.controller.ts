@@ -534,11 +534,12 @@ export class AppMemberController {
 
   @Get('bookings/:id/refund-preview')
   @ApiOperation({
-    summary: '取消预约的费用预览（可退 / 扣除多少）',
+    summary: '取消预约的费用预期（按服务阶段判定）',
     description:
-      '按门店的退款政策算「建议退款额 / 扣除额」，**复用后台同一套判责规则**' +
-      '（app 域不重算比例，金额只在服务端算）。仅本人可查，他人单 → 404。' +
-      '取消页据此显示真实金额，而不是「可能扣除部分定金」这种谁都不敢信的话。',
+      '**服务开始前**：无理由全额退，返回剩余可退全额（`suggestAmount`）；' +
+      '**服务已开始**：是否退 / 退多少由店长判断，`suggestAmount = 0`，' +
+      '取消页只提示「需与门店协商」。判定复用后台 `RefundPort.preview`' +
+      '（app 域不重算，金额只在服务端算）。仅本人可查，他人单 → 404。',
   })
   @ApiParam({ name: 'id', description: '预约 ID', example: 1 })
   @ApiResponse({
@@ -561,7 +562,8 @@ export class AppMemberController {
     summary: '自助取消预约',
     description:
       '仅本人可取消（他人单 403）；pending / confirmed 均可；' +
-      '`reason` 必填。已有实收时不自动退款，响应带 `warning` 提示走退款审批（§15.6 人工判责）。',
+      '`reason` 必填。已有实收时不自动退款（服务开始前可让门店一键全额退，' +
+      '服务已开始需店长判断），响应带 `warning` 提示联系门店办理。',
   })
   @ApiParam({ name: 'id', description: '预约 ID', example: 1 })
   @ApiBody({ schema: { $ref: '#/components/schemas/AppCancelBookingRequest' } })

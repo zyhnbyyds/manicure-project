@@ -22,6 +22,7 @@ import {
   approveRefund,
   createRefund,
   previewRefund,
+  REFUND_STAGE_LABELS,
   rejectRefund,
 } from '~/api/biz/refunds';
 import type {
@@ -29,6 +30,7 @@ import type {
   RefundLiable,
   RefundMode,
   RefundPreview,
+  RefundStage,
   RefundStatus,
 } from '~/api/biz/refunds';
 import { listBookings } from '~/api/biz/bookings';
@@ -63,6 +65,11 @@ const MODE_OPTIONS = [
   { label: '现金退', value: 'cash' },
   { label: '退入余额', value: 'balance' },
 ];
+/** 退款阶段（按「退款时点 vs 预约开始时间」判定） */
+const STAGE_OPTIONS = [
+  { label: '服务开始前', value: 'before_start' },
+  { label: '服务中', value: 'in_service' },
+];
 /** 责任归属 */
 const LIABLE_OPTIONS = [
   { label: '店家', value: 'store' },
@@ -96,10 +103,20 @@ function renderRefundStatus(status: RefundStatus) {
   }
 }
 
+/** 阶段带色展示：服务开始前（无理由全退）绿 / 服务中（店长判断）橙 */
+function renderRefundStage(stage: RefundStage | null) {
+  if (!stage) return h('span', { class: 'text-[var(--app-text-muted)]' }, '-');
+  const label = REFUND_STAGE_LABELS[stage];
+  return stage === 'before_start'
+    ? h('span', { class: 'text-[var(--lew-color-success)]' }, label)
+    : h('span', { class: 'text-[var(--lew-color-warning)]' }, label);
+}
+
 // ---------- 列表（默认只看待审批） ----------
 const query = ref<{
   status?: string;
   mode?: string;
+  stage?: string;
   liable?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -168,11 +185,11 @@ const columns: LewTableColumn[] = [
       fen2yuan((row as unknown as Refund).actualAmount),
   },
   {
-    title: '判责扣减(元)',
-    field: 'deductAmount',
+    title: '阶段',
+    field: 'refundStage',
     width: 110,
     customRender: ({ row }) =>
-      fen2yuan((row as unknown as Refund).deductAmount),
+      renderRefundStage((row as unknown as Refund).refundStage),
   },
   {
     title: '去向',
@@ -230,9 +247,12 @@ const approvalVisible = ref(false);
 /** 审批执行中：通过会**立即发起渠道退款**，连点会重复打款请求 */
 const approving = ref(false);
 const approvalRow = ref<Refund | null>(null);
-const approvalIsPending = computed(
-  () => approvalRow.value?.status === 'pending',
+/** 待审批 / 渠道失败的单都能操作（`failed` 支持重试执行，见 §7.4） */
+const approvalIsActionable = computed(() =>
+  ['pending', 'failed'].includes(approvalRow.value?.status ?? ''),
 );
+/** failed 单只能重试（驳回只对 pending 有意义，后端只接受 pending） */
+const approvalIsRetry = computed(() => approvalRow.value?.status === 'failed');
 
 /** 只读区块字段（wide = 独占整行） */
 const approvalRows = computed(() => {
@@ -252,7 +272,11 @@ const approvalRows = computed(() => {
     },
     { label: '申请金额(元)', value: fen2yuan(row.amount), wide: false },
     { label: '实退金额(元)', value: fen2yuan(row.actualAmount), wide: false },
-    { label: '判责扣减(元)', value: fen2yuan(row.deductAmount), wide: false },
+    {
+      label: '阶段',
+      value: row.refundStage ? REFUND_STAGE_LABELS[row.refundStage] : '-',
+      wide: false,
+    },
     { label: '去向', value: MODE_LABELS[row.mode] ?? '-', wide: false },
     { label: '责任', value: LIABLE_LABELS[row.liable] ?? '-', wide: false },
     {
@@ -262,11 +286,11 @@ const approvalRows = computed(() => {
     },
     { label: '申请时间', value: formatDateTime(row.applyAt), wide: false },
     {
-      label: '命中规则',
-      // 列表/详情接口未联查规则名，退回 policyId；都没有才是「未命中规则」
+      label: '规则参考',
+      // 新流程不再按规则扣减，这里只展示历史上命中的规则（老数据才看得到）
       value:
         row.policyName ??
-        (row.policyId ? `规则 #${row.policyId}` : '未命中规则（全退）'),
+        (row.policyId ? `规则 #${row.policyId}` : '未命中规则'),
       wide: false,
     },
     { label: '退款原因', value: row.reason || '-', wide: true },
@@ -278,24 +302,37 @@ function openApproval(row: Refund) {
   approvalVisible.value = true;
 }
 
-/** 待审批：驳回 / 通过；其它状态：只读详情，仅放「关闭」 */
+/** 待审批：驳回 / 通过；失败：重试；其它状态：只读详情，仅放「关闭」 */
 const approvalFooterButtons = computed<LewModalFooterButtonItem[]>(() => {
-  if (!approvalIsPending.value) {
+  const close = {
+    props: {
+      type: 'text' as const,
+      color: 'gray' as const,
+      size: 'small' as const,
+      text: '关闭',
+      request: () => {
+        approvalVisible.value = false;
+      },
+    },
+  };
+  if (!approvalIsActionable.value) return [close];
+  if (approvalIsRetry.value) {
     return [
+      close,
       {
         props: {
-          type: 'text',
-          color: 'gray',
-          size: 'small',
-          text: '关闭',
-          request: () => {
-            approvalVisible.value = false;
-          },
+          type: 'fill' as const,
+          color: 'primary' as const,
+          size: 'small' as const,
+          text: '重试执行',
+          loading: approving.value,
+          request: handleApprove,
         },
       },
     ];
   }
   return [
+    close,
     {
       props: {
         type: 'fill',
@@ -318,23 +355,25 @@ const approvalFooterButtons = computed<LewModalFooterButtonItem[]>(() => {
   ];
 });
 
-/** 审批通过：立即执行退款且只能执行一次 → 二次确认 */
+/** 审批通过 / 重试：立即执行退款且只能执行一次 → 二次确认 */
 function handleApprove() {
   if (approving.value) return;
   const row = approvalRow.value;
   if (!row) return;
+  const retry = row.status === 'failed';
   confirmDanger({
     type: 'normal',
-    title: '审批通过',
-    content:
-      '通过后将立即执行退款（原路退回调渠道 / 现金或退余额直接落地），且只能执行一次。确定通过吗？',
-    confirmText: '确认通过',
+    title: retry ? '重试执行退款' : '审批通过',
+    content: retry
+      ? '将重新发起渠道退款（商户退款单号不变，渠道侧天然幂等）。确定重试吗？'
+      : '通过后将立即执行退款（原路退回调渠道 / 现金或退余额直接落地），且只能执行一次。确定通过吗？',
+    confirmText: retry ? '确认重试' : '确认通过',
     confirmColor: 'primary',
     onConfirm: async () => {
       approving.value = true;
       try {
         await approveRefund(row.id, {});
-        LewMessage.success('已通过并执行退款');
+        LewMessage.success(retry ? '已重试并执行退款' : '已通过并执行退款');
         approvalVisible.value = false;
         void refresh();
       } finally {
@@ -459,7 +498,7 @@ const applyModeHint = computed(() => {
   return '';
 });
 
-/** 命中规则只给建议，最终金额由店员确认（改金额必填原因） */
+/** 试算结果：阶段决定金额怎么来，老规则只作参考 */
 const previewRows = computed(() => {
   const data = preview.value;
   if (!data) return [];
@@ -467,94 +506,107 @@ const previewRows = computed(() => {
   const hoursToStart = data.hoursToStart ?? data.hoursUntilStart ?? null;
   return [
     {
-      label: '命中规则',
-      // 试算接口返回 policyName（policyId 兜底）
-      value:
-        data.policyName ??
-        (data.policyId ? `规则 #${data.policyId}` : '未命中规则（全退）'),
-    },
-    {
-      label: '规则阈值',
-      value: data.hoursBefore != null ? `${data.hoursBefore} 小时前` : '-',
+      label: '退款阶段',
+      value: `${data.stageLabel} · ${
+        data.lockedAmount ? '无理由全额退（金额锁定）' : '需店长手动填写金额'
+      }`,
     },
     {
       label: '距开始',
       value: hoursToStart != null ? `${hoursToStart.toFixed(1)} 小时` : '-',
     },
-    { label: '可退比例', value: `${(data.refundPermille / 10).toFixed(1)}%` },
+    {
+      label: '可退上限',
+      value: `${(data.refundableAmount / 100).toFixed(2)} 元`,
+    },
     {
       label: '建议退款额',
       value: `${(data.suggestAmount / 100).toFixed(2)} 元`,
     },
-    { label: '判责扣减', value: `${(data.deductAmount / 100).toFixed(2)} 元` },
     {
-      label: '可退上限',
-      value:
-        data.refundableAmount != null
-          ? `${(data.refundableAmount / 100).toFixed(2)} 元`
-          : '-',
+      label: '按规则参考',
+      // 规则已降级为参考：只影响这一行，不会自动带出金额
+      value: data.policyName
+        ? `${data.policyName} → ${(data.policySuggestAmount / 100).toFixed(2)} 元`
+        : '未命中规则',
     },
   ];
 });
 
-const applyFormOptions = computed<LewFormOption[]>(() => [
-  {
-    field: 'bookingId',
-    label: '预约',
-    as: 'select',
-    rule: "Yup.string().required('请选择预约')",
-    props: {
-      options: bookingOptions.value,
-      placeholder: '先用单号 / 姓名 / 手机号搜索，再选择预约',
-      clearable: true,
-      searchable: true,
+/** 金额是否由服务端锁定（服务开始前 = 无理由全额退，不允许改） */
+const amountLocked = computed(() => preview.value?.lockedAmount === true);
+/** 责任归属只有服务中才需要店长选（服务开始前固定店家全退） */
+const needLiable = computed(() => preview.value?.stage === 'in_service');
+
+const applyFormOptions = computed<LewFormOption[]>(() => {
+  const options: LewFormOption[] = [
+    {
+      field: 'bookingId',
+      label: '预约',
+      as: 'select',
+      rule: "Yup.string().required('请选择预约')",
+      props: {
+        options: bookingOptions.value,
+        placeholder: '先用单号 / 姓名 / 手机号搜索，再选择预约',
+        clearable: true,
+        searchable: true,
+      },
     },
-  },
-  {
-    field: 'cancelAt',
-    label: '取消时间',
-    as: 'date-picker',
-    rule: 'Yup.string().nullable()',
-    tips: '选填，默认按当前时间判责',
-    props: {
-      valueFormat: 'YYYY-MM-DD',
-      clearable: true,
-      placeholder: '选择取消时间',
+    {
+      field: 'cancelAt',
+      label: '判定时间',
+      as: 'date-picker',
+      rule: 'Yup.string().nullable()',
+      tips: '选填，默认按当前时间判定服务阶段',
+      props: {
+        valueFormat: 'YYYY-MM-DD',
+        clearable: true,
+        placeholder: '选择时间',
+      },
     },
-  },
-  {
-    field: 'amount',
-    label: '退款金额(元)',
-    as: 'input-number',
-    rule: "Yup.number().required('不能为空')",
-    tips: '默认取试算建议金额，可改；改动后必须在原因里写明',
-    props: numberProps({ min: 0, decimals: 2 }),
-  },
-  {
-    field: 'mode',
-    label: '去向',
-    as: 'select',
-    rule: "Yup.string().required('不能为空')",
-    props: { options: modeOptionList.value },
-  },
-  {
-    field: 'liable',
-    label: '责任',
-    as: 'select',
-    rule: "Yup.string().required('不能为空')",
-    props: { options: LIABLE_OPTIONS },
-  },
-  {
+    {
+      field: 'amount',
+      label: '退款金额(元)',
+      as: 'input-number',
+      rule: "Yup.number().required('不能为空')",
+      tips: amountLocked.value
+        ? '服务开始前为无理由全额退，金额由系统锁定'
+        : '服务中退款由店长决定，请手动填写金额',
+      props: numberProps({
+        min: 0,
+        decimals: 2,
+        disabled: amountLocked.value,
+      }),
+    },
+    {
+      field: 'mode',
+      label: '去向',
+      as: 'select',
+      rule: "Yup.string().required('不能为空')",
+      props: { options: modeOptionList.value },
+    },
+  ];
+  if (needLiable.value) {
+    options.push({
+      field: 'liable',
+      label: '责任',
+      as: 'select',
+      rule: "Yup.string().required('不能为空')",
+      props: { options: LIABLE_OPTIONS },
+    });
+  }
+  options.push({
     field: 'reason',
     label: '退款原因',
     as: 'textarea',
     rule: "Yup.string().required('不能为空')",
     props: {
-      placeholder: '改动建议金额时必须写清原因',
+      placeholder: '必填，会记录在退款单上',
       rows: 3,
     },
-  },
-]);
+  });
+  return options;
+});
 
 /** LewForm 不回写父级 v-model，靠 change 事件同步去向提示 */
 function handleApplyFormChange(values: unknown) {
@@ -584,7 +636,7 @@ function openApply() {
   });
 }
 
-/** 判责试算：命中规则 + 建议金额，成功后回填 amount */
+/** 试算：判定服务阶段 + 给出建议金额（只读，不改账） */
 async function handlePreview() {
   const values = (applyFormRef.value?.getForm?.() ??
     applyForm.value) as typeof applyForm.value;
@@ -607,19 +659,24 @@ async function handlePreview() {
     applyMode.value = nextMode;
     applyFormRef.value?.setForm?.({
       ...values,
-      amount: result.suggestAmount / 100,
+      // 服务开始前：回填全额（锁定不可改）；服务中：留空，由店长手动填
+      amount: result.lockedAmount ? result.suggestAmount / 100 : undefined,
       mode: nextMode,
+      liable: result.stage === 'in_service' ? values.liable : 'store',
     });
     LewMessage.success(
       autoSwitched
-        ? '试算完成，已回填建议退款金额；该单非在线支付，去向已改为「现金退」'
-        : '试算完成，已回填建议退款金额',
+        ? '试算完成；该单非在线支付，去向已改为「现金退」'
+        : result.lockedAmount
+          ? `服务开始前，可无理由全额退 ${(result.suggestAmount / 100).toFixed(2)} 元`
+          : '服务已开始，是否退款、退多少由店长决定，请手动填写金额',
     );
   } finally {
     previewing.value = false;
   }
 }
 
+/** 提交：**建单即执行**（服务开始前全员可发，服务中仅店长），故必须二次确认 */
 async function handleApplySubmit() {
   const valid = await applyFormRef.value?.validate();
   if (!valid) return;
@@ -627,7 +684,7 @@ async function handleApplySubmit() {
     applyForm.value) as typeof applyForm.value;
   const data = preview.value;
   if (!data) {
-    LewMessage.error('请先试算判责金额');
+    LewMessage.error('请先试算');
     return;
   }
   const reason = String(values.reason ?? '').trim();
@@ -640,36 +697,36 @@ async function handleApplySubmit() {
     LewMessage.error('请先选择预约并试算');
     return;
   }
-  const amountYuan = Number(values.amount ?? 0);
-  if (!Number.isFinite(amountYuan) || amountYuan <= 0) {
-    LewMessage.error('退款金额必须大于 0');
+  const limitYuan = data.refundableAmount / 100;
+  const amountYuan = data.lockedAmount ? limitYuan : Number(values.amount ?? 0);
+  if (!data.lockedAmount && (!Number.isFinite(amountYuan) || amountYuan <= 0)) {
+    LewMessage.error('服务中退款必须手动填写退款金额');
     return;
   }
-  const limitYuan =
-    data.refundableAmount != null ? data.refundableAmount / 100 : null;
-  if (limitYuan !== null && amountYuan > limitYuan) {
+  if (amountYuan > limitYuan) {
     LewMessage.error(`退款金额不能超过可退上限 ${limitYuan.toFixed(2)} 元`);
     return;
   }
   const mode = values.mode;
   confirmDanger({
     type: 'normal',
-    title: '发起退款申请',
-    content: `将按「${MODE_LABELS[mode] ?? '-'}」发起 ${amountYuan.toFixed(2)} 元退款申请，生成待审批退款单，需店长审批后才会执行。确定提交吗？`,
-    confirmText: '确认提交',
+    title: data.lockedAmount ? '确认全额退款' : '确认退款',
+    content: data.lockedAmount
+      ? `服务开始前无理由全额退 ${limitYuan.toFixed(2)} 元，按「${MODE_LABELS[mode] ?? '-'}」**立即执行**（无需审批）。确定吗？`
+      : `将按「${MODE_LABELS[mode] ?? '-'}」立即退款 ${amountYuan.toFixed(2)} 元（店长手动判定）。确定吗？`,
+    confirmText: '确认退款',
     confirmColor: 'primary',
     onConfirm: async () => {
       await createRefund({
         bookingId,
-        amount: yuan2fen(amountYuan),
+        // 服务开始前：统一不传金额，由服务端强制全额（防绕过锁定）
+        ...(data.lockedAmount ? {} : { amount: yuan2fen(amountYuan) }),
         mode,
         reason,
         liable: values.liable,
       });
-      LewMessage.success('已生成待审批退款单，需店长审批后执行');
+      LewMessage.success('退款已执行');
       applyVisible.value = false;
-      // 回到「待审批」列表，方便店长直接看到新单
-      query.value.status = 'pending';
       void search();
     },
   });
@@ -681,9 +738,9 @@ async function handleApplySubmit() {
     <!-- 页头 -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="page-title m-0">退款审批</h2>
+        <h2 class="page-title m-0">退款管理</h2>
         <p class="page-subtitle mt-1 mb-0">
-          判责试算 + 申请 / 审批分离（审批默认只看待审批单）
+          服务开始前无理由全额退（提交即执行）；服务中由店长手动判定金额
         </p>
       </div>
       <LewButton
@@ -691,7 +748,7 @@ async function handleApplySubmit() {
         type="fill"
         @click="openApply"
       >
-        <Plus :size="15" style="margin-right: 4px" /> 发起退款申请
+        <Plus :size="15" style="margin-right: 4px" /> 发起退款
       </LewButton>
     </div>
 
@@ -702,6 +759,13 @@ async function handleApplySubmit() {
         width="140px"
         :options="STATUS_OPTIONS"
         placeholder="全部状态"
+        clearable
+      />
+      <LewSelect
+        v-model="query.stage"
+        width="140px"
+        :options="STAGE_OPTIONS"
+        placeholder="全部阶段"
         clearable
       />
       <LewSelect
@@ -749,15 +813,23 @@ async function handleApplySubmit() {
         <template #operation="{ row }">
           <div class="flex items-center gap-1">
             <IconButton
-              v-if="(row as unknown as Refund).status === 'pending'"
+              v-if="
+                ['pending', 'failed'].includes(
+                  (row as unknown as Refund).status,
+                )
+              "
               permission="biz:refund:approve"
-              title="审批"
+              :title="
+                (row as unknown as Refund).status === 'failed'
+                  ? '重试执行'
+                  : '审批'
+              "
               @click="openApproval(row as unknown as Refund)"
             >
               <ClipboardCheck :size="14" />
             </IconButton>
             <IconButton
-              v-else
+              v-if="(row as unknown as Refund).status !== 'pending'"
               title="详情"
               @click="openApproval(row as unknown as Refund)"
             >
@@ -780,7 +852,7 @@ async function handleApplySubmit() {
     <!-- 审批 / 详情弹窗：待审批给「驳回 + 通过」，其它状态只读 -->
     <LewModal
       v-model:visible="approvalVisible"
-      :title="approvalIsPending ? '退款审批' : '退款单详情'"
+      :title="approvalIsActionable ? '退款执行' : '退款单详情'"
       width="720px"
       :footer-buttons="approvalFooterButtons"
     >
@@ -805,11 +877,14 @@ async function handleApplySubmit() {
         </div>
 
         <p
-          v-if="approvalIsPending"
+          v-if="approvalIsActionable"
           class="mt-3 mb-0 text-13px text-[var(--lew-color-warning)]"
         >
-          通过后将立即执行退款（原路退回调渠道 /
-          现金或退余额直接落地），且只能执行一次。
+          {{
+            approvalIsRetry
+              ? '该单渠道退款失败，重试会重新发起（商户退款单号不变，渠道侧幂等）。'
+              : '通过后将立即执行退款（原路退回调渠道 / 现金或退余额直接落地），且只能执行一次。'
+          }}
         </p>
       </div>
     </LewModal>
@@ -863,10 +938,10 @@ async function handleApplySubmit() {
       </div>
     </LewModal>
 
-    <!-- 发起退款申请弹窗 -->
+    <!-- 发起退款弹窗（建单即执行） -->
     <LewModal
       v-model:visible="applyVisible"
-      title="发起退款申请"
+      title="发起退款"
       width="620px"
       :footer-buttons="[
         {
@@ -885,7 +960,7 @@ async function handleApplySubmit() {
             type: 'fill',
             color: 'primary',
             size: 'small',
-            text: '提交申请',
+            text: '确认退款',
             request: handleApplySubmit,
           },
         },
@@ -919,10 +994,10 @@ async function handleApplySubmit() {
 
         <div class="mt-3 flex items-center gap-3">
           <LewButton type="light" :loading="previewing" @click="handlePreview">
-            试算判责
+            判定阶段 / 试算
           </LewButton>
           <span class="text-13px text-[var(--app-text-muted)]">
-            先选预约再试算，命中规则只给建议金额，可改但必须写明原因
+            先选预约再试算：服务开始前全额退（金额锁定），服务中由店长手动填金额
           </span>
         </div>
 
@@ -930,7 +1005,7 @@ async function handleApplySubmit() {
           v-if="previewRows.length"
           class="mt-3 rounded-8px border border-[var(--app-border)] bg-[var(--app-bg-hover)] p-3"
         >
-          <p class="m-0 mb-2 text-13px font-600">判责试算结果</p>
+          <p class="m-0 mb-2 text-13px font-600">试算结果</p>
           <div class="grid grid-cols-2 gap-x-6 gap-y-1.5 text-13px">
             <div
               v-for="item in previewRows"

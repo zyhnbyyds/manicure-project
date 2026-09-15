@@ -333,13 +333,14 @@ interface NoticeReadResult {
   unread: number;
 }
 
-/** 取消预约的费用预览（服务端按门店判责规则算） */
+/** 取消预约的费用预期（服务端按服务阶段判定：开始前全额退 / 服务中需协商） */
 interface RefundPreview {
+  stage: 'before_start' | 'in_service';
+  stageLabel: string;
   paidAmount: number;
+  refundableAmount: number;
   suggestAmount: number;
-  deductAmount: number;
-  policyName: string | null;
-  refundPermille: number;
+  lockedAmount: boolean;
   hoursToStart: number;
 }
 
@@ -347,9 +348,9 @@ interface RefundPreview {
 
 export const bookingApi = {
   /**
-   * 取消预约的费用预览（可退 / 扣除多少）。
+   * 取消预约的费用预期（可退多少）。
    *
-   * 金额由服务端按门店退款政策算（复用后台判责规则）—— 页面**不要**自己算比例，
+   * 金额与阶段都由服务端判（复用后台同一套口径）—— 页面**不要**自己算比例，
    * 否则会在顾客面前给出一个门店不认的数字。
    */
   refundPreview(bookingId: number): Promise<RefundPreview> {

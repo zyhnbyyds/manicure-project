@@ -1636,11 +1636,17 @@ export class BookingsService implements BookingPort {
     };
   }
 
-  /** 发起退款（§17.4：判责 + 申请/审批分离，本方法只负责「申请」） */
+  /**
+   * 发起退款（本方法只做转发，判定与执行都在 `RefundPort.apply`）。
+   *
+   * 传完整 `actor`：服务开始前的退款人人可发（`biz:refund:apply`），
+   * 服务中则需要 `biz:refund:approve`（店长）—— 权限判定在退款服务里按阶段分流。
+   */
   async applyRefund(
     id: number,
     input: {
       amount?: number | undefined;
+      actualAmount?: number | undefined;
       mode: 'original' | 'cash' | 'balance';
       reason: string;
       liable?: 'store' | 'customer' | 'force_majeure' | undefined;
@@ -1653,12 +1659,13 @@ export class BookingsService implements BookingPort {
       {
         bookingId: id,
         amount: input.amount,
+        actualAmount: input.actualAmount,
         mode: input.mode,
         reason: input.reason,
         liable: input.liable,
         remark: input.remark,
       },
-      actor.id,
+      actor,
     );
   }
 

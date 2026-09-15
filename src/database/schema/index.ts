@@ -1688,6 +1688,14 @@ export const bizRefunds = mysqlTable(
     deductAmount: int('deduct_amount', { unsigned: true }).default(0).notNull(),
     mode: mysqlEnum('mode', ['original', 'cash', 'balance']).notNull(),
     policyId: int('policy_id', { unsigned: true }),
+    /**
+     * 退款阶段（按「实际退款时点 vs 预约开始时间」判定）：
+     * - `before_start` = 服务开始前，**无理由全额退**，`apply` 即执行、不走审批；
+     * - `in_service` = 服务开始后（含已完成），是否退 / 退多少**由店长手动决定**。
+     *
+     * 可空：加列之前的历史退款单没有阶段概念（当时按 `hours_before` 规则判责）。
+     */
+    refundStage: mysqlEnum('refund_stage', ['before_start', 'in_service']),
     liable: mysqlEnum('liable', ['store', 'customer', 'force_majeure'])
       .default('store')
       .notNull(),

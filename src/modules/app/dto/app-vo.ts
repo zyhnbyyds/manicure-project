@@ -772,23 +772,29 @@ export type AppUploadVo = z.infer<typeof appUploadVo>;
  * ------------------------------------------------------------------ */
 
 /**
- * 取消预约的**费用预览**：由服务端按门店判责规则算，页面只负责展示。
+ * 取消预约的**费用预期**：口径由服务端按「服务阶段」判定，页面只负责展示。
  *
  * 为什么必须有这个接口：以前取消页只能写「可能扣除部分定金」这种原则性表述 ——
- * 因为 app 域读不到判责规则（在 `RefundPort.preview`）。写死比例会给出**错误的金额预期**，
+ * 因为 app 域读不到退款判定（在 `RefundPort.preview`）。写死比例会给出**错误的金额预期**，
  * 比不写更糟；而金额一律只在服务端算（money-invariants 红线）。
+ *
+ * - `before_start`（服务开始前）：无理由全额退，`suggestAmount` = 剩余可退全额；
+ * - `in_service`（服务已开始）：是否退 / 退多少由店长判断，`suggestAmount` = 0，
+ *   页面只提示「需与门店协商」，不给具体金额预期。
  */
 export const appRefundPreviewVo = z.object({
+  /** 退款阶段：`before_start` 服务开始前 / `in_service` 服务已开始 */
+  stage: z.enum(['before_start', 'in_service']),
+  /** 阶段展示名（服务开始前 / 服务中） */
+  stageLabel: z.string(),
   /** 已付金额（分） */
   paidAmount: z.number().int(),
-  /** 按规则建议退款（分） */
+  /** 剩余可退金额（分）= 已付 − 已退 */
+  refundableAmount: z.number().int(),
+  /** 预计可退（分）：服务开始前 = 全额；服务中 = 0（需与门店协商） */
   suggestAmount: z.number().int(),
-  /** 按规则扣除（分） */
-  deductAmount: z.number().int(),
-  /** 命中的规则名（如「2-24 小时退一半」）；没有规则命中时为 null */
-  policyName: z.string().nullable(),
-  /** 退款比例（千分比；1000 = 全退） */
-  refundPermille: z.number().int(),
+  /** 金额是否已锁定（服务开始前 = true，不存在扣减） */
+  lockedAmount: z.boolean(),
   /** 距开始还有多少小时（负数 = 已过时间） */
   hoursToStart: z.number(),
 });

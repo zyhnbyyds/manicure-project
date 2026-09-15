@@ -25,27 +25,25 @@
         </view>
       </view>
 
-      <!-- 取消规则：命中门店政策时显示**真实金额**，没有政策时退回原则性表述 -->
+      <!-- 取消说明：服务开始前直接给可退金额，服务已开始则提示与门店协商 -->
       <view class="section">
         <view class="section__title">取消说明</view>
       </view>
 
       <view wx:if="{{previewOk}}" class="card refund">
-        <view class="refund__title">{{preview.policyName || '按门店规则结算'}}</view>
+        <view class="refund__title">{{preview.stageLabel}}</view>
         <view class="refund__row">
           <view class="text-sub">已付金额</view>
           <view class="refund__value">{{preview.paidText}} 元</view>
         </view>
-        <view class="refund__row">
+        <view wx:if="{{!preview.inService}}" class="refund__row">
           <view class="text-sub">预计可退</view>
           <view class="refund__value refund__value--good">{{preview.suggestText}} 元</view>
         </view>
-        <view wx:if="{{preview.deductAmount > 0}}" class="refund__row">
-          <view class="text-sub">按规则扣除</view>
-          <view class="refund__value refund__value--warn">{{preview.deductText}} 元</view>
-        </view>
         <view class="refund__hint">
-          金额由门店退款规则算出；提交后仍需门店审批，实际到账以审批结果为准。
+          {{preview.inService
+            ? '服务已开始，是否退款、退多少由门店判断，请联系门店协商。'
+            : '服务开始前可无理由全额退款；退款由门店操作，到账后可在「我的预约」查看。'}}
         </view>
       </view>
 

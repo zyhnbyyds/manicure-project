@@ -1,0 +1,1 @@
+ALTER TABLE `biz_refund` ADD `refund_stage` enum('before_start','in_service');

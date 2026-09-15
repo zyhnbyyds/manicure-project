@@ -270,7 +270,7 @@ describe('B6 站内消息 /app/notices', () => {
   });
 });
 
-describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () => {
+describe('B6 取消预约的费用预期 /app/bookings/:id/refund-preview', () => {
   /** 造一笔已付定金的预约（判责只看 `start_at`，已付金额来自**成功支付单**） */
   async function seedPaidBooking(input: {
     bookingNo: string;
@@ -309,19 +309,18 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
     return inserted.insertId;
   }
 
-  it('按门店政策算真实可退 / 扣除金额（≥24h 全退）', async () => {
+  it('服务开始前：无理由全额退，字段口径固定', async () => {
     const customerId = await seedCustomer('李女士', '13800009010');
     const { token } = await seedBoundAppUser('openid-refund-1', customerId);
+    // 规则表仍在，但只作参考：故意插一条「2 小时内不退」验证它不影响 app 口径
     await ctx.sql(
       `INSERT INTO biz_refund_policy (name, hours_before, refund_permille, min_amount, sort, status)
-       VALUES ('24 小时以上全退', 24, 1000, 0, 1, 'active'),
-              ('2-24 小时退一半', 2, 500, 0, 2, 'active'),
-              ('2 小时内不退', 0, 0, 0, 3, 'active')`,
+       VALUES ('2 小时内不退', 0, 0, 0, 3, 'active')`,
     );
     const bookingId = await seedPaidBooking({
       bookingNo: 'B20260914001',
       customerId,
-      startAtSql: 'DATE_ADD(NOW(), INTERVAL 48 HOUR)',
+      startAtSql: 'DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 HOUR)',
       paidAmount: 30000,
     });
 
@@ -333,34 +332,29 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
     expect(res.status).toBe(200);
     expect(Object.keys(res.body).sort()).toEqual(
       [
-        'deductAmount',
         'hoursToStart',
+        'lockedAmount',
         'paidAmount',
-        'policyName',
-        'refundPermille',
+        'refundableAmount',
+        'stage',
+        'stageLabel',
         'suggestAmount',
       ].sort(),
     );
+    expect(res.body.stage).toBe('before_start');
+    expect(res.body.lockedAmount).toBe(true);
     expect(res.body.paidAmount).toBe(30000);
-    expect(res.body.refundPermille).toBe(1000);
+    expect(res.body.refundableAmount).toBe(30000);
     expect(res.body.suggestAmount).toBe(30000);
-    expect(res.body.deductAmount).toBe(0);
-    expect(res.body.policyName).toBe('24 小时以上全退');
   });
 
-  it('临近开始：按「退一半」算，且金额全部由服务端给', async () => {
+  it('服务已开始：不给金额预期（suggestAmount = 0），提示与门店协商', async () => {
     const customerId = await seedCustomer('李女士', '13800009011');
     const { token } = await seedBoundAppUser('openid-refund-2', customerId);
-    await ctx.sql(
-      `INSERT INTO biz_refund_policy (name, hours_before, refund_permille, min_amount, sort, status)
-       VALUES ('24 小时以上全退', 24, 1000, 0, 1, 'active'),
-              ('2-24 小时退一半', 2, 500, 0, 2, 'active'),
-              ('2 小时内不退', 0, 0, 0, 3, 'active')`,
-    );
     const bookingId = await seedPaidBooking({
       bookingNo: 'B20260914002',
       customerId,
-      startAtSql: 'DATE_ADD(NOW(), INTERVAL 5 HOUR)',
+      startAtSql: 'DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)',
       paidAmount: 30000,
     });
 
@@ -370,10 +364,11 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
       { token },
     );
     expect(res.status).toBe(200);
-    expect(res.body.refundPermille).toBe(500);
-    expect(res.body.suggestAmount).toBe(15000);
-    expect(res.body.deductAmount).toBe(15000);
-    expect(res.body.policyName).toBe('2-24 小时退一半');
+    expect(res.body.stage).toBe('in_service');
+    expect(res.body.lockedAmount).toBe(false);
+    // 已付金额照给（页面要展示），但不替门店承诺退多少
+    expect(res.body.refundableAmount).toBe(30000);
+    expect(res.body.suggestAmount).toBe(0);
   });
 
   it('越权：别人的预约 → 404（不是 403）；不存在的预约同样 404', async () => {
@@ -388,7 +383,7 @@ describe('B6 取消预约的费用预览 /app/bookings/:id/refund-preview', () =
     const otherBooking = await seedPaidBooking({
       bookingNo: 'B20260914003',
       customerId: otherId,
-      startAtSql: 'DATE_ADD(NOW(), INTERVAL 48 HOUR)',
+      startAtSql: 'DATE_ADD(UTC_TIMESTAMP(), INTERVAL 48 HOUR)',
       paidAmount: 20000,
     });
 

@@ -815,11 +815,14 @@ export class AppMemberService {
   }
 
   /**
-   * 取消预约的**费用预览**（batch4「取消预约」页）。
+   * 取消预约的**费用预期**（batch4「取消预约」页）。
    *
-   * 归属先过 `findForCustomer`（别人的单 → 404），再调后台同一套判责规则
+   * 归属先过 `findForCustomer`（别人的单 → 404），再调后台同一套判定
    * `RefundPort.preview` —— **app 域不重算比例**，否则两边必然分叉。
-   * 这样取消页能显示真实可退金额，而不是「可能扣除部分定金」这种谁都不敢信的话。
+   * 阶段由服务端按「退款时点 vs 预约开始时间」判定：
+   * - 服务开始前：无理由全额退，页面可以直接告诉顾客退多少；
+   * - 服务已开始：是否退由门店判断，这里只回 `suggestAmount = 0` 与阶段名，
+   *   页面改成「需与门店协商」，不给一个门店可能不认的数字。
    */
   async refundPreview(
     appUserId: number,
@@ -833,11 +836,12 @@ export class AppMemberService {
     if (!booking) throw new NotFoundException('预约不存在');
     const preview = await this.refunds.preview({ bookingId });
     return {
+      stage: preview.stage,
+      stageLabel: preview.stageLabel,
       paidAmount: preview.paidAmount,
+      refundableAmount: preview.refundableAmount,
       suggestAmount: preview.suggestAmount,
-      deductAmount: preview.deductAmount,
-      policyName: preview.policyName,
-      refundPermille: preview.refundPermille,
+      lockedAmount: preview.lockedAmount,
       hoursToStart: preview.hoursToStart,
     };
   }

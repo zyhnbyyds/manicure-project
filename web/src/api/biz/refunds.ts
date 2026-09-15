@@ -7,6 +7,19 @@ export type RefundMode = 'original' | 'cash' | 'balance';
 /** 责任归属：店家 / 顾客 / 不可抗力 */
 export type RefundLiable = 'store' | 'customer' | 'force_majeure';
 
+/**
+ * 退款阶段（按「退款时点 vs 预约开始时间」判定）：
+ * - `before_start` 服务开始前：无理由全额退，金额锁定；
+ * - `in_service` 服务中（含已完成）：由店长手动决定金额。
+ */
+export type RefundStage = 'before_start' | 'in_service';
+
+/** 阶段展示名 */
+export const REFUND_STAGE_LABELS: Record<RefundStage, string> = {
+  before_start: '服务开始前',
+  in_service: '服务中',
+};
+
 /** 退款单状态（§7.4）：pending → approved → success / rejected / failed */
 export type RefundStatus =
   | 'pending'
@@ -34,6 +47,8 @@ export interface Refund {
   deductAmount: number;
   mode: RefundMode;
   policyId: number | null;
+  /** 退款阶段；加列之前的历史单为 null */
+  refundStage: RefundStage | null;
   /** 命中的判责规则名 */
   policyName?: string | null;
   liable: RefundLiable;
@@ -69,8 +84,12 @@ export interface RefundPreview {
   hoursToStart: number;
   /** 兼容别名（历史文档写作 hoursUntilStart，后端不返回该字段） */
   hoursUntilStart?: number | null;
-  /** 本次试算采用的责任归属 */
+  /** 本次试算采用的责任归属（新流程下只影响规则参考值） */
   liable: RefundLiable;
+  /** 退款阶段：服务开始前（无理由全额退）/ 服务中（店长手动退） */
+  stage: RefundStage;
+  /** 阶段展示名 */
+  stageLabel: string;
   /** 命中的判责规则 id（都不命中 = null） */
   policyId: number | null;
   /** 命中规则名，如「提前 24 小时以上」 */
@@ -85,9 +104,13 @@ export interface RefundPreview {
   refundedAmount: number;
   /** 剩余可退（分）= paidAmount − refundedAmount */
   refundableAmount: number;
-  /** 建议退款额（分） */
+  /** 建议退款额（分）：服务开始前 = 剩余可退全额；服务中 = 0（须手动填） */
   suggestAmount: number;
-  /** 判责扣减额（分） */
+  /** 金额是否锁定（服务开始前 = true，金额框只读） */
+  lockedAmount: boolean;
+  /** 规则**参考**金额（分）：老规则会退多少，仅供比对 */
+  policySuggestAmount: number;
+  /** 规则参考扣减额（分） */
   deductAmount: number;
   /**
    * 逐笔可退明细。退款单**必须挂在具体支付单上**，
@@ -106,6 +129,7 @@ export interface RefundPreview {
 export interface RefundQuery {
   status?: string;
   mode?: string;
+  stage?: RefundStage;
   liable?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -121,29 +145,38 @@ export function listRefunds(page = 1, pageSize = 20, query: RefundQuery = {}) {
   });
 }
 
-/** 判责试算（权限 biz:refund:apply） */
+/** 退款试算（权限 biz:refund:apply）：判定阶段并给出建议退款额 */
 export function previewRefund(body: { bookingId: number; cancelAt?: string }) {
   return post<RefundPreview>('/biz/refunds/preview', body);
 }
 
-/** 发起退款（权限 biz:refund:apply）：生成**待审批**退款单；改金额必须填原因 */
+/**
+ * 发起退款（权限 biz:refund:apply）：**建单后直接执行，不需要审批**。
+ *
+ * - 服务开始前：无理由全额退，服务端忽略传入的 `amount`（金额锁定）；
+ * - 服务中：只有店长（`biz:refund:approve`）能调，`amount` 必填且 ≤ 剩余可退。
+ */
 export function createRefund(body: {
   bookingId?: number;
   paymentId?: number;
-  /** 覆盖建议金额（分） */
+  /** 退款金额（分）：服务中为必填，服务开始前忽略 */
   amount?: number;
   mode: RefundMode;
   /** 必填原因 */
   reason: string;
   liable?: RefundLiable;
 }) {
-  return post<{ id: number; refundNo: string; status: RefundStatus }>(
-    '/biz/refunds',
-    body,
-  );
+  return post<{
+    id: number;
+    refundNo: string;
+    status: RefundStatus;
+    refundStage: RefundStage | null;
+    /** true = 已直接执行完成 */
+    executed: boolean;
+  }>('/biz/refunds', body);
 }
 
-/** 审批通过并执行（权限 biz:refund:approve，只给店长） */
+/** 审批通过并执行（权限 biz:refund:approve）：仅用于历史待审批单与失败重试 */
 export function approveRefund(id: number, body: { remark?: string } = {}) {
   return post<{ id: number; status: RefundStatus; actualAmount?: number }>(
     `/biz/refunds/${id}/approve`,

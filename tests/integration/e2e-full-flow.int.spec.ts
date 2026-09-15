@@ -635,31 +635,38 @@ describe('E2E 全流程：登录 → 开店 → 预约 → 到店 → 核销 →
     expect(Number(row.cardRatio)).toBe(500);
   });
 
-  it('⑪ 退款：判责试算 → 申请 → 审批执行 → 报表冲减 + 提成冲销 + 余额回补', async () => {
+  it('⑪ 退款：服务开始前无理由全额退 → 直接执行 → 报表冲减 + 提成冲销 + 只能执行一次', async () => {
     const preview = await call('POST', '/api/v1/biz/refunds/preview', {
       bookingId: bookingOneId,
     });
     expect([200, 201]).toContain(preview.status);
+    // 预约落在「今天 +3 天」→ 服务开始前：无理由全额退，金额由服务端锁定
+    expect(preview.body.stage).toBe('before_start');
+    expect(preview.body.lockedAmount).toBe(true);
 
-    // 现金退 2000（审批与申请分离：申请只落 pending 单）
+    // 混合支付：退款单必须挂到**具体支付单**上，先取最近一笔仍可退的
+    const [target] = await ctx.sql<{ id: number; refundable: number }[]>(
+      `SELECT id, amount - refunded_amount AS refundable FROM biz_payment
+        WHERE booking_id = ? AND status IN ('success','partial_refunded')
+        ORDER BY id DESC LIMIT 1`,
+      [bookingOneId],
+    );
+    const refundable = Number(target!.refundable);
+    expect(refundable).toBeGreaterThan(0);
+
     const applied = await call('POST', '/api/v1/biz/refunds', {
-      bookingId: bookingOneId,
-      amount: 2000,
+      paymentId: target!.id,
       mode: 'cash',
-      reason: 'E2E：顾客投诉，部分退款',
-      liable: 'store',
+      reason: 'E2E：服务开始前取消，无理由全额退',
     });
     expect(applied.status).toBe(201);
-    expect(applied.body.status).toBe('pending');
+    // 关键变化：不再落 pending，建单即执行
+    expect(applied.body.status).toBe('success');
+    expect(applied.body.executed).toBe(true);
+    expect(applied.body.refundStage).toBe('before_start');
+    expect(Number(applied.body.actualAmount)).toBe(refundable);
 
-    const approve = await call(
-      'POST',
-      `/api/v1/biz/refunds/${applied.body.id}/approve`,
-    );
-    expect([200, 201]).toContain(approve.status);
-
-    // 「只能执行一次」：重复审批不报错，而是回 `handled: true` + 「该退款单已处理」，
-    // 且**不会二次退款**（金额与退款单行数都不变）
+    // 「只能执行一次」：重复审批不报错，而是回 `handled: true`，且**不会二次退款**
     const second = await call(
       'POST',
       `/api/v1/biz/refunds/${applied.body.id}/approve`,
@@ -667,9 +674,6 @@ describe('E2E 全流程：登录 → 开店 → 预约 → 到店 → 核销 →
     expect([200, 201]).toContain(second.status);
     expect(second.body.handled).toBe(true);
     expect(String(second.body.message)).toContain('已处理');
-    expect(Number(second.body.actualAmount)).toBe(
-      Number(approve.body.actualAmount),
-    );
     const refundRows = await ctx.sql<{ count: number }[]>(
       `SELECT COUNT(*) AS count FROM biz_refund WHERE booking_id = ?`,
       [bookingOneId],
@@ -680,16 +684,16 @@ describe('E2E 全流程：登录 → 开店 → 预约 → 到店 → 核销 →
       `SELECT refund_amount FROM biz_booking WHERE id = ?`,
       [bookingOneId],
     );
-    expect(Number(booking!.refund_amount)).toBe(2000);
+    expect(Number(booking!.refund_amount)).toBe(refundable);
 
-    // 报表：净营收从 8500 掉到 6500，退款单列
+    // 报表：净营收 = 毛实收 − 退款
     const overview = await call(
       'GET',
       `/api/v1/biz/reports/overview?dateFrom=${shopToday()}&dateTo=${date}`,
     );
     expect(Number(overview.body.revenue.gross)).toBe(8500);
-    expect(Number(overview.body.revenue.refund)).toBe(2000);
-    expect(Number(overview.body.revenue.net)).toBe(6500);
+    expect(Number(overview.body.revenue.refund)).toBe(refundable);
+    expect(Number(overview.body.revenue.net)).toBe(8500 - refundable);
 
     // 提成冲销：退款后对应计提置 reversed
     const records = await call(

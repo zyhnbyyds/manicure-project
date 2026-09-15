@@ -1094,13 +1094,30 @@ export type StaffCommissionItem = {
  * 退款（B3）：预约详情的「发起退款」入口走这里
  * ------------------------------------------------------------------ */
 
+/** 退款阶段：服务开始前（无理由全额退）/ 服务中（店长手动退） */
+export type RefundStage = 'before_start' | 'in_service';
+
 export type RefundPreview = {
+  /** 退款阶段（按「退款时点 vs 预约开始时间」判定，不看预约状态） */
+  stage: RefundStage;
+  /** 阶段展示名（服务开始前 / 服务中） */
+  stageLabel: string;
   policyId: number | null;
   policyName: string | null;
   hoursBefore: number | null;
+  /** 规则**参考**比例（降级为展示，不再决定实际退款额） */
   refundPermille: number;
+  /** 预约毛实收（Σ 成功支付单 received_amount） */
   paidAmount: number;
+  /** 剩余可退 = 毛实收 − 已退 */
+  refundableAmount: number;
+  /** 建议退款额：服务开始前 = 剩余可退全额；服务中 = 0（须店长手动填） */
   suggestAmount: number;
+  /** 金额是否锁定（服务开始前 = true） */
+  lockedAmount: boolean;
+  /** 规则参考金额（仅供店长比对） */
+  policySuggestAmount: number;
+  /** 规则参考扣减 */
   deductAmount: number;
   hoursToStart: number;
 };
@@ -1115,18 +1132,23 @@ export abstract class RefundPort {
       bookingId?: number | undefined;
       paymentId?: number | undefined;
       amount?: number | undefined;
+      actualAmount?: number | undefined;
       mode: 'original' | 'cash' | 'balance';
       reason: string;
       liable?: 'store' | 'customer' | 'force_majeure' | undefined;
       remark?: string | undefined;
     },
-    actorId: number,
+    actor: RequestActor,
   ): Promise<{
     id: number;
     refundNo: string;
     amount: number;
     actualAmount: number;
     status: string;
+    /** 退款阶段（历史单为 null） */
+    refundStage: RefundStage | null;
+    /** true = 本次发起已直接执行完成 */
+    executed: boolean;
   }>;
   abstract approve(id: number, actorId: number): Promise<{ status: string }>;
   abstract reject(id: number, reason: string, actorId: number): Promise<void>;

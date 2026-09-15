@@ -33,6 +33,7 @@ type AuthRequest = {
 
 const LIABLES = ['store', 'customer', 'force_majeure'] as const;
 const MODES = ['original', 'cash', 'balance'] as const;
+const STAGES = ['before_start', 'in_service'] as const;
 const REFUND_STATUSES = [
   'pending',
   'approved',
@@ -76,20 +77,21 @@ const applySchema = z.object({
     .openapi({ example: 12, description: '预约 ID' }),
   amount: z.coerce.number().int().positive().optional().openapi({
     example: 10000,
-    description: '申请退款金额（分，默认剩余可退）',
+    description:
+      '退款金额（分）。服务开始前忽略（强制全额退）；服务中为店长手动填写的金额',
   }),
   actualAmount: z.coerce.number().int().min(0).optional().openapi({
-    example: 5000,
-    description: '实际退款额（分，默认判责建议值）',
+    example: 10000,
+    description: '同 amount（服务中手动退款时二者相同）',
   }),
   mode: z.enum(MODES).openapi({ example: 'original', description: '退款去向' }),
   reason: z.string().min(2).max(200).openapi({
-    example: '顾客提前 1 小时取消',
+    example: '顾客取消预约',
     description: '退款原因（必填）',
   }),
   liable: z.enum(LIABLES).optional().openapi({
-    example: 'customer',
-    description: '责任归属（默认 customer，按规则扣减）',
+    example: 'store',
+    description: '责任归属（服务开始前固定 store；服务中由店长指定）',
   }),
   policyId: z.coerce
     .number()
@@ -108,6 +110,9 @@ const listQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   status: z.enum(REFUND_STATUSES).optional(),
   mode: z.enum(MODES).optional(),
+  stage: z.enum(STAGES).optional().openapi({
+    description: '退款阶段：before_start 服务开始前 / in_service 服务中',
+  }),
   liable: z.enum(LIABLES).optional(),
   paymentId: z.coerce.number().int().positive().optional(),
   bookingId: z.coerce.number().int().positive().optional(),
@@ -135,7 +140,12 @@ export class RefundsController {
 
   @Post('preview')
   @RequirePermissions('biz:refund:apply')
-  @ApiOperation({ summary: '退款判责试算（只读，返回建议退款额）' })
+  @ApiOperation({
+    summary: '退款试算（只读）：判定服务阶段并给出建议退款额',
+    description:
+      '服务开始前 → 无理由全额退（金额锁定）；服务中 → 需店长手动填金额。' +
+      '老判责规则降级为参考值 policySuggestAmount。',
+  })
   @ApiBody({ schema: { $ref: '#/components/schemas/RefundPreviewRequest' } })
   @ApiResponse({ status: 200, description: '成功' })
   preview(@Body() body: unknown) {
@@ -144,7 +154,12 @@ export class RefundsController {
 
   @Post()
   @RequirePermissions('biz:refund:apply')
-  @ApiOperation({ summary: '发起退款（生成待审批退款单）' })
+  @ApiOperation({
+    summary: '发起退款（建单后直接执行，无需审批）',
+    description:
+      '服务开始前：无理由全额退，金额由服务端锁定；' +
+      '服务中：仅店长（biz:refund:approve）可发起，金额必须手动填写。',
+  })
   @ApiBody({ schema: { $ref: '#/components/schemas/CreateRefundRequest' } })
   @ApiResponse({ status: 200, description: '成功' })
   apply(@Body() body: unknown, @Req() request: AuthRequest) {
@@ -159,7 +174,7 @@ export class RefundsController {
       liable: input.liable,
       policyId: input.policyId,
     };
-    return this.refunds.apply(payload, request.user.id);
+    return this.refunds.apply(payload, request.user);
   }
 
   @Get()
@@ -180,6 +195,7 @@ export class RefundsController {
       storeId: query.storeId,
       status: query.status,
       mode: query.mode,
+      stage: query.stage,
       liable: query.liable,
       paymentId: query.paymentId,
       bookingId: query.bookingId,

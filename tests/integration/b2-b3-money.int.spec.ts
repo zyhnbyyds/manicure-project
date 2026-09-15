@@ -7,7 +7,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   addLocalDays,
-  shopDayRange,
   shopToday,
   shopWeekday,
 } from '../../src/modules/biz/common/shop-time.js';
@@ -541,8 +540,10 @@ describe('B3 定金 / 尾款 / 混合支付（§5.8 / §17.2）', () => {
   });
 });
 
-describe('B3 退款判责与审批（§17.4）', () => {
+describe('B3 退款：按服务阶段分流（服务开始前全额直退 / 服务中店长手动退）', () => {
   beforeEach(async () => {
+    // 规则表降级为**参考**：这里故意插一套「2 小时内不退」的老规则，
+    // 用来验证它不再影响实际退款金额（只能出现在 policySuggestAmount 里）
     await ctx.sql(
       `INSERT INTO biz_refund_policy (name, hours_before, refund_permille, min_amount, status, sort)
        VALUES ('24 小时以上全退', 24, 1000, 0, 'active', 1),
@@ -551,7 +552,7 @@ describe('B3 退款判责与审批（§17.4）', () => {
     );
   });
 
-  it('距开始 3 天 → 全退；审批只能执行一次', async () => {
+  it('服务开始前：无理由全额退，建单即执行（不再有 pending 中间态）', async () => {
     const row = await seed();
     const created = await createBooking(row, {
       payments: [{ channel: 'cash', amount: 10000 }],
@@ -562,26 +563,26 @@ describe('B3 退款判责与审批（§17.4）', () => {
       body: { bookingId },
     });
     expect(preview.status).toBe(201);
-    expect(Number(preview.body.refundPermille)).toBe(1000);
+    expect(preview.body.stage).toBe('before_start');
+    expect(preview.body.lockedAmount).toBe(true);
     expect(Number(preview.body.suggestAmount)).toBe(10000);
+    // 老规则仍会算出一个参考值（具体多少随时点变），但它不再决定实际退款金额
+    expect(preview.body.policySuggestAmount).toBeGreaterThanOrEqual(0);
 
     const applied = await ctx.request('POST', '/api/v1/biz/refunds', {
       body: { bookingId, mode: 'cash', reason: '顾客取消' },
     });
     expect(applied.status).toBe(201);
-    expect(applied.body.status).toBe('pending');
+    expect(applied.body.status).toBe('success');
+    expect(applied.body.executed).toBe(true);
+    expect(applied.body.refundStage).toBe('before_start');
+    expect(Number(applied.body.actualAmount)).toBe(10000);
 
-    const approved = await ctx.request(
-      'POST',
-      `/api/v1/biz/refunds/${applied.body.id}/approve`,
-    );
-    expect([200, 201]).toContain(approved.status);
-
+    // 「只能执行一次」：重复审批既可以是 200（幂等返回）也可以是 409（状态机拒绝）
     const again = await ctx.request(
       'POST',
       `/api/v1/biz/refunds/${applied.body.id}/approve`,
     );
-    // 「已处理」既可以是 200（幂等返回）也可以是 409（状态机拒绝），两者都不能重复退钱
     expect([200, 201, 409]).toContain(again.status);
     const [sum] = await ctx.sql<{ total: number }[]>(
       `SELECT COALESCE(SUM(actual_amount),0) AS total FROM biz_refund
@@ -598,40 +599,110 @@ describe('B3 退款判责与审批（§17.4）', () => {
     expect(detail.body.payStatus).toBe('refunded');
   });
 
-  it('距开始不到 2 小时 → 按 0‰ 不退（建议金额 0）', async () => {
-    const row = await seed();
-    const created = await createBooking(row, {
-      payments: [{ channel: 'cash', amount: 10000 }],
-    });
-    // 预约开始是店内本地日 10:00，取消时刻取当天 09:00（提前 1 小时）
-    const cancelAt = new Date(
-      shopDayRange(date).start.getTime() + 9 * 3600_000,
-    );
-    const preview = await ctx.request('POST', '/api/v1/biz/refunds/preview', {
-      body: { bookingId: created.body.id, cancelAt: cancelAt.toISOString() },
-    });
-    expect(preview.status).toBe(201);
-    expect(Number(preview.body.refundPermille)).toBe(0);
-    expect(Number(preview.body.suggestAmount)).toBe(0);
-  });
-
-  it('驳回必须填原因', async () => {
+  it('服务开始前：前端传小额也全额退（金额由服务端锁定）', async () => {
     const row = await seed();
     const created = await createBooking(row, {
       payments: [{ channel: 'cash', amount: 10000 }],
     });
     const applied = await ctx.request('POST', '/api/v1/biz/refunds', {
-      body: { bookingId: created.body.id, mode: 'cash', reason: '顾客取消' },
+      body: {
+        bookingId: created.body.id,
+        amount: 100,
+        mode: 'cash',
+        reason: '顾客取消',
+        liable: 'customer',
+      },
     });
+    expect(applied.status).toBe(201);
+    expect(Number(applied.body.actualAmount)).toBe(10000);
+    // 无理由退款：责任固定记在店家侧，不接受前端传 customer
+    expect(applied.body.liable).toBe('store');
+  });
+
+  it('服务开始后：店员 403 / 缺金额 400 / 超上限 400；店长手动填额可退', async () => {
+    const row = await seed();
+    const created = await createBooking(row, {
+      payments: [{ channel: 'cash', amount: 10000 }],
+    });
+    const bookingId = created.body.id;
+    // 把开始时间推到过去 = 服务中（判定基准是「退款时点 vs start_at」）。
+    // 用 UTC_TIMESTAMP() 而不是 NOW()：DATETIME 列按 UTC 读写，NOW() 会带上服务器会话时区，
+    // 写进去会被当成「未来」而判成 before_start。
+    await ctx.sql(
+      `UPDATE biz_booking SET start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR),
+              end_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR) WHERE id = ?`,
+      [bookingId],
+    );
+
+    const preview = await ctx.request('POST', '/api/v1/biz/refunds/preview', {
+      body: { bookingId },
+    });
+    expect(preview.status).toBe(201);
+    expect(preview.body.stage).toBe('in_service');
+    expect(preview.body.lockedAmount).toBe(false);
+    // 服务中不自动带出任何金额
+    expect(Number(preview.body.suggestAmount)).toBe(0);
+
+    // 只有 biz:refund:apply（前台店员）→ 服务中的退款要被拦
+    const clerkToken = await ctx.token({ permissions: ['biz:refund:apply'] });
+    const denied = await ctx.request('POST', '/api/v1/biz/refunds', {
+      token: clerkToken,
+      body: { bookingId, amount: 3000, mode: 'cash', reason: '顾客不满意' },
+    });
+    expect(denied.status).toBe(403);
+
+    const missing = await ctx.request('POST', '/api/v1/biz/refunds', {
+      body: { bookingId, mode: 'cash', reason: '顾客不满意' },
+    });
+    expect(missing.status).toBe(400);
+
+    const tooMuch = await ctx.request('POST', '/api/v1/biz/refunds', {
+      body: { bookingId, amount: 20000, mode: 'cash', reason: '顾客不满意' },
+    });
+    expect(tooMuch.status).toBe(400);
+
+    // 店长（默认 token 带 *:*:*）手动退 3000
+    const ok = await ctx.request('POST', '/api/v1/biz/refunds', {
+      body: {
+        bookingId,
+        amount: 3000,
+        mode: 'cash',
+        reason: '服务中止，退部分',
+      },
+    });
+    expect(ok.status).toBe(201);
+    expect(ok.body.status).toBe('success');
+    expect(ok.body.refundStage).toBe('in_service');
+    expect(Number(ok.body.actualAmount)).toBe(3000);
+  });
+
+  it('驳回必须填原因（历史遗留的待审批单仍可处理）', async () => {
+    const row = await seed();
+    const created = await createBooking(row, {
+      payments: [{ channel: 'cash', amount: 10000 }],
+    });
+    // 新流程不再产生 pending，手工造一张历史遗留单验证驳回接口仍可用
+    const [payment] = await ctx.sql<{ id: number; store_id: number }[]>(
+      `SELECT id, store_id FROM biz_payment WHERE booking_id = ? LIMIT 1`,
+      [created.body.id],
+    );
+    const inserted = await ctx.sql<{ insertId: number }[]>(
+      `INSERT INTO biz_refund
+         (refund_no, store_id, payment_id, booking_id, customer_id, amount, actual_amount,
+          deduct_amount, mode, liable, reason, status, apply_by, apply_at, refund_stage)
+       VALUES ('R-LEGACY-1', ?, ?, ?, ?, 10000, 5000, 5000, 'cash', 'customer', '历史单',
+               'pending', 1, NOW(), 'before_start')`,
+      [payment!.store_id, payment!.id, created.body.id, row.customerId],
+    );
     const rejected = await ctx.request(
       'POST',
-      `/api/v1/biz/refunds/${applied.body.id}/reject`,
+      `/api/v1/biz/refunds/${inserted.insertId}/reject`,
       { body: {} },
     );
     expect(rejected.status).toBe(400);
     const ok = await ctx.request(
       'POST',
-      `/api/v1/biz/refunds/${applied.body.id}/reject`,
+      `/api/v1/biz/refunds/${inserted.insertId}/reject`,
       { body: { reason: '已消费完不予退款' } },
     );
     expect([200, 201]).toContain(ok.status);

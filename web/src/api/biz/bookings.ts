@@ -329,29 +329,42 @@ export interface RefundablePayment {
   refundableAmount: number;
 }
 
-/** 判责试算（只读） */
+/** 退款阶段：服务开始前无理由全额退；服务中由店长手动判断 */
+export type RefundStage = 'before_start' | 'in_service';
+
+/** 退款试算（只读）：阶段决定金额怎么来 */
 export interface RefundPreview {
   bookingId: number;
   bookingNo: string;
   startAt: string;
   cancelAt: string;
-  /** 距预约开始的小时数（可为负） */
+  /** 距预约开始的小时数（可为负 = 已过开始时间） */
   hoursToStart: number;
+  /** 退款阶段 */
+  stage: RefundStage;
+  /** 阶段展示名（服务开始前 / 服务中） */
+  stageLabel: string;
   liable: RefundLiable;
   policyId: number | null;
   policyName: string | null;
   hoursBefore: number | null;
+  /** 规则参考比例（不再决定实际退款额） */
   refundPermille: number;
   paidAmount: number;
   refundedAmount: number;
   refundableAmount: number;
+  /** 建议退款额：服务开始前 = 剩余可退全额；服务中 = 0（须手动填） */
   suggestAmount: number;
+  /** 金额是否锁定（服务开始前 = true） */
+  lockedAmount: boolean;
+  /** 规则参考金额（仅供比对） */
+  policySuggestAmount: number;
   deductAmount: number;
   payments: RefundablePayment[];
 }
 
 export interface ApplyRefundBody {
-  /** 申请退款金额（分），缺省取判责建议值 */
+  /** 退款金额（分）：服务开始前忽略（强制全额）；服务中为店长手动填写的金额 */
   amount?: number;
   mode: RefundMode;
   reason: string;
@@ -359,7 +372,7 @@ export interface ApplyRefundBody {
   remark?: string;
 }
 
-/** 退款单（申请后为 pending，待退款审批页审批） */
+/** 退款单（新流程发起即执行，status 通常已是 success） */
 export interface RefundApplyResult {
   id: number;
   refundNo: string;
@@ -370,6 +383,10 @@ export interface RefundApplyResult {
   liable: RefundLiable;
   reason: string;
   status: 'pending' | 'approved' | 'rejected' | 'success' | 'failed';
+  /** 退款阶段；历史单为 null */
+  refundStage: RefundStage | null;
+  /** true = 本次发起已直接执行完成 */
+  executed: boolean;
 }
 
 /* ------------------------------------------------------------------ *
@@ -506,12 +523,12 @@ export function settleBooking(id: number, body: SettleBookingBody) {
   return post<BookingSettleResult>(`/biz/bookings/${id}/settle`, body);
 }
 
-/** 退款判责试算 */
+/** 退款试算（判定服务阶段 + 建议金额） */
 export function previewBookingRefund(id: number) {
   return get<RefundPreview>(`/biz/bookings/${id}/refund-preview`);
 }
 
-/** 发起退款（生成待审批退款单，不等于退款成功） */
+/** 发起退款（建单后直接执行：服务开始前无需审批，服务中仅店长可发） */
 export function applyBookingRefund(id: number, body: ApplyRefundBody) {
   return post<RefundApplyResult>(`/biz/bookings/${id}/refund`, body);
 }

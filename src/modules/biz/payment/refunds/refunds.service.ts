@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -57,12 +58,46 @@ export type RefundPolicyRow = typeof bizRefundPolicies.$inferSelect;
 export type Liable = 'store' | 'customer' | 'force_majeure';
 export type RefundMode = 'original' | 'cash' | 'balance';
 
+/**
+ * 退款阶段（判定基准是「实际退款时点 vs 预约开始时间」，不看预约状态）：
+ *
+ * - `before_start`：服务开始前 —— **无理由全额退**。有 `biz:refund:apply` 权限即可，
+ *   不需要审批，金额锁定为支付单剩余可退全额（前端传值一律忽略）；
+ * - `in_service`：服务开始后（含已完成）—— **是否退、退多少由店长手动决定**，
+ *   金额必须手动填写，且需要 `biz:refund:approve` 权限。
+ */
+export type RefundStage = 'before_start' | 'in_service';
+
+/** 阶段展示名：口径只写一份，后台与 app 域都取这里的值 */
+export const REFUND_STAGE_LABELS: Record<RefundStage, string> = {
+  before_start: '服务开始前',
+  in_service: '服务中',
+};
+
+/**
+ * 判定退款阶段。
+ *
+ * 没有预约开始时间（如独立收款的退款）时按「服务开始前」处理：
+ * 没有服务时间就谈不上「服务中」，按最宽松的一侧兜底。
+ */
+export function resolveRefundStage(
+  startAt: Date | null,
+  at: Date,
+): RefundStage {
+  if (!startAt) return 'before_start';
+  return at.getTime() < startAt.getTime() ? 'before_start' : 'in_service';
+}
+
 const ONLINE_CHANNELS: OnlineChannel[] = ['wxpay_native', 'alipay_qr'];
+
+/** 服务中退款（店长手动退）所需的权限点 */
+const APPROVE_PERMISSION = 'biz:refund:approve';
 
 export type RefundPreviewInput = {
   bookingId: number;
-  /** 取消时点（ISO8601，缺省取当前时间）；用于算「距预约开始小时数」 */
+  /** 判定时点（ISO8601，缺省取当前时间）；决定「服务开始前 / 服务中」 */
   cancelAt?: string | undefined;
+  /** 仅影响规则参考值（`policySuggestAmount`），不再决定实际可退金额 */
   liable?: Liable | undefined;
 };
 
@@ -73,6 +108,11 @@ export type RefundPreview = {
   cancelAt: Date;
   /** 实际提前小时数（可为负 = 已过预约开始时间），等价于端口里的 `hoursToStart` */
   hoursToStart: number;
+  /** 退款阶段：服务开始前（无理由全额退）/ 服务中（店长手动退） */
+  stage: RefundStage;
+  /** 阶段展示名（服务开始前 / 服务中） */
+  stageLabel: string;
+  /** 试算采用的责任归属（新流程下只影响规则参考值） */
   liable: Liable;
   policyId: number | null;
   policyName: string | null;
@@ -84,9 +124,13 @@ export type RefundPreview = {
   refundedAmount: number;
   /** 剩余可退 = paidAmount − refundedAmount */
   refundableAmount: number;
-  /** 建议退款额（判责后实际应退） */
+  /** 建议退款额：服务开始前 = 剩余可退全额；服务中 = 0（由店长手动填） */
   suggestAmount: number;
-  /** 判责扣减 = 判责基数 − 建议退款额 */
+  /** 金额是否锁定（服务开始前 = true，前端金额框应当只读） */
+  lockedAmount: boolean;
+  /** 规则**参考**金额：老规则会退多少，仅供店长比对，不参与任何账务 */
+  policySuggestAmount: number;
+  /** 规则参考扣减 = refundableAmount − policySuggestAmount */
   deductAmount: number;
   /**
    * 逐笔可退明细。
@@ -107,15 +151,23 @@ export type RefundPreview = {
 export type RefundApplyInput = {
   paymentId?: number | undefined;
   bookingId?: number | undefined;
-  /** 申请退款金额（判责基数），默认 = 该支付单剩余可退 */
+  /** 退款金额（分）：服务开始前忽略（强制全额）；服务中为店长手动填写的金额 */
   amount?: number | undefined;
-  /** 实际退款额，默认 = 判责建议值；与建议值不同即视为人工改额（必须填原因） */
+  /** 同 `amount`（保留字段：两条路径下申请额 = 实退额，不存在判责扣减） */
   actualAmount?: number | undefined;
   mode: RefundMode;
   reason: string;
+  /** 责任归属：服务开始前固定 `store`；服务中由店长指定（默认 `store`） */
   liable?: Liable | undefined;
+  /** @deprecated 规则不再决定金额，仅在试算里作为参考值展示 */
   policyId?: number | undefined;
   remark?: string | undefined;
+};
+
+/** 申请结果 = 退款单 + 是否已就地执行（新流程两条路径都是一步到位） */
+export type RefundApplyResult = RefundRow & {
+  /** true = 本次发起已经执行完（成功落地为 `success`） */
+  executed: boolean;
 };
 
 export type RefundApproveResult = {
@@ -134,6 +186,7 @@ export type RefundListFilter = {
   storeId?: number | undefined;
   status?: RefundRow['status'] | undefined;
   mode?: RefundMode | undefined;
+  stage?: RefundStage | undefined;
   liable?: Liable | undefined;
   paymentId?: number | undefined;
   bookingId?: number | undefined;
@@ -146,10 +199,17 @@ export type RefundListFilter = {
 class AlreadyHandledError extends Error {}
 
 /**
- * 退款：判责试算 + 申请 / 审批分离 + 只执行一次（§17.4 / §6.6 第 5 条）。
+ * 退款（按**服务阶段**分流，一步执行到位）。
  *
- * - 规则只给**建议**：`liable=customer` 按「`hours_before ≤ 提前小时数` 中最大的一条」扣减，
- *   都不命中 → 1000‰ 全退；`liable=store` / `force_majeure` → 全退；
+ * | 阶段               | 判定                      | 谁能退                        | 金额                          |
+ * | ------------------ | ------------------------- | ----------------------------- | ----------------------------- |
+ * | 服务开始前         | `now < booking.start_at`  | 持 `biz:refund:apply` 即可     | 无理由全额退，**锁定不可改**  |
+ * | 服务中（含已完成） | `now >= booking.start_at` | 仅店长（`biz:refund:approve`） | 店长**手动填写**，≤ 剩余可退   |
+ *
+ * - `apply()` 建单后**立刻**执行，不再有「等审批」的中间态；`approve()` / `reject()` 保留，
+ *   用于处理历史 `pending` 单与渠道失败（`failed`）的重试；
+ * - 判责规则（`biz_refund_policy`）**降级为参考**：试算仍返回 `policySuggestAmount` 供店长比对，
+ *   但不再决定实际退款金额（废弃「系统按提前小时数自动扣钱」的旧口径）；
  * - 去向：`original` 原路退回（只有在线支付可以）、`cash` 现金退、`balance` 退入储值余额；
  * - 执行闸门是 `biz_refund` 的条件更新，成功后同事务回写 `biz_payment.refunded_amount` /
  *   `status`、重算预约资金、按比例回减 `total_spent` 与积分、冲销提成。
@@ -175,7 +235,14 @@ export class RefundsService extends RefundPort {
    * 判责试算
    * ------------------------------------------------------------------ */
 
-  /** `POST /biz/refunds/preview`：命中规则 + 建议退款额（只读，不改账） */
+  /**
+   * `POST /biz/refunds/preview`：判定阶段 + 建议退款额（只读，不改账）。
+   *
+   * - 服务开始前 → `suggestAmount` = 剩余可退全额，`lockedAmount = true`；
+   * - 服务中 → `suggestAmount = 0`、`lockedAmount = false`，金额由店长手动填。
+   *
+   * 老判责规则仍在 `policySuggestAmount` 里返回，**仅供店长参考**。
+   */
   async preview(input: RefundPreviewInput): Promise<RefundPreview> {
     const booking = await this.requireBooking(input.bookingId);
     const cancelAt = parseInstant(input.cancelAt) ?? new Date();
@@ -183,6 +250,7 @@ export class RefundsService extends RefundPort {
     const money = await this.bookingMoney(booking.id);
     const remaining = Math.max(money.paidAmount - money.refundedAmount, 0);
     const payments = await this.refundableBreakdown(booking.id);
+    const stage = resolveRefundStage(booking.startAt, cancelAt);
     const assessment = await this.assess({
       startAt: booking.startAt,
       cancelAt,
@@ -196,6 +264,8 @@ export class RefundsService extends RefundPort {
       startAt: booking.startAt,
       cancelAt,
       hoursToStart: round2(hoursBetween(booking.startAt, cancelAt)),
+      stage,
+      stageLabel: REFUND_STAGE_LABELS[stage],
       liable,
       policyId: assessment.policy?.id ?? null,
       policyName: assessment.policy?.name ?? null,
@@ -204,7 +274,10 @@ export class RefundsService extends RefundPort {
       paidAmount: money.paidAmount,
       refundedAmount: money.refundedAmount,
       refundableAmount: remaining,
-      suggestAmount: assessment.suggestAmount,
+      // 服务开始前＝无理由全额退；服务中不自动带出金额（店长手动填）
+      suggestAmount: stage === 'before_start' ? remaining : 0,
+      lockedAmount: stage === 'before_start',
+      policySuggestAmount: assessment.suggestAmount,
       deductAmount: Math.max(remaining - assessment.suggestAmount, 0),
       payments,
     };
@@ -215,12 +288,22 @@ export class RefundsService extends RefundPort {
    * ------------------------------------------------------------------ */
 
   /**
-   * `POST /biz/refunds`：生成**待审批**退款单（金额默认取建议值，可改但必须填原因）。
+   * `POST /biz/refunds`：**一步到底**发起并执行退款。
    *
-   * `biz_refund.amount` = 判责基数（申请退款金额），`actual_amount` = 实际退款额，
-   * `deduct_amount = amount − actual_amount`（§4.5 字段口径）。
+   * - 服务开始前：无理由全额退。金额锁定为支付单剩余可退全额（**忽略前端传值**，
+   *   防止用旧参数绕过锁定），有 `biz:refund:apply` 权限即可，不需要审批；
+   * - 服务中：只有持 `biz:refund:approve` 的店长能发起，金额必须手动填写，
+   *   上限是该支付单剩余可退。
+   *
+   * 建单后直接调 `approve()`：执行链路（预留额度 → 打渠道 → 同事务落地）一行都没复制
+   * —— 资金逻辑只能有一份（money-invariants 第 1 条）。
+   *
+   * `biz_refund.amount` = `actual_amount` = 实退额，`deduct_amount` 恒为 0（新流程无判责扣减）。
    */
-  async apply(input: RefundApplyInput, actorId: number): Promise<RefundRow> {
+  async apply(
+    input: RefundApplyInput,
+    actor: RequestActor,
+  ): Promise<RefundApplyResult> {
     const reason = input.reason?.trim();
     if (!reason) throw new BadRequestException('退款原因必填');
     if (reason.length < 2) throw new BadRequestException('退款原因过于简单');
@@ -240,33 +323,35 @@ export class RefundsService extends RefundPort {
     const remaining = payment.amount - payment.refundedAmount;
     if (remaining <= 0) throw new ConflictException('该支付单已无可退金额');
 
-    const liable = input.liable ?? 'customer';
-    const assessment = await this.assess({
-      startAt: booking?.startAt ?? null,
-      cancelAt: new Date(),
-      liable,
-      base: remaining,
-      policyId: input.policyId,
-    });
+    const now = new Date();
+    const stage = resolveRefundStage(booking?.startAt ?? null, now);
 
-    const amount = Math.trunc(input.amount ?? remaining);
-    if (amount <= 0) throw new BadRequestException('申请退款金额必须大于 0');
-    if (amount > remaining)
-      throw new BadRequestException(
-        `申请退款金额不得超过该支付单剩余可退金额 ${remaining} 分`,
-      );
-    // 实际退款额默认取判责建议；人工改额时同样必须给出原因（原因本来就必填）
-    const suggested =
-      amount === remaining
-        ? assessment.suggestAmount
-        : assessment.revalue(amount);
-    const actualAmount = Math.trunc(input.actualAmount ?? suggested);
-    if (actualAmount < 0) throw new BadRequestException('实际退款金额不合法');
-    if (actualAmount > amount)
-      throw new BadRequestException('实际退款金额不得超过申请退款金额');
+    let amount: number;
+    let liable: Liable;
+    if (stage === 'before_start') {
+      // 服务开始前：无理由全额退，金额由服务端锁定（不信任前端传值）
+      amount = remaining;
+      liable = 'store';
+    } else {
+      // 服务中：是否退、退多少由店长判断
+      if (!this.hasPermission(actor, APPROVE_PERMISSION))
+        throw new ForbiddenException(
+          '预约已开始，退款需店长处理（权限 biz:refund:approve）',
+        );
+      const manual = input.actualAmount ?? input.amount;
+      if (manual === undefined || manual === null)
+        throw new BadRequestException('服务开始后退款必须手动填写退款金额');
+      amount = Math.trunc(manual);
+      if (amount <= 0) throw new BadRequestException('退款金额必须大于 0');
+      if (amount > remaining)
+        throw new BadRequestException(
+          `退款金额不得超过该支付单剩余可退金额 ${remaining} 分`,
+        );
+      liable = input.liable ?? 'store';
+    }
+    const actualAmount = amount;
 
     const timezone = (await this.bizConfig.booking()).timezone;
-    const now = new Date();
     const inserted = await this.database.db.insert(bizRefunds).values({
       refundNo: temporaryToken(),
       // 退款门店跟随原支付单：钱收在哪家店，就退在哪家店
@@ -276,17 +361,19 @@ export class RefundsService extends RefundPort {
       customerId: payment.customerId,
       amount,
       actualAmount,
-      deductAmount: amount - actualAmount,
+      deductAmount: 0,
       mode: input.mode,
-      policyId: assessment.policy?.id ?? null,
+      // 规则不再参与金额计算，落库一律不记规则 id（留 null 以示「非按规则退」）
+      policyId: null,
+      refundStage: stage,
       liable,
       reason,
       status: 'pending',
-      applyBy: actorId,
+      applyBy: actor.id,
       applyAt: now,
       remark: input.remark ?? null,
-      createdBy: actorId,
-      updatedBy: actorId,
+      createdBy: actor.id,
+      updatedBy: actor.id,
     });
     const id = Number(inserted[0].insertId);
     const refundNo = buildDocNo('R', id, timezone, now);
@@ -301,15 +388,17 @@ export class RefundsService extends RefundPort {
       paymentNo: payment.paymentNo,
       amount,
       actualAmount,
-      deductAmount: amount - actualAmount,
       mode: input.mode,
       liable,
-      policyId: assessment.policy?.id ?? null,
+      stage,
       reason,
-      operator: actorId,
+      operator: actor.id,
     });
 
-    return this.requireRefund(id);
+    // 一步执行：复用审批链路（含「先占额度、再打渠道」的资金安全顺序）
+    await this.approve(id, actor.id);
+    const latest = await this.requireRefund(id);
+    return { ...latest, executed: latest.status === 'success' };
   }
 
   /* ------------------------------------------------------------------ *
@@ -556,6 +645,7 @@ export class RefundsService extends RefundPort {
     }
     if (filter.status) conditions.push(eq(bizRefunds.status, filter.status));
     if (filter.mode) conditions.push(eq(bizRefunds.mode, filter.mode));
+    if (filter.stage) conditions.push(eq(bizRefunds.refundStage, filter.stage));
     if (filter.liable) conditions.push(eq(bizRefunds.liable, filter.liable));
     if (filter.paymentId)
       conditions.push(eq(bizRefunds.paymentId, filter.paymentId));
@@ -644,6 +734,14 @@ export class RefundsService extends RefundPort {
     );
     if (!payment) throw new ConflictException('该预约没有可退款的支付单');
     return payment;
+  }
+
+  /** 权限判断：支持超管通配 `*:*:*`（与 `AccessTokenGuard` 同一口径） */
+  private hasPermission(actor: RequestActor, permission: string): boolean {
+    return (
+      actor.permissions.includes('*:*:*') ||
+      actor.permissions.includes(permission)
+    );
   }
 
   private async requireBooking(

@@ -16,21 +16,21 @@ const PAGE_ICONS: IconName[] = ['clock', 'check', 'headset'];
 /**
  * 取消规则（原则性表述）。
  *
- * 命中门店政策时，上面还会显示 `GET /app/bookings/:id/refund-preview` 给的**真实金额**
- * （服务端按 `RefundPort.preview` 的同一套判责规则算）——
+ * 上面还会显示 `GET /app/bookings/:id/refund-preview` 给的**真实口径**：
+ * 服务开始前 = 无理由全额退（直接给金额）；服务已开始 = 由门店判断（不给金额）。
  * 页面自己写「扣 30%」这类数字只会给出错误的金额预期，比不写更糟。
  * 只有拿不到预览（没有支付、接口失败）时才退回这几条原则性说明。
  */
 const RULES = [
   {
     icon: 'clock' as IconName,
-    title: '提前取消',
-    text: '越早取消，越不影响门店安排，通常可全额退还定金',
+    title: '服务开始前',
+    text: '无理由全额退款，门店不扣任何费用',
   },
   {
     icon: 'check' as IconName,
-    title: '临近取消',
-    text: '临近开始时间取消，门店可能按规则扣除部分定金',
+    title: '服务开始后',
+    text: '是否退款、退多少由门店根据实际情况判断',
   },
   {
     icon: 'headset' as IconName,
@@ -52,14 +52,14 @@ definePage({
     paidText: '0.00',
     dueText: '0.00',
     submitting: false,
-    /** 费用预览（服务端按门店判责规则算）；拿不到时 previewOk = false，退回原则性说明 */
+    /** 费用预期（服务端按服务阶段判）；拿不到时 previewOk = false，退回原则性说明 */
     previewOk: false,
     preview: {
-      policyName: '',
+      stageLabel: '',
       paidText: '0.00',
       suggestText: '0.00',
-      deductText: '0.00',
-      deductAmount: 0,
+      /** true = 服务已开始，是否退由门店判断（页面不给金额） */
+      inService: false,
     },
   },
 
@@ -72,7 +72,7 @@ definePage({
   },
 
   /**
-   * 拉费用预览。
+   * 拉费用预期。
    *
    * 失败**不报错、不挡流程**：没有支付（纯到店付）时预览就是 0，接口也可能不可用；
    * 这时退回「取消说明」里的原则性表述，顾客照样能取消。
@@ -84,11 +84,10 @@ definePage({
       this.setData({
         previewOk: true,
         preview: {
-          policyName: preview.policyName ?? '',
+          stageLabel: preview.stageLabel,
           paidText: fenToYuan(preview.paidAmount),
           suggestText: fenToYuan(preview.suggestAmount),
-          deductText: fenToYuan(preview.deductAmount),
-          deductAmount: preview.deductAmount,
+          inService: preview.stage === 'in_service',
         },
       });
     } catch {

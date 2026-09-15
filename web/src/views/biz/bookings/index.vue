@@ -410,6 +410,8 @@ const can = {
   update: userStore.hasPermission('biz:booking:update'),
   settle: userStore.hasPermission('biz:payment:create'),
   refund: userStore.hasPermission('biz:refund:apply'),
+  /** 服务开始后的退款只有店长能做 */
+  refundApprove: userStore.hasPermission('biz:refund:approve'),
   remove: userStore.hasPermission('biz:booking:delete'),
   adjust: userStore.hasPermission('biz:booking:adjust'),
   credit: userStore.hasPermission('biz:credit:list'),
@@ -440,8 +442,21 @@ function canSettle(row: Booking) {
   return row.status !== 'cancelled' && row.status !== 'no_show';
 }
 
+/** 服务是否已开始（与后端口径一致：`now >= startAt` 即服务中） */
+function isInService(row: Booking) {
+  return Date.parse(row.startAt) <= Date.now();
+}
+
+/**
+ * 能否看到「退款」入口。
+ *
+ * 服务开始前有 `biz:refund:apply` 即可（无理由全额退）；服务开始后只有店长
+ * （`biz:refund:approve`）。后端还会按同一规则再拦一次 —— 这里只是避免
+ * 「点得进去、提交才报 403」的体验。
+ */
 function canRefund(row: Booking) {
-  return row.paidAmount > 0 && row.status !== 'cancelled';
+  if (row.paidAmount <= 0 || row.status === 'cancelled') return false;
+  return isInService(row) ? can.refundApprove : true;
 }
 
 async function handleArrive(row: Booking) {
@@ -1240,7 +1255,7 @@ async function submitReschedule(force = false) {
 }
 
 /* ------------------------------------------------------------------ *
- * 退款入口（§17.4：只发起申请，审批在「退款审批」页）
+ * 退款入口（建单即执行：服务开始前免审批，服务中仅店长）
  * ------------------------------------------------------------------ */
 
 const refundVisible = ref(false);
@@ -1273,7 +1288,10 @@ async function openRefund(row: Booking) {
     const preview = await previewBookingRefund(row.id);
     refundPreview.value = preview;
     refundForm.value.liable = preview.liable;
-    refundForm.value.amountYuan = centsToYuan(preview.suggestAmount);
+    // 服务开始前：金额锁定为剩余可退全额；服务中：留空，由店长手动填
+    refundForm.value.amountYuan = preview.lockedAmount
+      ? centsToYuan(preview.suggestAmount)
+      : undefined;
   } finally {
     refundLoading.value = false;
   }
@@ -1281,17 +1299,23 @@ async function openRefund(row: Booking) {
 
 async function submitRefund() {
   const booking = refundTarget.value;
-  if (!booking) return;
+  const preview = refundPreview.value;
+  if (!booking || !preview) return;
   if (!refundForm.value.reason.trim()) {
     LewMessage.error('退款必须填写原因');
+    return;
+  }
+  // 服务开始前的金额由服务端锁定（不传 amount）；服务中必须手动填
+  const locked = preview.lockedAmount;
+  const amountYuan = refundForm.value.amountYuan;
+  if (!locked && !(amountYuan && amountYuan > 0)) {
+    LewMessage.error('服务中退款必须手动填写退款金额');
     return;
   }
   refundSaving.value = true;
   try {
     const result = await applyBookingRefund(booking.id, {
-      ...(refundForm.value.amountYuan !== undefined
-        ? { amount: yuanToCents(refundForm.value.amountYuan) }
-        : {}),
+      ...(locked ? {} : { amount: yuanToCents(amountYuan ?? 0) }),
       mode: refundForm.value.mode,
       liable: refundForm.value.liable,
       reason: refundForm.value.reason.trim(),
@@ -1300,7 +1324,9 @@ async function submitRefund() {
         : {}),
     });
     LewMessage.success(
-      `退款申请已提交（${result.refundNo}，待审批）；审批通过后才真正退款`,
+      result.executed
+        ? `退款已执行（${result.refundNo}）`
+        : `退款单已生成（${result.refundNo}，状态 ${result.status}，请到「退款管理」重试）`,
     );
     refundVisible.value = false;
     void refresh();
@@ -2354,10 +2380,10 @@ function handleDelete(row: Booking) {
       </div>
     </LewModal>
 
-    <!-- 退款申请 -->
+    <!-- 退款（建单即执行） -->
     <LewModal
       v-model:visible="refundVisible"
-      :title="`发起退款 - ${refundTarget?.bookingNo ?? ''}`"
+      :title="`退款 - ${refundTarget?.bookingNo ?? ''}`"
       width="700px"
       :footer-buttons="[
         {
@@ -2376,7 +2402,7 @@ function handleDelete(row: Booking) {
             type: 'fill',
             color: 'error',
             size: 'small',
-            text: '提交退款申请',
+            text: '确认退款',
             loading: refundSaving,
             request: submitRefund,
           },
@@ -2385,38 +2411,32 @@ function handleDelete(row: Booking) {
     >
       <div v-if="refundPreview" class="flex flex-col gap-3 p-5">
         <div
-          class="rounded-8px border border-[var(--lew-color-warning)] p-3 text-12.5px leading-5"
+          class="rounded-8px border p-3 text-12.5px leading-5"
+          :class="
+            refundPreview.lockedAmount
+              ? 'border-[var(--lew-color-success)]'
+              : 'border-[var(--lew-color-warning)]'
+          "
         >
-          此处只**发起申请**，不会立即打款：退款单会进入「退款审批」页，审批通过后才执行。
-          申请与审批是分离的两个权限点。
+          <template v-if="refundPreview.lockedAmount">
+            服务开始前可<b>无理由全额退款</b>：金额锁定为剩余可退全额，提交后<span
+              class="font-600"
+              >立即执行、不需审批</span
+            >。
+          </template>
+          <template v-else>
+            服务已开始，是否退款、退多少由<b>店长判断</b>：请手动填写金额，提交后<span
+              class="font-600"
+              >立即执行</span
+            >。
+          </template>
         </div>
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-13px">
+          <div class="text-[var(--app-text-muted)]">退款阶段</div>
+          <div class="font-600">{{ refundPreview.stageLabel }}</div>
           <div class="text-[var(--app-text-muted)]">距预约开始</div>
           <div class="tabular-nums">
             {{ refundPreview.hoursToStart.toFixed(1) }} 小时
-          </div>
-          <div class="text-[var(--app-text-muted)]">判责主体</div>
-          <div>
-            {{
-              refundPreview.liable === 'store'
-                ? '门店责任（全退）'
-                : refundPreview.liable === 'force_majeure'
-                  ? '不可抗力（全退）'
-                  : '顾客责任（按规则扣减）'
-            }}
-          </div>
-          <div class="text-[var(--app-text-muted)]">命中规则</div>
-          <div>
-            {{ refundPreview.policyName ?? '未命中规则（按 100% 退）'
-            }}{{
-              refundPreview.hoursBefore !== null
-                ? `（提前 ${refundPreview.hoursBefore} 小时）`
-                : ''
-            }}
-          </div>
-          <div class="text-[var(--app-text-muted)]">退款比例</div>
-          <div class="tabular-nums">
-            {{ (refundPreview.refundPermille / 10).toFixed(1) }}%
           </div>
           <div class="text-[var(--app-text-muted)]">已收 / 已退</div>
           <div class="tabular-nums">
@@ -2430,9 +2450,13 @@ function handleDelete(row: Booking) {
               money(refundPreview.suggestAmount)
             }}</span>
           </div>
-          <div class="text-[var(--app-text-muted)]">判责扣减</div>
-          <div class="tabular-nums">
-            {{ money(refundPreview.deductAmount) }}
+          <div class="text-[var(--app-text-muted)]">规则参考</div>
+          <div>
+            {{ refundPreview.policyName ?? '未命中规则' }} →
+            {{ money(refundPreview.policySuggestAmount) }}
+            <span class="text-12px text-[var(--app-text-muted)]"
+              >（不参与实际退款）</span
+            >
           </div>
         </div>
 
@@ -2473,11 +2497,18 @@ function handleDelete(row: Booking) {
             width="150px"
             :min="0"
             :step="0.01"
-            placeholder="默认取建议值"
+            :disabled="refundPreview.lockedAmount"
+            :placeholder="
+              refundPreview.lockedAmount ? '全额锁定' : '手动填写退款金额'
+            "
           />
-          <span class="text-12.5px text-[var(--app-text-muted)]"
-            >可改，但必须填原因</span
-          >
+          <span class="text-12.5px text-[var(--app-text-muted)]">
+            {{
+              refundPreview.lockedAmount
+                ? '服务开始前全额退，金额不可改'
+                : '服务中退款由店长决定，金额必填'
+            }}
+          </span>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <span class="text-13px text-[var(--app-text-secondary)]"
@@ -2492,16 +2523,18 @@ function handleDelete(row: Booking) {
               { label: '退入储值余额', value: 'balance' },
             ]"
           />
-          <span class="text-13px text-[var(--app-text-secondary)]">判责</span>
-          <LewSelect
-            v-model="refundForm.liable"
-            width="160px"
-            :options="[
-              { label: '顾客责任', value: 'customer' },
-              { label: '门店责任', value: 'store' },
-              { label: '不可抗力', value: 'force_majeure' },
-            ]"
-          />
+          <template v-if="!refundPreview.lockedAmount">
+            <span class="text-13px text-[var(--app-text-secondary)]">判责</span>
+            <LewSelect
+              v-model="refundForm.liable"
+              width="160px"
+              :options="[
+                { label: '顾客责任', value: 'customer' },
+                { label: '门店责任', value: 'store' },
+                { label: '不可抗力', value: 'force_majeure' },
+              ]"
+            />
+          </template>
         </div>
         <LewInput
           v-model="refundForm.reason"
@@ -2519,7 +2552,7 @@ function handleDelete(row: Booking) {
         />
       </div>
       <div v-else class="p-5 text-13px text-[var(--app-text-muted)]">
-        {{ refundLoading ? '正在试算判责…' : '暂无数据' }}
+        {{ refundLoading ? '正在判定服务阶段…' : '暂无数据' }}
       </div>
     </LewModal>
 
