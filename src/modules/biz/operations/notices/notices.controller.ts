@@ -22,6 +22,7 @@ import {
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
+import { MAX_PAGE_SIZE } from '../../common/query.js';
 import { NoticesService } from './notices.service.js';
 
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -86,7 +87,7 @@ const optional = <T extends z.ZodTypeAny>(schema: T) =>
 
 const templateQuerySchema = z.object({
   page: optional(z.coerce.number().int().min(1)),
-  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  pageSize: optional(z.coerce.number().int().min(1).max(MAX_PAGE_SIZE)),
   channel: optional(z.enum(['sms', 'site', 'both'])),
   status: optional(z.enum(['active', 'disabled'])),
   keyword: optional(z.string().max(50)),
@@ -94,7 +95,7 @@ const templateQuerySchema = z.object({
 
 const logQuerySchema = z.object({
   page: optional(z.coerce.number().int().min(1)),
-  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  pageSize: optional(z.coerce.number().int().min(1).max(MAX_PAGE_SIZE)),
   channel: optional(z.enum(['sms', 'site'])),
   status: optional(z.enum(['pending', 'success', 'failed', 'skipped'])),
   templateCode: optional(z.string().max(50)),
@@ -117,7 +118,7 @@ const sendSchema = z.object({
 
 const inboxQuerySchema = z.object({
   page: optional(z.coerce.number().int().min(1)),
-  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  pageSize: optional(z.coerce.number().int().min(1).max(MAX_PAGE_SIZE)),
 });
 
 const inboxReadSchema = z.object({

@@ -49,6 +49,7 @@ const templateOptions = reactive<{ label: string; value: string }[]>([]);
 const templateSelectable = ref(true);
 async function loadTemplateOptions() {
   try {
+    // 200 条足够覆盖全部模板，且正好等于后端 MAX_PAGE_SIZE，不会被夹也不会 400
     const data = await listNoticeTemplates({ page: 1, pageSize: 200 });
     templateOptions.splice(
       0,
@@ -58,8 +59,15 @@ async function loadTemplateOptions() {
         value: template.code,
       })),
     );
-  } catch {
-    // 无 biz:notice:template 权限时降级为手输模板编码
+  } catch (error) {
+    // 只有「无权限」才是预期内的降级（走手输模板编码）；
+    // 其它错误（网络抖动 / 500）绝不能伪装成"你没权限"，否则问题会被长期掩盖
+    const status =
+      (error as { response?: { status?: number } } | undefined)?.response
+        ?.status ?? 0;
+    if (status !== 403) {
+      console.warn('[notice-logs] 通知模板下拉加载失败：', error);
+    }
     templateSelectable.value = false;
   }
 }

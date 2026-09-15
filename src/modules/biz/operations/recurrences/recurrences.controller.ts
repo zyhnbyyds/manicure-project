@@ -22,6 +22,7 @@ import {
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
+import { MAX_PAGE_SIZE } from '../../common/query.js';
 import { RecurrencesService } from './recurrences.service.js';
 
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -83,7 +84,7 @@ const optional = <T extends z.ZodTypeAny>(schema: T) =>
 
 const listQuerySchema = z.object({
   page: optional(z.coerce.number().int().min(1)),
-  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  pageSize: optional(z.coerce.number().int().min(1).max(MAX_PAGE_SIZE)),
   status: optional(z.enum(['active', 'paused', 'stopped'])),
   customerId: optional(z.coerce.number().int().positive()),
   staffId: optional(z.coerce.number().int().positive()),
@@ -91,7 +92,7 @@ const listQuerySchema = z.object({
 
 const bookingsQuerySchema = z.object({
   page: optional(z.coerce.number().int().min(1)),
-  pageSize: optional(z.coerce.number().int().min(1).max(100)),
+  pageSize: optional(z.coerce.number().int().min(1).max(MAX_PAGE_SIZE)),
 });
 
 registerComponent('CreateRecurrenceRequest', createSchema);

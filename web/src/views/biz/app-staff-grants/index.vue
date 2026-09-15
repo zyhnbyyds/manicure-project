@@ -165,6 +165,7 @@ function openReject(row: AppStaffGrant) {
 }
 
 async function submitReject() {
+  if (rejectSubmitting.value) return;
   const reason = rejectReason.value.trim();
   if (!reason) {
     LewMessage.warning('请填写驳回原因（申请人会看到）');
@@ -268,12 +269,38 @@ async function submitReject() {
     </div>
 
     <!-- 驳回弹窗 -->
+    <!--
+      注意：lew-ui 的 LewModal **只有 `close` 事件**，既没有 `@ok` 也没有 `ok-button-props`。
+      之前用 `@ok="submitReject"` 的结果是：点「确定」只会关掉弹窗，驳回请求根本没发出去。
+      底部按钮必须用 `footer-buttons` 声明（`request` 负责真正提交）。
+    -->
     <LewModal
-      v-model="rejectVisible"
+      v-model:visible="rejectVisible"
       title="驳回开通申请"
       width="480px"
-      :ok-button-props="{ loading: rejectSubmitting }"
-      @ok="submitReject"
+      :footer-buttons="[
+        {
+          props: {
+            type: 'text',
+            color: 'gray',
+            size: 'small',
+            text: '取消',
+            request: () => {
+              rejectVisible = false;
+            },
+          },
+        },
+        {
+          props: {
+            type: 'fill',
+            color: 'error',
+            size: 'small',
+            text: '确定驳回',
+            loading: rejectSubmitting,
+            request: submitReject,
+          },
+        },
+      ]"
     >
       <div class="flex flex-col gap-3">
         <p class="m-0 text-sm text-[var(--lew-text-color-6)]">

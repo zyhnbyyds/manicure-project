@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { Public } from '../../../../common/auth/public.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../common/query.js';
+import { MAX_PAGE_SIZE, parsePagination } from '../../common/query.js';
 import type { PaymentDraft } from '../../common/ports.js';
 import { PaymentsService, type PaymentListFilter } from './payments.service.js';
 
@@ -115,7 +115,7 @@ const listPaymentQuerySchema = z.object({
       '门店筛选：超管/`system:store:all` 可查任意门店；普通账号只能筛可见门店（否则 403）',
   }),
   page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
   channel: z.enum(CHANNELS).optional(),
   status: z.enum(STATUSES).optional(),
   purpose: z.enum(PURPOSES).optional(),

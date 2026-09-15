@@ -7,7 +7,21 @@ import {
 } from './shop-time.js';
 
 export const DEFAULT_PAGE_SIZE = 20;
-export const MAX_PAGE_SIZE = 100;
+
+/**
+ * 单页条数硬上限。
+ *
+ * **为什么是 200 而不是 100**：列表接口按 §3 约定 4 只返回 `{ items, page, pageSize }`
+ * （**没有 total**），前端 `useTable` 因此靠「多取一条」判断有没有下一页 ——
+ * 它实际请求的是 `pageSize + 1`。若上限是 100，用户把每页选成 100 时：
+ * - `parsePagination` 系接口会把它夹回 100，返回正好 100 条 → `100 > 100` 为 false
+ *   →「下一页」按钮永远消失，第 101 条之后的单据再也翻不到；
+ * - zod 校验系接口（`max(100)`）更直接，101 会 **400**。
+ *
+ * 留出「多取一条」的余量后，前端 100 与后端 200 之间不再有缝。
+ * 各 controller 的 `pageSize` zod schema 必须引用本常量，别再写死数字。
+ */
+export const MAX_PAGE_SIZE = 200;
 
 /** 列表分页统一口径：返回 `{ items, page, pageSize }`，**没有 total**（§3 约定 4） */
 export function parsePagination(

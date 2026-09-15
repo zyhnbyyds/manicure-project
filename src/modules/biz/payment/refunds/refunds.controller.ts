@@ -20,7 +20,7 @@ import {
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../common/query.js';
+import { MAX_PAGE_SIZE, parsePagination } from '../../common/query.js';
 import {
   RefundsService,
   type RefundApplyInput,
@@ -107,7 +107,7 @@ const listQuerySchema = z.object({
       '门店筛选：超管/`system:store:all` 可查任意门店；普通账号只能筛可见门店（否则 403）',
   }),
   page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
   status: z.enum(REFUND_STATUSES).optional(),
   mode: z.enum(MODES).optional(),
   stage: z.enum(STAGES).optional().openapi({

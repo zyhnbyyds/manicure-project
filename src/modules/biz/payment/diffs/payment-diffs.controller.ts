@@ -21,7 +21,7 @@ import {
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../common/query.js';
+import { MAX_PAGE_SIZE, parsePagination } from '../../common/query.js';
 import {
   PaymentDiffsService,
   type PaymentDiffListFilter,
@@ -51,7 +51,7 @@ const reconcileSchema = z.object({
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
   billDate: z.string().optional(),
   channel: z.enum(DIFF_CHANNELS).optional(),
   status: z.enum(DIFF_STATUSES).optional(),
