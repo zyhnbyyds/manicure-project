@@ -311,6 +311,9 @@ export interface BookingVM {
   reviewable: boolean;
   payableText: string;
   dueText: string;
+  /** 是否有退款：详情/卡片据此显示「已退 ¥xx」，否则顾客会以为钱还没退 */
+  hasRefund: boolean;
+  refundText: string;
   /** 项目名拼接，如「法式优雅白边 · 单色经典甲油胶」 */
   itemNames: string;
   itemCount: number;
@@ -368,6 +371,8 @@ export function toBookingVM(
     reviewable: booking.status === 'completed',
     payableText: fenToYuan(booking.payableAmount),
     dueText: fenToYuan(booking.dueAmount),
+    hasRefund: booking.refundAmount > 0,
+    refundText: fenToYuan(booking.refundAmount),
     itemNames: booking.items.map((item) => item.name).join(' · '),
     itemCount: booking.items.length,
     durationText: formatDuration(durationMinutes),

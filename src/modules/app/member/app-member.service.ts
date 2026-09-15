@@ -1010,6 +1010,7 @@ function mapBooking(
     payableAmount: booking.payableAmount,
     paidAmount: booking.paidAmount,
     dueAmount: booking.dueAmount,
+    refundAmount: booking.refundAmount,
     items: booking.items.map((item) => ({
       serviceItemId: item.serviceItemId,
       name: item.name,

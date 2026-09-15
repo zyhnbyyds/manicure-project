@@ -1246,6 +1246,7 @@ describe('B6 自助下单 / 我的预约 / 自助取消（A10）', () => {
         'paidAmount',
         'payStatus',
         'payableAmount',
+        'refundAmount',
         'staffId',
         'staffName',
         'startAt',

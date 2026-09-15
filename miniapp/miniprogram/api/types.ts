@@ -378,6 +378,8 @@ export interface Booking {
   payableAmount: number;
   paidAmount: number;
   dueAmount: number;
+  /** 已退金额（分）。部分退款时 `payStatus` 仍是 `paid`，靠它才能显示「已退 ¥xx」 */
+  refundAmount: number;
   items: BookingItem[];
 }
 

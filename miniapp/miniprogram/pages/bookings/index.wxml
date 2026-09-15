@@ -115,6 +115,13 @@
             <view class="bcard__pay {{item.paid ? 'is-paid' : ''}}">
               {{item.payStatusText}}
             </view>
+            <!--
+              已退金额必须单独露出来：部分退款时 `payStatus` 仍是 `paid`（规格如此），
+              只显示「已结清」会让顾客以为钱没退（取消页还写着「可在我的预约查看进度」）。
+            -->
+            <view wx:if="{{item.hasRefund}}" class="bcard__refund">
+              已退 ¥{{item.refundText}}
+            </view>
           </view>
         </view>
 

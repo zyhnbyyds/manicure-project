@@ -1002,6 +1002,15 @@ export const appBookingVo = z.object({
   payableAmount: z.number().int(),
   paidAmount: z.number().int(),
   dueAmount: z.number().int(),
+  /**
+   * 已退金额（分）。
+   *
+   * 取消页明确告诉顾客「退款金额…可在『我的预约』查看进度」，
+   * 但只给 `payStatus` 是不够的：部分退款时 `refund_amount < paid_amount`，
+   * 按 §booking「`refundAmount >= paidAmount` 才置 `refunded`」的口径，
+   * `payStatus` 仍停在 `paid`，顾客看到「已结清」会以为钱没退。
+   */
+  refundAmount: z.number().int(),
   items: z.array(appBookingItemVo),
 });
 registerComponent('AppBookingVo', appBookingVo);

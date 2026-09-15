@@ -245,6 +245,13 @@
   color: var(--c-success);
 }
 
+/* 已退金额：部分退款后 `payStatus` 仍是「已结清」，这条是顾客唯一能看到的退款事实 */
+.bcard__refund {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: var(--c-primary);
+}
+
 /* ── 底：结算方式 + 操作 ──────────────────────────────────── */
 
 .bcard__foot {
