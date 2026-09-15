@@ -3,6 +3,7 @@ import 'virtual:uno.css';
 import 'lew-ui/style';
 import './styles/index.css';
 import './styles/ai-md.css';
+import './styles/ai-theme.css';
 
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';

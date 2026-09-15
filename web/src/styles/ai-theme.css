@@ -1,0 +1,167 @@
+/**
+ * AI 操作助手视觉主题（渐变 / 网格 / 发光）。
+ *
+ * 为什么单独一个文件而不是塞进 `index.css`：
+ * 这些类只服务 AI 面板（弹层背板、欢迎页发光图标、渐变按钮、气泡描边），
+ * 放进全局文件会让「后台整体克制风格」的 token 与 AI 的科技感混在一起，
+ * 抽查主题变量时容易误判。颜色全部走 CSS 变量，暗色模式自动跟随。
+ *
+ * 变量命名前缀统一 `--ai-`，别与 `--app-*`（布局/语义）和 `--lew-*`（组件库）混用。
+ */
+
+:root {
+  /* 主色：蓝紫（#4F6EF7）→ 紫（#8B5CF6）。比纯蓝更有 AI 感，也是面板的唯一强调色来源 */
+  --ai-accent: #4f6ef7;
+  --ai-accent-2: #8b5cf6;
+  --ai-gradient: linear-gradient(135deg, #4f6ef7 0%, #7c5cf8 55%, #8b5cf6 100%);
+  /* 图标渐变略亮一档，跟按钮同框时不会糊成一团 */
+  --ai-gradient-soft: linear-gradient(135deg, #6d8bff 0%, #9b7bff 100%);
+  /* 卡片/气泡的浅色描边与投影（浅色模式） */
+  --ai-chip-border: rgb(79 110 247 / 18%);
+  --ai-shadow-soft: 0 12px 32px rgb(79 110 247 / 12%);
+  /* 图标外发光：只做出「亮一点」的观感，别糊成一团光斑 */
+  --ai-glow: drop-shadow(0 4px 14px rgb(124 92 248 / 38%));
+}
+
+.lew-dark {
+  --ai-chip-border: rgb(139 124 255 / 26%);
+  --ai-shadow-soft: 0 12px 32px rgb(0 0 0 / 45%);
+  --ai-glow: drop-shadow(0 4px 14px rgb(124 92 248 / 28%));
+}
+
+/* ============================================
+   弹层背板：蓝紫渐变 + 微妙网格纹理
+   ============================================ */
+
+.ai-backdrop {
+  background:
+    radial-gradient(
+      120% 90% at 12% 0%,
+      rgb(79 110 247 / 42%) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      110% 100% at 92% 100%,
+      rgb(139 92 246 / 40%) 0%,
+      transparent 58%
+    ),
+    linear-gradient(160deg, #5b6ff5 0%, #7b5ff5 48%, #9a6cf2 100%);
+}
+
+/* 网格纹理：两向 1px 细线，用极低透明度避免抢主体 */
+.ai-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 14%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 14%) 1px, transparent 1px);
+  background-size: 34px 34px;
+  /* 边缘淡出，避免直角网格在圆角处被硬切 */
+  mask-image: radial-gradient(120% 120% at 50% 0%, #000 45%, transparent 100%);
+}
+
+/* ============================================
+   通用质感：渐变底 / 发光 / 卡片
+   ============================================ */
+
+.ai-gradient {
+  background: var(--ai-gradient);
+}
+
+.ai-gradient-text {
+  background: var(--ai-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* 欢迎页 AI 图标：渐变底 + 外发光 + 缓慢呼吸 */
+.ai-glow {
+  filter: drop-shadow(var(--ai-glow));
+  animation: ai-breathe 3.6s ease-in-out infinite;
+}
+
+@keyframes ai-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-2px) scale(1.015);
+  }
+}
+
+/* 推荐问题卡片：hover 上浮 + 主题色描边 */
+.ai-pick-card {
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.ai-pick-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ai-accent);
+  box-shadow: var(--ai-shadow-soft);
+}
+
+/* 快捷标签：淡渐变底 + 主题色文字 */
+.ai-chip {
+  background: color-mix(in srgb, var(--ai-accent) 8%, transparent);
+  border: 1px solid var(--ai-chip-border);
+  color: var(--ai-accent);
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ai-chip:hover {
+  background: color-mix(in srgb, var(--ai-accent) 16%, transparent);
+  transform: translateY(-1px);
+}
+
+/* 渐变主按钮（新建对话 / 发送）：hover 提亮，active 微缩 */
+.ai-btn-gradient {
+  background: var(--ai-gradient);
+  transition:
+    filter 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ai-btn-gradient:hover:not(:disabled) {
+  filter: brightness(1.07);
+  box-shadow: 0 6px 18px rgb(79 110 247 / 38%);
+}
+
+.ai-btn-gradient:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.ai-btn-gradient:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+  opacity: 0.5;
+}
+
+/* 输入框聚焦态：主题色光圈（替代 lew-ui 默认描边，视觉上更「现代 AI 输入框」） */
+.ai-composer:focus-within {
+  border-color: var(--ai-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-accent) 14%, transparent);
+}
+
+/* 尊重系统「减少动态效果」 */
+@media (prefers-reduced-motion: reduce) {
+  .ai-glow,
+  .ai-pick-card,
+  .ai-chip,
+  .ai-btn-gradient {
+    animation: none;
+    transition: none;
+  }
+
+  .ai-pick-card:hover,
+  .ai-chip:hover {
+    transform: none;
+  }
+}

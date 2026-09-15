@@ -100,23 +100,25 @@ function stepDot(status: string): string {
 
 <template>
   <aside
-    class="flex flex-col shrink-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg-card)] overflow-hidden transition-[width] duration-200"
-    :style="{ width: collapsed ? '40px' : '288px' }"
+    class="flex flex-col shrink-0 rounded-2xl bg-[var(--app-bg-card)] overflow-hidden transition-[width] duration-200"
+    :class="
+      collapsed
+        ? ''
+        : 'border border-[var(--app-border)] shadow-[var(--app-shadow)]'
+    "
+    :style="{ width: collapsed ? '44px' : '288px' }"
   >
-    <!-- 折叠态：窄条 -->
-    <div v-if="collapsed" class="flex flex-col items-center py-3 gap-3 h-full">
-      <div
-        class="w-8 h-8 flex items-center justify-center rounded-md cursor-pointer text-[var(--app-text-muted)] hover:bg-[var(--app-bg-hover)] hover:text-[var(--app-text-primary)]"
-        title="展开操作详情"
+    <!-- 折叠态：窄条（只留展开入口，不占对话宽度） -->
+    <div v-if="collapsed" class="flex flex-col items-center py-3 h-full">
+      <button
+        type="button"
+        class="flex items-center justify-center w-8 h-8 rounded-lg border-none bg-transparent cursor-pointer text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-bg-hover)] hover:text-[var(--app-text-primary)]"
+        title="展开操作详情（风险与审批 / Tool 调用 / 任务时间线）"
+        aria-label="展开操作详情"
         @click="emit('toggle')"
       >
         <PanelRight :size="16" />
-      </div>
-      <div class="flex flex-col items-center gap-1.5">
-        <div class="w-1.5 h-1.5 rounded-full bg-[var(--app-border)]" />
-        <div class="w-1.5 h-1.5 rounded-full bg-[var(--app-border)]" />
-        <div class="w-1.5 h-1.5 rounded-full bg-[var(--app-border)]" />
-      </div>
+      </button>
     </div>
 
     <!-- 展开态：完整面板 -->
@@ -126,7 +128,10 @@ function stepDot(status: string): string {
       >
         <span class="text-14px font-600">操作详情</span>
         <button
-          class="flex items-center justify-center w-6 h-6 rounded-md text-[var(--app-text-muted)] hover:bg-[var(--app-bg-hover)] hover:text-[var(--app-text-primary)]"
+          type="button"
+          class="flex items-center justify-center w-6 h-6 rounded-md border-none bg-transparent cursor-pointer text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-bg-hover)] hover:text-[var(--app-text-primary)]"
+          title="收起"
+          aria-label="收起操作详情"
           @click="emit('toggle')"
         >
           <X :size="15" />
