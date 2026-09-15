@@ -27,6 +27,7 @@ import { BizConfigService } from '../common/biz-config.service.js';
 import { SchedulePort, type BookingConflictItem } from '../common/ports.js';
 import {
   addLocalDays,
+  listLocalDates,
   minutesToTime,
   shopDateOf,
   shopDayRange,
@@ -95,11 +96,65 @@ export type ScheduleOverrideFilter = {
 
 export type ConflictItem = BookingConflictItem;
 
+export type ScheduleCalendarQuery = {
+  /** 起始日 YYYY-MM-DD（含） */
+  from: string;
+  /** 结束日 YYYY-MM-DD（含） */
+  to: string;
+  /** 只取这些美甲师；不传 = 全部在职/停用的未删美甲师 */
+  staffIds?: number[] | undefined;
+  /** 门店（日历按该门店求值：专属优先、通用兜底）；不传 = 只看通用层 */
+  storeId?: number | null | undefined;
+};
+
+export type ScheduleCalendarDay = { date: string; weekday: number };
+
+export type ScheduleCalendarCell = {
+  staffId: number;
+  date: string;
+  /** true = 当天休息（`off` 例外），`segments` 必为空 */
+  off: boolean;
+  /**
+   * 这一格的班次是哪来的：
+   * - `override`：当天有日期例外（请假 / 自定义时段）；
+   * - `store`：该门店的专属周模板；
+   * - `shared`：通用周模板（该店没配专属班次）。
+   */
+  source: 'override' | 'store' | 'shared';
+  segments: ShiftSegment[];
+};
+
+export type ScheduleCalendarResult = {
+  from: string;
+  to: string;
+  storeId: number | null;
+  days: ScheduleCalendarDay[];
+  staffs: { id: number; nickname: string }[];
+  cells: ScheduleCalendarCell[];
+};
+
+/** 日历一次最多查多少天（62 天 ≈ 两个月，够周视图/月视图用） */
+export const MAX_CALENDAR_DAYS = 62;
+/** 日历一次最多查多少位美甲师（防止有人把 200 个 id 塞进来） */
+export const MAX_CALENDAR_STAFFS = 50;
+
 type OverrideState = {
   type: 'off' | 'custom';
   startTime: string | null;
   endTime: string | null;
 };
+
+/** 门店专属层「有内容才算命中」，否则回落到通用层（`store_id IS NULL`） */
+function pickScoped<T>(
+  scoped: Map<string, T[]>,
+  shared: Map<string, T[]>,
+  key: string,
+): T[] | null {
+  const scopedRows = scoped.get(key);
+  if (scopedRows && scopedRows.length) return scopedRows;
+  const sharedRows = shared.get(key);
+  return sharedRows && sharedRows.length ? sharedRows : null;
+}
 
 /**
  * 排班（§4.3 / §9.3 / §6.4）。
@@ -394,6 +449,189 @@ export class SchedulingService extends SchedulePort {
         ),
       );
     return { conflicts };
+  }
+
+  /**
+   * **日历矩阵**（日期区间 × 美甲师的实际生效班次）。
+   *
+   * 语义与 {@link resolveShifts} 逐格一致（off → 休息；custom → 替代周模板；
+   * 否则周模板，门店专属优先 / 通用兜底），只是把 `天数 × 人数` 次查询压成 **2 次批量查询**：
+   * 周视图一屏最多 62 天 × 数十人，逐个 `resolveShifts` 会打出上千条 SQL。
+   *
+   * 返回的是**逐格**结果（`cells`），前端按 `staffId + date` 索引后直接铺日历。
+   */
+  async getCalendar(
+    query: ScheduleCalendarQuery,
+  ): Promise<ScheduleCalendarResult> {
+    const from = this.assertLocalDate(query.from);
+    const to = this.assertLocalDate(query.to);
+    const storeId = query.storeId ?? null;
+
+    const days: ScheduleCalendarDay[] = listLocalDates(from, to).map(
+      (date) => ({ date, weekday: shopWeekday(date) }),
+    );
+    if (!days.length) throw new BadRequestException('结束日不能早于起始日');
+    if (days.length > MAX_CALENDAR_DAYS)
+      throw new BadRequestException(
+        `日历一次最多查询 ${MAX_CALENDAR_DAYS} 天（当前 ${days.length} 天）`,
+      );
+
+    const requested = [...new Set(query.staffIds ?? [])].filter(
+      (id) => Number.isSafeInteger(id) && id > 0,
+    );
+    if (requested.length > MAX_CALENDAR_STAFFS)
+      throw new BadRequestException(
+        `日历一次最多查询 ${MAX_CALENDAR_STAFFS} 位美甲师（当前 ${requested.length} 位）`,
+      );
+
+    const staffs = await this.database.db
+      .select({ id: bizStaffs.id, nickname: bizStaffs.nickname })
+      .from(bizStaffs)
+      .where(
+        requested.length
+          ? and(inArray(bizStaffs.id, requested), isNull(bizStaffs.deletedAt))
+          : isNull(bizStaffs.deletedAt),
+      )
+      .orderBy(asc(bizStaffs.id));
+
+    if (!staffs.length || !days.length)
+      return { from, to, storeId, days, staffs: [], cells: [] };
+
+    const staffIds = staffs.map((row) => row.id);
+
+    // 门店层级过滤：选了门店就同时取「专属 + 通用」两份，内存里再做级联
+    const weeklyRows = await this.database.db
+      .select({
+        staffId: bizStaffWeeklyShifts.staffId,
+        storeId: bizStaffWeeklyShifts.storeId,
+        weekday: bizStaffWeeklyShifts.weekday,
+        startTime: bizStaffWeeklyShifts.startTime,
+        endTime: bizStaffWeeklyShifts.endTime,
+      })
+      .from(bizStaffWeeklyShifts)
+      .where(
+        and(
+          inArray(bizStaffWeeklyShifts.staffId, staffIds),
+          storeId === null
+            ? isNull(bizStaffWeeklyShifts.storeId)
+            : or(
+                isNull(bizStaffWeeklyShifts.storeId),
+                eq(bizStaffWeeklyShifts.storeId, storeId),
+              ),
+        ),
+      );
+
+    const overrideRows = await this.database.db
+      .select({
+        staffId: bizStaffScheduleOverrides.staffId,
+        storeId: bizStaffScheduleOverrides.storeId,
+        date: bizStaffScheduleOverrides.date,
+        type: bizStaffScheduleOverrides.type,
+        startTime: bizStaffScheduleOverrides.startTime,
+        endTime: bizStaffScheduleOverrides.endTime,
+      })
+      .from(bizStaffScheduleOverrides)
+      .where(
+        and(
+          inArray(bizStaffScheduleOverrides.staffId, staffIds),
+          gte(bizStaffScheduleOverrides.date, from),
+          lte(bizStaffScheduleOverrides.date, to),
+          storeId === null
+            ? isNull(bizStaffScheduleOverrides.storeId)
+            : or(
+                isNull(bizStaffScheduleOverrides.storeId),
+                eq(bizStaffScheduleOverrides.storeId, storeId),
+              ),
+        ),
+      );
+
+    // ---- 建索引：`staffId|weekday` / `staffId|date`，各分「专属」「通用」两桶 ----
+    const toSegments = (rows: ShiftSegment[]): ShiftSegment[] =>
+      rows
+        .map((row) => ({ startTime: row.startTime, endTime: row.endTime }))
+        .sort(
+          (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime),
+        );
+
+    const weeklyStore = new Map<string, ShiftSegment[]>();
+    const weeklyShared = new Map<string, ShiftSegment[]>();
+    for (const row of weeklyRows) {
+      const key = `${row.staffId}|${row.weekday}`;
+      const bucket = row.storeId === null ? weeklyShared : weeklyStore;
+      const list = bucket.get(key) ?? [];
+      list.push({ startTime: row.startTime, endTime: row.endTime });
+      bucket.set(key, list);
+    }
+
+    const overrideStore = new Map<string, OverrideState[]>();
+    const overrideShared = new Map<string, OverrideState[]>();
+    for (const row of overrideRows) {
+      const key = `${row.staffId}|${row.date}`;
+      const bucket = row.storeId === null ? overrideShared : overrideStore;
+      const list = bucket.get(key) ?? [];
+      list.push({
+        type: row.type,
+        startTime: row.startTime,
+        endTime: row.endTime,
+      });
+      bucket.set(key, list);
+    }
+
+    const cells: ScheduleCalendarCell[] = [];
+    for (const staff of staffs) {
+      for (const day of days) {
+        const overrides =
+          pickScoped(
+            overrideStore,
+            overrideShared,
+            `${staff.id}|${day.date}`,
+          ) ?? [];
+
+        if (overrides.some((row) => row.type === 'off')) {
+          cells.push({
+            staffId: staff.id,
+            date: day.date,
+            off: true,
+            source: 'override',
+            segments: [],
+          });
+          continue;
+        }
+
+        const customs = overrides.filter(
+          (row) => row.type === 'custom' && row.startTime && row.endTime,
+        );
+        if (customs.length) {
+          cells.push({
+            staffId: staff.id,
+            date: day.date,
+            off: false,
+            source: 'override',
+            segments: toSegments(
+              customs.map((row) => ({
+                startTime: row.startTime as string,
+                endTime: row.endTime as string,
+              })),
+            ),
+          });
+          continue;
+        }
+
+        const weeklyKey = `${staff.id}|${day.weekday}`;
+        const scoped = weeklyStore.get(weeklyKey);
+        const shared = weeklyShared.get(weeklyKey) ?? [];
+        const segments = scoped && scoped.length ? scoped : shared;
+        cells.push({
+          staffId: staff.id,
+          date: day.date,
+          off: false,
+          source: scoped && scoped.length ? 'store' : 'shared',
+          segments: toSegments(segments),
+        });
+      }
+    }
+
+    return { from, to, storeId, days, staffs, cells };
   }
 
   /**

@@ -156,6 +156,14 @@ const APP_SETTLE_CHANNELS: readonly PayChannel[] = ['balance', 'card'];
  */
 export const UNSETTLEABLE_BOOKING_STATUSES = ['cancelled', 'no_show'] as const;
 
+/**
+ * 日历一次最多返回多少块。
+ *
+ * 日历**不分页**（分页会把一周的预约切得七零八落），所以用硬上限领住：
+ * 一屏铺不下的店应该收窄日期区间，而不是让响应无限长。
+ */
+export const MAX_CALENDAR_BLOCKS = 1000;
+
 export type BookingListFilter = {
   /**
    * 门店筛选（连锁直营）。
@@ -181,6 +189,31 @@ esolveStoreScope 直接 403）。不传 = 按账号可见范围。
    * 预约列表页**不传**这个参数（它必须能查历史取消单）。
    */
   collectable?: boolean | undefined;
+};
+
+/** 日历块：只带铺格子必需的字段，详情留给 `GET /biz/bookings/:id` */
+export type BookingCalendarBlock = {
+  id: number;
+  bookingNo: string;
+  staffId: number;
+  staffName: string | null;
+  customerId: number;
+  customerName: string;
+  startAt: Date;
+  endAt: Date;
+  status: BookingStatus;
+  payStatus: BookingPayStatus;
+  payableAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+};
+
+export type BookingCalendarResult = {
+  dateFrom: string | null;
+  dateTo: string | null;
+  items: BookingCalendarBlock[];
+  /** true = 命中硬上限被截断，日历内容不完整 */
+  truncated: boolean;
 };
 
 /** 动作 → 允许的起始状态（集中一张表，禁止散落在 controller，§7.3） */
@@ -340,6 +373,73 @@ export class BookingsService implements BookingPort {
       items: rows.map((row) => ({ ...row.booking, staffName: row.staffName })),
       page,
       pageSize,
+    };
+  }
+
+  /**
+   * **日历区间块**（日历视图专用，不分页）。
+   *
+   * 与 {@link list} 共用同一套门店 / 权限 / 日期过滤，区别只有三点：
+   * 1. 按 `startAt` **升序**（日历从上往下铺，要的是时间顺序）；
+   * 2. 只返回铺格子必需的**轻量字段**（点块再走详情接口拿全量）；
+   * 3. 不分页，但硬上限 {@link MAX_CALENDAR_BLOCKS} 条，超出用 `truncated` 告知。
+   */
+  async calendar(
+    filter: {
+      dateFrom?: string | undefined;
+      dateTo?: string | undefined;
+      staffId?: number | undefined;
+      storeId?: number | undefined;
+      status?: BookingStatus | undefined;
+    },
+    actor: RequestActor,
+  ): Promise<BookingCalendarResult> {
+    const bookingConfig = await this.config.booking();
+    const scope = await this.resolveScope(actor);
+    const store = await resolveStoreScope(
+      this.database.db,
+      actor,
+      filter.storeId,
+    );
+    const where = andConditions([
+      isNull(bizBookings.deletedAt),
+      ...storeConditions(bizBookings.storeId, store, filter.storeId),
+      filter.staffId ? eq(bizBookings.staffId, filter.staffId) : undefined,
+      filter.status ? eq(bizBookings.status, filter.status) : undefined,
+      localDateRange(
+        bizBookings.startAt,
+        filter.dateFrom,
+        filter.dateTo,
+        bookingConfig.timezone,
+      ),
+      ...(await this.scopeConditions(scope, actor)),
+    ]);
+    const rows = await this.database.db
+      .select({ booking: bizBookings, staffName: bizStaffs.nickname })
+      .from(bizBookings)
+      .leftJoin(bizStaffs, eq(bizBookings.staffId, bizStaffs.id))
+      .where(where)
+      .orderBy(asc(bizBookings.startAt), asc(bizBookings.id))
+      .limit(MAX_CALENDAR_BLOCKS + 1);
+    return {
+      dateFrom: filter.dateFrom ?? null,
+      dateTo: filter.dateTo ?? null,
+      truncated: rows.length > MAX_CALENDAR_BLOCKS,
+      items: rows.slice(0, MAX_CALENDAR_BLOCKS).map((row) => ({
+        id: row.booking.id,
+        bookingNo: row.booking.bookingNo,
+        staffId: row.booking.staffId,
+        staffName: row.staffName,
+        customerId: row.booking.customerId,
+        customerName: row.booking.customerName,
+        startAt: row.booking.startAt,
+        endAt: row.booking.endAt,
+        status: row.booking.status,
+        payStatus: row.booking.payStatus,
+        payableAmount: row.booking.payableAmount,
+        paidAmount: row.booking.paidAmount,
+        dueAmount: row.booking.dueAmount,
+      })),
     };
   }
 

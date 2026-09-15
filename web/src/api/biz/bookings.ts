@@ -446,6 +446,52 @@ export function listBookings(
   });
 }
 
+/* ------------------------------------------------------------------ *
+ * 日历区间块（日历视图专用）
+ * ------------------------------------------------------------------ */
+
+/** 日历块：只带铺格子必需的字段，点块再拉详情 */
+export interface BookingCalendarBlock {
+  id: number;
+  bookingNo: string;
+  staffId: number;
+  staffName: string | null;
+  customerId: number;
+  customerName: string;
+  /** 后端返回 ISO 时刻（UTC 序列化），展示时按东八区转换 */
+  startAt: string;
+  endAt: string;
+  status: BookingStatus;
+  payStatus: BookingPayStatus;
+  payableAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+}
+
+export interface BookingCalendarResult {
+  dateFrom: string | null;
+  dateTo: string | null;
+  items: BookingCalendarBlock[];
+  /** true = 命中后端 1000 条硬上限被截断，日历内容不完整 */
+  truncated: boolean;
+}
+
+export interface BookingCalendarQuery {
+  dateFrom?: string;
+  dateTo?: string;
+  staffId?: number;
+  status?: BookingStatus;
+}
+
+/**
+ * 日历区间预约块（不分页，按开始时间升序，后端硬上限 1000 条）。
+ *
+ * 日历专用：列表接口的分页会把一周的预约切碎，日历要的是**一整屏**。
+ */
+export function listBookingCalendar(query: BookingCalendarQuery = {}) {
+  return get<BookingCalendarResult>('/biz/bookings/calendar', { ...query });
+}
+
 /** 顾客账务摘要（创建弹窗用） */
 export function getBookingCustomerBrief(customerId: number) {
   return get<BookingCustomerBrief>(

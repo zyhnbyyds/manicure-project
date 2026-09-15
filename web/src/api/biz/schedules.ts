@@ -181,3 +181,60 @@ export async function deleteOverride(
   }
   return { ok: true, data: null };
 }
+
+/* ------------------------------------------------------------------ *
+ * 日历矩阵（周视图 / 日视图共用）
+ * ------------------------------------------------------------------ */
+
+/** 格子班次来源：`override` 当天例外 / `store` 本店专属模板 / `shared` 通用模板 */
+export type ScheduleCalendarSource = 'override' | 'store' | 'shared';
+
+export interface ScheduleCalendarCell {
+  staffId: number;
+  /** `YYYY-MM-DD` */
+  date: string;
+  /** true = 当天休息（`off` 例外），`segments` 必为空 */
+  off: boolean;
+  source: ScheduleCalendarSource;
+  /** 墙钟时间 `HH:MM:SS` */
+  segments: { startTime: string; endTime: string }[];
+}
+
+export interface ScheduleCalendarDay {
+  date: string;
+  /** 1=周一 … 7=周日 */
+  weekday: number;
+}
+
+export interface ScheduleCalendar {
+  from: string;
+  to: string;
+  storeId: number | null;
+  days: ScheduleCalendarDay[];
+  staffs: { id: number; nickname: string }[];
+  cells: ScheduleCalendarCell[];
+}
+
+export interface ScheduleCalendarQuery {
+  from: string;
+  to: string;
+  /** 不传 = 全部美甲师 */
+  staffIds?: number[];
+  /** 不传 = 只看通用层 */
+  storeId?: number;
+}
+
+/**
+ * 排班日历矩阵（日期区间 × 美甲师的实际生效班次）。
+ *
+ * 一次拿回整屏（后端上限 62 天 × 50 人），避免「逐个美甲师 × 逐天」调用 `getWeeklyShifts`。
+ */
+export function getScheduleCalendar(query: ScheduleCalendarQuery) {
+  const params: Record<string, string | number> = {
+    from: query.from,
+    to: query.to,
+  };
+  if (query.staffIds?.length) params.staffIds = query.staffIds.join(',');
+  if (query.storeId) params.storeId = query.storeId;
+  return get<ScheduleCalendar>('/biz/schedules/calendar', params);
+}

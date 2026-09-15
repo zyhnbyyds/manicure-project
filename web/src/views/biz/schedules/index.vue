@@ -19,12 +19,14 @@ import type {
 import {
   createOverride,
   deleteOverride,
+  getScheduleCalendar,
   getWeeklyShifts,
   listOverrides,
   replaceWeeklyShifts,
 } from '~/api/biz/schedules';
 import type {
   CreateOverrideBody,
+  ScheduleCalendarCell,
   ScheduleConflictItem,
   ScheduleOverride,
   WeeklyShift,
@@ -35,6 +37,12 @@ import { useStoreScopeStore } from '~/store/store-scope';
 import { formatDateTime } from '~/composables/useFormat';
 import { confirmDanger } from '~/utils/confirm';
 import IconButton from '~/components/IconButton.vue';
+import CalendarPanel from '~/components/calendar/CalendarPanel.vue';
+import { buildRange, todayString } from '~/components/calendar/calendar-utils';
+import type {
+  CalendarMode,
+  CalendarStaff,
+} from '~/components/calendar/calendar-utils';
 
 const storeScope = useStoreScopeStore();
 
@@ -82,6 +90,7 @@ const activeTab = ref('weekly');
 const tabOptions = [
   { label: '周模板', value: 'weekly' },
   { label: '日期例外', value: 'overrides' },
+  { label: '日历视图', value: 'calendar' },
 ];
 
 const currentStaffId = computed(() => Number(selectedStaffId.value) || 0);
@@ -501,6 +510,39 @@ const conflictFooterButtons = computed<LewModalFooterButtonItem[]>(() => {
   return buttons;
 });
 
+// ---------- 日历视图 ----------
+
+/**
+ * 日历展示**全部美甲师**（行 = 人、列 = 天），不跟随上方那一个选择器 ——
+ * 周视图的价值就是横向对比；要看单人请切回「周模板」页签。
+ */
+const calendarAnchor = ref(todayString());
+const calendarMode = ref<CalendarMode>('week');
+const calendarLoading = ref(false);
+const calendarStaffs = ref<CalendarStaff[]>([]);
+const calendarCells = ref<ScheduleCalendarCell[]>([]);
+
+/** 面板里也用同一个函数算区间，保证「显示的范围」=「请求的范围」 */
+const calendarRange = computed(() =>
+  buildRange(calendarAnchor.value, calendarMode.value),
+);
+
+async function loadCalendar() {
+  if (activeTab.value !== 'calendar') return;
+  calendarLoading.value = true;
+  try {
+    const data = await getScheduleCalendar({
+      from: calendarRange.value.from,
+      to: calendarRange.value.to,
+      storeId: activeStoreId.value || undefined,
+    });
+    calendarStaffs.value = data.staffs;
+    calendarCells.value = data.cells;
+  } finally {
+    calendarLoading.value = false;
+  }
+}
+
 // ---------- 联动加载 ----------
 watch(
   selectedStaffId,
@@ -516,6 +558,12 @@ watch(
 watch(activeStoreId, () => {
   const staffId = currentStaffId.value;
   if (staffId) void loadWeekly(staffId);
+  void loadCalendar();
+});
+
+/** 页签切到日历、或日历自己的日期/视图变了，才去拉区间矩阵 */
+watch([calendarAnchor, calendarMode, activeTab], () => {
+  void loadCalendar();
 });
 </script>
 
@@ -621,7 +669,10 @@ watch(activeStoreId, () => {
       </div>
 
       <!-- 日期例外 -->
-      <div v-else class="mt-4 flex flex-col gap-3">
+      <div
+        v-else-if="activeTab === 'overrides'"
+        class="mt-4 flex flex-col gap-3"
+      >
         <div class="flex flex-wrap items-center gap-3">
           <LewDatePicker
             v-model="overrideQuery.from"
@@ -682,6 +733,25 @@ watch(activeStoreId, () => {
             </IconButton>
           </template>
         </LewTable>
+      </div>
+
+      <!-- 日历视图：日期 × 美甲师的实际生效班次（只读，编辑请回上面两个页签） -->
+      <div v-else-if="activeTab === 'calendar'" class="mt-4">
+        <p class="mb-3 mt-0 text-12.5px text-[var(--app-text-muted)]">
+          日历展示<span class="font-600">实际生效</span
+          >的班次：已把周模板与日期例外合并求值。 灰色时段 =
+          来自周模板（门店专属优先、通用兜底），深色加粗 = 当天有日期例外
+          （请假或自定义时段）。这里只做展示，要编辑请切回「周模板 /
+          日期例外」。
+        </p>
+        <CalendarPanel
+          v-model="calendarAnchor"
+          v-model:mode="calendarMode"
+          :staffs="calendarStaffs"
+          :cells="calendarCells"
+          :loading="calendarLoading"
+          empty-text="还没有美甲师档案"
+        />
       </div>
     </div>
 

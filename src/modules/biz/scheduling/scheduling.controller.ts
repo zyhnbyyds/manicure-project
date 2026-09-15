@@ -224,3 +224,76 @@ export class SchedulingController {
     );
   }
 }
+
+const calendarQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/** `?staffIds=1,2,3` → `number[]`；空串/非法值一律丢弃 */
+function parseStaffIds(raw?: string): number[] | undefined {
+  if (!raw) return undefined;
+  const ids = raw
+    .split(',')
+    .map((value) => Number(value.trim()))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
+  return ids.length ? ids : undefined;
+}
+
+/**
+ * 排班日历（§4.3）：日期区间 × 美甲师的**实际生效班次矩阵**。
+ *
+ * 单独开一个 `biz/schedules` controller 而不是塞进 `biz/staffs/:id/*`：
+ * 一是避开路由歧义（`calendar` 会被 `:id` 吃掉），二是语义上更贴「按日历看排班」。
+ */
+@ApiTags('排班')
+@ApiBearerAuth('access-token')
+@Controller('biz/schedules')
+export class ScheduleCalendarController {
+  constructor(private readonly scheduling: SchedulingService) {}
+
+  @Get('calendar')
+  @RequirePermissions('biz:schedule:list')
+  @ApiOperation({
+    summary: '排班日历矩阵（日期区间 × 美甲师，实际生效班次）',
+  })
+  @ApiQuery({
+    name: 'from',
+    required: true,
+    description: '起始日 YYYY-MM-DD（含）',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: true,
+    description: '结束日 YYYY-MM-DD（含），与 from 最多相差 62 天',
+  })
+  @ApiQuery({
+    name: 'staffIds',
+    required: false,
+    description: '美甲师ID，逗号分隔；不传 = 全部美甲师',
+  })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description:
+      '门店ID：按该门店求值（专属优先、通用兜底）；不传 = 只看通用层',
+  })
+  @ApiResponse({ status: 200, description: '成功' })
+  calendar(
+    @Query('from') rawFrom?: string,
+    @Query('to') rawTo?: string,
+    @Query('staffIds') rawStaffIds?: string,
+    @Query('storeId') rawStoreId?: string,
+  ) {
+    const { from, to } = calendarQuerySchema.parse({
+      from: rawFrom,
+      to: rawTo,
+    });
+    return this.scheduling.getCalendar({
+      from,
+      to,
+      staffIds: parseStaffIds(rawStaffIds),
+      storeId: parseStoreId(rawStoreId),
+    });
+  }
+}

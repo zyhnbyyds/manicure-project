@@ -24,6 +24,7 @@ import {
   LewPagination,
   LewSelect,
   LewTable,
+  LewTabs,
 } from 'lew-ui';
 import type { LewModalFooterButtonItem, LewTableColumn } from 'lew-ui';
 import {
@@ -36,6 +37,7 @@ import {
   deleteBooking,
   getBooking,
   getBookingCustomerBrief,
+  listBookingCalendar,
   noShowBooking,
   previewBookingRefund,
   settleBooking,
@@ -44,6 +46,7 @@ import {
 import type {
   AvailableSlot,
   Booking,
+  BookingCalendarBlock,
   BookingConflictItem,
   BookingCustomerBrief,
   BookingDetail,
@@ -61,18 +64,28 @@ import type {
 import { listCustomers } from '~/api/biz/customers';
 import { listCreditAccountOptions } from '~/api/biz/credit-accounts';
 import { listMemberCards } from '~/api/biz/member-cards';
+import { getScheduleCalendar } from '~/api/biz/schedules';
+import type { ScheduleCalendarCell } from '~/api/biz/schedules';
 import { listActiveServiceItems } from '~/api/biz/service-items';
 import type { ServiceItem } from '~/api/biz/service-items';
 import { listActiveStaffs } from '~/api/biz/staffs';
 import { getConfigByKey } from '~/api/system/configs';
 import { useTable } from '~/composables/useTable';
 import { formatDateTime } from '~/composables/useFormat';
+import { useStoreScopeStore } from '~/store/store-scope';
 import { useUserStore } from '~/store/user';
 import { confirmDanger } from '~/utils/confirm';
 import { trimCell } from '~/utils/table-text';
 import IconButton from '~/components/IconButton.vue';
+import CalendarPanel from '~/components/calendar/CalendarPanel.vue';
+import { buildRange } from '~/components/calendar/calendar-utils';
+import type {
+  CalendarMode,
+  CalendarStaff,
+} from '~/components/calendar/calendar-utils';
 
 const userStore = useUserStore();
+const storeScope = useStoreScopeStore();
 
 /* ------------------------------------------------------------------ *
  * 展示工具：金额「分 → 元」，时间统一东八区
@@ -531,16 +544,105 @@ const detailVisible = ref(false);
 const detail = ref<BookingDetail | null>(null);
 const detailLoading = ref(false);
 
-async function openDetail(row: Booking) {
+/** 按 id 打开详情：日历块只有轻量字段，必须回后端取全量 */
+async function openDetailById(id: number) {
   detailVisible.value = true;
   detailLoading.value = true;
   detail.value = null;
   try {
-    detail.value = await getBooking(row.id);
+    detail.value = await getBooking(id);
   } finally {
     detailLoading.value = false;
   }
 }
+
+function openDetail(row: Booking) {
+  void openDetailById(row.id);
+}
+
+/* ------------------------------------------------------------------ *
+ * 日历视图
+ * ------------------------------------------------------------------ */
+
+/** `list` = 表格（默认，保留全部批量操作）；`calendar` = 日历面板（只读查看） */
+const viewMode = ref<'list' | 'calendar'>('list');
+
+const viewOptions = [
+  { label: '列表', value: 'list' },
+  { label: '日历', value: 'calendar' },
+];
+const viewModeProxy = computed({
+  get: () => viewMode.value,
+  set: (value: string) => {
+    viewMode.value = value === 'calendar' ? 'calendar' : 'list';
+  },
+});
+
+const calendarAnchor = ref(today);
+const calendarMode = ref<CalendarMode>('week');
+const calendarLoading = ref(false);
+const calendarBlocks = ref<BookingCalendarBlock[]>([]);
+const calendarCells = ref<ScheduleCalendarCell[]>([]);
+const calendarStaffs = ref<CalendarStaff[]>([]);
+const calendarTruncated = ref(false);
+
+/** 面板里用同一个函数算区间，保证「显示的范围」=「请求的范围」 */
+const calendarRange = computed(() =>
+  buildRange(calendarAnchor.value, calendarMode.value),
+);
+
+/**
+ * 拉日历数据：**预约块是主角，班次底是配菜**。
+ *
+ * 班次接口要 `biz:schedule:list` 权限 —— 只有预约/收银权限的店员拿不到。
+ * 这时静默降级成「只画预约块」，而不是把整个日历打挂。
+ */
+async function loadCalendar() {
+  if (viewMode.value !== 'calendar') return;
+  const range = calendarRange.value;
+  const staffId = query.value.staffId ? Number(query.value.staffId) : undefined;
+  calendarLoading.value = true;
+  try {
+    const [bookingResult, scheduleResult] = await Promise.all([
+      listBookingCalendar({
+        dateFrom: range.from,
+        dateTo: range.to,
+        staffId,
+        status: query.value.status || undefined,
+      }),
+      getScheduleCalendar({
+        from: range.from,
+        to: range.to,
+        staffIds: staffId ? [staffId] : undefined,
+        storeId: storeScope.activeStoreId ?? undefined,
+      }).catch(() => null),
+    ]);
+    calendarBlocks.value = bookingResult.items;
+    calendarTruncated.value = bookingResult.truncated;
+    calendarStaffs.value = scheduleResult?.staffs ?? [];
+    calendarCells.value = scheduleResult?.cells ?? [];
+  } finally {
+    calendarLoading.value = false;
+  }
+}
+
+/**
+ * 只盯住「日历真正会用到」的两个筛选（美甲师、服务状态）。
+ * 关键词 / 资金状态改了不重取日历 —— 列表页的「查询」按钮才是列表的触发点。
+ */
+watch(
+  [
+    viewMode,
+    calendarAnchor,
+    calendarMode,
+    () => query.value.staffId,
+    () => query.value.status,
+    () => storeScope.activeStoreId,
+  ],
+  () => {
+    void loadCalendar();
+  },
+);
 
 /* ------------------------------------------------------------------ *
  * 创建预约（§10.4）
@@ -1367,53 +1469,59 @@ function handleDelete(row: Booking) {
       <div>
         <h2 class="page-title m-0">预约管理</h2>
         <p class="page-subtitle mt-1 mb-0">
-          列表 + 筛选 + 状态流转；日历时间轴本期不做（§10.3）
+          列表 + 筛选 + 状态流转；日历视图可按周 /
+          天看排班占用（只读，点块看详情）
         </p>
       </div>
-      <LewButton
-        v-permission="'biz:booking:create'"
-        type="fill"
-        @click="openCreate"
-      >
-        <Plus :size="15" style="margin-right: 4px" /> 新建预约
-      </LewButton>
+      <div class="flex items-center gap-3">
+        <LewTabs v-model="viewModeProxy" :options="viewOptions" type="line" />
+        <LewButton
+          v-permission="'biz:booking:create'"
+          type="fill"
+          @click="openCreate"
+        >
+          <Plus :size="15" style="margin-right: 4px" /> 新建预约
+        </LewButton>
+      </div>
     </div>
 
-    <!-- 筛选栏 -->
+    <!-- 筛选栏（日历视图下日期由日历自己的导航控制，这里只留人和状态） -->
     <div class="app-card flex flex-wrap items-center gap-3 p-4">
-      <LewSelect
-        v-model="dateMode"
-        width="120px"
-        :options="[
-          { label: '按单日', value: 'single' },
-          { label: '按区间', value: 'range' },
-        ]"
-      />
-      <template v-if="dateMode === 'single'">
-        <LewDatePicker
-          v-model="query.date"
-          width="160px"
-          value-format="YYYY-MM-DD"
-          placeholder="店内日期"
-          clearable
+      <template v-if="viewMode === 'list'">
+        <LewSelect
+          v-model="dateMode"
+          width="120px"
+          :options="[
+            { label: '按单日', value: 'single' },
+            { label: '按区间', value: 'range' },
+          ]"
         />
-      </template>
-      <template v-else>
-        <LewDatePicker
-          v-model="query.dateFrom"
-          width="160px"
-          value-format="YYYY-MM-DD"
-          placeholder="起始日"
-          clearable
-        />
-        <span class="text-[var(--app-text-muted)]">~</span>
-        <LewDatePicker
-          v-model="query.dateTo"
-          width="160px"
-          value-format="YYYY-MM-DD"
-          placeholder="结束日"
-          clearable
-        />
+        <template v-if="dateMode === 'single'">
+          <LewDatePicker
+            v-model="query.date"
+            width="160px"
+            value-format="YYYY-MM-DD"
+            placeholder="店内日期"
+            clearable
+          />
+        </template>
+        <template v-else>
+          <LewDatePicker
+            v-model="query.dateFrom"
+            width="160px"
+            value-format="YYYY-MM-DD"
+            placeholder="起始日"
+            clearable
+          />
+          <span class="text-[var(--app-text-muted)]">~</span>
+          <LewDatePicker
+            v-model="query.dateTo"
+            width="160px"
+            value-format="YYYY-MM-DD"
+            placeholder="结束日"
+            clearable
+          />
+        </template>
       </template>
       <LewSelect
         v-model="query.staffId"
@@ -1436,21 +1544,29 @@ function handleDelete(row: Booking) {
         placeholder="全部资金状态"
         clearable
       />
-      <LewInput
-        v-model="query.keyword"
-        width="200px"
-        placeholder="单号 / 顾客 / 手机号"
-        clearable
-        @keyup.enter="search()"
-      />
-      <LewButton type="light" :loading="loading" @click="search()"
-        >查询</LewButton
+      <template v-if="viewMode === 'list'">
+        <LewInput
+          v-model="query.keyword"
+          width="200px"
+          placeholder="单号 / 顾客 / 手机号"
+          clearable
+          @keyup.enter="search()"
+        />
+        <LewButton type="light" :loading="loading" @click="search()"
+          >查询</LewButton
+        >
+        <LewButton type="text" color="gray" @click="handleReset"
+          >重置</LewButton
+        >
+      </template>
+      <span v-else class="text-12.5px text-[var(--app-text-muted)]"
+        >日历模式下改美甲师 /
+        服务状态即时生效；查看日期由日历上方的导航控制</span
       >
-      <LewButton type="text" color="gray" @click="handleReset">重置</LewButton>
     </div>
 
     <!-- 列表 -->
-    <div class="app-card overflow-hidden">
+    <div v-if="viewMode === 'list'" class="app-card overflow-hidden">
       <LewTable
         :columns="columns"
         :data-source="items"
@@ -1545,6 +1661,28 @@ function handleDelete(row: Booking) {
           @change="handleChange"
         />
       </div>
+    </div>
+
+    <!-- 日历（只读：点块打开同一个详情弹窗） -->
+    <div v-else class="app-card p-4">
+      <div
+        v-if="calendarTruncated"
+        class="mb-3 flex items-center gap-2 rounded-6px bg-[var(--app-bg-hover)] px-3 py-2 text-12.5px text-[var(--lew-color-warning)]"
+      >
+        <AlertTriangle :size="14" />
+        区间内预约超过 1000 条，日历只画了前 1000 条 ——
+        请缩小日期范围或按美甲师筛选。
+      </div>
+      <CalendarPanel
+        v-model="calendarAnchor"
+        v-model:mode="calendarMode"
+        :staffs="calendarStaffs"
+        :cells="calendarCells"
+        :bookings="calendarBlocks"
+        :loading="calendarLoading"
+        empty-text="该区间没有可展示的美甲师"
+        @select-booking="openDetailById"
+      />
     </div>
 
     <!-- 创建预约（§10.4） -->

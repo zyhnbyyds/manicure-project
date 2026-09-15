@@ -332,6 +332,63 @@ export class BookingsController {
     return this.bookings.list(page, pageSize, filter, request.user);
   }
 
+  /**
+   * 日历区间块。**必须声明在 `@Get(':id')` 之前** —— 否则 `calendar` 会被当成 `:id`。
+   */
+  @Get('calendar')
+  @RequirePermissions('biz:booking:list')
+  @ApiOperation({
+    summary: '日历区间预约块（不分页，硬上限 1000 条，按开始时间升序）',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: '起始日 YYYY-MM-DD（含）',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: '结束日 YYYY-MM-DD（含）',
+  })
+  @ApiQuery({ name: 'staffId', required: false, description: '美甲师筛选' })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description: '门店筛选，口径与列表接口完全一致',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: [
+      'pending',
+      'confirmed',
+      'arrived',
+      'completed',
+      'cancelled',
+      'no_show',
+    ],
+  })
+  @ApiResponse({ status: 200, description: '成功' })
+  calendar(
+    @Req() request: AuthRequest,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('staffId') rawStaffId?: string,
+    @Query('storeId') rawStoreId?: string,
+    @Query('status') status?: BookingStatus,
+  ) {
+    return this.bookings.calendar(
+      {
+        dateFrom,
+        dateTo,
+        staffId: rawStaffId ? Number(rawStaffId) : undefined,
+        storeId: rawStoreId ? Number(rawStoreId) : undefined,
+        status,
+      },
+      request.user,
+    );
+  }
+
   @Get('customers/:customerId/brief')
   @RequirePermissions('biz:booking:list')
   @ApiOperation({ summary: '顾客账务摘要（创建预约弹窗展示折扣与余额）' })
