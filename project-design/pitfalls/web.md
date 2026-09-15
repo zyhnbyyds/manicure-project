@@ -341,3 +341,31 @@
   危险操作统一走 `confirmDanger`（它自带 `running` 标志）。
 - **怎么发现的**：直接读 `web/node_modules/lew-ui/dist/index.js` 搜 `props.request`；
   靠「应该有吧」去猜，会白改 30 个文件。
+
+## 22. lew-ui 的 `width` / `min-width` 写在**内联样式**上 —— `:deep()` 覆盖不掉
+
+- **现象**：AI 助手输入区（`ChatInput.vue`）里「输入框 + 渐变发送按钮」那一行，
+  发送按钮被挤出 composer 的圆角容器，只看得见一条渐变边；
+  DevTools 里 `.lew-textarea-view` 的 `minWidth` 是 `100%`，
+  而自己在 scoped 样式里写的 `:deep(.lew-textarea-view)` 规则在 CSSOM 里**一条都匹配不上**（见下「怎么发现」）。
+- **根因**：`LewTextarea` / `LewInput` 把尺寸直接写成**元素内联样式**
+  （`web/node_modules/lew-ui/dist/index.js`：根节点 `style: Q(u(I))`，
+  `I` 由 `width` / `minWidth` 等 prop 算出，textarea 内部还有 `width: '100%'`）。
+  内联样式优先级高于任何选择器 —— 类选择器、`data-v` 属性选择器、`!important` 之外的一切都盖不住。
+  于是「输入框」当 flex item 时按整行宽度撑住，后面跟着的按钮只能溢出。
+- **正确做法**：**别去覆盖组件的尺寸，改给它套一层自己控制尺寸的容器**：
+
+  ```vue
+  <div class="flex-1 min-w-0">
+    <LewTextarea class="w-full" ... />
+  </div>
+  ```
+
+  组件里的 `width: 100%` 就只相对这层算，`flex-1 min-w-0` 负责收缩。
+  同类组件（`LewInput` / `LewInputNumber`）放进 flex 行时都要这么办。
+
+- **怎么发现的**：Playwright 量盒子（`getBoundingClientRect`）—— 按钮右边界 1230 > 容器右边界 1193，
+  先确定是真溢出、不是截图错觉；再遍历 `document.styleSheets` 找所有命中该元素、且带 `min-width`
+  的规则，结果**零命中**，说明这个值不来自样式表；最后 `el.getAttribute('style')` 拿到
+  `min-width: 100%; width: 100%` 那串内联样式，回头读组件源码印证。
+  **有内联样式就别再猜选择器了**，这一步能省掉半小时的 `:deep()` 试错。

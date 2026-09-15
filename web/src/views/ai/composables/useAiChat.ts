@@ -1,8 +1,9 @@
 import { nextTick, onMounted, ref } from 'vue';
-import { LewMessage } from 'lew-ui';
+import { LewDialog, LewMessage } from 'lew-ui';
 import {
   confirmAction,
   createSession,
+  deleteSession,
   getTask,
   listMessages,
   listSessions,
@@ -69,6 +70,26 @@ export function useAiChat() {
     await selectSession(session.id);
   }
 
+  /**
+   * 确保存在当前会话：没有就新建一个并选中。
+   *
+   * 欢迎页的推荐问题 / 快捷标签要能「点一下就直接发起对话」，
+   * 用户不该先手动点「新建对话」——这里兜住这个入口。
+   */
+  async function ensureSession(): Promise<AiSession | null> {
+    if (currentSession.value) return currentSession.value;
+    try {
+      const session = await createSession('新会话');
+      sessions.value.unshift(session);
+      currentSession.value = session;
+      messages.value = [];
+      return session;
+    } catch (error) {
+      LewMessage.error(error instanceof Error ? error.message : '新建会话失败');
+      return null;
+    }
+  }
+
   async function selectSession(id: number) {
     currentSession.value = sessions.value.find((s) => s.id === id) ?? null;
     messages.value = await listMessages(id);
@@ -88,9 +109,7 @@ export function useAiChat() {
   async function handleRenameSession(id: number, title: string) {
     try {
       const updated = await updateSessionTitle(id, title);
-      const idx = sessions.value.findIndex((s) => s.id === id);
-      if (idx !== -1) sessions.value[idx] = updated;
-      if (currentSession.value?.id === id) currentSession.value = updated;
+      patchSession(updated);
       LewMessage.success('标题已更新');
     } catch (error) {
       LewMessage.error(error instanceof Error ? error.message : '更新标题失败');
@@ -98,9 +117,22 @@ export function useAiChat() {
   }
 
   // ---------- 发送消息 ----------
-  async function handleSend() {
-    const content = input.value.trim();
-    if (!content || !currentSession.value || sending.value) return;
+
+  /**
+   * 发送消息。
+   *
+   * @param preset 预设内容（欢迎页推荐问题 / 快捷标签直接发起）；不传则取输入框。
+   */
+  async function handleSend(preset?: string) {
+    const content = (preset ?? input.value).trim();
+    if (!content || sending.value) return;
+
+    // 无会话时自动新建：欢迎页点推荐问题即可开始对话
+    const session = await ensureSession();
+    if (!session) return;
+
+    // 首条消息前视为「空会话」：用于决定是否用第一句提问当标题
+    const wasEmpty = !messages.value.some((m) => m.role === 'user');
 
     input.value = '';
     sending.value = true;
@@ -115,7 +147,7 @@ export function useAiChat() {
     // 用户消息
     messages.value.push({
       id: Date.now(),
-      sessionId: currentSession.value.id,
+      sessionId: session.id,
       role: 'user',
       content,
       toolCalls: null,
@@ -127,7 +159,7 @@ export function useAiChat() {
     const freshId = Date.now() + 1;
     const fresh: AiMessage = {
       id: freshId,
-      sessionId: currentSession.value.id,
+      sessionId: session.id,
       role: 'assistant',
       content: null,
       toolCalls: [],
@@ -138,12 +170,11 @@ export function useAiChat() {
     messages.value.push(fresh);
     await scrollToBottom();
 
+    // 第一句提问当会话标题（会话列表里「新会话」重复出现，等于没有标题）
+    if (wasEmpty) void applyFirstQuestionTitle(session, content);
+
     try {
-      const result = await sendMessage(
-        currentSession.value.id,
-        content,
-        handleSseEvent,
-      );
+      const result = await sendMessage(session.id, content, handleSseEvent);
       // SSE 收尾：内容已在流式中实时累积，此处回填工具结果并结束「生成中」状态
       const freshMsg = messages.value.find((m) => m.id === freshId);
       if (freshMsg) {
@@ -164,6 +195,77 @@ export function useAiChat() {
       void loadTaskHistory();
       await scrollToBottom();
     }
+  }
+
+  /**
+   * 用首句提问当会话标题（后端默认标题「新会话」没有区分度）。
+   *
+   * 只改本地状态、不 await：SSE 才是主流程，标题改名失败不该影响这次对话。
+   * 长度按会话行宽度截断，超长加省略号（后端上限 200，这里远低于）。
+   */
+  async function applyFirstQuestionTitle(session: AiSession, content: string) {
+    const title = content.length > 24 ? `${content.slice(0, 24)}…` : content;
+    try {
+      const updated = await updateSessionTitle(session.id, title);
+      patchSession(updated);
+    } catch {
+      // 静默：标题只是展示优化，失败就保持「新会话」
+    }
+  }
+
+  /** 用最新的会话对象替换列表与当前会话里的同一项 */
+  function patchSession(updated: AiSession) {
+    const idx = sessions.value.findIndex((s) => s.id === updated.id);
+    if (idx !== -1) sessions.value[idx] = updated;
+    if (currentSession.value?.id === updated.id) {
+      currentSession.value = updated;
+    }
+  }
+
+  /**
+   * 删除会话（后端软删，置 status=closed）。
+   *
+   * 删除当前会话时顺手切到列表里剩下最近的一个；一个都不剩就回到欢迎页
+   * （欢迎页可直接点推荐问题重新开始）。
+   */
+  function handleDeleteSession(id: number, title: string) {
+    LewDialog.warning({
+      title: '删除会话',
+      content: `确定删除「${title}」？该会话的消息与 AI 操作审计记录会保留，但不再出现在列表里。`,
+      footerButtons: [
+        { props: { text: '取消', type: 'text', color: 'gray', size: 'small' } },
+        {
+          props: {
+            text: '删除',
+            type: 'fill',
+            color: 'error',
+            size: 'small',
+            request: async () => {
+              try {
+                await deleteSession(id);
+              } catch {
+                // 提示已由请求拦截器统一弹出，失败就不动本地列表
+                return;
+              }
+              sessions.value = sessions.value.filter((s) => s.id !== id);
+              LewMessage.success('会话已删除');
+              if (currentSession.value?.id !== id) return;
+              const next = sessions.value[0];
+              if (next) {
+                await selectSession(next.id);
+              } else {
+                currentSession.value = null;
+                messages.value = [];
+                pendingApproval.value = null;
+                waitingApproval.value = false;
+                riskLevel.value = '';
+                toolCalls.value = [];
+              }
+            },
+          },
+        },
+      ],
+    });
   }
 
   function handleSseEvent(event: AiSseEvent) {
@@ -487,6 +589,7 @@ export function useAiChat() {
     handleCreateSession,
     selectSession,
     handleRenameSession,
+    handleDeleteSession,
     // 发送
     input,
     sending,
