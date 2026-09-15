@@ -4,7 +4,7 @@ import {
   NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service.js';
 import {
   appWxUsers,
@@ -733,6 +733,28 @@ export class AppMemberService {
   }
 
   /**
+   * 批量取美甲师昵称（`staff_id` → `nickname`）。
+   *
+   * `biz_booking` 只存 `staff_id`，而 biz 侧的 `BookingWithItems` 不带名字 ——
+   * 直接投影就会得到 `staffName: null`，于是顾客在小程序里看到的是「到店安排」，
+   * 明明下单时亲手选了小美（2026-09 实测踩到）。
+   *
+   * 这里补一次映射而不是去改 biz 侧的查询：`listByCustomer` 被多处复用，
+   * 给它加 join 会牵动整条链路的类型与快照口径。
+   */
+  private async staffNamesByIds(
+    staffIds: Array<number | null>,
+  ): Promise<Map<number, string>> {
+    const ids = [...new Set(staffIds.filter((id): id is number => id != null))];
+    if (ids.length === 0) return new Map();
+    const rows = await this.database.db
+      .select({ id: bizStaffs.id, nickname: bizStaffs.nickname })
+      .from(bizStaffs)
+      .where(inArray(bizStaffs.id, ids));
+    return new Map(rows.map((row) => [row.id, row.nickname]));
+  }
+
+  /**
    * 我的预约列表（A10）。
    *
    * `customer_id` 只从 token 对应的身份来，客户端传什么都不好使（§8.3 隔离）。
@@ -755,10 +777,15 @@ export class AppMemberService {
       pageSize,
       { status: query.status as never },
     );
+    const staffNames = await this.staffNamesByIds(
+      result.items.map((row) => row.staffId),
+    );
     return {
       page: result.page,
       pageSize: result.pageSize,
-      items: result.items.map((row) => mapBooking(row, tz)),
+      items: result.items.map((row) =>
+        mapBooking(row, tz, staffNameOf(staffNames, row.staffId)),
+      ),
     };
   }
 
@@ -779,7 +806,12 @@ export class AppMemberService {
       bookingId,
     );
     if (!booking) throw new NotFoundException('预约不存在');
-    return mapBooking(booking, await this.shopTimeZone());
+    const staffNames = await this.staffNamesByIds([booking.staffId]);
+    return mapBooking(
+      booking,
+      await this.shopTimeZone(),
+      staffNameOf(staffNames, booking.staffId),
+    );
   }
 
   /**
@@ -946,13 +978,31 @@ export class AppMemberService {
   }
 }
 
+/**
+ * 从 `id → 昵称` 映射里取美甲师名。
+ *
+ * `staffId` 为空（顾客没指定、到店再安排）或美甲师已被删除时返回 `null` ——
+ * 契约里 `staffName` 是 `nullable`，前端据此显示「到店安排」。
+ */
+function staffNameOf(
+  names: Map<number, string>,
+  staffId: number | null,
+): string | null {
+  if (staffId == null) return null;
+  return names.get(staffId) ?? null;
+}
+
 /** 预约列表 VO 投影：只留 C 端字段 */
-function mapBooking(booking: BookingWithItems, timeZone: string): AppBookingVo {
+function mapBooking(
+  booking: BookingWithItems,
+  timeZone: string,
+  staffName: string | null,
+): AppBookingVo {
   return {
     id: booking.id,
     bookingNo: booking.bookingNo,
     staffId: booking.staffId,
-    staffName: null,
+    staffName,
     startAt: appIso(booking.startAt, timeZone),
     endAt: appIso(booking.endAt, timeZone),
     status: booking.status,
