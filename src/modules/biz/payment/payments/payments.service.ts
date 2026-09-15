@@ -11,6 +11,7 @@ import { DatabaseService } from '../../../../database/database.service.js';
 import {
   bizBookingItems,
   bizBookings,
+  bizCustomers,
   bizPaymentLogs,
   bizPayments,
 } from '../../../../database/schema/index.js';
@@ -49,6 +50,17 @@ import { WxpayNativeProvider } from '../channels/wxpay-native.provider.js';
 import { PaymentDiffsService } from '../diffs/payment-diffs.service.js';
 
 export type PaymentRow = typeof bizPayments.$inferSelect;
+/**
+ * 列表项 = 表行 + 联查出来的展示名。
+ *
+ * `biz_payment` 只存 `booking_id` / `customer_id`，列表直接返回表行会让页面显示
+ * `#10` / `#9` 这种内部主键，店员看不出是哪一单、哪位顾客。
+ */
+export type PaymentListItem = PaymentRow & {
+  bookingNo: string | null;
+  customerName: string | null;
+};
+
 export type PaymentLogRow = typeof bizPaymentLogs.$inferSelect;
 
 export type PaymentStatus =
@@ -202,7 +214,7 @@ export class PaymentsService extends PaymentPort {
    * - `cash` / `wechat_offline` / `alipay_offline` → 直接 `success`（现金可多收 = 找零）；
    * - `balance` → 条件更新扣储值余额 → 落 `success`；
    * - `card` → 核销次卡一次 → 落 `amount=0` 的 `success`；
-   * - `wxpay_native` / `alipay_qr` → 先落 `pending`（`expire_at` = now + qrExpireMinutes）
+   * - `wxpay_native` / `alipay_qr` → 先落 `pending`（`expire_at` = now + qrExpireMinutes)
    *   → 渠道统一下单 → 写 `biz_payment_log(create)` → 返回 `code_url`；
    *   渠道未配置直接抛 `ConflictException`，同一事务回滚**不留 pending 单**；
    * - `credit` 由 `CreditPort`（挂账）处理，本方法拒绝。
@@ -788,7 +800,7 @@ export class PaymentsService extends PaymentPort {
     filter: PaymentListFilter,
     /** 传操作人时按可见门店过滤（店长只看本店收款；超管可按 storeId 筛） */
     actor?: RequestActor,
-  ): Promise<{ items: PaymentRow[]; page: number; pageSize: number }> {
+  ): Promise<{ items: PaymentListItem[]; page: number; pageSize: number }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizPayments.deletedAt)];
     if (actor) {
@@ -831,13 +843,27 @@ export class PaymentsService extends PaymentPort {
         );
     }
     const items = await this.database.db
-      .select()
+      .select({
+        payment: bizPayments,
+        bookingNo: bizBookings.bookingNo,
+        customerName: bizCustomers.name,
+      })
       .from(bizPayments)
+      .leftJoin(bizBookings, eq(bizBookings.id, bizPayments.bookingId))
+      .leftJoin(bizCustomers, eq(bizCustomers.id, bizPayments.customerId))
       .where(and(...conditions))
       .orderBy(desc(bizPayments.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    return {
+      items: items.map((row) => ({
+        ...row.payment,
+        bookingNo: row.bookingNo,
+        customerName: row.customerName,
+      })),
+      page,
+      pageSize,
+    };
   }
 
   async findOne(id: number): Promise<PaymentRow & { logs: PaymentLogRow[] }> {

@@ -9,10 +9,12 @@ import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service.js';
 import {
   bizBookings,
+  bizCustomers,
   bizPaymentLogs,
   bizPayments,
   bizRefundPolicies,
   bizRefunds,
+  users,
 } from '../../../../database/schema/index.js';
 import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
 import {
@@ -39,6 +41,18 @@ import {
 } from '../payments/payments.service.js';
 
 export type RefundRow = typeof bizRefunds.$inferSelect;
+/**
+ * 列表项 = 表行 + 联查出来的展示名。
+ *
+ * `biz_refund` 只存外键，列表直接返回表行会只剩 `#10` / `#9` 这种内部主键，
+ * 店长看不懂是哪一单、哪位顾客，所以这里 leftJoin 出单号与姓名。
+ */
+export type RefundListItem = RefundRow & {
+  bookingNo: string | null;
+  customerName: string | null;
+  applyByName: string | null;
+  paymentNo: string | null;
+};
 export type RefundPolicyRow = typeof bizRefundPolicies.$inferSelect;
 export type Liable = 'store' | 'customer' | 'force_majeure';
 export type RefundMode = 'original' | 'cash' | 'balance';
@@ -65,7 +79,7 @@ export type RefundPreview = {
   /** 命中的规则阈值（小时）；未命中为 null */
   hoursBefore: number | null;
   refundPermille: number;
-  /** 预约毛实收（Σ成功支付单 received_amount） */
+  /** 借约毛实收（Σ成功支付单 received_amount） */
   paidAmount: number;
   refundedAmount: number;
   /** 剩余可退 = paidAmount − refundedAmount */
@@ -527,7 +541,7 @@ export class RefundsService extends RefundPort {
     filter: RefundListFilter,
     /** 传操作人时按可见门店过滤（店长只看本店退款） */
     actor?: RequestActor,
-  ): Promise<{ items: RefundRow[]; page: number; pageSize: number }> {
+  ): Promise<{ items: RefundListItem[]; page: number; pageSize: number }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizRefunds.deletedAt)];
     if (actor) {
@@ -557,13 +571,33 @@ export class RefundsService extends RefundPort {
     );
     if (range) conditions.push(range);
     const items = await this.database.db
-      .select()
+      .select({
+        refund: bizRefunds,
+        bookingNo: bizBookings.bookingNo,
+        customerName: bizCustomers.name,
+        applyByName: users.displayName,
+        paymentNo: bizPayments.paymentNo,
+      })
       .from(bizRefunds)
+      .leftJoin(bizBookings, eq(bizBookings.id, bizRefunds.bookingId))
+      .leftJoin(bizCustomers, eq(bizCustomers.id, bizRefunds.customerId))
+      .leftJoin(users, eq(users.id, bizRefunds.applyBy))
+      .leftJoin(bizPayments, eq(bizPayments.id, bizRefunds.paymentId))
       .where(and(...conditions))
       .orderBy(desc(bizRefunds.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    return {
+      items: items.map((row) => ({
+        ...row.refund,
+        bookingNo: row.bookingNo,
+        customerName: row.customerName,
+        applyByName: row.applyByName,
+        paymentNo: row.paymentNo,
+      })),
+      page,
+      pageSize,
+    };
   }
 
   async findOne(id: number): Promise<RefundRow> {
