@@ -428,6 +428,8 @@ interface PaymentRow {
   amount: number;
   /** 实收（元，现金找零用） */
   receivedAmount: number;
+  /** 实收是否被手动改过：没改过就跟随「金额」联动（见 `syncReceivedAmount`） */
+  receivedTouched?: boolean;
   memberCardId?: string;
 }
 
@@ -462,6 +464,7 @@ function addRow(channel: PaymentChannel = 'cash', amount = 0) {
     channel,
     amount,
     receivedAmount: amount,
+    receivedTouched: false,
     memberCardId: undefined,
   });
 }
@@ -505,10 +508,32 @@ function clearSelection() {
 
 /** 本次收款合计（分，次卡核销不产生金额） */
 const paymentsTotalFen = computed(() =>
-  paymentRows.value
-    .filter((row) => row.channel !== 'card')
-    .reduce((sum, row) => sum + yuan2fen(row.amount), 0),
+  paymentRows.value.reduce((sum, row) => sum + rowSettleFen(row), 0),
 );
+
+/**
+ * 单行**实际入账额**（分）。
+ *
+ * 口径必须与后端一致：`biz_booking.paid_amount = Σ 成功支付单 received_amount`。
+ * 现金行的 `received_amount` 才是真正入账的钱（`amount` 只是应收记账，可多收找零），
+ * 若这里按 `amount` 累加，会出现「界面显示已收齐、提交后仍有尾款」的错觉。
+ */
+function rowSettleFen(row: PaymentRow): number {
+  if (row.channel === 'card') return 0;
+  if (row.channel === 'cash') return yuan2fen(row.receivedAmount);
+  return yuan2fen(row.amount);
+}
+
+/**
+ * 改「金额」时同步「实收」。
+ *
+ * 新增支付行时实收默认 0，店员只改金额就会把 `received_amount=0` 提交上去，
+ * 后端按 0 计入已收 → 现金白收一笔。实收**被手动改过就不再联动**（保留多收找零的用法）。
+ */
+function syncReceivedAmount(row: PaymentRow) {
+  if (row.channel !== 'cash' || row.receivedTouched) return;
+  row.receivedAmount = row.amount;
+}
 
 /** 差额（分）= 待收尾款 − 本次收款合计；0 才算收齐 */
 const diffFen = computed(() => dueFen.value - paymentsTotalFen.value);
@@ -520,7 +545,7 @@ const paymentAllocations = computed(() =>
     .map((row) => ({
       key: row.key,
       label: CHANNEL_LABELS[row.channel] ?? row.channel,
-      amount: row.channel === 'card' ? 0 : yuan2fen(row.amount),
+      amount: rowSettleFen(row),
       isCard: row.channel === 'card',
     })),
 );
@@ -658,9 +683,7 @@ function handleSettle() {
       return;
     }
   }
-  const totalFen = rows
-    .filter((row) => row.channel !== 'card')
-    .reduce((sum, row) => sum + yuan2fen(row.amount), 0);
+  const totalFen = rows.reduce((sum, row) => sum + rowSettleFen(row), 0);
   if (totalFen > dueFen.value) {
     LewMessage.error(
       `本次收款合计 ¥${fen2yuan(totalFen)} 超过应收尾款 ¥${fen2yuan(dueFen.value)}`,
@@ -1556,6 +1579,7 @@ onBeforeUnmount(() => {
                     :step="0.01"
                     placeholder="金额（元）"
                     :disabled="row.channel === 'card'"
+                    @change="syncReceivedAmount(row)"
                   />
                 </div>
 
@@ -1574,6 +1598,7 @@ onBeforeUnmount(() => {
                     :min="0"
                     :step="0.01"
                     placeholder="顾客实际递交的现金"
+                    @change="row.receivedTouched = true"
                   />
                 </div>
 

@@ -409,6 +409,26 @@ const previewing = ref(false);
 /** 去向提示（LewForm 不回写父级，靠 change 事件同步） */
 const applyMode = ref<RefundMode>('original');
 
+/** 在线支付渠道：只有这些渠道的支付单支持「原路退回」（后端对非在线支付单直接 400） */
+const ONLINE_REFUND_CHANNELS = ['wxpay_native', 'alipay_qr'];
+
+/** 试算结果里是否含在线支付单 */
+const hasOnlinePayment = computed(() =>
+  (preview.value?.payments ?? []).some((payment) =>
+    ONLINE_REFUND_CHANNELS.includes(payment.channel),
+  ),
+);
+
+/**
+ * 可选去向。试算出结果后，若该单全是线下收款（现金 / 收款码），就去掉「原路退回」——
+ * 否则店员会一路用默认值，提交时才被后端「该支付单不是在线支付」拒绝。
+ */
+const modeOptionList = computed(() =>
+  preview.value && !hasOnlinePayment.value
+    ? MODE_OPTIONS.filter((option) => option.value !== 'original')
+    : MODE_OPTIONS,
+);
+
 // 预约选择：此前这里让人手填「预约 ID」—— 内部主键不是给店长看的。
 // 改成「单号 / 顾客 / 手机号搜索 + 下拉选择」，选项直接展示单号与到店时间。
 const bookingKeyword = ref('');
@@ -432,7 +452,8 @@ async function searchBookingOptions() {
 }
 
 const applyModeHint = computed(() => {
-  if (applyMode.value === 'original') return '在线支付强制原路退回。';
+  if (applyMode.value === 'original')
+    return '在线支付强制原路退回；线下收款（现金 / 收款码）不支持原路退回。';
   if (applyMode.value === 'balance')
     return '退入储值余额需会员身份，将同事务回补余额并写会员流水。';
   return '';
@@ -514,7 +535,7 @@ const applyFormOptions = computed<LewFormOption[]>(() => [
     label: '去向',
     as: 'select',
     rule: "Yup.string().required('不能为空')",
-    props: { options: MODE_OPTIONS },
+    props: { options: modeOptionList.value },
   },
   {
     field: 'liable',
@@ -579,11 +600,21 @@ async function handlePreview() {
       cancelAt: values.cancelAt || undefined,
     });
     preview.value = result;
+    // 该单没有在线支付单时「原路退回」不可用，自动改现金退并说明原因
+    const autoSwitched =
+      applyMode.value === 'original' && !hasOnlinePayment.value;
+    const nextMode: RefundMode = autoSwitched ? 'cash' : applyMode.value;
+    applyMode.value = nextMode;
     applyFormRef.value?.setForm?.({
       ...values,
       amount: result.suggestAmount / 100,
+      mode: nextMode,
     });
-    LewMessage.success('试算完成，已回填建议退款金额');
+    LewMessage.success(
+      autoSwitched
+        ? '试算完成，已回填建议退款金额；该单非在线支付，去向已改为「现金退」'
+        : '试算完成，已回填建议退款金额',
+    );
   } finally {
     previewing.value = false;
   }
@@ -676,7 +707,7 @@ async function handleApplySubmit() {
       <LewSelect
         v-model="query.mode"
         width="140px"
-        :options="MODE_OPTIONS"
+        :options="modeOptionList"
         placeholder="全部去向"
         clearable
       />
