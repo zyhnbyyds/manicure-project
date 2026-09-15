@@ -2,6 +2,8 @@
 
 **简体中文** | [English](./README.en.md)
 
+当前版本 **1.0.0**（[更新日志](./CHANGELOG.md)）
+
 美甲门店的**到店预约与经营管理**系统，三端一体：
 
 - **后端 API** —— NestJS 12 + Fastify + Drizzle ORM + MySQL 8（61 张表：业务 31 / 系统 18 / AI 7 / 小程序身份 3 / 通知 2）；

@@ -2,6 +2,8 @@
 
 [简体中文](./README.md) | **English**
 
+Version **1.0.0** ([Changelog](./CHANGELOG.md))
+
 A nail-salon **booking & store-management** system in three parts:
 
 - **Backend API** — NestJS 12 + Fastify + Drizzle ORM + MySQL 8 (61 tables: 31 business / 20 system / 7 AI / 3 mini-program identity);

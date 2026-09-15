@@ -1,5 +1,6 @@
 {
   "name": "manicure-web",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.0",

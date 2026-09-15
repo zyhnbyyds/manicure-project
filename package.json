@@ -1,6 +1,6 @@
 {
   "name": "manicure-api",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "美甲店到店预约与经营管理 API（NestJS + Fastify + Drizzle ORM）。",
   "private": true,
   "license": "MIT",
