@@ -322,39 +322,41 @@ flowchart TB
 
 ### 2.8 业务·基础数据
 
-| 模块     | 方法   | 路径                                           | 权限点                   | 说明                              | 备注                                           |
-| -------- | ------ | ---------------------------------------------- | ------------------------ | --------------------------------- | ---------------------------------------------- |
-| 服务项目 | GET    | `/api/v1/biz/service-items`                    | `biz:serviceitem:list`   | 服务项目列表                      | 分页                                           |
-| 服务项目 | GET    | `/api/v1/biz/service-items/:id`                | `biz:serviceitem:list`   | 服务项目详情                      |                                                |
-| 服务项目 | POST   | `/api/v1/biz/service-items`                    | `biz:serviceitem:create` | 新增服务项目                      |                                                |
-| 服务项目 | PATCH  | `/api/v1/biz/service-items/:id`                | `biz:serviceitem:update` | 修改服务项目                      |                                                |
-| 服务项目 | DELETE | `/api/v1/biz/service-items/:id`                | `biz:serviceitem:delete` | 删除服务项目                      | 被未完成预约引用 → `409`                       |
-| 美甲师   | GET    | `/api/v1/biz/staffs`                           | `biz:staff:list`         | 美甲师列表                        | 分页                                           |
-| 美甲师   | GET    | `/api/v1/biz/staffs/:id`                       | `biz:staff:list`         | 美甲师详情                        |                                                |
-| 美甲师   | GET    | `/api/v1/biz/staffs/:id/service-items`         | `biz:staff:list`         | 美甲师可做项目                    | **空数组 = 可做全部**                          |
-| 美甲师   | PUT    | `/api/v1/biz/staffs/:id/service-items`         | `biz:staff:items`        | **整体替换**可做项目              | 空数组 = 可做全部；幂等                        |
-| 美甲师   | POST   | `/api/v1/biz/staffs`                           | `biz:staff:create`       | 新增美甲师                        |                                                |
-| 美甲师   | PATCH  | `/api/v1/biz/staffs/:id`                       | `biz:staff:update`       | 修改美甲师                        |                                                |
-| 美甲师   | DELETE | `/api/v1/biz/staffs/:id`                       | `biz:staff:delete`       | 删除美甲师                        | 存在未完成预约 → `409`                         |
-| 排班     | GET    | `/api/v1/biz/staffs/:id/weekly-shifts`         | `biz:schedule:list`      | 周模板班次（7 天全部段）          | 与美甲师共用前缀                               |
-| 排班     | PUT    | `/api/v1/biz/staffs/:id/weekly-shifts`         | `biz:schedule:update`    | **整体替换周模板**                | 事务内先删后插；越界预约 → `409` + `conflicts` |
-| 排班     | GET    | `/api/v1/biz/staffs/:id/overrides`             | `biz:schedule:list`      | 日期例外列表                      |                                                |
-| 排班     | POST   | `/api/v1/biz/staffs/:id/overrides`             | `biz:schedule:update`    | 新增日期例外（请假 / 自定义时段） | `force` 可强制落库                             |
-| 排班     | DELETE | `/api/v1/biz/staffs/:id/overrides/:overrideId` | `biz:schedule:update`    | 删除日期例外                      |                                                |
-| 顾客     | GET    | `/api/v1/biz/customers`                        | `biz:customer:list`      | 顾客列表                          | 分页                                           |
-| 顾客     | GET    | `/api/v1/biz/customers/:id`                    | `biz:customer:list`      | 顾客详情                          |                                                |
-| 顾客     | GET    | `/api/v1/biz/customers/:id/bookings`           | `biz:customer:list`      | 顾客历史预约                      | 分页                                           |
-| 顾客     | POST   | `/api/v1/biz/customers`                        | `biz:customer:create`    | 新增顾客                          | 手机号重复 → `409`                             |
-| 顾客     | PATCH  | `/api/v1/biz/customers/:id`                    | `biz:customer:update`    | 修改顾客                          |                                                |
-| 顾客     | POST   | `/api/v1/biz/customers/:id/recount`            | `biz:customer:update`    | 重算到店次数 / 最近到店时间       | **幂等**，对账修复                             |
-| 顾客     | POST   | `/api/v1/biz/customers/:id/restore`            | `biz:customer:update`    | 恢复已删除顾客                    | **幂等**                                       |
-| 顾客     | DELETE | `/api/v1/biz/customers/:id`                    | `biz:customer:delete`    | 删除顾客                          | 存在预约记录 → `409`                           |
+| 模块     | 方法   | 路径                                           | 权限点                   | 说明                              | 备注                                                                                                            |
+| -------- | ------ | ---------------------------------------------- | ------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 服务项目 | GET    | `/api/v1/biz/service-items`                    | `biz:serviceitem:list`   | 服务项目列表                      | 分页                                                                                                            |
+| 服务项目 | GET    | `/api/v1/biz/service-items/:id`                | `biz:serviceitem:list`   | 服务项目详情                      |                                                                                                                 |
+| 服务项目 | POST   | `/api/v1/biz/service-items`                    | `biz:serviceitem:create` | 新增服务项目                      |                                                                                                                 |
+| 服务项目 | PATCH  | `/api/v1/biz/service-items/:id`                | `biz:serviceitem:update` | 修改服务项目                      |                                                                                                                 |
+| 服务项目 | DELETE | `/api/v1/biz/service-items/:id`                | `biz:serviceitem:delete` | 删除服务项目                      | 被未完成预约引用 → `409`                                                                                        |
+| 美甲师   | GET    | `/api/v1/biz/staffs`                           | `biz:staff:list`         | 美甲师列表                        | 分页                                                                                                            |
+| 美甲师   | GET    | `/api/v1/biz/staffs/:id`                       | `biz:staff:list`         | 美甲师详情                        |                                                                                                                 |
+| 美甲师   | GET    | `/api/v1/biz/staffs/:id/service-items`         | `biz:staff:list`         | 美甲师可做项目                    | **空数组 = 可做全部**                                                                                           |
+| 美甲师   | PUT    | `/api/v1/biz/staffs/:id/service-items`         | `biz:staff:items`        | **整体替换**可做项目              | 空数组 = 可做全部；幂等                                                                                         |
+| 美甲师   | POST   | `/api/v1/biz/staffs`                           | `biz:staff:create`       | 新增美甲师                        |                                                                                                                 |
+| 美甲师   | PATCH  | `/api/v1/biz/staffs/:id`                       | `biz:staff:update`       | 修改美甲师                        |                                                                                                                 |
+| 美甲师   | DELETE | `/api/v1/biz/staffs/:id`                       | `biz:staff:delete`       | 删除美甲师                        | 存在未完成预约 → `409`                                                                                          |
+| 排班     | GET    | `/api/v1/biz/staffs/:id/weekly-shifts`         | `biz:schedule:list`      | 周模板班次（7 天全部段）          | 与美甲师共用前缀                                                                                                |
+| 排班     | PUT    | `/api/v1/biz/staffs/:id/weekly-shifts`         | `biz:schedule:update`    | **整体替换周模板**                | 事务内先删后插；越界预约 → `409` + `conflicts`                                                                  |
+| 排班     | GET    | `/api/v1/biz/staffs/:id/overrides`             | `biz:schedule:list`      | 日期例外列表                      |                                                                                                                 |
+| 排班     | POST   | `/api/v1/biz/staffs/:id/overrides`             | `biz:schedule:update`    | 新增日期例外（请假 / 自定义时段） | `force` 可强制落库                                                                                              |
+| 排班     | DELETE | `/api/v1/biz/staffs/:id/overrides/:overrideId` | `biz:schedule:update`    | 删除日期例外                      |                                                                                                                 |
+| 排班     | GET    | `/api/v1/biz/staffs/schedule-calendar`         | `biz:schedule:list`      | **区间排班（日历）**              | `from` + `to` + `staffIds` + `storeId` → `{from,to,staffs,cells}`；最多 62 天 / 50 人；**只做展示，不参与求值** |
+| 顾客     | GET    | `/api/v1/biz/customers`                        | `biz:customer:list`      | 顾客列表                          | 分页                                                                                                            |
+| 顾客     | GET    | `/api/v1/biz/customers/:id`                    | `biz:customer:list`      | 顾客详情                          |                                                                                                                 |
+| 顾客     | GET    | `/api/v1/biz/customers/:id/bookings`           | `biz:customer:list`      | 顾客历史预约                      | 分页                                                                                                            |
+| 顾客     | POST   | `/api/v1/biz/customers`                        | `biz:customer:create`    | 新增顾客                          | 手机号重复 → `409`                                                                                              |
+| 顾客     | PATCH  | `/api/v1/biz/customers/:id`                    | `biz:customer:update`    | 修改顾客                          |                                                                                                                 |
+| 顾客     | POST   | `/api/v1/biz/customers/:id/recount`            | `biz:customer:update`    | 重算到店次数 / 最近到店时间       | **幂等**，对账修复                                                                                              |
+| 顾客     | POST   | `/api/v1/biz/customers/:id/restore`            | `biz:customer:update`    | 恢复已删除顾客                    | **幂等**                                                                                                        |
+| 顾客     | DELETE | `/api/v1/biz/customers/:id`                    | `biz:customer:delete`    | 删除顾客                          | 存在预约记录 → `409`                                                                                            |
 
 ### 2.9 业务·预约
 
 | 方法   | 路径                                               | 权限点                                    | 说明                                       | 备注                                                                                                                                                                                                           |
 | ------ | -------------------------------------------------- | ----------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/v1/biz/bookings/available-slots`             | `biz:booking:list`                        | 查询可约时段（店内本地日）                 | `staffId` + `date` + `serviceItemIds` 必填；`channel=admin\|miniapp`                                                                                                                                           |
+| GET    | `/api/v1/biz/bookings/calendar`                    | `biz:booking:list`                        | **日历区间预约块**（不分页）               | `dateFrom` + `dateTo` + `staffId` + `storeId` + `status`；按开始时间升序，**硬上限 1000 块**并返回 `truncated`；只画占用，**不判断可约**                                                                       |
 | GET    | `/api/v1/biz/bookings`                             | `biz:booking:list`                        | 预约列表                                   | **无 `total`**，前端多取一条判 `hasMore`；筛选项 `status` / `payStatus` / `staffId` / `customerId` / `date` / `keyword` / `collectable`（收银台队列专用：`collectable=true` 排掉已取消与爽约，预约列表不要传） |
 | GET    | `/api/v1/biz/bookings/customers/:customerId/brief` | `biz:booking:list`                        | 顾客账务摘要（折扣 / 余额）                | 创建弹窗用                                                                                                                                                                                                     |
 | GET    | `/api/v1/biz/bookings/:id`                         | `biz:booking:list`                        | 预约详情（含项目明细与支付单）             |                                                                                                                                                                                                                |
@@ -499,6 +501,7 @@ flowchart TB
 | 提成规则 | PATCH  | `/api/v1/biz/commission-rules/:id`           | `biz:commission:rule`                      | 修改规则（只影响之后计提，不回溯）                                                        |
 | 提成规则 | DELETE | `/api/v1/biz/commission-rules/:id`           | `biz:commission:rule`                      | 删除规则（软删，历史计提保留 `rule_id`）                                                  |
 | 提成记录 | GET    | `/api/v1/biz/commission-records`             | `biz:commission:list`                      | 计提记录列表（`staffId` / `period` / `status`）                                           |
+| 提成记录 | GET    | `/api/v1/biz/commission-records/summary`     | `biz:commission:list`                      | **期间汇总（按 `status` 分桶）**                                                          | `period` / `staffId` / `bookingId` / `storeId`；**服务端聚合**，结算前确认与页面顶部统计都读它；门店过滤条件必须与列表接口一致 |
 | 提成记录 | POST   | `/api/v1/biz/commission-settle`              | `biz:commission:settle`                    | **按期间结算冻结**（`period` = `yyyyMM`）                                                 |
 | 提成记录 | POST   | `/api/v1/biz/commission-records/:id/reverse` | `biz:commission:settle`                    | 单笔冲销（必填原因，只有 `accrued` 可冲销）                                               |
 | 通知模板 | GET    | `/api/v1/biz/notice-templates`               | `biz:notice:template`                      | 通知模板列表                                                                              |

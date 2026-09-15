@@ -92,23 +92,34 @@ getAvailableTools(actor: { permissions: string[] }): AiTool[] {
 
 Tool 的权限字符串**就是后台 RBAC 的权限点**（例如 `UserUpdateTool.permission = 'system:user:update'`）。
 
-### 已注册的 Tool（66 个）
+### 已注册的 Tool（89 个）
 
-按风险等级分布：**只读 32 个**（全 `L0` + `ApprovalPolicy.NONE`），**写操作 34 个**（全 `CONFIRM`：`L1×9` 的 `*.create`，`L2×14` 的 `*.update` + `file.remove` + `job.run` + `online.forceLogout`，`L3×11` 的 `*.remove` + `job.clearLogs` + `login-log.clear` + `operation-log.clear`）。**没有 `user.remove` 工具**。
+按风险等级分布：**只读 55 个**（全 `L0` + `ApprovalPolicy.NONE`，其中 23 个是美甲业务），
+**写操作 34 个**（全 `CONFIRM`：`L1×9` 的 `*.create`，`L2×14` 的 `*.update` + `file.remove` + `job.run` + `online.forceLogout`，`L3×11` 的 `*.remove` + `job.clearLogs` + `login-log.clear` + `operation-log.clear`）。**没有 `user.remove` 工具**。
 
-| 领域                      | Tool 名                                                                                                        |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 用户                      | `user.list` / `user.get` / `user.create` / `user.update`                                                       |
-| 角色 / 部门 / 菜单 / 岗位 | `{role,dept,menu,post}` 各 5 个：`list` / `get` / `create` / `update` / `remove`                               |
-| 参数配置                  | `config.list` / `config.get` / `config.create` / `config.update` / `config.remove`                             |
-| 字典                      | `dict-type.*`（5 个）、`dict-data.*`（5 个）                                                                   |
-| 登录日志 / 操作日志       | `login-log.{list,get,remove,clear}`、`operation-log.{list,get,remove,clear}`                                   |
-| 在线用户 / 缓存           | `online.list` / `online.forceLogout` / `cache.info`                                                            |
-| 定时任务                  | `job.list` / `job.get` / `job.create` / `job.update` / `job.remove` / `job.run` / `job.logs` / `job.clearLogs` |
-| 文件 / 首页统计           | `file.{list,get,remove}`、`dashboard.{users,depts,roles,menus,posts}`                                          |
+| 领域                       | Tool 名                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 用户                       | `user.list` / `user.get` / `user.create` / `user.update`                                                                                                                                                                                                                                                                                                                    |
+| 角色 / 部门 / 菜单 / 岗位  | `{role,dept,menu,post}` 各 5 个：`list` / `get` / `create` / `update` / `remove`                                                                                                                                                                                                                                                                                            |
+| 参数配置                   | `config.list` / `config.get` / `config.create` / `config.update` / `config.remove`                                                                                                                                                                                                                                                                                          |
+| 字典                       | `dict-type.*`（5 个）、`dict-data.*`（5 个）                                                                                                                                                                                                                                                                                                                                |
+| 登录日志 / 操作日志        | `login-log.{list,get,remove,clear}`、`operation-log.{list,get,remove,clear}`                                                                                                                                                                                                                                                                                                |
+| 在线用户 / 缓存            | `online.list` / `online.forceLogout` / `cache.info`                                                                                                                                                                                                                                                                                                                         |
+| 定时任务                   | `job.list` / `job.get` / `job.create` / `job.update` / `job.remove` / `job.run` / `job.logs` / `job.clearLogs`                                                                                                                                                                                                                                                              |
+| 文件 / 首页统计            | `file.{list,get,remove}`、`dashboard.{users,depts,roles,menus,posts}`                                                                                                                                                                                                                                                                                                       |
+| **美甲业务（只读 23 个）** | 预约 `booking.{list,get,calendar,available-slots}`；排班 `schedule.{weekly,overrides,calendar}`；基础数据 `staff.list` / `service-item.list` / `store.list` / `customer.{list,get}`；会员 `member.{list,transactions}` / `member.card.list` / `member.level.list`；资金 `payment.list` / `refund.list` / `receivable.{list,summary}`；报表 `report.{revenue,overview,home}` |
 
-::: warning AI 目前只操作「系统管理」域
-`user` / `role` / `dept` / `menu` / `post` / `config` / `dict` / `job` / `file` / 监控 / 首页统计。**没有任何 `biz.*`（预约 / 会员 / 收银）Tool** —— 想让 AI 改预约要先新增 Tool 并注册。
+::: warning AI 对美甲业务只有「读」，而且**权限不放大**
+23 个 Tool 全部 `L0` + `ApprovalPolicy.NONE`，权限点与后台接口一一对应
+（`biz:booking:list` / `biz:schedule:list` / `biz:payment:list` / `biz:report:view` …）——
+用户没权限，Tool 照样调不动（`PermissionService` 先拦）。
+**写操作一个都没有**：「让 AI 改预约 / 收款 / 退款」仍然做不到，那些必须走收银台与退款审批。
+:::
+
+::: tip 为什么不给 Tool 自动注入 `storeId`
+`ToolContext` 里**没有门店上下文**（不像 HTTP 请求有 `x-store-id` 头）。给 `actorOf()`
+硬塞一个默认门店，会把「今天没有预约」变成一句**静默的错误答案** —— 宁可让 `storeId`
+由模型显式传参（或留空走 actor 自身的门店范围），也不猜。
 :::
 
 ## 三、策略与安全

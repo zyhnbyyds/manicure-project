@@ -30,6 +30,9 @@ D = Σ 项目时长；B = max(项目缓冲)
 - 输出是 `{ slots: [{startAt,endAt}], reason? }`，时间是**带 +08:00 偏移的 ISO8601**。
 - `end_at` **不含缓冲**；缓冲单独快照在 `buffer_minutes`。比较时**只加一次** `gap`。
   （历史坑：v1.0 把缓冲写进 `end_at` 又再加 `B`，导致双重计入且前后不对称。）
+- **日历用的 `GET /biz/bookings/calendar`**（`?dateFrom&dateTo&staffId&storeId&status`）
+  是另一条路：**不分页**、按开始时间升序、硬上限 1000 块，返回 `truncated` 标记。
+  它只画占用，**不判断可约** —— 别拿它当可约时段的替代品，也别在前端用它去"算"可约。
 
 ## 冲突检测与锁（§6.2，两条硬约束）
 

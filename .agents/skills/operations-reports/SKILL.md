@@ -80,6 +80,11 @@ metadata:
 - 取消 / 退款 / 爽约 → 对应记录置 `reversed`（**不删**）；已结算期间发生的冲销进下一期为负数。
 - `POST /biz/commission-settle { period }` → 生成 `settle_batch`，把 `accrued` 置 `settled`；
   **结算后不可修改，只能冲销**。
+- `GET /biz/commission-records/summary` → 按 `status` 分桶聚合（`amount` / `count` / `staffCount`），
+  **页面顶部统计与结算前二次确认都读它**。它和 `/biz/commission-records` 列表
+  **必须用同一套门店过滤条件**，否则会出现「列表加起来 ≠ 汇总」。
+  ⚠️ 不要在前端拉列表（`pageSize: 200`）再 `reduce` 求和：单页硬上限就是 200，
+  记录一多就**静默少算**且金额照常被当作完整值展示 —— 汇总一律让后端聚合。
 - 权限：`biz:commission:rule`（规则维护）、`biz:commission:list`、`biz:commission:settle`（默认只给店长）。
 
 ## 验收（§12 B4）

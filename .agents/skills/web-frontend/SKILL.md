@@ -14,6 +14,11 @@ metadata:
 
 - 列表：`useTable` + `LewTable` + `LewPagination`；**响应无 `total`**，`useTable` 多取一条判断 `hasMore`
   并估算总数。
+- 列表分页条数：后端单页硬上限是 `MAX_PAGE_SIZE = 200`（`src/modules/biz/common/query.ts`）。
+  **别写 `pageSize: 200` 然后在前端 `reduce` 求和** —— 那是按「刚好不吃上限」猜的，
+  数据一多就静默少算、数字还照常当完整值展示。要汇总就让后端聚合开接口
+  （`/biz/commission-records/summary` 就是这么补的）。各 controller 的 `pageSize`
+  schema 必须引用该常量，不要写死数字。
 - 表单弹窗：`LewModal` + `LewForm`，用 `formKey` 强制重建 + `setForm` 回填（避免脏状态）。
 - 权限：`v-permission` 指令 / `<IconButton permission="...">`，权限点与后端 §8.1 完全一致。
 - 删除：`confirmDanger`（危险操作二次确认）。
@@ -35,8 +40,33 @@ metadata:
 | 加载占位                 | `<AppLoading>`（见下）                                                       | 自己写骨架/转圈                            |
 
 **目前没有对应组件的**（自研，别重复造）：加载骨架/转圈（`AppLoading`）、
-周视图排班网格与预约日历（§10.3 已说明）、首字圆形头像（`LewAvatar` 只认 `src`，
-全站 AppHeader / profile 都是首字 `<span>` 手搓的，保持一致）。
+首字圆形头像（`LewAvatar` 只认 `src`，全站 AppHeader / profile 都是首字 `<span>`
+手搓的，保持一致）。
+
+日历面板（周视图 / 日视图）已是**项目组件**，别再另行手搓：
+
+| 文件                                          | 职责                                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `components/calendar/CalendarPanel.vue`       | 统一入口：工具栏（上一/下一周或天、区间标题、今天/本周）+ `LewTabs` 周/日切换         |
+| `components/calendar/CalendarWeekGrid.vue`    | 7 天 × 美甲师网格，格子显示班次段与来源（本店专属 / 通用周模板）                      |
+| `components/calendar/CalendarDayTimeline.vue` | 单日纵向时间轴，按最早/最晚班次推导小时刻度，预约块绝对定位                           |
+| `components/calendar/calendar-utils.ts`       | 纯函数：`buildRange` / `weekdayLabel` / `parseHm` / `minutesToPx` / `gridPixelHeight` |
+
+数据由页面自己拉：`cells`（排班）来自 `getScheduleCalendar`，`bookings` 来自
+`listBookingCalendar`（可选，拉不到就静默降级为只看排班）。`CalendarPanel` **不发 `change`**，
+父组件用同一个 `buildRange()` 自己算区间后再看 `watch`。
+
+### 弹窗提交与防重（不用逐页写 guard）
+
+lew-ui 的 `LewButton` 对 `request` 有**内置防重**：点击后立即把内部 loading 置位，
+且 `if (!(disabled || loading))` 才往下跑 —— 这里的 `loading` 既包含内部状态，也包含你传进来的 `:loading`。所以：
+
+- **弹窗底部按钮**：一律 `:footer-buttons="[{ props: { type, color, size, text, request } }]"` 就好，
+  重复点击已经被吃掉了。（`LewModal` **只有 `close` 事件**，既没有 `@ok` 也没有 `ok-button-props`。）
+- **页面级按钮**（`:loading="x"` + `@click="handleX"`）：同样有防重，但**前提是 `x` 在点击后立刻置位**。
+  若函数里先 `await` 了其它事才置位（例如「先取汇总再弹确认」），那一小段窗口连点仍会重入，
+  这种要在函数开头补手工判断 + 把 `:loading` 扩到那个先行阶段。
+- 危险操作走 `confirmDanger`（`web/src/utils/confirm.ts`），它自带 `running` 标志，各页不必重写。
 
 ### `AppLoading`（`web/src/components/AppLoading.vue`）
 

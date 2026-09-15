@@ -46,13 +46,19 @@ metadata:
 
 ## 接口
 
-| 方法   | 路径                                    | 说明                                                                        |
-| ------ | --------------------------------------- | --------------------------------------------------------------------------- |
-| GET    | `/biz/staffs/:id/weekly-shifts`         | 周模板，`?storeId=` 取该店实际生效层，返回 `{shifts, source}`               |
-| PUT    | `/biz/staffs/:id/weekly-shifts`         | **整体替换**，`?storeId=` 决定替换哪一层（空=通用层）                       |
-| GET    | `/biz/staffs/:id/overrides`             | 例外列表，支持 `from` / `to` / `storeId`                                    |
-| POST   | `/biz/staffs/:id/overrides`             | 新增例外（body 可带 `storeId`）；撞既有预约 409 + 清单，`force=true` 才落库 |
-| DELETE | `/biz/staffs/:id/overrides/:overrideId` | 删除例外                                                                    |
+| 方法   | 路径                                    | 说明                                                                                                   |
+| ------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| GET    | `/biz/staffs/:id/weekly-shifts`         | 周模板，`?storeId=` 取该店实际生效层，返回 `{shifts, source}`                                          |
+| PUT    | `/biz/staffs/:id/weekly-shifts`         | **整体替换**，`?storeId=` 决定替换哪一层（空=通用层）                                                  |
+| GET    | `/biz/staffs/:id/overrides`             | 例外列表，支持 `from` / `to` / `storeId`                                                               |
+| POST   | `/biz/staffs/:id/overrides`             | 新增例外（body 可带 `storeId`）；撞既有预约 409 + 清单，`force=true` 才落库                            |
+| DELETE | `/biz/staffs/:id/overrides/:overrideId` | 删除例外                                                                                               |
+| GET    | `/biz/staffs/schedule-calendar`         | **区间排班（日历用）**：`?from&to&staffIds&storeId` → `{from,to,staffs,cells}`；单次最多 62 天 / 50 人 |
+
+> `schedule-calendar` 是给日历面板的**只读批量查询**：一次把「一批人 × 一段日期」的
+> 班次全拿回来（含来源层 `source`），避免前端按人发起 N 次 `weekly-shifts` +
+> `overrides`。它只做聚合展示，**不参与求值** —— 可约时段的真相仍在
+> `SlotsService`（走周模板 ⇒ 例外 ⇒ 缓冲的完整优先级）。
 
 > 用 **PUT 整体替换**而不是逐条 CRUD：UI 是一次编辑 7 天的表格，整体替换天然保证"同天各段不重叠"，
 > 也免去前端做复杂增量 diff。权限点 `biz:schedule:list` / `biz:schedule:update`。
