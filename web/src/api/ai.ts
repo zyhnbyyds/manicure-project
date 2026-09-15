@@ -1,4 +1,4 @@
-import { get, patch, post } from '~/request';
+import { del, get, patch, post } from '~/request';
 import { useUserStore } from '~/store/user';
 import type { AiMessage, AiResult, AiSession, AiSseEvent } from '~/types/api';
 
@@ -10,6 +10,15 @@ export function createSession(title?: string) {
 /** 更新 AI 会话标题 */
 export function updateSessionTitle(id: number, title: string) {
   return patch<AiSession>(`/ai/sessions/${id}`, { title });
+}
+
+/**
+ * 删除 AI 会话（后端软删：status 置 closed，消息与审计保留）。
+ *
+ * 删除后会话不再出现在 `listSessions()` 里。
+ */
+export function deleteSession(id: number) {
+  return del<{ id: number; status: string }>(`/ai/sessions/${id}`);
 }
 
 /** 获取 AI 会话列表 */
