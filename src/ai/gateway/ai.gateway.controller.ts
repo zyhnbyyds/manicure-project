@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -88,6 +89,17 @@ export class AiGatewayController {
   ) {
     const parsed = updateSessionTitleSchema.parse(body);
     return this.gateway.updateSessionTitle(id, request.user.id, parsed.title);
+  }
+
+  @Delete('sessions/:id')
+  @RequirePermissions('ai:chat')
+  @ApiOperation({ summary: '删除 AI 会话（软删，消息与审计保留）' })
+  @ApiResponse({ status: 200, description: '成功' })
+  deleteSession(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthRequest,
+  ) {
+    return this.gateway.deleteSession(id, request.user.id);
   }
 
   @Get('sessions/:id/messages')

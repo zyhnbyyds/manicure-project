@@ -228,11 +228,30 @@ export class AiGatewayService {
     return this.getSession(id, userId);
   }
 
-  async listSessions(userId: number) {
+  /**
+   * 删除会话（软删：`status` 置 closed）。
+   *
+   * 只标记状态、不物理删除：消息与审计日志保留，便于追溯 AI 到底改过什么。
+   * 会话表本身带 `status` 列，list 侧按 active 过滤即为「已删除」的语义。
+   */
+  async deleteSession(id: number, userId: number) {
+    const session = await this.getSession(id, userId);
+    if (session.status === 'closed') return { id, status: 'closed' };
+    await this.database.db
+      .update(aiSessions)
+      .set({ status: 'closed', updatedAt: new Date() })
+      .where(and(eq(aiSessions.id, id), eq(aiSessions.userId, userId)));
+    return { id, status: 'closed' };
+  }
+
+  /** 会话列表：只返回未删除（active）的会话，最近活跃在前 */
+  listSessions(userId: number) {
     return this.database.db
       .select()
       .from(aiSessions)
-      .where(eq(aiSessions.userId, userId))
+      .where(
+        and(eq(aiSessions.userId, userId), eq(aiSessions.status, 'active')),
+      )
       .orderBy(desc(aiSessions.updatedAt));
   }
 
