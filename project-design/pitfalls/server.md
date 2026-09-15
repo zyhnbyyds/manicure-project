@@ -52,6 +52,10 @@
 parameter of type '{ status?: "a" | "b" }'`。
 - **根因**：tsconfig 开了 `exactOptionalPropertyTypes`，`?:` 与 `?: T | undefined` 不等价。
 - **正确做法**：被传入的可选属性一律写全 `status?: 'a' | 'b' | undefined;`。
+- **补一句（2026-09-15）**：当值来自**外部输入**（LLM 工具入参、可选 query）时，
+  逐个给 service 的 filter 类型都补 `| undefined` 反而侵入大；更省事的是先用一个
+  `defined()` 把 `undefined` 键摘掉再传（`src/ai/tools/biz-common/biz-tool.util.ts`）。
+  注意它**只删 `undefined`，不删 `null`** —— 很多过滤条件的「不传」与「显式置空」语义不同。
 - **怎么发现的**：改 controller 传 filter 对象时 tsc 直接报。
 
 ---

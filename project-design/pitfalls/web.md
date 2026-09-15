@@ -297,3 +297,47 @@
 - **同类信号**：任何「打开时记一份、提交时用它」的变量，都要问一句
   「中途改了选择它会不会过期」。
 - **来源**：本次改「纳为会员」时自己引入、复查时发现（2026-09-14）。
+
+---
+
+## 19. 单页上限 100 vs 前端「多取一条」—— 第 101 条之后永远翻不到
+
+- **现象**：列表接口不返回 `total`，`useTable` 靠「请求 `pageSize + 1`、多出来一条就说明有下一页」
+  判断 `hasMore`。当单页上限（当时 100）**正好等于**用户选的每页条数时，后端把 `pageSize + 1`
+  夹回 100，返回正好 100 条 → `100 > 100` 为 `false` → 「下一页」按钮消失，
+  第 101 条之后的单据再也翻不到。走 zod `max(100)` 的接口（payments / refunds / notices 等）
+  更直接：101 → **400**。
+- **根因**：「前端多取一条」与「后端单页硬上限」是两个独立实现，没人保证
+  `上限 > 每页条数`。两者取值恰好相等时，缝隙就出现了。
+- **正确做法**：后端上限留出「多取一条」的余量 —— `MAX_PAGE_SIZE = 200`
+  （`src/modules/biz/common/query.ts`），且各 controller 的 `pageSize` schema **引用该常量**，
+  不要再写死数字。
+- **怎么发现的**：对着 `useTable` 与 `parsePagination` 两边比对（单测看不出来，两边各自都「对」）。
+
+## 20. 用分页接口在前端求和当汇总 —— 超过单页上限就静默少算
+
+- **现象**：提成页「本期已结算 ¥X」用 `listCommissionRecords({ status: 'settled', pageSize: 200 })`
+  再 `reduce` 求和。某期记录超过 200 条后，这个数就**悄悄变小**，而它照常被渲染成完整金额，
+  连「已截断」的提示都没有（原来的 `truncated` 只盖住了计提那一半）。结算确认弹窗里的
+  「本期计提总额」同理 —— 那是直接拿去决策的数字。
+- **根因**：把「分页查询」当成了「全量查询」。上限是 100 / 200 这种具体数字，不是「足够大」。
+- **正确做法**：**任何要展示的汇总都由后端聚合**（`SUM` / `COUNT` / `COUNT(DISTINCT ...)`
+  一次 group by），别把列表拉到前端再算。已加：`GET /biz/commission-records/summary`；
+  门店过滤条件必须与列表接口**逐字一致**，否则会出现「列表加起来 ≠ 汇总」。
+  若确实只能前端算，就必须把「截断」显式暴露成 UI 状态，不要静默。
+- **同类信号**：任何 `pageSize: <上限数字>` 后跟 `reduce` / `length` / `Math.max` 的代码。
+
+## 21. lew-ui 的 `request` 自带防重 —— 但盖不住「先 await 再置 loading」
+
+- **事实**（lew-ui 2.8.2 `dist/index.js` 里 `LewButton` 的 `setup`）：点击处理第一句就是
+  `if (disabled || loading) return`，这里 `loading = 内部 loading || 外部传入的 :loading`，
+  且调用 `request` **之前**同步置内部 loading。所以：
+  - 弹窗底部 `:footer-buttons="[{ props: { request: handleXxx } }]"` —— **天然防重**，不必再写 guard；
+  - `:loading="x" + @click="handleX"` 的页面级按钮同样防重，**前提是 `x` 在点击后立刻置位**。
+- **仍然会重入的情况**：函数里先 `await` 了别的事才置位（例：「先取汇总 → 再弹确认」）。
+  那一小段窗口里连点两次会弹出**两个**确认框。修法见 `commission-records` 的 `openSettle`：
+  开头 `if (settling.value || summaryLoading.value) return;`，并把 `:loading` 扩到那个先行阶段。
+- **不要**给 `LewModal` 写 `@ok` / `:ok-button-props` —— 它**只有 `close` 事件**，写了不报错也不生效。
+  危险操作统一走 `confirmDanger`（它自带 `running` 标志）。
+- **怎么发现的**：直接读 `web/node_modules/lew-ui/dist/index.js` 搜 `props.request`；
+  靠「应该有吧」去猜，会白改 30 个文件。
