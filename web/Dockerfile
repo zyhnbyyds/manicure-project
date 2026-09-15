@@ -25,7 +25,13 @@ COPY web ./web
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-RUN cd web && bun run build
+# ⚠️ 这里直接调 vite，而不用 `bun run build`（它的第一步是 `vue-tsc --noEmit`）。
+#    原因：`web/tsconfig.json` 的 include 只覆盖 `src/**` 与 `types/**`，
+#    类型检查实际依赖仓库根的 node_modules 兜底（vitest 声明在根 package.json、
+#    .vue 语言服务依赖完整的依赖树）。镜像里只装了 web 的依赖，vue-tsc 会把
+#    所有 `.vue` 报成 TS2307；但 `vite build` 本身完全正常（实测 exit=0）。
+#    类型门禁请走本地/CI 的 `bun run typecheck`，镜像只负责产出可部署产物。
+RUN cd web && bunx vite build
 
 # ---------- 2. 运行时 ----------
 FROM nginx:1.27-alpine AS runtime

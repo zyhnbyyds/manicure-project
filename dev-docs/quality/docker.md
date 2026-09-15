@@ -19,7 +19,7 @@ title: Docker 一键部署
 | 依赖                    | 版本       | 说明                                                 |
 | ----------------------- | ---------- | ---------------------------------------------------- |
 | Docker Engine / Desktop | 20.10+     | Compose 用 **v2**（`docker compose`，无连字符）      |
-| 内存                    | ≥ 4 GB     | MySQL 8.4 自身约 1 GB，构建期还要跑 `vue-tsc`        |
+| 内存                    | ≥ 4 GB     | MySQL 8.4 自身约 1 GB，构建期还要跑前端打包          |
 | 磁盘                    | ≥ 5 GB     | 镜像 + 三个数据卷                                    |
 | 端口                    | 80（可改） | 前端入口，改 `deploy/.env` 的 `WEB_PORT`             |
 | `git` / `bun`（可选）   | —          | 只在**宿主机**跑命令时需要；容器内用的是镜像自带 bun |
@@ -85,12 +85,12 @@ flowchart LR
 
 ### 2.1 四个服务
 
-| 服务    | 镜像                               | 对外端口                | 健康检查                                        | 数据卷                          |
-| ------- | ---------------------------------- | ----------------------- | ----------------------------------------------- | ------------------------------- |
-| `db`    | `mysql:8.4`                        | 不映射（同网络内 3306） | `healthcheck.sh --connect --innodb_initialized` | `mysql-data` → `/var/lib/mysql` |
-| `redis` | `redis:7-alpine`（`--appendonly`） | 不映射（同网络内 6379） | `redis-cli ping`                                | `redis-data` → `/data`          |
-| `api`   | 本地构建（`Dockerfile`）           | 不映射（同网络内 3000） | `fetch http://127.0.0.1:3000/`                  | `uploads` → `/app/uploads`      |
-| `web`   | 本地构建（`web/Dockerfile`）       | `${WEB_PORT:-80}` → 80  | —                                               | —                               |
+| 服务    | 镜像                               | 对外端口                | 健康检查                                | 数据卷                          |
+| ------- | ---------------------------------- | ----------------------- | --------------------------------------- | ------------------------------- |
+| `db`    | `mysql:8.4`                        | 不映射（同网络内 3306） | `mysqladmin ping -h 127.0.0.1 --silent` | `mysql-data` → `/var/lib/mysql` |
+| `redis` | `redis:7-alpine`（`--appendonly`） | 不映射（同网络内 6379） | `redis-cli ping`                        | `redis-data` → `/data`          |
+| `api`   | 本地构建（`Dockerfile`）           | 不映射（同网络内 3000） | `fetch http://127.0.0.1:3000/`          | `uploads` → `/app/uploads`      |
+| `web`   | 本地构建（`web/Dockerfile`）       | `${WEB_PORT:-80}` → 80  | —                                       | —                               |
 
 启动顺序靠 `depends_on: condition: service_healthy` 串起来：
 **db + redis 健康 → api 起 → api 健康 → web 起**。所以第一次 `up` 会有 1~2 分钟看起来"没动静"。
@@ -231,7 +231,7 @@ docker compose --env-file deploy/.env up -d --build
 | `deploy/up.sh` / `up.ps1`  | 一键脚本（Linux / Windows） | 生成配置（随机密钥）→ `up -d --build` → 打印账号密码                                  |
 | `.dockerignore`            | 构建上下文瘦身              | 排除 `node_modules`、`miniapp/`、`docs/`、`tests/`、`output/` 等，两个镜像共用        |
 
-### 5.1 四个已经在文件里处理掉的坑
+### 5.1 五个已经在文件里处理掉的坑
 
 1. **前端产物不是 `web/dist`。** `web/vite.config.ts` 把 `outDir` 指到了 `../output/web`，
    已经超出了 `web/` 目录。所以 `web/Dockerfile` 的构建上下文必须是**仓库根**，
@@ -248,13 +248,29 @@ docker compose --env-file deploy/.env up -d --build
 
    Vite 优先读已存在的 `process.env`，所以这个值会覆盖 `.env` 文件。
 
-3. **MySQL 健康检查别写 `-p"$$MYSQL_ROOT_PASSWORD"`。** compose 的 `$$` 转义加上 shell 二次解析，
-   密码一旦含 shell 特殊字符就会静默失败，表现为「db 永远 unhealthy、api 永远不启动」。
-   改用 MySQL 官方镜像自带的 `healthcheck.sh`，它自己从容器环境里取凭据：
+3. **MySQL 健康检查既不能用 `healthcheck.sh`，也不该带 `-p"$$MYSQL_ROOT_PASSWORD"`。**
+   这一条最初写反过，务必看清：`healthcheck.sh` 是 **`mysql:8.0` 时代**的脚本，
+   **`mysql:8.4` 镜像里已经删掉了** —— 实探 `mysql:8.4` 的 `/usr/local/bin` 只剩
+   `docker-entrypoint.sh` 和 `gosu`。照搬旧写法会让每次健康检查都 exec 失败，
+   12 次重试用满后 db 变成 `unhealthy`，而 `api` 又 `depends_on: db: service_healthy`，
+   于是 **api / web 永远起不来**，偏偏 `docker compose up -d` 还会**返回 0**，
+   很容易被误判成部署成功。
+
+   带密码同样不行：compose 的 `$$` 转义加上 shell 二次解析，密码一旦含引号就可能坏掉。
+   最终采用的写法是**不带凭据的 ping**：
 
    ```yaml
-   test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+   test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 --silent']
    ```
+
+   这样写能成立，靠的是两个已实测确认的事实：
+
+   - `mysqladmin ping` 只关心 server 有没有应答，**认证失败（`Access denied`）同样返回 0**，
+     所以不需要密码；
+   - 首次初始化阶段跑的是「临时 server」，它 `socket: mysqld.sock / port: 0`，即
+     **只监听 unix socket、不开 TCP**，所以 `-h 127.0.0.1` 在这个阶段必然失败 ——
+     这正好让它能准确区分「初始化中」和「已就绪」，不必依赖 `--innodb_initialized`
+     那种（并不存在的）扩展参数。
 
 4. **后端运行时镜像必须带上 `src/`。** 迁移和种子跑的是项目自带的 TS 脚本
    （`src/database/migrate.ts`、`src/database/seed/index.ts`），不是编译产物，
@@ -262,19 +278,40 @@ docker compose --env-file deploy/.env up -d --build
    密码哈希用的是 Bun 内置的 `Bun.password`（argon2id），**没有第三方加密依赖**，
    因此 `bun install --production` 之后这些脚本依然能跑。
 
+5. **镜像构建跳过 `vue-tsc`，只跑 `vite build`。** `web/package.json` 的 `build` 是
+   `vue-tsc --noEmit && vite build`，但在只装了 `web` 依赖的镜像里，`vue-tsc` 会把**所有**
+   `.vue` 报成 `TS2307 Cannot find module './App.vue'`，并连带报 `Cannot find module 'vitest'`。
+
+   已经实测排除的可能：不是 `.dockerignore` 吃掉了文件（解包后 `VUE=67 SPEC=4 FILES=165`）；
+   不是版本不一致（镜像与本地同为 `vue-tsc 3.3.11` + `typescript 6.0.3`）；把 `node_modules`
+   放进 `web/` 内同样失败；只补装 `vitest` 只能消掉 vitest 那一条，`.vue` 照旧全错。
+
+   真正的原因是**类型检查隐含依赖仓库根的 `node_modules`**：`vitest` 声明在**根**
+   `package.json`（`web/bun.lock` 里没有它），`web/tsconfig.json` 的 include 也不覆盖
+   根目录的 `web/shims.d.ts`，而 `.vue` 语言服务需要完整的依赖树才能工作 —— 镜像只装了
+   `web` 的依赖，满足不了这个隐含前提。
+
+   所以 `web/Dockerfile` 直接调 `bunx vite build`（实测 `exit=0`）。
+   **类型门禁交给本地/CI 的 `bun run typecheck`**（本地 `exit=0`，已验证通过）——
+   镜像只负责产出可部署产物，不重复承担类型检查职责。
+
 ## 六、排障
 
-| 现象                           | 可能原因                      | 处理                                                                   |
-| ------------------------------ | ----------------------------- | ---------------------------------------------------------------------- |
-| `api` 一直不上、状态 `Created` | db 还没健康                   | `logs db`；首次初始化要 30~60 秒，健康检查 `start_period` 是 40 秒     |
-| `db` 一直 unhealthy            | 数据目录已被旧密码/旧版本写过 | 卷里有数据时改 `MYSQL_ROOT_PASSWORD` 不生效，只能 `down -v` 重来       |
-| 页面能开、接口 404             | 前端基址与 nginx 反代不匹配   | 确认 `VITE_API_BASE_URL=/api/v1`，且 nginx `location /api/` 不改写路径 |
-| 页面能开、接口 502             | api 没起或端口不符            | `logs api`；确认 `PORT=3000`                                           |
-| 上传图片刷新后 404             | `uploads` 卷没挂上            | 看 `docker compose --env-file deploy/.env config` 里的 volumes         |
-| 预约时间差 8 小时              | `TZ` 与 MySQL 时区不一致      | 两处都设：`Asia/Shanghai` / `+08:00`                                   |
-| `bun: command not found`       | 基础镜像被换成非 bun 镜像     | 基础镜像必须是 `oven/bun:1.4-alpine`                                   |
-| 80 端口被占                    | 宿主机已有 nginx              | 改 `deploy/.env` 的 `WEB_PORT`                                         |
-| 构建很慢 / 上下文几百 MB       | `.dockerignore` 没生效        | 确认它和 `Dockerfile` 都在仓库根，且真的执行了 `--build`               |
+| 现象                                                              | 可能原因                                                                                       | 处理                                                                                           |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `api` 一直不上、状态 `Created`                                    | db 还没健康                                                                                    | `logs db`；首次初始化要 30~60 秒，健康检查 `start_period` 是 40 秒                             |
+| `db` 一直 unhealthy，但 `logs db` 显示 `ready for connections`    | 健康检查命令在镜像里不存在                                                                     | `mysql:8.4` 没有 `healthcheck.sh`；确认 compose 用的是 `mysqladmin ping -h 127.0.0.1 --silent` |
+| `db` 一直 unhealthy                                               | 数据目录已被旧密码/旧版本写过                                                                  | 卷里有数据时改 `MYSQL_ROOT_PASSWORD` 不生效，只能 `down -v` 重来                               |
+| `up -d` 返回 0，但 api/web 根本没创建                             | 误以为脚本成功                                                                                 | `up -d` **不等**服务健康（除非加 `--wait`）；务必再 `ps` 确认四个容器都在且 `healthy`          |
+| 浏览器打开 `http://localhost/` **一直转圈超时**，但服务其实是好的 | `localhost` 被解析到 IPv6 `::1`，而 Docker 端口只绑了 IPv4 `0.0.0.0`                           | 改用 `http://127.0.0.1/`；这是 Windows 及部分 Linux 发行版的常见现象                           |
+| 重启 `api` 之后页面开始 502                                       | nginx 在**启动时**解析 `proxy_pass http://api:3000` 并缓存 IP，api 换了 IP 后 nginx 仍打旧地址 | `docker compose --env-file deploy/.env restart web` 让 nginx 重新解析                          |
+| 页面能开、接口 404                                                | 前端基址与 nginx 反代不匹配                                                                    | 确认 `VITE_API_BASE_URL=/api/v1`，且 nginx `location /api/` 不改写路径                         |
+| 页面能开、接口 502                                                | api 没起或端口不符                                                                             | `logs api`；确认 `PORT=3000`                                                                   |
+| 上传图片刷新后 404                                                | `uploads` 卷没挂上                                                                             | 看 `docker compose --env-file deploy/.env config` 里的 volumes                                 |
+| 预约时间差 8 小时                                                 | `TZ` 与 MySQL 时区不一致                                                                       | 两处都设：`Asia/Shanghai` / `+08:00`                                                           |
+| `bun: command not found`                                          | 基础镜像被换成非 bun 镜像                                                                      | 基础镜像必须是 `oven/bun:1.4-alpine`                                                           |
+| 80 端口被占                                                       | 宿主机已有 nginx                                                                               | 改 `deploy/.env` 的 `WEB_PORT`                                                                 |
+| 构建很慢 / 上下文几百 MB                                          | `.dockerignore` 没生效                                                                         | 确认它和 `Dockerfile` 都在仓库根，且真的执行了 `--build`                                       |
 
 ## 七、什么情况下不该用这套
 
@@ -284,15 +321,28 @@ docker compose --env-file deploy/.env up -d --build
 
 ## 八、本页结论的验证边界
 
-诚实交代，避免误以为「跑过了」：
+本页结论**在真实 Docker Desktop 上完整跑通过一次**，不是纸面推演。逐项交代做了什么、
+看到什么：
 
-| 项                                                                | 状态                                                           |
-| ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| `docker compose config`（插值 / 健康检查 / 卷 / 端口 / env 注入） | ✅ 已通过                                                      |
-| `deploy/api-entrypoint.sh`、`deploy/up.sh` 语法                   | ✅ 已通过 `bash -n`                                            |
-| `deploy/up.ps1` 语法                                              | ✅ 已通过 PowerShell 解析器（零错误）                          |
-| `deploy/.env` 的忽略规则                                          | ✅ 已被 `.gitignore` 忽略；`deploy/env.example` 可正常纳入版本 |
-| 实际 `docker compose up`（真正构建 + 起容器）                     | ❌ 未执行：构建需要 Docker Engine 处于运行状态                 |
-| `nginx -t` 校验 `web/nginx.conf`                                  | ❌ 未执行：宿主机没有 nginx 二进制                             |
+| 项                                                                | 状态                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `docker compose config`（插值 / 健康检查 / 卷 / 端口 / env 注入） | ✅ 已通过                                                                                         |
+| `deploy/api-entrypoint.sh`、`deploy/up.sh` 语法                   | ✅ 已通过 `bash -n`                                                                               |
+| `deploy/up.ps1` 语法                                              | ✅ 已通过 PowerShell 解析器（零错误）                                                             |
+| `deploy/.env` 的忽略规则                                          | ✅ 已被 `.gitignore` 忽略；`deploy/env.example` 可正常纳入版本                                    |
+| 两个镜像构建                                                      | ✅ `manicure-api:latest`、`manicure-web:latest` 均构建成功                                        |
+| 四个容器起来并互相等到健康                                        | ✅ db / redis / api 均 `healthy`，web `Up`（web 无健康检查）                                      |
+| 迁移 + 种子在容器内自动执行                                       | ✅ `[migrate] Database migrations completed.`，种子写入 121 菜单 / 32 配置 / 11 服务项 / 4 美甲师 |
+| 前端静态产物可访问                                                | ✅ `/assets/index-*.js` → `200`，`application/javascript`                                         |
+| nginx → api 反代链路                                              | ✅ 伪造凭据 `POST /api/v1/auth/login` → `401`（业务响应，链路通）                                 |
+| 真实登录与鉴权                                                    | ✅ `admin` 登录 → `200` 且返回 `accessToken`；带令牌 `GET /api/v1/auth/profile` → `200`           |
+| 浏览器入口可用                                                    | ✅ `http://127.0.0.1/` → `200`（⚠️ 用 `localhost` 会超时，见第六节）                              |
 
-所以首次部署请对照第六节排障表。
+未覆盖的部分也说明白：
+
+- **小程序端**（`miniapp/`）不在这套 compose 里，仍需微信开发者工具单独编译上传；
+- **HTTPS / 域名 / 备案**未涉及，nginx 只监听 80，要上生产得自行加证书；
+- **多机与高可用**未验证，本页定位就是单机；
+- 支付回调（微信 / 支付宝）需要公网可达地址，本机自测跑不通真实回调。
+
+首次部署请对照第六节排障表。

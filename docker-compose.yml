@@ -28,11 +28,18 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      # 用 MySQL 官方镜像自带的 healthcheck.sh：它自己从容器环境里取 root 凭据，
-      # 不必在 compose 里写 $$MYSQL_ROOT_PASSWORD —— 那种写法一旦密码含 shell 特殊字符
-      # 就会解析失败，表现为「db 永远 unhealthy、api 一直不启动」。
-      # --connect 探连通性，--innodb_initialized 确保首次数据目录初始化已完成。
-      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      # ⚠️ 不要用 healthcheck.sh：它是 mysql:8.0 时代的脚本，mysql:8.4 镜像里已经删掉了
+      #    （实探 /usr/local/bin 只剩 docker-entrypoint.sh 和 gosu）。照搬旧写法会让每次
+      #    检查都 exec 失败，12 次重试用满后 db 变成 unhealthy，而 api 又 depends_on
+      #    db service_healthy —— 结果就是 api/web 永远起不来，但 up -d 照样返回 0。
+      #
+      # 也刻意不加 -p"$$MYSQL_ROOT_PASSWORD"：密码一旦含引号或美元符就会在 shell 里被
+      # 二次解析。用不带凭据的 ping 就够了，因为：
+      #   1) mysqladmin ping 只关心 server 有没有应答，认证失败（Access denied）同样返回 0；
+      #   2) 首次初始化阶段跑的是「临时 server」，它 socket: mysqld.sock / port: 0，
+      #      即**只监听 unix socket、不开 TCP**，所以 -h 127.0.0.1 在这个阶段必然失败，
+      #      能准确区分「初始化中」和「已就绪」。
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 --silent']
       interval: 10s
       timeout: 5s
       retries: 12
