@@ -13,8 +13,7 @@ import {
 } from 'lew-ui';
 import type { LewTableColumn } from 'lew-ui';
 import {
-  fetchCommissionPeriodSummary,
-  listCommissionRecords,
+  fetchCommissionRecordSummary,
   reverseCommissionRecord,
   settleCommission,
 } from '~/api/biz/commission-records';
@@ -180,35 +179,22 @@ void search();
 // ---------- 期间汇总 ----------
 const summaryPeriod = ref(currentPeriod);
 const summaryLoading = ref(false);
-const accruedStat = ref({
-  amount: 0,
-  count: 0,
-  staffCount: 0,
-  truncated: false,
-});
+const accruedStat = ref({ amount: 0, count: 0, staffCount: 0 });
 const settledStat = ref({ amount: 0, count: 0 });
 
 async function loadSummary() {
   summaryLoading.value = true;
   try {
-    const [accrued, settled] = await Promise.all([
-      fetchCommissionPeriodSummary(summaryPeriod.value),
-      listCommissionRecords({
-        period: summaryPeriod.value,
-        status: 'settled',
-        page: 1,
-        pageSize: 200,
-      }),
-    ]);
+    // 汇总一律由服务端聚合：前端拉列表求和会被单页上限截断而静默少算
+    const summary = await fetchCommissionRecordSummary(summaryPeriod.value);
     accruedStat.value = {
-      amount: accrued.amount,
-      count: accrued.count,
-      staffCount: accrued.staffCount,
-      truncated: accrued.truncated,
+      amount: summary.accrued.amount,
+      count: summary.accrued.count,
+      staffCount: summary.accrued.staffCount,
     };
     settledStat.value = {
-      amount: settled.items.reduce((sum, item) => sum + item.amount, 0),
-      count: settled.items.length,
+      amount: summary.settled.amount,
+      count: summary.settled.count,
     };
   } finally {
     summaryLoading.value = false;
@@ -220,6 +206,14 @@ void loadSummary();
 const settling = ref(false);
 
 async function openSettle() {
+  /*
+   * 防重（两个都必要）：
+   * - `summaryLoading` 期间按钮已 loading，但 Vue 更新 DOM 是异步的，
+   *   两次点击落在同一帧时第二次仍会进来 → 手工判断兜住这个窗口，
+   *   否则会弹出两个确认框、发出两次结算。
+   * - `settling` 覆盖「点确认 → 结算返回」的全过程。
+   */
+  if (settling.value || summaryLoading.value) return;
   const period = summaryPeriod.value;
   // 先取本期计提总额与人数，再二次确认
   await loadSummary();
@@ -228,13 +222,10 @@ async function openSettle() {
     LewMessage.info(`${period} 没有待结算的计提记录`);
     return;
   }
-  const tail = stat.truncated
-    ? '\n（注：本期记录超过 200 条，以下金额为前 200 条合计，仅供确认参考）'
-    : '';
   confirmDanger({
     type: 'warning',
     title: `结算确认 · ${period}`,
-    content: `本期计提总额 ¥${fen2yuan(stat.amount)}，涉及美甲师 ${stat.staffCount} 人、共 ${stat.count} 笔。\n结算后生成批次号并把记录置为「已结算」，之后不可修改，只能冲销。${tail}`,
+    content: `本期计提总额 ¥${fen2yuan(stat.amount)}，涉及美甲师 ${stat.staffCount} 人、共 ${stat.count} 笔。\n结算后生成批次号并把记录置为「已结算」，之后不可修改，只能冲销。`,
     confirmText: '确认结算',
     confirmColor: 'warning',
     onConfirm: async () => {
@@ -302,7 +293,7 @@ function canReverse(row: CommissionRecord) {
       <LewButton
         v-permission="'biz:commission:settle'"
         type="fill"
-        :loading="settling"
+        :loading="settling || summaryLoading"
         @click="openSettle"
       >
         <CheckCircle2 :size="15" style="margin-right: 4px" /> 结算本期
@@ -362,11 +353,7 @@ function canReverse(row: CommissionRecord) {
           <div class="text-12px text-[var(--app-text-muted)]">当前结算期间</div>
           <div class="mt-1 text-18px font-700">{{ summaryPeriod }}</div>
           <div class="text-11.5px text-[var(--app-text-muted)]">
-            {{
-              accruedStat.truncated
-                ? '注意：记录超过 200 条，金额为下界'
-                : '数据完整'
-            }}
+            服务端实时聚合 · 不受分页影响
           </div>
         </div>
       </div>

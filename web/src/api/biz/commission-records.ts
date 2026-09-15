@@ -55,46 +55,30 @@ export function reverseCommissionRecord(id: number, reason: string) {
   return post<void>(`/biz/commission-records/${id}/reverse`, { reason });
 }
 
-/** 结算前二次确认所需的期间汇总 */
-export interface CommissionPeriodSummary {
-  period: string;
-  /** 期间计提总额（分） */
+/** 计提记录按状态聚合出的一格 */
+export interface CommissionRecordStatusSummary {
+  /** 金额（分）。reversed 桶里是负数 */
   amount: number;
-  /** 涉及人数 */
-  staffCount: number;
-  /** 计提笔数 */
   count: number;
-  /** 是否因单页上限而截断（截断则金额为下界） */
-  truncated: boolean;
+  staffCount: number;
+}
+
+/** 计提记录期间汇总（按状态分桶） */
+export interface CommissionRecordSummary {
+  period: string | null;
+  accrued: CommissionRecordStatusSummary;
+  settled: CommissionRecordStatusSummary;
+  reversed: CommissionRecordStatusSummary;
 }
 
 /**
- * 期间汇总。
+ * 期间汇总（服务端聚合）。
  *
- * 接口契约（§9.11）未提供 `/biz/commission-records/summary`，因此这里用列表接口
- * `status=accrued` 拉取（单页上限 200）在前端聚合出「总额 / 人数」供结算前二次确认。
- * TODO(contract): 若后端补充 summary 接口，应改为直接调用以避免 200 条上限截断。
+ * **不要**再用 `listCommissionRecords({ pageSize: 200 })` 在前端求和 ——
+ * 单页上限 200 会在记录更多时静默少算，金额却照常当作完整值展示。
  */
-export async function fetchCommissionPeriodSummary(
-  period: string,
-): Promise<CommissionPeriodSummary> {
-  const data = await listCommissionRecords({
+export function fetchCommissionRecordSummary(period: string) {
+  return get<CommissionRecordSummary>('/biz/commission-records/summary', {
     period,
-    status: 'accrued',
-    page: 1,
-    pageSize: 200,
   });
-  const staffIds = new Set<number>();
-  let amount = 0;
-  for (const record of data.items) {
-    amount += record.amount;
-    staffIds.add(record.staffId);
-  }
-  return {
-    period,
-    amount,
-    staffCount: staffIds.size,
-    count: data.items.length,
-    truncated: data.items.length >= 200,
-  };
 }

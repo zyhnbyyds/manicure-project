@@ -129,6 +129,31 @@ export type CommissionRecordItem = CommissionRecordRow & {
   serviceItemName: string | null;
 };
 
+/** 计提记录按状态聚合出的一格 */
+export type CommissionRecordStatusSummary = {
+  /** 金额（分）。`reversed` 桶里是负数 —— 冲销记录本身就记负数 */
+  amount: number;
+  /** 笔数 */
+  count: number;
+  /** 涉及美甲师人数 */
+  staffCount: number;
+};
+
+/**
+ * 计提记录的期间汇总（按状态分桶）。
+ *
+ * **为什么必须放在后端算**：`/biz/commission-records` 是分页接口（单页上限 200），
+ * 前端把 `pageSize` 顶到 200 再 `reduce` 求和的话，某期记录一旦超过 200 条，
+ * 「本期已结算 ¥X」就会**静默少算** —— 金额被当作完整值展示，连截断提示都没有。
+ * 结算确认弹窗里的「本期计提总额」同样受影响（这里少算会直接影响结算决策）。
+ */
+export type CommissionRecordSummary = {
+  period: string | null;
+  accrued: CommissionRecordStatusSummary;
+  settled: CommissionRecordStatusSummary;
+  reversed: CommissionRecordStatusSummary;
+};
+
 const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const PERIOD_PATTERN = /^\d{6}$/;
 const SCOPE_ORDER: CommissionScope[] = ['service_item', 'category', 'staff'];
@@ -725,6 +750,77 @@ export class CommissionService extends CommissionPort {
       .limit(pageSize)
       .offset(offset);
     return { items, page, pageSize };
+  }
+
+  /**
+   * 期间汇总：按 `status` 分桶聚合，不受分页上限影响。
+   *
+   * 门店维度的过滤条件与 `listRecords` **必须保持一致** —— 只要两处有一点差异，
+   * 「列表里的数字加起来 ≠ 汇总数字」，店长会直接质疑整张报表。
+   *
+   * 注意：`filter.status` 有意不参与过滤 —— 本方法的职责就是按状态分桶，
+   * 传了也只会把其余两个桶变成 0。
+   */
+  async summaryRecords(
+    filter: CommissionRecordFilter,
+    actor: RequestActor | null,
+  ): Promise<CommissionRecordSummary> {
+    const store = await resolveStoreScope(
+      this.database.db,
+      actor,
+      filter.storeId,
+    );
+    const storeFilters = storeConditions(bizBookings.storeId, store);
+    const rows = await this.database.db
+      .select({
+        status: bizCommissionRecords.status,
+        amount: sql<number>`COALESCE(SUM(${bizCommissionRecords.amount}), 0)`,
+        count: sql<number>`COUNT(*)`,
+        staffCount: sql<number>`COUNT(DISTINCT ${bizCommissionRecords.staffId})`,
+      })
+      .from(bizCommissionRecords)
+      .where(
+        andConditions([
+          ...(storeFilters.length
+            ? [
+                inArray(
+                  bizCommissionRecords.bookingId,
+                  this.database.db
+                    .select({ id: bizBookings.id })
+                    .from(bizBookings)
+                    .where(and(...storeFilters)),
+                ),
+              ]
+            : []),
+          filter.staffId
+            ? eq(bizCommissionRecords.staffId, filter.staffId)
+            : undefined,
+          filter.period
+            ? eq(bizCommissionRecords.period, filter.period)
+            : undefined,
+          filter.bookingId
+            ? eq(bizCommissionRecords.bookingId, filter.bookingId)
+            : undefined,
+        ]),
+      )
+      .groupBy(bizCommissionRecords.status);
+
+    const buckets: Record<
+      CommissionRecordStatus,
+      CommissionRecordStatusSummary
+    > = {
+      accrued: { amount: 0, count: 0, staffCount: 0 },
+      settled: { amount: 0, count: 0, staffCount: 0 },
+      reversed: { amount: 0, count: 0, staffCount: 0 },
+    };
+    for (const row of rows) {
+      buckets[row.status] = {
+        amount: Number(row.amount),
+        count: Number(row.count),
+        staffCount: Number(row.staffCount),
+      };
+    }
+    return { period: filter.period ?? null, ...buckets };
   }
 
   /* ---------------- 内部 ---------------- */

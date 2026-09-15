@@ -281,6 +281,36 @@ export class CommissionController {
     );
   }
 
+  @Get('commission-records/summary')
+  @RequirePermissions('biz:commission:list')
+  @ApiOperation({
+    summary: '计提记录期间汇总（按状态分桶，不受单页上限影响）',
+  })
+  @ApiQuery({ name: 'period', required: false, description: '期间 yyyyMM' })
+  @ApiQuery({ name: 'staffId', required: false, description: '美甲师' })
+  @ApiQuery({ name: 'bookingId', required: false, description: '预约ID' })
+  @ApiQuery({
+    name: 'storeId',
+    required: false,
+    description: '门店维度（同列表接口，按关联预约的门店归属过滤）',
+  })
+  @ApiResponse({ status: 200, description: '成功' })
+  summaryRecords(
+    @Req() request: AuthRequest,
+    @Query() raw: Record<string, unknown> = {},
+  ) {
+    const query = recordQuerySchema.parse({ ...raw });
+    return this.commission.summaryRecords(
+      {
+        staffId: query.staffId,
+        period: query.period,
+        bookingId: query.bookingId,
+        storeId: query.storeId,
+      },
+      request.user,
+    );
+  }
+
   /* ---------------- 结算 / 冲销 ---------------- */
 
   @Post('commission-settle')
