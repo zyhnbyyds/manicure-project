@@ -1,4 +1,11 @@
 import { Module, OnModuleInit } from '@nestjs/common';
+import { BaseDataModule } from '../modules/biz/base-data/base-data.module';
+import { BookingModule } from '../modules/biz/booking/booking.module';
+import { CreditModule } from '../modules/biz/credit/credit.module';
+import { MembershipModule } from '../modules/biz/membership/membership.module';
+import { PaymentModule } from '../modules/biz/payment/payment.module';
+import { ReportsModule } from '../modules/biz/reports/reports.module';
+import { SchedulingModule } from '../modules/biz/scheduling/scheduling.module';
 import { DashboardModule } from '../modules/dashboard/dashboard.module';
 import { FilesModule } from '../modules/files/files.module';
 import { JobsModule } from '../modules/jobs/jobs.module';
@@ -31,6 +38,41 @@ import { TaskService } from './task/task.service';
 import { AiTool } from './tools/tool.interface';
 import { ToolExecutor } from './tools/tool.executor';
 import { ToolRegistry } from './tools/tool.registry';
+import {
+  CustomerGetTool,
+  CustomerListTool,
+  ServiceItemListTool,
+  StaffListTool,
+  StoreListTool,
+} from './tools/biz-base/biz-base.tools';
+import {
+  BookingAvailableSlotsTool,
+  BookingCalendarTool,
+  BookingGetTool,
+  BookingListTool,
+} from './tools/biz-booking/biz-booking.tools';
+import {
+  MemberCardListTool,
+  MemberLevelListTool,
+  MemberListTool,
+  MemberTransactionsTool,
+} from './tools/biz-member/biz-member.tools';
+import {
+  PaymentListTool,
+  ReceivableListTool,
+  ReceivableSummaryTool,
+  RefundListTool,
+} from './tools/biz-payment/biz-payment.tools';
+import {
+  ReportHomeTool,
+  ReportOverviewTool,
+  ReportRevenueTool,
+} from './tools/biz-report/biz-report.tools';
+import {
+  ScheduleCalendarTool,
+  ScheduleOverridesTool,
+  ScheduleWeeklyTool,
+} from './tools/biz-schedule/biz-schedule.tools';
 import { CacheInfoTool } from './tools/cache/cache.tools';
 import {
   ConfigCreateTool,
@@ -131,6 +173,14 @@ import { UserUpdateTool } from './tools/user/user.update.tool';
  */
 @Module({
   imports: [
+    // 美甲业务域：AI 工具只调它们的 service，不碰数据库
+    BaseDataModule,
+    BookingModule,
+    SchedulingModule,
+    MembershipModule,
+    PaymentModule,
+    CreditModule,
+    ReportsModule,
     UsersModule,
     RolesModule,
     DeptsModule,
@@ -245,6 +295,35 @@ import { UserUpdateTool } from './tools/user/user.update.tool';
     DashboardRolesTool,
     DashboardMenusTool,
     DashboardPostsTool,
+    // 美甲预约
+    BookingListTool,
+    BookingGetTool,
+    BookingCalendarTool,
+    BookingAvailableSlotsTool,
+    // 美甲排班
+    ScheduleWeeklyTool,
+    ScheduleOverridesTool,
+    ScheduleCalendarTool,
+    // 基础数据
+    StaffListTool,
+    ServiceItemListTool,
+    StoreListTool,
+    CustomerListTool,
+    CustomerGetTool,
+    // 会员
+    MemberListTool,
+    MemberTransactionsTool,
+    MemberCardListTool,
+    MemberLevelListTool,
+    // 收银与退款
+    PaymentListTool,
+    RefundListTool,
+    ReceivableListTool,
+    ReceivableSummaryTool,
+    // 报表
+    ReportRevenueTool,
+    ReportOverviewTool,
+    ReportHomeTool,
   ],
   exports: [AiGatewayService],
 })
@@ -317,6 +396,29 @@ export class AiModule implements OnModuleInit {
     private readonly dashboardRolesTool: DashboardRolesTool,
     private readonly dashboardMenusTool: DashboardMenusTool,
     private readonly dashboardPostsTool: DashboardPostsTool,
+    private readonly bookingListTool: BookingListTool,
+    private readonly bookingGetTool: BookingGetTool,
+    private readonly bookingCalendarTool: BookingCalendarTool,
+    private readonly bookingAvailableSlotsTool: BookingAvailableSlotsTool,
+    private readonly scheduleWeeklyTool: ScheduleWeeklyTool,
+    private readonly scheduleOverridesTool: ScheduleOverridesTool,
+    private readonly scheduleCalendarTool: ScheduleCalendarTool,
+    private readonly staffListTool: StaffListTool,
+    private readonly serviceItemListTool: ServiceItemListTool,
+    private readonly storeListTool: StoreListTool,
+    private readonly customerListTool: CustomerListTool,
+    private readonly customerGetTool: CustomerGetTool,
+    private readonly memberListTool: MemberListTool,
+    private readonly memberTransactionsTool: MemberTransactionsTool,
+    private readonly memberCardListTool: MemberCardListTool,
+    private readonly memberLevelListTool: MemberLevelListTool,
+    private readonly paymentListTool: PaymentListTool,
+    private readonly refundListTool: RefundListTool,
+    private readonly receivableListTool: ReceivableListTool,
+    private readonly receivableSummaryTool: ReceivableSummaryTool,
+    private readonly reportRevenueTool: ReportRevenueTool,
+    private readonly reportOverviewTool: ReportOverviewTool,
+    private readonly reportHomeTool: ReportHomeTool,
   ) {}
 
   onModuleInit(): void {
@@ -387,6 +489,29 @@ export class AiModule implements OnModuleInit {
       this.dashboardRolesTool,
       this.dashboardMenusTool,
       this.dashboardPostsTool,
+      this.bookingListTool,
+      this.bookingGetTool,
+      this.bookingCalendarTool,
+      this.bookingAvailableSlotsTool,
+      this.scheduleWeeklyTool,
+      this.scheduleOverridesTool,
+      this.scheduleCalendarTool,
+      this.staffListTool,
+      this.serviceItemListTool,
+      this.storeListTool,
+      this.customerListTool,
+      this.customerGetTool,
+      this.memberListTool,
+      this.memberTransactionsTool,
+      this.memberCardListTool,
+      this.memberLevelListTool,
+      this.paymentListTool,
+      this.refundListTool,
+      this.receivableListTool,
+      this.receivableSummaryTool,
+      this.reportRevenueTool,
+      this.reportOverviewTool,
+      this.reportHomeTool,
     ];
     for (const tool of tools) {
       this.registry.register(tool);
