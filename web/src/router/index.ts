@@ -36,6 +36,16 @@ export const constantRoutes = [
     meta: { title: '无权限' },
   },
   {
+    // 大屏展示：**独立的顶层路由**，不挂在 `layout` 下 ——
+    // 挂在下面就会带出侧边栏 / 顶栏 / 标签页，而这块屏要的就是干净的全屏。
+    // 因此它也不走菜单驱动的动态路由（那条链路只会往 `layout` 里塞子路由），
+    // 与 `/login`、`/403` 一样属于「基座页面」：登录态由路由守卫统一把守。
+    path: '/screen',
+    name: 'screen',
+    component: () => import('../views/screen/index.vue'),
+    meta: { title: '大屏展示' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('../views/error/404.vue'),

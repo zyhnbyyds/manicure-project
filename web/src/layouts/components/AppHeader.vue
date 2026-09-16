@@ -3,11 +3,13 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   AlertTriangle,
-  Bot,
+  BookOpen,
   ChevronDown,
   Github,
+  MonitorPlay,
   Moon,
   Palette,
+  Sparkles,
   Store as StoreIcon,
   Sun,
 } from 'lucide-vue-next';
@@ -91,6 +93,37 @@ async function handleLogout() {
   router.push('/login');
 }
 
+/**
+ * 大屏展示地址。
+ *
+ * `BASE_URL` 既可能是 `/` 也可能是子路径（如 `/admin/`），结尾必须保证有一个斜杠，
+ * 不能直接字符串相加 —— 否则会拼出 `/adminscreen`。
+ */
+const screenUrl = `${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}screen`;
+
+/**
+ * 外部文档入口。
+ *
+ * 开发者文档与商家文档是**两个独立部署的站点**，所以收进一个下拉里 ——
+ * 并排摆两个图标，等于为两个「一个月点一次」的入口各占一个常驻位。
+ */
+const docOptions: LewContextMenusOption[] = [
+  { label: '开发者文档', value: 'https://dev.fairtech.work' },
+  { label: '商家文档', value: 'https://docs.fairtech.work' },
+];
+
+/**
+ * 打开外部文档。
+ *
+ * 这里用 `window.open` 而不是像大屏入口那样用 `<a>`：下拉项是拿数据渲染出来的，
+ * 挂不上真链接。它是**用户点下拉项**触发的（有用户激活），不会像脚本自动调用
+ * 那样被弹窗拦截器当弹窗拍掉。
+ */
+function handleDocChange(option: LewContextMenusOption) {
+  const url = String(option.value ?? '');
+  if (url) window.open(url, '_blank', 'noopener');
+}
+
 function handleUserMenu(option: LewContextMenusOption) {
   if (option.value === 'profile') {
     router.push('/profile');
@@ -160,6 +193,20 @@ function toggleDark() {
         <Palette :size="17" />
       </button>
 
+      <!-- 大屏展示：新窗口打开。
+           这里用 <a target="_blank"> 而不是 window.open —— 后者依赖「用户激活」，
+           在部分环境下会被当作弹窗直接拦掉（返回值 null，静默失效）；
+           链接导航不算弹窗，稳得多，还白送了中键 / Ctrl+点击的用法。 -->
+      <a
+        class="icon-btn no-underline"
+        :href="screenUrl"
+        target="_blank"
+        rel="noopener"
+        title="大屏展示（新窗口打开）"
+      >
+        <MonitorPlay :size="17" />
+      </a>
+
       <!-- AI 助手 -->
       <button
         v-permission="'ai:chat'"
@@ -167,8 +214,19 @@ function toggleDark() {
         title="AI 助手"
         @click="emit('openAi')"
       >
-        <Bot :size="17" />
+        <Sparkles :size="17" />
       </button>
+
+      <!-- 外部文档：开发者文档 / 商家文档，两个独立站点收进一个下拉 -->
+      <LewDropdown
+        trigger="click"
+        :options="docOptions"
+        @change="handleDocChange"
+      >
+        <button class="icon-btn" title="外部文档（新窗口打开）">
+          <BookOpen :size="17" />
+        </button>
+      </LewDropdown>
 
       <!-- GitHub 链接 -->
       <a
