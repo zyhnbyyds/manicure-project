@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { AppConfigService } from '../../../../../config/app-config.service.js';
+import { AppConfigService } from '../../../../../config/app-config.service';
 
 /** 短信发送入参：内容已是**渲染后的最终文本**（不含 `{变量}` 残留，§19.3） */
 export type SmsSendInput = {

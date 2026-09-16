@@ -8,7 +8,7 @@ import {
   NoticePort,
   PaymentPort,
   RecurrencePort,
-} from '../biz/common/ports.js';
+} from '../biz/common/ports';
 import { JobsService } from './jobs.service';
 
 vi.mock('@nestjs/schedule', () => ({

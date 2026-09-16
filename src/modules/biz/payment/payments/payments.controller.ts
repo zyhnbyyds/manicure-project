@@ -20,12 +20,12 @@ import {
 } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import { Public } from '../../../../common/auth/public.decorator.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { MAX_PAGE_SIZE, parsePagination } from '../../common/query.js';
-import type { PaymentDraft } from '../../common/ports.js';
-import { PaymentsService, type PaymentListFilter } from './payments.service.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import { Public } from '../../../../common/auth/public.decorator';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { MAX_PAGE_SIZE, parsePagination } from '../../common/query';
+import type { PaymentDraft } from '../../common/ports';
+import { PaymentsService, type PaymentListFilter } from './payments.service';
 
 type AuthRequest = {
   user: { id: number; roles: string[]; permissions: string[] };

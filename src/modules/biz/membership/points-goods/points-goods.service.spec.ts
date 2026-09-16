@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Param } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
-import { PointsGoodsService } from './points-goods.service.js';
+import { PointsGoodsService } from './points-goods.service';
 
 type Row = Record<string, unknown>;
 
@@ -978,21 +978,28 @@ describe('PointsGoodsService（§15.3 积分兑换 / §9.10 抵扣试算）', ()
       });
     });
 
-    it('list 返回 items/page/pageSize（无 total）', async () => {
+    it('list 返回 items/page/pageSize/total', async () => {
       const h = createHarness({ dbSelect: [[goods()]] });
       const result = await h.service.list(1, 20);
-      expect(result).toEqual({ items: [goods()], page: 1, pageSize: 20 });
-      expect(result).not.toHaveProperty('total');
+      // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+      expect(result).toEqual({
+        items: [goods()],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      });
     });
 
-    it('listRedeems 返回 items/page/pageSize（无 total）', async () => {
+    it('listRedeems 返回 items/page/pageSize/total', async () => {
       const h = createHarness({
-        dbSelect: [[{ ...redeemRow(), customerName: '张三' }]],
+        // 第一次是列表，第二次是 count 查询（total）
+        dbSelect: [[{ ...redeemRow(), customerName: '张三' }], []],
       });
       const result = await h.service.listRedeems(2, 10, { status: 'success' });
       expect(result.page).toBe(2);
       expect(result.pageSize).toBe(10);
-      expect(result).not.toHaveProperty('total');
+      // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+      expect(result.total).toBe(0);
     });
   });
 });

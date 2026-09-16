@@ -19,9 +19,9 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
-import { parsePagination } from '../../common/query.js';
+import { parsePagination } from '../../common/query';
 import { MemberCardsService } from './member-cards.service';
 
 const issueSchema = z.object({

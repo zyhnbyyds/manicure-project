@@ -16,15 +16,15 @@ import {
   ne,
   or,
 } from 'drizzle-orm';
-import { DatabaseService } from '../../../database/database.service.js';
+import { DatabaseService } from '../../../database/database.service';
 import {
   bizBookings,
   bizStaffScheduleOverrides,
   bizStaffs,
   bizStaffWeeklyShifts,
-} from '../../../database/schema/index.js';
-import { BizConfigService } from '../common/biz-config.service.js';
-import { SchedulePort, type BookingConflictItem } from '../common/ports.js';
+} from '../../../database/schema/index';
+import { BizConfigService } from '../common/biz-config.service';
+import { SchedulePort, type BookingConflictItem } from '../common/ports';
 import {
   addLocalDays,
   listLocalDates,
@@ -35,8 +35,8 @@ import {
   shopToday,
   shopWeekday,
   timeToMinutes,
-} from '../common/shop-time.js';
-import type { BizExecutor, BizTx } from '../common/tx.js';
+} from '../common/shop-time';
+import type { BizExecutor, BizTx } from '../common/tx';
 
 /** 周模板变更的保护视窗：未来 30 天（§6.4） */
 const TEMPLATE_CONFLICT_DAYS = 30;

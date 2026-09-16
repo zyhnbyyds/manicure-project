@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Param, type SQL } from 'drizzle-orm';
-import { configs } from '../../../database/schema/index.js';
+import { configs } from '../../../database/schema/index';
 import {
   andConditions,
   DEFAULT_PAGE_SIZE,
@@ -8,7 +8,7 @@ import {
   localDateRange,
   MAX_PAGE_SIZE,
   parsePagination,
-} from './query.js';
+} from './query';
 
 /**
  * 递归取出 SQL 条件里的绑定参数值。

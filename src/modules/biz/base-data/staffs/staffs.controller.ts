@@ -21,11 +21,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../common/query.js';
-import { StaffsService, type StaffListFilter } from './staffs.service.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { parsePagination } from '../../common/query';
+import { StaffsService, type StaffListFilter } from './staffs.service';
 
 const createSchema = z.object({
   userId: z

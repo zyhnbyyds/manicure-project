@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { CustomersService } from './customers.service.js';
+import { CustomersService } from './customers.service';
 
 type Row = Record<string, unknown>;
 
@@ -78,11 +78,14 @@ describe('CustomersService.restore（§4.3 恢复软删顾客）', () => {
     await expect(h.service.list(1, 20, { status: 'deleted' })).resolves.toEqual(
       {
         items: [customer()],
+        // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+        total: 0,
         page: 1,
         pageSize: 20,
       },
     );
-    expect(h.select).toHaveBeenCalledTimes(1);
+    // page + count 各一次
+    expect(h.select).toHaveBeenCalledTimes(2);
   });
 
   it('默认列表仍只返回在用顾客', async () => {
@@ -91,6 +94,8 @@ describe('CustomersService.restore（§4.3 恢复软删顾客）', () => {
     });
     await expect(h.service.list(1, 20, {})).resolves.toEqual({
       items: [customer({ deletedAt: null })],
+      // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+      total: 0,
       page: 1,
       pageSize: 20,
     });

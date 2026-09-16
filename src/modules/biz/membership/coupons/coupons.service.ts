@@ -18,11 +18,11 @@ import { DatabaseService } from '../../../../database/database.service';
 import {
   bizCouponTemplates,
   bizCustomerCoupons,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo } from '../../common/doc-no.js';
-import { keywordLike, parsePagination } from '../../common/query.js';
-import type { BizDatabase, BizTx } from '../../common/tx.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildDocNo } from '../../common/doc-no';
+import { keywordLike, parsePagination, readCount } from '../../common/query';
+import type { BizDatabase, BizTx } from '../../common/tx';
 
 export type CouponTemplateRow = typeof bizCouponTemplates.$inferSelect;
 export type CustomerCouponRow = typeof bizCustomerCoupons.$inferSelect;
@@ -127,6 +127,7 @@ export class CouponsService {
       /** 券名（模板名）：顾客需要知道这是张什么券 */
       templateName: string | null;
     })[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
@@ -143,27 +144,40 @@ export class CouponsService {
       this.filterCondition(filter, now),
     ];
 
-    const rows = await this.database.db
-      .select({
-        ...getTableColumns(bizCustomerCoupons),
-        // 券名来自模板：它是营销文案，给顾客看没有问题；模板 id 仍不外泄
-        templateName: bizCouponTemplates.name,
-      })
-      .from(bizCustomerCoupons)
-      .leftJoin(
-        bizCouponTemplates,
-        eq(bizCouponTemplates.id, bizCustomerCoupons.templateId),
-      )
-      .where(and(...conditions))
-      .orderBy(desc(bizCustomerCoupons.id))
-      .limit(safePageSize)
-      .offset(offset);
+    const where = and(...conditions);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select({
+          ...getTableColumns(bizCustomerCoupons),
+          // 券名来自模板：它是营销文案，给顾客看没有问题；模板 id 仍不外泄
+          templateName: bizCouponTemplates.name,
+        })
+        .from(bizCustomerCoupons)
+        .leftJoin(
+          bizCouponTemplates,
+          eq(bizCouponTemplates.id, bizCustomerCoupons.templateId),
+        )
+        .where(where)
+        .orderBy(desc(bizCustomerCoupons.id))
+        .limit(safePageSize)
+        .offset(offset),
+      // count 带上同一个 leftJoin（select 里用到了 bizCouponTemplates.name）
+      this.database.db
+        .select({ value: count() })
+        .from(bizCustomerCoupons)
+        .leftJoin(
+          bizCouponTemplates,
+          eq(bizCouponTemplates.id, bizCustomerCoupons.templateId),
+        )
+        .where(where),
+    ]);
 
     return {
       items: rows.map((row) => ({
         ...row,
         displayStatus: this.displayStatus(row, now),
       })),
+      total: readCount(counted),
       page: safePage,
       pageSize: safePageSize,
     };
@@ -518,6 +532,7 @@ export class CouponsService {
     } = {},
   ): Promise<{
     items: (CouponTemplateRow & { claimedCount: number })[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
@@ -531,14 +546,22 @@ export class CouponsService {
       conditions.push(eq(bizCouponTemplates.status, filter.status));
     const keyword = keywordLike(bizCouponTemplates.name, filter.keyword);
     if (keyword) conditions.push(keyword);
+    const where = and(...conditions);
 
-    const rows = await this.database.db
-      .select()
-      .from(bizCouponTemplates)
-      .where(and(...conditions))
-      .orderBy(bizCouponTemplates.sort, desc(bizCouponTemplates.id))
-      .limit(safePageSize)
-      .offset(offset);
+    // 列表与 count 并行跑（同口径：同一套 from/where）
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizCouponTemplates)
+        .where(where)
+        .orderBy(bizCouponTemplates.sort, desc(bizCouponTemplates.id))
+        .limit(safePageSize)
+        .offset(offset),
+      this.database.db
+        .select({ value: count() })
+        .from(bizCouponTemplates)
+        .where(where),
+    ]);
 
     // 已发出多少张：列表上要看得见，否则运营不知道停用会不会影响在用的券
     const counts = await Promise.all(
@@ -561,6 +584,7 @@ export class CouponsService {
         ...row,
         claimedCount: counts[index] ?? 0,
       })),
+      total: readCount(counted),
       page: safePage,
       pageSize: safePageSize,
     };
@@ -571,25 +595,40 @@ export class CouponsService {
     customerId: number,
     page = 1,
     pageSize = 20,
-  ): Promise<{ items: CustomerCouponRow[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: CustomerCouponRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const {
       page: safePage,
       pageSize: safePageSize,
       offset,
     } = parsePagination(page, pageSize);
-    const rows = await this.database.db
-      .select()
-      .from(bizCustomerCoupons)
-      .where(
-        and(
-          eq(bizCustomerCoupons.customerId, customerId),
-          isNull(bizCustomerCoupons.deletedAt),
-        ),
-      )
-      .orderBy(desc(bizCustomerCoupons.id))
-      .limit(safePageSize)
-      .offset(offset);
-    return { items: rows, page: safePage, pageSize: safePageSize };
+    const where = and(
+      eq(bizCustomerCoupons.customerId, customerId),
+      isNull(bizCustomerCoupons.deletedAt),
+    );
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizCustomerCoupons)
+        .where(where)
+        .orderBy(desc(bizCustomerCoupons.id))
+        .limit(safePageSize)
+        .offset(offset),
+      this.database.db
+        .select({ value: count() })
+        .from(bizCustomerCoupons)
+        .where(where),
+    ]);
+    return {
+      items: rows,
+      total: readCount(counted),
+      page: safePage,
+      pageSize: safePageSize,
+    };
   }
 
   async findTemplate(id: number): Promise<CouponTemplateRow> {

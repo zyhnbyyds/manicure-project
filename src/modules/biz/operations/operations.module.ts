@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { NoticesController } from './notices/notices.controller.js';
-import { NoticesService } from './notices/notices.service.js';
-import { AliyunSmsProvider, SmsProvider } from './notices/sms/sms.provider.js';
-import { RecurrencesController } from './recurrences/recurrences.controller.js';
-import { RecurrencesService } from './recurrences/recurrences.service.js';
-import { ReviewsController } from './reviews/reviews.controller.js';
-import { ReviewsService } from './reviews/reviews.service.js';
+import { NoticesController } from './notices/notices.controller';
+import { NoticesService } from './notices/notices.service';
+import { AliyunSmsProvider, SmsProvider } from './notices/sms/sms.provider';
+import { RecurrencesController } from './recurrences/recurrences.controller';
+import { RecurrencesService } from './recurrences/recurrences.service';
+import { ReviewsController } from './reviews/reviews.controller';
+import { ReviewsService } from './reviews/reviews.service';
 
 /**
  * 运营模块（B5）：评价 / 周期预约 / 通知（模板 + 短信 + 站内消息）。

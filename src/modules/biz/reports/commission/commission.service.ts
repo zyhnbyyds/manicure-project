@@ -32,11 +32,11 @@ import {
   sql,
 } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   resolveStoreScope,
   storeConditions,
-} from '../../../../common/data-scope/store-scope.js';
+} from '../../../../common/data-scope/store-scope';
 import {
   bizBookingItems,
   bizBookings,
@@ -44,26 +44,27 @@ import {
   bizCommissionRules,
   bizServiceItems,
   bizStaffs,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildSettleBatch } from '../../common/doc-no.js';
-import { commissionOf } from '../../common/money.js';
-import type { PageResult } from '../../common/ports.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildSettleBatch } from '../../common/doc-no';
+import { commissionOf } from '../../common/money';
+import type { PageResult } from '../../common/ports';
 import {
   CommissionPort,
   ServiceItemPort,
   StaffPort,
   STAFF_COMMISSION_LIMIT,
   type StaffCommissionItem,
-} from '../../common/ports.js';
+} from '../../common/ports';
 import {
   andConditions,
   keywordLike,
   parsePagination,
-} from '../../common/query.js';
-import { shopDateOf } from '../../common/shop-time.js';
-import type { BizTx } from '../../common/tx.js';
-import { withoutUndefined } from '../../common/tx.js';
+  readCount,
+} from '../../common/query';
+import { shopDateOf } from '../../common/shop-time';
+import type { BizTx } from '../../common/tx';
+import { withoutUndefined } from '../../common/tx';
 
 type CommissionRuleRow = typeof bizCommissionRules.$inferSelect;
 type CommissionRecordRow = typeof bizCommissionRecords.$inferSelect;
@@ -490,29 +491,32 @@ export class CommissionService extends CommissionPort {
     filter: CommissionRuleFilter,
   ): Promise<PageResult<CommissionRuleRow>> {
     const { offset } = parsePagination(page, pageSize);
-    const items = await this.database.db
-      .select()
-      .from(bizCommissionRules)
-      .where(
-        andConditions([
-          isNull(bizCommissionRules.deletedAt),
-          filter.scope ? eq(bizCommissionRules.scope, filter.scope) : undefined,
-          filter.staffId
-            ? eq(bizCommissionRules.staffId, filter.staffId)
-            : undefined,
-          filter.status
-            ? eq(bizCommissionRules.status, filter.status)
-            : undefined,
-          filter.category
-            ? eq(bizCommissionRules.category, filter.category)
-            : undefined,
-          keywordLike(bizCommissionRules.name, filter.keyword),
-        ]),
-      )
-      .orderBy(asc(bizCommissionRules.sort), asc(bizCommissionRules.id))
-      .limit(pageSize)
-      .offset(offset);
-    return { items, page, pageSize };
+    const where = andConditions([
+      isNull(bizCommissionRules.deletedAt),
+      filter.scope ? eq(bizCommissionRules.scope, filter.scope) : undefined,
+      filter.staffId
+        ? eq(bizCommissionRules.staffId, filter.staffId)
+        : undefined,
+      filter.status ? eq(bizCommissionRules.status, filter.status) : undefined,
+      filter.category
+        ? eq(bizCommissionRules.category, filter.category)
+        : undefined,
+      keywordLike(bizCommissionRules.name, filter.keyword),
+    ]);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizCommissionRules)
+        .where(where)
+        .orderBy(asc(bizCommissionRules.sort), asc(bizCommissionRules.id))
+        .limit(pageSize)
+        .offset(offset),
+      this.database.db
+        .select({ value: sql<number>`COUNT(*)` })
+        .from(bizCommissionRules)
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async createRule(
@@ -691,65 +695,83 @@ export class CommissionService extends CommissionPort {
       filter.storeId,
     );
     const storeFilters = storeConditions(bizBookings.storeId, store);
-    const items = await this.database.db
-      .select({
-        id: bizCommissionRecords.id,
-        bookingId: bizCommissionRecords.bookingId,
-        bookingItemId: bizCommissionRecords.bookingItemId,
-        staffId: bizCommissionRecords.staffId,
-        ruleId: bizCommissionRecords.ruleId,
-        baseAmount: bizCommissionRecords.baseAmount,
-        amount: bizCommissionRecords.amount,
-        period: bizCommissionRecords.period,
-        status: bizCommissionRecords.status,
-        settledAt: bizCommissionRecords.settledAt,
-        settleBatch: bizCommissionRecords.settleBatch,
-        remark: bizCommissionRecords.remark,
-        createdBy: bizCommissionRecords.createdBy,
-        createdAt: bizCommissionRecords.createdAt,
-        staffNickname: bizStaffs.nickname,
-        bookingNo: bizBookings.bookingNo,
-        serviceItemId: bizBookingItems.serviceItemId,
-        serviceItemName: bizBookingItems.name,
-      })
-      .from(bizCommissionRecords)
-      .leftJoin(bizStaffs, eq(bizCommissionRecords.staffId, bizStaffs.id))
-      .leftJoin(bizBookings, eq(bizCommissionRecords.bookingId, bizBookings.id))
-      .leftJoin(
-        bizBookingItems,
-        eq(bizCommissionRecords.bookingItemId, bizBookingItems.id),
-      )
-      .where(
-        andConditions([
-          ...(storeFilters.length
-            ? [
-                inArray(
-                  bizCommissionRecords.bookingId,
-                  this.database.db
-                    .select({ id: bizBookings.id })
-                    .from(bizBookings)
-                    .where(and(...storeFilters)),
-                ),
-              ]
-            : []),
-          filter.staffId
-            ? eq(bizCommissionRecords.staffId, filter.staffId)
-            : undefined,
-          filter.period
-            ? eq(bizCommissionRecords.period, filter.period)
-            : undefined,
-          filter.status
-            ? eq(bizCommissionRecords.status, filter.status)
-            : undefined,
-          filter.bookingId
-            ? eq(bizCommissionRecords.bookingId, filter.bookingId)
-            : undefined,
-        ]),
-      )
-      .orderBy(desc(bizCommissionRecords.id))
-      .limit(pageSize)
-      .offset(offset);
-    return { items, page, pageSize };
+    const where = andConditions([
+      ...(storeFilters.length
+        ? [
+            inArray(
+              bizCommissionRecords.bookingId,
+              this.database.db
+                .select({ id: bizBookings.id })
+                .from(bizBookings)
+                .where(and(...storeFilters)),
+            ),
+          ]
+        : []),
+      filter.staffId
+        ? eq(bizCommissionRecords.staffId, filter.staffId)
+        : undefined,
+      filter.period
+        ? eq(bizCommissionRecords.period, filter.period)
+        : undefined,
+      filter.status
+        ? eq(bizCommissionRecords.status, filter.status)
+        : undefined,
+      filter.bookingId
+        ? eq(bizCommissionRecords.bookingId, filter.bookingId)
+        : undefined,
+    ]);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          id: bizCommissionRecords.id,
+          bookingId: bizCommissionRecords.bookingId,
+          bookingItemId: bizCommissionRecords.bookingItemId,
+          staffId: bizCommissionRecords.staffId,
+          ruleId: bizCommissionRecords.ruleId,
+          baseAmount: bizCommissionRecords.baseAmount,
+          amount: bizCommissionRecords.amount,
+          period: bizCommissionRecords.period,
+          status: bizCommissionRecords.status,
+          settledAt: bizCommissionRecords.settledAt,
+          settleBatch: bizCommissionRecords.settleBatch,
+          remark: bizCommissionRecords.remark,
+          createdBy: bizCommissionRecords.createdBy,
+          createdAt: bizCommissionRecords.createdAt,
+          staffNickname: bizStaffs.nickname,
+          bookingNo: bizBookings.bookingNo,
+          serviceItemId: bizBookingItems.serviceItemId,
+          serviceItemName: bizBookingItems.name,
+        })
+        .from(bizCommissionRecords)
+        .leftJoin(bizStaffs, eq(bizCommissionRecords.staffId, bizStaffs.id))
+        .leftJoin(
+          bizBookings,
+          eq(bizCommissionRecords.bookingId, bizBookings.id),
+        )
+        .leftJoin(
+          bizBookingItems,
+          eq(bizCommissionRecords.bookingItemId, bizBookingItems.id),
+        )
+        .where(where)
+        .orderBy(desc(bizCommissionRecords.id))
+        .limit(pageSize)
+        .offset(offset),
+      // count 带上同一组 leftJoin（select 与 where 都引用了它们）
+      this.database.db
+        .select({ value: sql<number>`COUNT(*)` })
+        .from(bizCommissionRecords)
+        .leftJoin(bizStaffs, eq(bizCommissionRecords.staffId, bizStaffs.id))
+        .leftJoin(
+          bizBookings,
+          eq(bizCommissionRecords.bookingId, bizBookings.id),
+        )
+        .leftJoin(
+          bizBookingItems,
+          eq(bizCommissionRecords.bookingItemId, bizBookingItems.id),
+        )
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   /**

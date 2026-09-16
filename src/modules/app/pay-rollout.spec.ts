@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bucketOf, inPayRollout } from './pay-rollout.js';
+import { bucketOf, inPayRollout } from './pay-rollout';
 
 /**
  * 灰度分桶的回归。

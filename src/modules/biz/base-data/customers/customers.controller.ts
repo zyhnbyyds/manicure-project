@@ -20,13 +20,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../common/query.js';
-import {
-  CustomersService,
-  type CustomerListFilter,
-} from './customers.service.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { parsePagination } from '../../common/query';
+import { CustomersService, type CustomerListFilter } from './customers.service';
 
 const createSchema = z.object({
   name: z

@@ -16,22 +16,22 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookingItems,
   bizBookings,
   bizCustomers,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo } from '../../common/doc-no.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildDocNo } from '../../common/doc-no';
 import {
   CustomerPort,
   type CustomerRow,
   type PageResult,
-} from '../../common/ports.js';
-import { keywordLike } from '../../common/query.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizTx } from '../../common/tx.js';
+} from '../../common/ports';
+import { keywordLike, readCount } from '../../common/query';
+import { withoutUndefined } from '../../common/tx';
+import type { BizTx } from '../../common/tx';
 
 const SAMPLE_BOOKING_LIMIT = 3;
 
@@ -102,14 +102,21 @@ export class CustomersService extends CustomerPort {
         filter.hasBalance ? sql`${balance} > 0` : sql`${balance} = 0`,
       );
     }
-    const items = await this.database.db
-      .select()
-      .from(bizCustomers)
-      .where(and(...conditions))
-      .orderBy(desc(bizCustomers.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizCustomers)
+        .where(where)
+        .orderBy(desc(bizCustomers.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizCustomers)
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number): Promise<CustomerRow> {
@@ -236,20 +243,25 @@ export class CustomersService extends CustomerPort {
     pageSize: number,
   ): Promise<PageResult<Record<string, unknown>>> {
     await this.findOne(customerId);
-    const rows = await this.database.db
-      .select()
-      .from(bizBookings)
-      .where(
-        and(
-          eq(bizBookings.customerId, customerId),
-          isNull(bizBookings.deletedAt),
-        ),
-      )
-      .orderBy(desc(bizBookings.startAt), desc(bizBookings.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const where = and(
+      eq(bizBookings.customerId, customerId),
+      isNull(bizBookings.deletedAt),
+    );
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizBookings)
+        .where(where)
+        .orderBy(desc(bizBookings.startAt), desc(bizBookings.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizBookings)
+        .where(where),
+    ]);
     const items = await this.attachBookingItems(rows);
-    return { items, page, pageSize };
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   /** 按 `status='completed'` 的单子重算 visit_count / last_visit_at（对账修复，幂等） */

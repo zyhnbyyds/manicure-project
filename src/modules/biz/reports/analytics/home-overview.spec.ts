@@ -7,7 +7,7 @@ import {
   resolveHomeRange,
   resolveTrendWindow,
   sumBy,
-} from './home-overview.js';
+} from './home-overview';
 
 /**
  * 首页经营概览的口径回归。

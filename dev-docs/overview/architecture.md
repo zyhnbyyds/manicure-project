@@ -154,7 +154,7 @@ sequenceDiagram
   C->>F: HTTP + Authorization: Bearer <token>
   F->>F: 解析 request.id（客户端可自带 request-id）
   F->>H: 进入插件链
-  H->>H: helmet 安全头 / 100 req·min⁻¹ 限流 / multipart 10MB·1 文件
+  H->>H: helmet 安全头 / 100 req·min⁻¹ 限流 / multipart 5MB·1 文件
   H->>G: 全局前缀 api/v1 已挂载
   alt @Public()
     G->>I: 放行（app 域、health、login）
@@ -320,7 +320,7 @@ flowchart TB
 
 1. **不要在 `AccessTokenGuard` 里兼容 app token** —— 那会打开后台越权口子（见上文双向拒绝）；
 2. **不要在事务里用 `this.database.db`** —— 绕开行锁，防超订直接失效，一律用 `tx`；
-3. **不要新增 `total` 字段** —— 列表口径是 `{ items, page, pageSize }`；
+3. **列表要带 `total`，且与 `items` 同口径** —— 口径是 `{ items, page, pageSize, total }`，`total` 用同一套 `from/join/where` 的 `count()` 算；
 4. **不要在应用层"读-算-写"改钱** —— 条件更新 + `affectedRows` 是唯一闸门；
 5. **不要在 app 域复用后台 DTO / 挂 RBAC** —— app 域只有"本人数据"。
    :::

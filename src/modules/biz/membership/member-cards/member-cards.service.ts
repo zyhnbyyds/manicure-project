@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   and,
+  count,
   desc,
   eq,
   getTableColumns,
@@ -17,25 +18,26 @@ import {
   sql,
 } from 'drizzle-orm';
 import { DatabaseService } from '../../../../database/database.service';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
-import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope';
 import {
   bizCustomers,
   bizMemberCardLogs,
   bizMemberCards,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo } from '../../common/doc-no.js';
-import { MemberCardPort } from '../../common/ports.js';
-import type { MemberCardRow, PageResult } from '../../common/ports.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildDocNo } from '../../common/doc-no';
+import { MemberCardPort } from '../../common/ports';
+import type { MemberCardRow, PageResult } from '../../common/ports';
 import {
   andConditions,
   keywordLike,
   parsePagination,
-} from '../../common/query.js';
-import type { BizDatabase, BizTx } from '../../common/tx.js';
-import { CardTypesService } from '../card-types/card-types.service.js';
-import { MemberAccountsService } from '../member-accounts/member-accounts.service.js';
+  readCount,
+} from '../../common/query';
+import type { BizDatabase, BizTx } from '../../common/tx';
+import { CardTypesService } from '../card-types/card-types.service';
+import { MemberAccountsService } from '../member-accounts/member-accounts.service';
 
 export type MemberCardRecord = typeof bizMemberCards.$inferSelect;
 export type MemberCardLogRow = typeof bizMemberCardLogs.$inferSelect;
@@ -440,19 +442,33 @@ export class MemberCardsService extends MemberCardPort {
     const keyword = keywordLike(bizMemberCards.cardNo, filter.keyword);
     if (keyword) conditions.push(keyword);
 
-    const items = await this.database.db
-      .select({
-        ...getTableColumns(bizMemberCards),
-        customerName: bizCustomers.name,
-        customerPhone: bizCustomers.phone,
-      })
-      .from(bizMemberCards)
-      .leftJoin(bizCustomers, eq(bizMemberCards.customerId, bizCustomers.id))
-      .where(andConditions(conditions))
-      .orderBy(desc(bizMemberCards.id))
-      .limit(safePageSize)
-      .offset(offset);
-    return { items, page: safePage, pageSize: safePageSize };
+    const where = andConditions(conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          ...getTableColumns(bizMemberCards),
+          customerName: bizCustomers.name,
+          customerPhone: bizCustomers.phone,
+        })
+        .from(bizMemberCards)
+        .leftJoin(bizCustomers, eq(bizMemberCards.customerId, bizCustomers.id))
+        .where(where)
+        .orderBy(desc(bizMemberCards.id))
+        .limit(safePageSize)
+        .offset(offset),
+      // count 必须带同一个 leftJoin（where 里用到了 join 表的列才是真因，这里保持一致更安全）
+      this.database.db
+        .select({ value: count() })
+        .from(bizMemberCards)
+        .leftJoin(bizCustomers, eq(bizMemberCards.customerId, bizCustomers.id))
+        .where(where),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: safePage,
+      pageSize: safePageSize,
+    };
   }
 
   /** 会员详情用：某会员的全部次卡（按 id 倒序） */

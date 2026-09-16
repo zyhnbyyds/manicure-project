@@ -520,6 +520,7 @@ async function handleRevert() {
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
+          show-summary
           @change="handleChange"
         />
       </div>
@@ -630,6 +631,7 @@ async function handleRevert() {
               v-model:current-page="redeemPage"
               v-model:page-size="redeemPageSize"
               :total="redeemTotal"
+              show-summary
               @change="redeemPageChange"
             />
           </div>

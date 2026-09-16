@@ -20,10 +20,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../common/query.js';
-import { CreditAccountsService } from './credit-accounts.service.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { parsePagination } from '../../common/query';
+import { CreditAccountsService } from './credit-accounts.service';
 
 const accountType = z
   .enum(['customer', 'company', 'staff'])

@@ -316,6 +316,7 @@ function handleDataDelete(row: DictData) {
             v-model:current-page="typeTable.currentPage.value"
             v-model:page-size="typeTable.pageSize.value"
             :total="typeTable.total.value"
+            show-summary
             size="small"
             @change="typeTable.handleChange"
           />
@@ -371,6 +372,7 @@ function handleDataDelete(row: DictData) {
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
             :total="total"
+            show-summary
             size="small"
             @change="handleChange"
           />

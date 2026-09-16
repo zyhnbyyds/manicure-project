@@ -13,16 +13,16 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../../common/auth/public.decorator.js';
+import { Public } from '../../../common/auth/public.decorator';
 import {
   appStaffApplyRequestSchema,
   type AppStaffApplyVo,
-} from '../dto/app-vo.js';
+} from '../dto/app-vo';
 import {
   AppAccessTokenGuard,
   type AppRequest,
-} from '../auth/app-access-token.guard.js';
-import { AppStaffService } from './app-staff.service.js';
+} from '../auth/app-access-token.guard';
+import { AppStaffService } from './app-staff.service';
 
 /** 小程序美甲师工作台入口；申请本身允许 pending/rejected 身份访问，不能套 active scope guard。 */
 @ApiTags('小程序端 - 美甲师')

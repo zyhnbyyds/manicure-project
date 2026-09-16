@@ -1,10 +1,10 @@
 import { Global, Module } from '@nestjs/common';
-import { BaseDataModule } from './base-data/base-data.module.js';
-import { BookingModule } from './booking/booking.module.js';
-import { BookingSettlementService } from './booking/booking-settlement.service.js';
-import { BookingsService } from './booking/bookings.service.js';
-import { SlotsService } from './booking/slots.service.js';
-import { BizCommonModule } from './common/biz-common.module.js';
+import { BaseDataModule } from './base-data/base-data.module';
+import { BookingModule } from './booking/booking.module';
+import { BookingSettlementService } from './booking/booking-settlement.service';
+import { BookingsService } from './booking/bookings.service';
+import { SlotsService } from './booking/slots.service';
+import { BizCommonModule } from './common/biz-common.module';
 import {
   BookingOpsPort,
   BookingPort,
@@ -26,33 +26,33 @@ import {
   SlotPort,
   StaffPort,
   StorePort,
-} from './common/ports.js';
-import { CreditModule } from './credit/credit.module.js';
-import { FilesModule } from '../files/files.module.js';
-import { FilesService } from '../files/files.service.js';
-import { ReceivablesService } from './credit/receivables/receivables.service.js';
-import { RechargePlansService } from './membership/recharge-plans/recharge-plans.service.js';
-import { MembershipModule } from './membership/membership.module.js';
-import { MemberAccountsService } from './membership/member-accounts/member-accounts.service.js';
-import { MemberCardsService } from './membership/member-cards/member-cards.service.js';
-import { OperationsModule } from './operations/operations.module.js';
-import { NoticesService } from './operations/notices/notices.service.js';
-import { ReviewsService } from './operations/reviews/reviews.service.js';
-import { RecurrencesService } from './operations/recurrences/recurrences.service.js';
-import { PaymentModule } from './payment/payment.module.js';
-import { PaymentsService } from './payment/payments/payments.service.js';
-import { RefundsService } from './payment/refunds/refunds.service.js';
-import { ReportsModule } from './reports/reports.module.js';
-import { CommissionService } from './reports/commission/commission.service.js';
-import { SchedulingModule } from './scheduling/scheduling.module.js';
-import { SchedulingService } from './scheduling/scheduling.service.js';
-import { CustomersService } from './base-data/customers/customers.service.js';
-import { ServiceItemsService } from './base-data/service-items/service-items.service.js';
-import { StoresService } from './base-data/stores/stores.service.js';
-import { StaffsService } from './base-data/staffs/staffs.service.js';
-import { PointsGoodsService } from './membership/points-goods/points-goods.service.js';
-import { PointsGoodsPort, CouponPort } from './common/ports.js';
-import { CouponsService } from './membership/coupons/coupons.service.js';
+} from './common/ports';
+import { CreditModule } from './credit/credit.module';
+import { FilesModule } from '../files/files.module';
+import { FilesService } from '../files/files.service';
+import { ReceivablesService } from './credit/receivables/receivables.service';
+import { RechargePlansService } from './membership/recharge-plans/recharge-plans.service';
+import { MembershipModule } from './membership/membership.module';
+import { MemberAccountsService } from './membership/member-accounts/member-accounts.service';
+import { MemberCardsService } from './membership/member-cards/member-cards.service';
+import { OperationsModule } from './operations/operations.module';
+import { NoticesService } from './operations/notices/notices.service';
+import { ReviewsService } from './operations/reviews/reviews.service';
+import { RecurrencesService } from './operations/recurrences/recurrences.service';
+import { PaymentModule } from './payment/payment.module';
+import { PaymentsService } from './payment/payments/payments.service';
+import { RefundsService } from './payment/refunds/refunds.service';
+import { ReportsModule } from './reports/reports.module';
+import { CommissionService } from './reports/commission/commission.service';
+import { SchedulingModule } from './scheduling/scheduling.module';
+import { SchedulingService } from './scheduling/scheduling.service';
+import { CustomersService } from './base-data/customers/customers.service';
+import { ServiceItemsService } from './base-data/service-items/service-items.service';
+import { StoresService } from './base-data/stores/stores.service';
+import { StaffsService } from './base-data/staffs/staffs.service';
+import { PointsGoodsService } from './membership/points-goods/points-goods.service';
+import { PointsGoodsPort, CouponPort } from './common/ports';
+import { CouponsService } from './membership/coupons/coupons.service';
 
 /**
  * 业务域根模块（B1~B6）。

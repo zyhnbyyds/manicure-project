@@ -391,7 +391,7 @@ export function demoteToCustomer(): void {
 2. **401 分两种**：`needBind` → 不清 token，引导绑定；其它 401 → 清 token → 自动重登 → 原请求重试**一次**。
 3. **`501` 不是错误**：请求层转成「这个功能马上就来啦～」。
 4. **`wx.request` 没有 PATCH**：需要 PATCH 语义时让后端补一个 POST 动作端点，**不要在客户端硬塞**（类型层就会拦下来）。
-5. **列表响应没有 `total`**：`{ items, page, pageSize }`。
+5. **列表响应仍是 `{ items, page, pageSize }`（app 域不带 `total`）**：小程序端是「加载更多」交互，靠返回条数判有没有下一页；只有后台管理端用 `total` 算页数（见 `/overview/` 的「列表接口」一节）。
 6. **接口调用只走 `api/index.ts`**：页面不直接碰 `request()`；`api/types.ts` 是返回类型契约。
 7. **当前门店走请求头，不要自己拼 `storeId` 参数**：`store/shop.ts` 存 id →
    `request.ts` 统一注入 `x-store-id`。美甲师目录、门店档案、下单落店都读它；
@@ -453,7 +453,7 @@ export function demoteToCustomer(): void {
 | **取消页费用预览**         | `GET /app/bookings/:id/refund-preview` 复用 `RefundPort.preview`，取消页显示**真实可退 / 扣除金额**（以前只能写「可能扣除部分定金」）。                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **会员卡促销区降级**       | 优惠券接口失败不再静默显示「暂无可领的券」，改为「加载失败 / 点这里重新加载」。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **意见反馈（文字通道）**   | 新表 `biz_feedback` + `POST /app/feedback`：**不要求绑定手机号**（访客也有意见要说），**匿名提交一律落 `customer_id = null`**（记了身份再标匿名等于骗人）。batch5 第 4 屏                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **C 端图片上传**           | `POST /app/upload`（app token 域；后台 `/files/upload` 是后台 token，小程序打过去只会 401）+ `utils/upload.ts`（`wx.chooseMedia` → `wx.uploadFile`）。意见反馈三格图位、评价九格配图都接上了；反馈表加 `images` 列。**注意 `sys_file.created_by` 是 `sys_user` 外键**，C 端上传必须传 `undefined`，否则撞外键（实测 500），更糟的是可能记到别人名下                                                                                                                                                                                                                       |
+| **C 端图片上传**           | `POST /app/upload`（app token 域；后台 `/files/upload` 是后台 token，小程序打过去只会 401）+ `utils/upload.ts`（`wx.chooseMedia` → `wx.compressImage` 压到 1MB 以下 → `wx.uploadFile`）。意见反馈三格图位、评价九格配图都接上了；反馈表加 `images` 列。**注意 `sys_file.created_by` 是 `sys_user` 外键**，C 端上传必须传 `undefined`，否则撞外键（实测 500），更糟的是可能记到别人名下。压缩是「尽力而为」：`wx.compressImage` **只对 jpg 生效**，png / 压不动时直接传原图，后端还有一道兜底（`image-compress.ts`）                                                       |
 
 ### B. 现在就能做（后端已有表和 service，只缺 app 域接口或前端接线）
 

@@ -242,6 +242,7 @@ function handleClear() {
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
+          show-summary
           @change="handleChange"
         />
       </div>

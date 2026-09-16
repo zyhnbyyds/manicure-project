@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookings,
   bizCustomers,
@@ -16,30 +16,27 @@ import {
   bizRefundPolicies,
   bizRefunds,
   users,
-} from '../../../../database/schema/index.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+} from '../../../../database/schema/index';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   resolveStoreScope,
   storeConditions,
-} from '../../../../common/data-scope/store-scope.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo } from '../../common/doc-no.js';
-import { permilleOf } from '../../common/money.js';
-import { localDateRange } from '../../common/query.js';
+} from '../../../../common/data-scope/store-scope';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildDocNo } from '../../common/doc-no';
+import { permilleOf } from '../../common/money';
+import { localDateRange, readCount } from '../../common/query';
 import {
   CommissionPort,
   MemberAccountPort,
   RefundPort,
   SettlementPort,
-} from '../../common/ports.js';
-import type { BizTx } from '../../common/tx.js';
-import type { OnlineChannel } from '../channels/channel.interface.js';
-import { AlipayQrProvider } from '../channels/alipay-qr.provider.js';
-import { WxpayNativeProvider } from '../channels/wxpay-native.provider.js';
-import {
-  PaymentsService,
-  type PaymentRow,
-} from '../payments/payments.service.js';
+} from '../../common/ports';
+import type { BizTx } from '../../common/tx';
+import type { OnlineChannel } from '../channels/channel.interface';
+import { AlipayQrProvider } from '../channels/alipay-qr.provider';
+import { WxpayNativeProvider } from '../channels/wxpay-native.provider';
+import { PaymentsService, type PaymentRow } from '../payments/payments.service';
 
 export type RefundRow = typeof bizRefunds.$inferSelect;
 /**
@@ -630,7 +627,12 @@ export class RefundsService extends RefundPort {
     filter: RefundListFilter,
     /** 传操作人时按可见门店过滤（店长只看本店退款） */
     actor?: RequestActor,
-  ): Promise<{ items: RefundListItem[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: RefundListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizRefunds.deletedAt)];
     if (actor) {
@@ -660,23 +662,35 @@ export class RefundsService extends RefundPort {
       timezone,
     );
     if (range) conditions.push(range);
-    const items = await this.database.db
-      .select({
-        refund: bizRefunds,
-        bookingNo: bizBookings.bookingNo,
-        customerName: bizCustomers.name,
-        applyByName: users.displayName,
-        paymentNo: bizPayments.paymentNo,
-      })
-      .from(bizRefunds)
-      .leftJoin(bizBookings, eq(bizBookings.id, bizRefunds.bookingId))
-      .leftJoin(bizCustomers, eq(bizCustomers.id, bizRefunds.customerId))
-      .leftJoin(users, eq(users.id, bizRefunds.applyBy))
-      .leftJoin(bizPayments, eq(bizPayments.id, bizRefunds.paymentId))
-      .where(and(...conditions))
-      .orderBy(desc(bizRefunds.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          refund: bizRefunds,
+          bookingNo: bizBookings.bookingNo,
+          customerName: bizCustomers.name,
+          applyByName: users.displayName,
+          paymentNo: bizPayments.paymentNo,
+        })
+        .from(bizRefunds)
+        .leftJoin(bizBookings, eq(bizBookings.id, bizRefunds.bookingId))
+        .leftJoin(bizCustomers, eq(bizCustomers.id, bizRefunds.customerId))
+        .leftJoin(users, eq(users.id, bizRefunds.applyBy))
+        .leftJoin(bizPayments, eq(bizPayments.id, bizRefunds.paymentId))
+        .where(where)
+        .orderBy(desc(bizRefunds.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      // count 带上同一组 leftJoin（where 里引用了这些表）
+      this.database.db
+        .select({ value: sql<number>`COUNT(*)` })
+        .from(bizRefunds)
+        .leftJoin(bizBookings, eq(bizBookings.id, bizRefunds.bookingId))
+        .leftJoin(bizCustomers, eq(bizCustomers.id, bizRefunds.customerId))
+        .leftJoin(users, eq(users.id, bizRefunds.applyBy))
+        .leftJoin(bizPayments, eq(bizPayments.id, bizRefunds.paymentId))
+        .where(where),
+    ]);
     return {
       items: items.map((row) => ({
         ...row.refund,
@@ -685,6 +699,7 @@ export class RefundsService extends RefundPort {
         applyByName: row.applyByName,
         paymentNo: row.paymentNo,
       })),
+      total: readCount(counted),
       page,
       pageSize,
     };

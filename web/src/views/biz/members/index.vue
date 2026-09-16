@@ -113,7 +113,7 @@ function memberDiscountPermille(member: MemberLevelView): number | null {
   );
 }
 
-// ---------- 抽屉内的子列表分页（接口无 total，多取一条判 hasMore） ----------
+// ---------- 抽屉内的子列表分页（与 useTable 同口径：total 取后端真值） ----------
 function createPager<T extends { id: number }>(
   fetcher: (page: number, pageSize: number) => Promise<PageResult<T>>,
   size = 10,
@@ -123,20 +123,26 @@ function createPager<T extends { id: number }>(
   const currentPage = ref(1);
   const pageSize = ref(size);
   const hasMore = ref(false);
-  const total = computed(() =>
-    hasMore.value
-      ? currentPage.value * pageSize.value + 1
-      : (currentPage.value - 1) * pageSize.value + items.value.length,
-  );
+  const total = ref(0);
 
   async function load(page = currentPage.value) {
     loading.value = true;
     try {
-      // 多取一条用于判断 hasMore
-      const data = await fetcher(page, pageSize.value + 1);
-      items.value = data.items.slice(0, pageSize.value);
-      hasMore.value = data.items.length > pageSize.value;
+      // 不要传 `pageSize + 1`（会污染后端 offset，末页会空）——同 useTable 里的说明
+      const data = await fetcher(page, pageSize.value);
+      const list = data.items;
+      items.value = list;
       currentPage.value = page;
+      const serverTotal =
+        typeof data.total === 'number' && Number.isFinite(data.total)
+          ? data.total
+          : null;
+      const loadedTo = (page - 1) * pageSize.value + list.length;
+      total.value = serverTotal ?? loadedTo;
+      hasMore.value =
+        serverTotal === null
+          ? list.length >= pageSize.value
+          : loadedTo < serverTotal;
     } finally {
       loading.value = false;
     }
@@ -1318,6 +1324,7 @@ const balanceTotal = computed(
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
+          show-summary
           @change="handleChange"
         />
       </div>
@@ -1488,6 +1495,7 @@ const balanceTotal = computed(
               v-model:current-page="txnPage"
               v-model:page-size="txnPageSize"
               :total="txnTotal"
+              show-summary
               @change="txnHandleChange"
             />
           </div>
@@ -1521,6 +1529,7 @@ const balanceTotal = computed(
               v-model:current-page="bookingPage"
               v-model:page-size="bookingPageSize"
               :total="bookingTotal"
+              show-summary
               @change="bookingHandleChange"
             />
           </div>

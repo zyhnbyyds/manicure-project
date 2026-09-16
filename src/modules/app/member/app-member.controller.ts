@@ -22,11 +22,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../../common/auth/public.decorator.js';
+import { Public } from '../../../common/auth/public.decorator';
 import {
   AppAccessTokenGuard,
   type AppRequest,
-} from '../auth/app-access-token.guard.js';
+} from '../auth/app-access-token.guard';
 import {
   appBookingListQuerySchema,
   appCancelBookingRequestSchema,
@@ -49,8 +49,8 @@ import {
   type AppReviewVo,
   type AppSettleBookingVo,
   type AppSubscribeVo,
-} from '../dto/app-vo.js';
-import { AppMemberService } from './app-member.service.js';
+} from '../dto/app-vo';
+import { AppMemberService } from './app-member.service';
 
 /**
  * app 域会员中心 + C 端写接口契约骨架（`/api/v1/app`）。

@@ -7,6 +7,7 @@ import {
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gte,
@@ -18,22 +19,22 @@ import {
   sql,
 } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookings,
   bizCreditAccounts,
   bizReceivablePayments,
   bizReceivables,
-} from '../../../../database/schema/index.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+} from '../../../../database/schema/index';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   resolveStoreScope,
   storeConditions,
-} from '../../../../common/data-scope/store-scope.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo } from '../../common/doc-no.js';
-import { andConditions } from '../../common/query.js';
-import { daysBetween, shopDateOf, shopToday } from '../../common/shop-time.js';
+} from '../../../../common/data-scope/store-scope';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildDocNo } from '../../common/doc-no';
+import { andConditions, readCount } from '../../common/query';
+import { daysBetween, shopDateOf, shopToday } from '../../common/shop-time';
 import {
   CreditPort,
   CustomerPort,
@@ -44,8 +45,8 @@ import {
   type PageResult,
   type PaymentDraft,
   type ReceivableRow,
-} from '../../common/ports.js';
-import type { BizDatabase, BizTx } from '../../common/tx.js';
+} from '../../common/ports';
+import type { BizDatabase, BizTx } from '../../common/tx';
 
 export type ReceivableStatus =
   | 'open'
@@ -616,13 +617,19 @@ export class ReceivablesService extends CreditPort {
           )
         : undefined,
     ]);
-    const rows = await this.database.db
-      .select()
-      .from(bizReceivables)
-      .where(where)
-      .orderBy(desc(bizReceivables.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizReceivables)
+        .where(where)
+        .orderBy(desc(bizReceivables.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizReceivables)
+        .where(where),
+    ]);
     const names = await this.accountNames(
       rows.map((row) => row.creditAccountId),
     );
@@ -632,6 +639,7 @@ export class ReceivablesService extends CreditPort {
         accountName: names.get(row.creditAccountId) ?? null,
         remainingAmount: Math.max(row.amount - row.settledAmount, 0),
       })),
+      total: readCount(counted),
       page,
       pageSize,
     };

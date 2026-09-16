@@ -18,14 +18,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { MAX_PAGE_SIZE, parsePagination } from '../../common/query.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { MAX_PAGE_SIZE, parsePagination } from '../../common/query';
 import {
   RefundsService,
   type RefundApplyInput,
   type RefundListFilter,
-} from './refunds.service.js';
+} from './refunds.service';
 
 type AuthRequest = {
   user: { id: number; roles: string[]; permissions: string[] };

@@ -12,7 +12,7 @@ import {
   shopWeekday,
   timeToMinutes,
   timeZoneOffsetMs,
-} from './shop-time.js';
+} from './shop-time';
 
 describe('shop-time', () => {
   it('把店内本地日换成绝对时刻区间（时区验收的基准断言）', () => {

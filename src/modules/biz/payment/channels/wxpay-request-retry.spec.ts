@@ -20,8 +20,8 @@
  */
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import type { AppConfigService } from '../../../../config/app-config.service.js';
-import { WxpayNativeProvider } from './wxpay-native.provider.js';
+import type { AppConfigService } from '../../../../config/app-config.service';
+import { WxpayNativeProvider } from './wxpay-native.provider';
 
 /** 真密钥：签名走 `createSign`，假 PEM 会直接抛错 */
 const { privateKey } = generateKeyPairSync('rsa', {

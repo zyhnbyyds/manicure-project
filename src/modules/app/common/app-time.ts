@@ -12,11 +12,11 @@
  *
  * 所以：app 域**禁止**再用 `date.toISOString()` 输出时刻，一律走这里。
  */
-import { BizConfigService } from '../../biz/common/biz-config.service.js';
+import { BizConfigService } from '../../biz/common/biz-config.service';
 import {
   DEFAULT_SHOP_TIMEZONE,
   formatShopDateTime,
-} from '../../biz/common/shop-time.js';
+} from '../../biz/common/shop-time';
 
 /** 绝对时刻 → 带店内偏移的 ISO8601（`2026-09-11T10:00:00+08:00`） */
 export function appIso(

@@ -44,11 +44,11 @@ bun run db:seed:menus    # 菜单与权限点
 
 ## 代码铁律（违反即 bug，非风格问题）
 
-1. **模块导入必须带 `.js` 后缀**（`moduleResolution: NodeNext`）。
+1. **模块导入是相对路径 + 不带扩展名**（`moduleResolution: Bundler`；源码与 `nest build` 产物都由 bun 执行）。不要再写 `'./x.js'` —— 那是 NodeNext 时代的遗留。
 2. **金额一律整数「分」**，展示层 ÷100；取整方向**向下**（§5.7）。
 3. **时间一律 UTC 存储**：连接会话 `SET time_zone='+00:00'`；「店内本地日 → 绝对时刻区间」**只能**走
    `shopDayRange(date)`，禁止 `new Date('YYYY-MM-DD')`（会按 UTC 零点解析，整体偏 8 小时）。
-4. **列表接口返回 `{ items, page, pageSize }`，没有 `total`**；前端多取一条判 `hasMore`。
+4. **列表接口返回 `{ items, page, pageSize, total }`**；`total` 必须与 `items` 用**同一套 `from/join/where`** 算出（`readCount()`）。
 5. **业务表 `biz_` 前缀 + `auditColumns` 软删**；小程序侧身份表 `app_` 前缀；物理删表已在 §3 声明豁免。
 6. **权限点各段全小写、不用驼峰**（`biz:serviceitem:list`，对齐既有 `monitor:loginlog:list`）。
 7. **事务内的读写必须用 `tx`**，不要用 `this.database.db`。
@@ -69,7 +69,7 @@ src/
 web/src/
   api/biz/*.ts                    # API 封装
   views/biz/*/index.vue           # 26 个业务页面（另有 18 个基座页面）
-  composables/useTable.ts         # 列表分页（无 total）
+  composables/useTable.ts         # 列表分页（total 取后端真值）
   utils/table-text.ts             # 单元格文本省略统一走 lew-ui 的 LewTextTrim
 miniapp/miniprogram/              # 微信小程序（原生 TS，29 页）
   pages/ · custom-tab-bar/ · store/ · theme/ · utils/ · assets/

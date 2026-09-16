@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { CardTypesService } from './card-types.service.js';
+import { CardTypesService } from './card-types.service';
 
 type Row = Record<string, unknown>;
 
@@ -89,11 +89,13 @@ describe('CardTypesService（§15.5 次卡卡种）', () => {
   describe('list / findOne', () => {
     it('list 合并各卡种的适用项目，无项目的补空数组', async () => {
       const { service } = createHarness({
+        // 第二次是 count 查询（total），第三次才是适用项目
         selectResults: [
           [
             { id: 1, name: '10 次卡' },
             { id: 2, name: '5 次卡' },
           ],
+          [],
           [
             {
               cardTypeId: 1,
@@ -107,6 +109,8 @@ describe('CardTypesService（§15.5 次卡卡种）', () => {
       });
       const page = await service.list(1, 20, {});
       expect(page.page).toBe(1);
+      // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+      expect(page.total).toBe(0);
       expect(page.items[0]!.applicableItems).toEqual([
         { serviceItemId: 11, name: '纯色', price: 8800, status: 'active' },
       ]);

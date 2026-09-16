@@ -18,7 +18,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookings,
   bizServiceItems,
@@ -26,20 +26,16 @@ import {
   bizStaffs,
   bizStaffServiceItems,
   sysStores,
-} from '../../../../database/schema/index.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+} from '../../../../database/schema/index';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   resolveStoreScope,
   storeFilterIds,
-} from '../../../../common/data-scope/store-scope.js';
-import {
-  StaffPort,
-  type PageResult,
-  type StaffRow,
-} from '../../common/ports.js';
-import { keywordLike } from '../../common/query.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizTx } from '../../common/tx.js';
+} from '../../../../common/data-scope/store-scope';
+import { StaffPort, type PageResult, type StaffRow } from '../../common/ports';
+import { keywordLike, readCount } from '../../common/query';
+import { withoutUndefined } from '../../common/tx';
+import type { BizTx } from '../../common/tx';
 
 /** 未完成预约（§6.4）：存在即拒绝删除 / 停用美甲师 */
 const UNFINISHED_BOOKING_STATUSES = [
@@ -112,15 +108,19 @@ export class StaffsService extends StaffPort {
     const storeFilter = this.staffStoreCondition(storeFilterIds(store));
     if (storeFilter) conditions.push(storeFilter);
 
-    const rows = await this.database.db
-      .select()
-      .from(bizStaffs)
-      .where(and(...conditions))
-      .orderBy(asc(bizStaffs.sort), asc(bizStaffs.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const where = and(...conditions);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizStaffs)
+        .where(where)
+        .orderBy(asc(bizStaffs.sort), asc(bizStaffs.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db.select({ value: count() }).from(bizStaffs).where(where),
+    ]);
     const items = await this.withStores(rows);
-    return { items, page, pageSize };
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   /**

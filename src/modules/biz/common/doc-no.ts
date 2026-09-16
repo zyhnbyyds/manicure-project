@@ -1,4 +1,4 @@
-import { DEFAULT_SHOP_TIMEZONE, shopDateOf } from './shop-time.js';
+import { DEFAULT_SHOP_TIMEZONE, shopDateOf } from './shop-time';
 
 /** 单号前缀（§4.3：一律「主键回填」，不用「查当日最大号 +1」） */
 export type DocPrefix =

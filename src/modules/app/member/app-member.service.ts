@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { DatabaseService } from '../../../database/database.service.js';
+import { DatabaseService } from '../../../database/database.service';
 import {
   appWxUsers,
   bizBookings,
@@ -16,7 +16,7 @@ import {
   bizMemberTransactions,
   bizServiceItems,
   bizStaffs,
-} from '../../../database/schema/index.js';
+} from '../../../database/schema/index';
 import {
   BookingPort,
   CustomerPort,
@@ -31,13 +31,13 @@ import {
   RefundPort,
   ReviewPort,
   StorePort,
-} from '../../biz/common/ports.js';
-import { parsePagination } from '../../biz/common/query.js';
-import { BizConfigService } from '../../biz/common/biz-config.service.js';
-import { APP_ACTOR_ID } from '../app-actor.js';
-import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
-import { resolveAppStore } from '../common/app-store.js';
-import { inPayRollout } from '../pay-rollout.js';
+} from '../../biz/common/ports';
+import { parsePagination } from '../../biz/common/query';
+import { BizConfigService } from '../../biz/common/biz-config.service';
+import { APP_ACTOR_ID } from '../app-actor';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time';
+import { resolveAppStore } from '../common/app-store';
+import { inPayRollout } from '../pay-rollout';
 import type {
   AppBookingListVo,
   AppBookingVo,
@@ -59,7 +59,7 @@ import type {
   AppSettleBookingRequest,
   AppSettleBookingVo,
   AppSubscribeVo,
-} from '../dto/app-vo.js';
+} from '../dto/app-vo';
 
 /** 未绑定手机号：401 且响应体带 `needBind: true`（小程序据此拉起授权弹窗，§16.2） */
 function needBind(): UnauthorizedException {

@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { ServiceItemsService, imagesPatch } from './service-items.service.js';
+import { ServiceItemsService, imagesPatch } from './service-items.service';
 
 type Row = Record<string, unknown>;
 

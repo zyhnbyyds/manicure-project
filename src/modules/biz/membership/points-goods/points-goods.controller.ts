@@ -22,7 +22,7 @@ import {
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
-import { parsePagination } from '../../common/query.js';
+import { parsePagination } from '../../common/query';
 import { PointsGoodsService } from './points-goods.service';
 
 const createSchema = z.object({

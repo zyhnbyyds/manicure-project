@@ -8,7 +8,7 @@ import {
   MemberLevelsService,
   pickLowestLevel,
   pickUpgradeLevel,
-} from './member-levels.service.js';
+} from './member-levels.service';
 
 /** 等级行的最小形状（`pickUpgradeLevel` / `pickLowestLevel` 的泛型约束） */
 type LevelRow = {
@@ -126,10 +126,12 @@ describe('会员等级纯函数（§15.2 门槛随 sort 单调不减）', () => 
 });
 
 describe('MemberLevelsService（§15.2）', () => {
-  it('list 返回 items/page/pageSize（没有 total）', async () => {
+  it('list 返回 items/page/pageSize/total', async () => {
     const { service } = createHarness({ selectResults: [[level()]] });
     await expect(service.list(2, 10)).resolves.toEqual({
       items: [level()],
+      // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+      total: 0,
       page: 2,
       pageSize: 10,
     });

@@ -6,13 +6,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
-import { DatabaseService } from '../../../database/database.service.js';
-import { appWxUsers, bizStaffs } from '../../../database/schema/index.js';
+import { DatabaseService } from '../../../database/database.service';
+import { appWxUsers, bizStaffs } from '../../../database/schema/index';
 import {
   AppAccessTokenGuard,
   type AppAuthUser,
   type AppRequest,
-} from '../auth/app-access-token.guard.js';
+} from '../auth/app-access-token.guard';
 
 export type AppStaffAuthUser = AppAuthUser & {
   staffId: number;

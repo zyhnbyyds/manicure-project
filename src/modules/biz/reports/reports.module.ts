@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ReportsController } from './analytics/reports.controller.js';
-import { ReportsService } from './analytics/reports.service.js';
-import { CommissionController } from './commission/commission.controller.js';
-import { CommissionService } from './commission/commission.service.js';
+import { ReportsController } from './analytics/reports.controller';
+import { ReportsService } from './analytics/reports.service';
+import { CommissionController } from './commission/commission.controller';
+import { CommissionService } from './commission/commission.service';
 
 /**
  * 报表中心 + 提成（B4，§20）。

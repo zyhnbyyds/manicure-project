@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch } from 'vue';
+import { ref, shallowRef, watch } from 'vue';
 import type { PageResult } from '~/types/api';
 import { get } from '~/request';
 import { useStoreScopeStore } from '~/store/store-scope';
@@ -15,8 +15,12 @@ export interface UseTableOptions<T, Q extends Record<string, unknown>> {
 }
 
 /**
- * 通用表格分页逻辑
- * 后端分页响应无 total 字段，通过多取一条判断 hasMore 估算 total
+ * 通用表格分页逻辑（服务端分页）。
+ *
+ * `total` 来自后端列表响应的 `total`（同条件下的 `COUNT(*)`），所以分页器的页数是**真的**：
+ * 能显示「共 N 条」、能直接跳到第 20 页。
+ *
+ * ⚠️ **不要再改成「多取一条」判 `hasMore`** —— 原因见 `fetchPage` 里的注释（会污染 offset）。
  */
 export function useTable<
   T extends { id: number },
@@ -28,26 +32,44 @@ export function useTable<
   const loading = ref(false);
   const hasMore = ref(false);
 
-  const total = computed(() => {
-    // 估算 total：当前页满页且有下一页 → page*pageSize+1，否则 page*pageSize
-    if (hasMore.value) return currentPage.value * pageSize.value + 1;
-    return (currentPage.value - 1) * pageSize.value + items.value.length;
-  });
+  /** 总条数：后端给了就是真值，否则退回「已加载到的位置」估算 */
+  const total = ref(0);
 
   async function fetchPage(page = currentPage.value) {
     loading.value = true;
     try {
       const extraQuery = options.query?.() ?? ({} as Q);
-      // 多取一条用于判断 hasMore
+      /**
+       * ⚠️ **`pageSize` 必须是「每页条数」本身 —— 绝不能传 `pageSize + 1`。**
+       *
+       * 曾经为了「多取一条判有没有下一页」而传 `pageSize + 1`，但后端的 `offset` 就是
+       * `(page - 1) * pageSize`（用的正是这个被 +1 的值），于是第 N 页的起点整体后移
+       * `N - 1` 条：**翻页会漏数据，最后一页还会越界变空**。
+       *
+       * 实测（32 条、每页 10 条）：`page=4&pageSize=10` 返回 2 条，而前端实际发的
+       * `page=4&pageSize=11` 返回 **0 条** —— 这就是「点最后一页是空的」的真凶。
+       *
+       * 现在后端列表都返回 `total`，`hasMore` 由它推导，不需要多取那一条；
+       * 只有 `total` 缺失的老接口才退回「满页即可能还有下一页」的保守判断。
+       */
       const data = await get<PageResult<T>>(options.url, {
         page,
-        pageSize: pageSize.value + 1,
+        pageSize: pageSize.value,
         ...extraQuery,
       });
-      const list = data.items.slice(0, pageSize.value);
-      hasMore.value = data.items.length > pageSize.value;
+      const list = data.items;
       items.value = options.transform ? options.transform(list) : list;
       currentPage.value = data.page;
+      const serverTotal =
+        typeof data.total === 'number' && Number.isFinite(data.total)
+          ? data.total
+          : null;
+      const loadedTo = (data.page - 1) * pageSize.value + list.length;
+      total.value = serverTotal ?? loadedTo;
+      hasMore.value =
+        serverTotal === null
+          ? list.length >= pageSize.value
+          : loadedTo < serverTotal;
     } finally {
       loading.value = false;
     }

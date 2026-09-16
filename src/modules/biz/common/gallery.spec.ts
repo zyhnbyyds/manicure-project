@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GALLERY_LIMIT, normalizeImages } from './gallery.js';
+import { DEFAULT_GALLERY_LIMIT, normalizeImages } from './gallery';
 
 describe('normalizeImages（图集归一化）', () => {
   it('没传 / null / 空数组都归一成 null', () => {

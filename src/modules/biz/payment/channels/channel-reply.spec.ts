@@ -12,9 +12,9 @@
  * 免得以后有人为了「统一」把它们改成一样。
  */
 import { describe, expect, it } from 'vitest';
-import type { AppConfigService } from '../../../../config/app-config.service.js';
-import { AlipayQrProvider } from './alipay-qr.provider.js';
-import { WxpayNativeProvider } from './wxpay-native.provider.js';
+import type { AppConfigService } from '../../../../config/app-config.service';
+import { AlipayQrProvider } from './alipay-qr.provider';
+import { WxpayNativeProvider } from './wxpay-native.provider';
 
 /** 应答方法不读配置，空对象即可 */
 const noConfig = {} as unknown as AppConfigService;

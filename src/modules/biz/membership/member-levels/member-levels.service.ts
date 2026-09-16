@@ -4,14 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, ne } from 'drizzle-orm';
+import { readCount } from '../../common/query';
 import { DatabaseService } from '../../../../database/database.service';
 import {
   bizCustomers,
   bizMemberLevels,
-} from '../../../../database/schema/index.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizDatabase } from '../../common/tx.js';
+} from '../../../../database/schema/index';
+import { withoutUndefined } from '../../common/tx';
+import type { BizDatabase } from '../../common/tx';
 
 export type MemberLevelRow = typeof bizMemberLevels.$inferSelect;
 
@@ -99,18 +100,30 @@ export class MemberLevelsService {
     page: number,
     pageSize: number,
     filter: MemberLevelListFilter = {},
-  ): Promise<{ items: MemberLevelRow[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: MemberLevelRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const conditions = [isNull(bizMemberLevels.deletedAt)];
     if (filter.status)
       conditions.push(eq(bizMemberLevels.status, filter.status));
-    const items = await this.database.db
-      .select()
-      .from(bizMemberLevels)
-      .where(and(...conditions))
-      .orderBy(asc(bizMemberLevels.sort), asc(bizMemberLevels.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizMemberLevels)
+        .where(where)
+        .orderBy(asc(bizMemberLevels.sort), asc(bizMemberLevels.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizMemberLevels)
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   /** 全量等级（含停用）：算价、升级判定、列表补名共用一次查询 */

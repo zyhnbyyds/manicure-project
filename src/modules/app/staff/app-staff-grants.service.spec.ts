@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { AppStaffGrantsService } from './app-staff-grants.service.js';
+import { AppStaffGrantsService } from './app-staff-grants.service';
 
 type Row = Record<string, unknown>;
 

@@ -6,12 +6,12 @@ import {
 } from '@nestjs/common';
 import { createSign, createVerify } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
-import { AppConfigService } from '../../../../config/app-config.service.js';
+import { AppConfigService } from '../../../../config/app-config.service';
 import {
   DEFAULT_SHOP_TIMEZONE,
   formatShopDateTime,
   shopLocalToUtc,
-} from '../../common/shop-time.js';
+} from '../../common/shop-time';
 import {
   type ChannelBillRecord,
   type ChannelOrderState,
@@ -23,8 +23,8 @@ import {
   type NotifyVerifyInput,
   PaymentChannelProvider,
   ChannelFailureKind,
-} from './channel.interface.js';
-import type { ChannelReply } from './channel.interface.js';
+} from './channel.interface';
+import type { ChannelReply } from './channel.interface';
 
 /** 支付宝开放平台网关 */
 const ALIPAY_GATEWAY = 'https://openapi.alipay.com/gateway.do';

@@ -9,8 +9,8 @@ import {
   type PayStatus,
   type RecountResult,
   SettlementPort,
-} from '../common/ports.js';
-import type { BizTx } from '../common/tx.js';
+} from '../common/ports';
+import type { BizTx } from '../common/tx';
 
 /**
  * 已发生过退款的支付单也要计入 `paid_amount`。

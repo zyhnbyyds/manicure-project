@@ -17,8 +17,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   DEFAULT_REPORT_RANGE_DAYS,
   HOME_LIGHT_PERMISSION,
@@ -27,7 +27,7 @@ import {
   ReportsService,
   type HomeQuery,
   type ReportQuery,
-} from './reports.service.js';
+} from './reports.service';
 
 type CsvReply = {
   header(name: string, value: string): unknown;

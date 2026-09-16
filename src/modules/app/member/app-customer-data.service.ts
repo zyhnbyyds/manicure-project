@@ -4,18 +4,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import { DatabaseService } from '../../../database/database.service.js';
+import { DatabaseService } from '../../../database/database.service';
 import {
   appWxUsers,
   bizCustomerAddresses,
   bizCustomerFavorites,
   bizFeedbacks,
   bizServiceItems,
-} from '../../../database/schema/index.js';
-import { APP_ACTOR_ID } from '../app-actor.js';
-import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
-import { BizConfigService } from '../../biz/common/biz-config.service.js';
-import { NoticePort, StorePort } from '../../biz/common/ports.js';
+} from '../../../database/schema/index';
+import { APP_ACTOR_ID } from '../app-actor';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time';
+import { BizConfigService } from '../../biz/common/biz-config.service';
+import { NoticePort, StorePort } from '../../biz/common/ports';
 import type {
   AppAddressListVo,
   AppAddressUpsertRequest,
@@ -28,8 +28,8 @@ import type {
   AppNoticeReadVo,
   AppShopListVo,
   AppShopVo,
-} from '../dto/app-vo.js';
-import { resolveAppStore } from '../common/app-store.js';
+} from '../dto/app-vo';
+import { resolveAppStore } from '../common/app-store';
 
 /** 每个顾客最多保存多少个收货地址（防刷，也防「默认地址」被淹没） */
 const MAX_ADDRESSES = 10;

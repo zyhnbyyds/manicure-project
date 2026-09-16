@@ -18,13 +18,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../../biz/common/query.js';
+import { RequirePermissions } from '../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../common/swagger/zod-schema.helper';
+import { parsePagination } from '../../biz/common/query';
 import {
   AppStaffGrantsService,
   type GrantStatus,
-} from './app-staff-grants.service.js';
+} from './app-staff-grants.service';
 
 const rejectSchema = z.object({
   reason: z.string().min(1).max(200).openapi({

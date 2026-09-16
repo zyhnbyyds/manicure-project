@@ -19,12 +19,12 @@ import {
 } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
-import { parsePagination } from '../../common/query.js';
-import { MemberAccountsService } from '../member-accounts/member-accounts.service.js';
-import { MemberCardsService } from '../member-cards/member-cards.service.js';
-import { CouponsService } from '../coupons/coupons.service.js';
+import { parsePagination } from '../../common/query';
+import { MemberAccountsService } from '../member-accounts/member-accounts.service';
+import { MemberCardsService } from '../member-cards/member-cards.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 const ensureMemberSchema = z.object({
   customerId: z.number().int().positive(),

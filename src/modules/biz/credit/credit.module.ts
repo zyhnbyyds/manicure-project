@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { CreditAccountsController } from './credit-accounts/credit-accounts.controller.js';
-import { CreditAccountsService } from './credit-accounts/credit-accounts.service.js';
-import { ReceivablesController } from './receivables/receivables.controller.js';
-import { ReceivablesService } from './receivables/receivables.service.js';
+import { CreditAccountsController } from './credit-accounts/credit-accounts.controller';
+import { CreditAccountsService } from './credit-accounts/credit-accounts.service';
+import { ReceivablesController } from './receivables/receivables.controller';
+import { ReceivablesService } from './receivables/receivables.service';
 
 /**
  * 挂账与应收（B4，§18）。

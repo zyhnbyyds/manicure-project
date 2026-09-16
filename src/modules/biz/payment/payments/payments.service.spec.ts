@@ -4,16 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  bizPayments,
-  bizPaymentLogs,
-} from '../../../../database/schema/index.js';
-import type { PaymentDraft } from '../../common/ports.js';
+import { bizPayments, bizPaymentLogs } from '../../../../database/schema/index';
+import type { PaymentDraft } from '../../common/ports';
 import type {
   ChannelOrderState,
   NotifyPayload,
-} from '../channels/channel.interface.js';
-import { PaymentsService } from './payments.service.js';
+} from '../channels/channel.interface';
+import { PaymentsService } from './payments.service';
 
 type Row = Record<string, unknown>;
 
@@ -1215,9 +1212,11 @@ describe('PaymentsService（§17 收银台）', () => {
     });
 
     it('list 空结果也返回分页壳', async () => {
-      const h = createHarness({ dbSelect: [[]] });
+      const h = createHarness({ dbSelect: [[], []] });
       await expect(h.service.list(1, 20, {})).resolves.toEqual({
         items: [],
+        // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+        total: 0,
         page: 1,
         pageSize: 20,
       });

@@ -1,28 +1,28 @@
 import { Module } from '@nestjs/common';
-import { AppConfigService } from '../../config/app-config.service.js';
-import { AppAccessTokenGuard } from './auth/app-access-token.guard.js';
-import { AppAuthController } from './auth/app-auth.controller.js';
-import { AppAuthService } from './auth/app-auth.service.js';
+import { AppConfigService } from '../../config/app-config.service';
+import { AppAccessTokenGuard } from './auth/app-access-token.guard';
+import { AppAuthController } from './auth/app-auth.controller';
+import { AppAuthService } from './auth/app-auth.service';
 import {
   FakeWxMiniappProvider,
   HttpWxMiniappProvider,
   WxMiniappProvider,
-} from './auth/wx-miniapp.provider.js';
-import { AppCatalogController } from './catalog/app-catalog.controller.js';
-import { AppCatalogService } from './catalog/app-catalog.service.js';
-import { AppUploadController } from './app-upload.controller.js';
-import { AppCustomerDataController } from './member/app-customer-data.controller.js';
-import { AppCustomerDataService } from './member/app-customer-data.service.js';
-import { AppMemberController } from './member/app-member.controller.js';
-import { AppMemberService } from './member/app-member.service.js';
-import { AppPaymentsController } from './payments/app-payments.controller.js';
-import { AppStaffGrantsController } from './staff/app-staff-grants.controller.js';
-import { AppStaffGrantsService } from './staff/app-staff-grants.service.js';
-import { AppStaffWorkbenchController } from './staff/app-staff-workbench.controller.js';
-import { AppStaffWorkbenchService } from './staff/app-staff-workbench.service.js';
-import { AppStaffController } from './staff/app-staff.controller.js';
-import { AppStaffService } from './staff/app-staff.service.js';
-import { AppStaffScopeGuard } from './staff/app-staff-scope.guard.js';
+} from './auth/wx-miniapp.provider';
+import { AppCatalogController } from './catalog/app-catalog.controller';
+import { AppCatalogService } from './catalog/app-catalog.service';
+import { AppUploadController } from './app-upload.controller';
+import { AppCustomerDataController } from './member/app-customer-data.controller';
+import { AppCustomerDataService } from './member/app-customer-data.service';
+import { AppMemberController } from './member/app-member.controller';
+import { AppMemberService } from './member/app-member.service';
+import { AppPaymentsController } from './payments/app-payments.controller';
+import { AppStaffGrantsController } from './staff/app-staff-grants.controller';
+import { AppStaffGrantsService } from './staff/app-staff-grants.service';
+import { AppStaffWorkbenchController } from './staff/app-staff-workbench.controller';
+import { AppStaffWorkbenchService } from './staff/app-staff-workbench.service';
+import { AppStaffController } from './staff/app-staff.controller';
+import { AppStaffService } from './staff/app-staff.service';
+import { AppStaffScopeGuard } from './staff/app-staff-scope.guard';
 
 /**
  * 小程序端（B6，spec §16）—— 只做接口与认证域预留，**不做 UI**。
@@ -81,6 +81,6 @@ export class AppModule {}
 /**
  * 别名：根模块 `src/app.module.ts` 里已经有一个 `AppModule` 类，
  * 注册本模块时用别名导入可避免重名：
- * `import { MiniappModule } from './modules/app/app.module.js';`
+ * `import { MiniappModule } from './modules/app/app.module';`
  */
 export { AppModule as MiniappModule };

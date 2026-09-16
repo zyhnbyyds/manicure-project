@@ -318,16 +318,16 @@ if (process.env.NODE_ENV === 'production') {
 
 ### 预约与支付
 
-| 方法 | 路径                         | 作用                                                | 实现状态                                       |
-| ---- | ---------------------------- | --------------------------------------------------- | ---------------------------------------------- |
-| GET  | `/app/bookings`              | 我的预约列表（`{items,page,pageSize}`，无 `total`） | ✅ 真实现                                      |
-| GET  | `/app/bookings/:id`          | 预约详情（本人）；他人的单 → 404                    | ✅ 真实现                                      |
-| POST | `/app/bookings`              | 自助下单                                            | ✅ 真实现                                      |
-| POST | `/app/bookings/:id/cancel`   | 自助取消（`reason` 必填）                           | ✅ 真实现                                      |
-| POST | `/app/reviews`               | 提交服务评价（一单一评）                            | ✅ 真实现                                      |
-| POST | `/app/subscribe`             | 订阅消息授权上报                                    | ✅ 真实现                                      |
-| POST | `/app/payments/wxpay/jsapi`  | 小程序内 JSAPI 支付                                 | ⛔ **501 契约位**（不落库）                    |
-| POST | `/app/payments/wxpay/notify` | 微信支付**回调**（公开，无 token）                  | ✅ 真实现，复用后台 `PaymentPort.handleNotify` |
+| 方法 | 路径                         | 作用                                                        | 实现状态                                       |
+| ---- | ---------------------------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| GET  | `/app/bookings`              | 我的预约列表（`{items,page,pageSize}`，app 域不带 `total`） | ✅ 真实现                                      |
+| GET  | `/app/bookings/:id`          | 预约详情（本人）；他人的单 → 404                            | ✅ 真实现                                      |
+| POST | `/app/bookings`              | 自助下单                                                    | ✅ 真实现                                      |
+| POST | `/app/bookings/:id/cancel`   | 自助取消（`reason` 必填）                                   | ✅ 真实现                                      |
+| POST | `/app/reviews`               | 提交服务评价（一单一评）                                    | ✅ 真实现                                      |
+| POST | `/app/subscribe`             | 订阅消息授权上报                                            | ✅ 真实现                                      |
+| POST | `/app/payments/wxpay/jsapi`  | 小程序内 JSAPI 支付                                         | ⛔ **501 契约位**（不落库）                    |
+| POST | `/app/payments/wxpay/notify` | 微信支付**回调**（公开，无 token）                          | ✅ 真实现，复用后台 `PaymentPort.handleNotify` |
 
 `POST /app/bookings` 与后台创建的差异（controller 的 description 逐条写明）：
 

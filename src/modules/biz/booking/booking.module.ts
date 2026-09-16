@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { BookingSettlementService } from './booking-settlement.service.js';
-import { BookingsController } from './bookings.controller.js';
-import { BookingsService } from './bookings.service.js';
-import { SlotsService } from './slots.service.js';
+import { BookingSettlementService } from './booking-settlement.service';
+import { BookingsController } from './bookings.controller';
+import { BookingsService } from './bookings.service';
+import { SlotsService } from './slots.service';
 
 /**
  * 预约主链路（B1）。

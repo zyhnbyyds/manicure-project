@@ -4,7 +4,7 @@ import {
   CreditAccountsService,
   normalizeCreditLimit,
   normalizeSettleDay,
-} from './credit-accounts.service.js';
+} from './credit-accounts.service';
 
 type Row = Record<string, unknown>;
 
@@ -100,11 +100,13 @@ describe('CreditAccountsService（§18.1 挂账主体）', () => {
   describe('list：主体 + 已挂未结金额', () => {
     it('合并未结金额，无记录的主体补 0', async () => {
       const { service } = createHarness({
+        // 第二次是 count 查询（total），第三次才是未结金额聚合
         selectResults: [
           [
             { id: 1, name: '甲公司' },
             { id: 2, name: '乙公司' },
           ],
+          [],
           [{ creditAccountId: 1, outstanding: '12345' }],
         ],
       });
@@ -118,9 +120,10 @@ describe('CreditAccountsService（§18.1 挂账主体）', () => {
     });
 
     it('本页没有主体时不再多查一次未结金额', async () => {
-      const { service, select } = createHarness({ selectResults: [[]] });
+      const { service, select } = createHarness({ selectResults: [[], []] });
       await service.list(1, 20, {});
-      expect(select).toHaveBeenCalledTimes(1);
+      // page + count 各一次；没主体就不再查未结金额
+      expect(select).toHaveBeenCalledTimes(2);
     });
   });
 

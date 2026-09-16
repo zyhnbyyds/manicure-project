@@ -3,7 +3,7 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { AppConfigService } from '../../../config/app-config.service.js';
+import { AppConfigService } from '../../../config/app-config.service';
 
 /** `code2Session` 的结果：只取身份，`session_key` 一律不外传、不落库 */
 export type WxSession = { openid: string; unionid: string | null };

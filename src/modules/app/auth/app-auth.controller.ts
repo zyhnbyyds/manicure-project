@@ -14,17 +14,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../../common/auth/public.decorator.js';
+import { Public } from '../../../common/auth/public.decorator';
 import {
   appBindPhoneRequestSchema,
   appLoginRequestSchema,
   type AppBindPhoneVo,
-} from '../dto/app-vo.js';
-import {
-  AppAccessTokenGuard,
-  type AppRequest,
-} from './app-access-token.guard.js';
-import { AppAuthService } from './app-auth.service.js';
+} from '../dto/app-vo';
+import { AppAccessTokenGuard, type AppRequest } from './app-access-token.guard';
+import { AppAuthService } from './app-auth.service';
 
 /**
  * 小程序端认证（`/api/v1/app/auth`）。

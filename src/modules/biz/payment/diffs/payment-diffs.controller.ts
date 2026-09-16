@@ -19,13 +19,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { MAX_PAGE_SIZE, parsePagination } from '../../common/query.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { MAX_PAGE_SIZE, parsePagination } from '../../common/query';
 import {
   PaymentDiffsService,
   type PaymentDiffListFilter,
-} from './payment-diffs.service.js';
+} from './payment-diffs.service';
 
 type AuthRequest = { user: { id: number } };
 

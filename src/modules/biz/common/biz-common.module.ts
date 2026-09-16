@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { BizConfigService } from './biz-config.service.js';
+import { BizConfigService } from './biz-config.service';
 
 /**
  * 业务公共能力（全局模块）。

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { PointsController } from './points.controller.js';
+import { PointsController } from './points.controller';
 
 function createHarness() {
   const goods = {

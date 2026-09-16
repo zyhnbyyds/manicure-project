@@ -3,11 +3,8 @@ import type { ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
 import { SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
-import type { AppConfigService } from '../../../config/app-config.service.js';
-import {
-  AppAccessTokenGuard,
-  type AppRequest,
-} from './app-access-token.guard.js';
+import type { AppConfigService } from '../../../config/app-config.service';
+import { AppAccessTokenGuard, type AppRequest } from './app-access-token.guard';
 
 const SECRET = 'test-secret-test-secret-test-secret';
 const ISSUER = 'manicure-test';

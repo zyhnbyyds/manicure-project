@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { BizCommonModule } from '../common/biz-common.module.js';
-import { CustomersController } from './customers/customers.controller.js';
-import { CustomersService } from './customers/customers.service.js';
-import { ServiceItemsController } from './service-items/service-items.controller.js';
-import { ServiceItemsService } from './service-items/service-items.service.js';
-import { StaffsController } from './staffs/staffs.controller.js';
-import { StaffsService } from './staffs/staffs.service.js';
-import { StoresController } from './stores/stores.controller.js';
-import { StoresService } from './stores/stores.service.js';
+import { BizCommonModule } from '../common/biz-common.module';
+import { CustomersController } from './customers/customers.controller';
+import { CustomersService } from './customers/customers.service';
+import { ServiceItemsController } from './service-items/service-items.controller';
+import { ServiceItemsService } from './service-items/service-items.service';
+import { StaffsController } from './staffs/staffs.controller';
+import { StaffsService } from './staffs/staffs.service';
+import { StoresController } from './stores/stores.controller';
+import { StoresService } from './stores/stores.service';
 
 /**
  * 基础数据（B1）：服务项目 / 美甲师（含可做项目）/ 顾客档案 / 门店档案。

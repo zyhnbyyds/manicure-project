@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull, like, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, like, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service';
 import { loginLogs, users } from '../../../database/schema/index';
+import { readCount } from '../../biz/common/query';
 import {
   resolveDataScope,
   type RequestActor,
@@ -47,14 +48,20 @@ export class LoginLogsService {
         );
       }
     }
-    const items = await this.database.db
-      .select()
-      .from(loginLogs)
-      .where(conditions.length ? and(...(conditions as never[])) : undefined)
-      .orderBy(desc(loginLogs.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = conditions.length
+      ? and(...(conditions as never[]))
+      : undefined;
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(loginLogs)
+        .where(where)
+        .orderBy(desc(loginLogs.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db.select({ value: count() }).from(loginLogs).where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number) {

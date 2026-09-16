@@ -5,29 +5,40 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, gt, inArray, isNull, like, lt } from 'drizzle-orm';
-import { AppConfigService } from '../../../../config/app-config.service.js';
-import { DatabaseService } from '../../../../database/database.service.js';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  like,
+  lt,
+} from 'drizzle-orm';
+import { AppConfigService } from '../../../../config/app-config.service';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookingItems,
   bizBookings,
   bizCustomers,
   bizPaymentLogs,
   bizPayments,
-} from '../../../../database/schema/index.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+} from '../../../../database/schema/index';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   requireCurrentStoreId,
   resolveStoreScope,
   storeConditions,
-} from '../../../../common/data-scope/store-scope.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
+} from '../../../../common/data-scope/store-scope';
+import { BizConfigService } from '../../common/biz-config.service';
 import {
   buildDocNo,
   buildOutTradeNo,
   buildOutTradeNoByToken,
-} from '../../common/doc-no.js';
-import { localDateRange } from '../../common/query.js';
+} from '../../common/doc-no';
+import { localDateRange, readCount } from '../../common/query';
 import {
   MemberAccountPort,
   MemberCardPort,
@@ -38,16 +49,16 @@ import {
   type PaymentDraft,
   type PaymentOutcome,
   type PreparedChannelOrder,
-} from '../../common/ports.js';
-import type { BizExecutor, BizTx } from '../../common/tx.js';
-import { AlipayQrProvider } from '../channels/alipay-qr.provider.js';
+} from '../../common/ports';
+import type { BizExecutor, BizTx } from '../../common/tx';
+import { AlipayQrProvider } from '../channels/alipay-qr.provider';
 import type {
   ChannelFailureKind,
   OnlineChannel,
   PaymentChannelProvider,
-} from '../channels/channel.interface.js';
-import { WxpayNativeProvider } from '../channels/wxpay-native.provider.js';
-import { PaymentDiffsService } from '../diffs/payment-diffs.service.js';
+} from '../channels/channel.interface';
+import { WxpayNativeProvider } from '../channels/wxpay-native.provider';
+import { PaymentDiffsService } from '../diffs/payment-diffs.service';
 
 export type PaymentRow = typeof bizPayments.$inferSelect;
 /**
@@ -800,7 +811,12 @@ export class PaymentsService extends PaymentPort {
     filter: PaymentListFilter,
     /** 传操作人时按可见门店过滤（店长只看本店收款；超管可按 storeId 筛） */
     actor?: RequestActor,
-  ): Promise<{ items: PaymentListItem[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: PaymentListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const timezone = (await this.bizConfig.booking()).timezone;
     const conditions = [isNull(bizPayments.deletedAt)];
     if (actor) {
@@ -842,25 +858,36 @@ export class PaymentsService extends PaymentPort {
           ),
         );
     }
-    const items = await this.database.db
-      .select({
-        payment: bizPayments,
-        bookingNo: bizBookings.bookingNo,
-        customerName: bizCustomers.name,
-      })
-      .from(bizPayments)
-      .leftJoin(bizBookings, eq(bizBookings.id, bizPayments.bookingId))
-      .leftJoin(bizCustomers, eq(bizCustomers.id, bizPayments.customerId))
-      .where(and(...conditions))
-      .orderBy(desc(bizPayments.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          payment: bizPayments,
+          bookingNo: bizBookings.bookingNo,
+          customerName: bizCustomers.name,
+        })
+        .from(bizPayments)
+        .leftJoin(bizBookings, eq(bizBookings.id, bizPayments.bookingId))
+        .leftJoin(bizCustomers, eq(bizCustomers.id, bizPayments.customerId))
+        .where(where)
+        .orderBy(desc(bizPayments.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      // count 带上同一组 leftJoin（select 与 where 都引用了它们）
+      this.database.db
+        .select({ value: count() })
+        .from(bizPayments)
+        .leftJoin(bizBookings, eq(bizBookings.id, bizPayments.bookingId))
+        .leftJoin(bizCustomers, eq(bizCustomers.id, bizPayments.customerId))
+        .where(where),
+    ]);
     return {
       items: items.map((row) => ({
         ...row.payment,
         bookingNo: row.bookingNo,
         customerName: row.customerName,
       })),
+      total: readCount(counted),
       page,
       pageSize,
     };

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { RechargePlansService } from './recharge-plans.service.js';
+import { RechargePlansService } from './recharge-plans.service';
 
 type Row = Record<string, unknown>;
 
@@ -59,10 +59,12 @@ const plan = (overrides: Row = {}): Row => ({
 });
 
 describe('RechargePlansService（§15.4 充值方案）', () => {
-  it('list 返回 items/page/pageSize', async () => {
+  it('list 返回 items/page/pageSize/total', async () => {
     const { service } = createHarness({ selectResults: [[plan()]] });
     await expect(service.list(1, 20)).resolves.toEqual({
       items: [plan()],
+      // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+      total: 0,
       page: 1,
       pageSize: 20,
     });

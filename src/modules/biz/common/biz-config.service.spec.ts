@@ -4,7 +4,7 @@ import {
   BIZ_CONFIG_KEYS,
   BIZ_CONFIG_LABELS,
   BizConfigService,
-} from './biz-config.service.js';
+} from './biz-config.service';
 
 /**
  * 只 mock `select().from().where()` 这条链——`BizConfigService` 读库的唯一入口。

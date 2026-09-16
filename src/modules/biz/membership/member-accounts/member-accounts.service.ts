@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   and,
+  count,
   desc,
   eq,
   getTableColumns,
@@ -15,8 +16,8 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
-import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope';
 import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookings,
@@ -24,31 +25,32 @@ import {
   bizMemberTransactions,
   bizRechargePlans,
   sysStores,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
 import {
   CENTS_PER_YUAN,
   pointsToCents,
   splitBalanceDeduction,
-} from '../../common/money.js';
+} from '../../common/money';
 import {
   CustomerPort,
   MemberAccountPort,
   type PayChannel,
   type PricingContext,
-} from '../../common/ports.js';
+} from '../../common/ports';
 import {
   andConditions,
   localDateRange,
   parsePagination,
-} from '../../common/query.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizDatabase, BizTx } from '../../common/tx.js';
+  readCount,
+} from '../../common/query';
+import { withoutUndefined } from '../../common/tx';
+import type { BizDatabase, BizTx } from '../../common/tx';
 import {
   MemberLevelsService,
   pickLowestLevel,
   pickUpgradeLevel,
-} from '../member-levels/member-levels.service.js';
+} from '../member-levels/member-levels.service';
 
 export type CustomerRow = typeof bizCustomers.$inferSelect;
 export type MemberTransactionRow = typeof bizMemberTransactions.$inferSelect;
@@ -788,6 +790,7 @@ export class MemberAccountsService extends MemberAccountPort {
       levelName: string | null;
       levelDiscountPermille: number;
     })[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
@@ -811,6 +814,8 @@ export class MemberAccountsService extends MemberAccountPort {
           levelDiscountPermille: level?.discountPermille ?? 1000,
         };
       }),
+      // total 直接透传顾客列表的（它就是同一套过滤条件的 COUNT(*)）
+      total: result.total,
       page: result.page,
       pageSize: result.pageSize,
     };
@@ -854,6 +859,7 @@ export class MemberAccountsService extends MemberAccountPort {
     filter: TransactionListFilter = {},
   ): Promise<{
     items: MemberTransactionListRow[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
@@ -871,18 +877,32 @@ export class MemberAccountsService extends MemberAccountPort {
       filter.dateTo,
     );
     if (range) conditions.push(range);
-    const items = await this.database.db
-      .select({
-        ...getTableColumns(bizMemberTransactions),
-        storeName: sysStores.name,
-      })
-      .from(bizMemberTransactions)
-      .leftJoin(sysStores, eq(bizMemberTransactions.storeId, sysStores.id))
-      .where(andConditions(conditions))
-      .orderBy(desc(bizMemberTransactions.id))
-      .limit(safePageSize)
-      .offset(offset);
-    return { items, page: safePage, pageSize: safePageSize };
+    const where = andConditions(conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          ...getTableColumns(bizMemberTransactions),
+          storeName: sysStores.name,
+        })
+        .from(bizMemberTransactions)
+        .leftJoin(sysStores, eq(bizMemberTransactions.storeId, sysStores.id))
+        .where(where)
+        .orderBy(desc(bizMemberTransactions.id))
+        .limit(safePageSize)
+        .offset(offset),
+      // count 带上同一个 leftJoin
+      this.database.db
+        .select({ value: count() })
+        .from(bizMemberTransactions)
+        .leftJoin(sysStores, eq(bizMemberTransactions.storeId, sysStores.id))
+        .where(where),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: safePage,
+      pageSize: safePageSize,
+    };
   }
 
   /* ------------------------------------------------------------------ *

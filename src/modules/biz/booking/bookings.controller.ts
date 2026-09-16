@@ -20,10 +20,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import type { RequestActor } from '../../../common/data-scope/data-scope.js';
-import { RequirePermissions } from '../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../common/swagger/zod-schema.helper.js';
-import { parsePagination } from '../common/query.js';
+import type { RequestActor } from '../../../common/data-scope/data-scope';
+import { RequirePermissions } from '../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../common/swagger/zod-schema.helper';
+import { parsePagination } from '../common/query';
 import {
   BookingsService,
   type BookingListFilter,
@@ -32,7 +32,7 @@ import {
   type CreateBookingInput,
   type SettleBookingInput,
   type UpdateBookingInput,
-} from './bookings.service.js';
+} from './bookings.service';
 
 type AuthRequest = { user: RequestActor };
 

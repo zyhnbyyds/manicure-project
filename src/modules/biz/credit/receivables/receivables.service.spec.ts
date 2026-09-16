@@ -9,9 +9,9 @@ import {
   bizBookings,
   bizCreditAccounts,
   bizReceivables,
-} from '../../../../database/schema/index.js';
-import { addLocalDays, shopToday } from '../../common/shop-time.js';
-import { ReceivablesService, resolveDueDate } from './receivables.service.js';
+} from '../../../../database/schema/index';
+import { addLocalDays, shopToday } from '../../common/shop-time';
+import { ReceivablesService, resolveDueDate } from './receivables.service';
 
 type Row = Record<string, unknown>;
 
@@ -1121,8 +1121,10 @@ describe('ReceivablesService（§18 应收台账）', () => {
   describe('list / findOne', () => {
     it('list 计算剩余额并补主体名', async () => {
       const h = createHarness({
+        // 第二次是 count 查询（total），第三次才是主体名
         dbSelect: [
           [receivable({ amount: 10000, settledAmount: 3000 })],
+          [],
           [{ id: 3, name: '张三' }],
         ],
       });
@@ -1135,16 +1137,18 @@ describe('ReceivablesService（§18 应收台账）', () => {
     });
 
     it('list 空结果时不查主体名（省一次往返）', async () => {
-      const h = createHarness({ dbSelect: [[]] });
+      const h = createHarness({ dbSelect: [[], []] });
       const result = await h.service.list(1, 20, {});
       expect(result.items).toEqual([]);
-      expect(h.dbSelect).toHaveBeenCalledTimes(1);
+      // page + count 各一次；空结果不再查主体名
+      expect(h.dbSelect).toHaveBeenCalledTimes(2);
     });
 
     it('list 的剩余额不会为负（超额脏数据兜底）', async () => {
       const h = createHarness({
         dbSelect: [
           [receivable({ amount: 10000, settledAmount: 12000 })],
+          [],
           [{ id: 3, name: '张三' }],
         ],
       });

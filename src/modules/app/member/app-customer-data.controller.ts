@@ -21,11 +21,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../../common/auth/public.decorator.js';
+import { Public } from '../../../common/auth/public.decorator';
 import {
   AppAccessTokenGuard,
   type AppRequest,
-} from '../auth/app-access-token.guard.js';
+} from '../auth/app-access-token.guard';
 import {
   appAddressUpsertRequestSchema,
   appCreateFeedbackRequestSchema,
@@ -35,8 +35,8 @@ import {
   type AppFavoriteListVo,
   type AppFavoriteToggleVo,
   type AppNoticeReadVo,
-} from '../dto/app-vo.js';
-import { AppCustomerDataService } from './app-customer-data.service.js';
+} from '../dto/app-vo';
+import { AppCustomerDataService } from './app-customer-data.service';
 
 /**
  * 顾客自助数据（收货地址；款式收藏后续并入本 controller）。

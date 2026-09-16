@@ -7,9 +7,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
-import { Public } from '../../../common/auth/public.decorator.js';
-import { PaymentPort } from '../../biz/common/ports.js';
-import { appWxpayNotifyRequestSchema } from '../dto/app-vo.js';
+import { Public } from '../../../common/auth/public.decorator';
+import { PaymentPort } from '../../biz/common/ports';
+import { appWxpayNotifyRequestSchema } from '../dto/app-vo';
 
 /** 渠道回调请求：必须有 `rawBody`（验签用的是原样报文，`JSON.stringify` 会改变键顺序） */
 type NotifyRequest = {

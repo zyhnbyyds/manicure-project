@@ -6,10 +6,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../../common/auth/public.decorator.js';
-import { AppAccessTokenGuard } from '../auth/app-access-token.guard.js';
-import { AppOptionalToken } from '../auth/app-optional-token.decorator.js';
-import { AppCatalogService } from './app-catalog.service.js';
+import { Public } from '../../../common/auth/public.decorator';
+import { AppAccessTokenGuard } from '../auth/app-access-token.guard';
+import { AppOptionalToken } from '../auth/app-optional-token.decorator';
+import { AppCatalogService } from './app-catalog.service';
 
 /**
  * app 域目录（`/api/v1/app`）：只读接口，**访客即可浏览**。

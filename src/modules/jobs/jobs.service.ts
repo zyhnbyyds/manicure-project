@@ -9,9 +9,20 @@ import {
 } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { and, desc, eq, isNotNull, isNull, lt, ne, or } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+} from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service';
 import { jobLogs, jobs, refreshTokens } from '../../database/schema/index';
+import { readCount } from '../biz/common/query';
 import {
   BookingOpsPort,
   CreditPort,
@@ -20,8 +31,8 @@ import {
   NoticePort,
   PaymentPort,
   RecurrencePort,
-} from '../biz/common/ports.js';
-import { addLocalDays, shopToday } from '../biz/common/shop-time.js';
+} from '../biz/common/ports';
+import { addLocalDays, shopToday } from '../biz/common/shop-time';
 
 export type CreateJobInput = {
   name: string;
@@ -165,14 +176,19 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async list(page: number, pageSize: number) {
-    const items = await this.database.db
-      .select()
-      .from(jobs)
-      .where(isNull(jobs.deletedAt))
-      .orderBy(desc(jobs.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    // total 与 items 共用同一个 where（口径见 common/query.ts）
+    const where = isNull(jobs.deletedAt);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(jobs)
+        .where(where)
+        .orderBy(desc(jobs.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db.select({ value: count() }).from(jobs).where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number): Promise<JobRow> {

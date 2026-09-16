@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { and, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service';
 import { configs } from '../../../database/schema/index';
-import { DEFAULT_SHOP_TIMEZONE } from './shop-time.js';
+import { DEFAULT_SHOP_TIMEZONE } from './shop-time';
 
 /** 预约链路可调参数（§5.6） */
 export type BookingConfig = {

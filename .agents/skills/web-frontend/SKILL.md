@@ -12,7 +12,10 @@ metadata:
 
 ## 复用基线模式（不要自创列表实现）
 
-- 列表：`useTable` + `LewTable` + `LewPagination`；**响应无 `total`**，`useTable` 多取一条判断 `hasMore`
+- 列表：`useTable` + `LewTable` + `LewPagination`；`total` 来自后端（同条件 `COUNT(*)`）；
+  **分页器必须传 `show-summary`** —— lew-ui 默认 `false`，不传就永远没有「共 N 条」；
+  「上一页/下一页」是内置的，但**只在 `total > pageSize`（多于一页）时渲染**，单页列表只有页码「1」。
+  ⚠️ 请求的 `pageSize` **不能 +1**（曾为「多取一条判 hasMore」这么干，会把后端 `offset` 顶偏、末页变空，见 `/quality/pitfalls` W5b）。
   并估算总数。
 - 列表分页条数：后端单页硬上限是 `MAX_PAGE_SIZE = 200`（`src/modules/biz/common/query.ts`）。
   **别写 `pageSize: 200` 然后在前端 `reduce` 求和** —— 那是按「刚好不吃上限」猜的，
@@ -247,7 +250,7 @@ openImagePreview(urls, startIndex, '图集名'); // 空数组自动忽略；下�
 
 ## 常见坑
 
-- 自己写分页组件并请求 `total` → 后端没有这个字段。
+- 自己写分页组件 → `useTable` 已封装 total / 翻页 / 每页条数 / 门店切换重载；自己写一套必然漏改。
 - 前端算折扣/抵扣 → 与服务端结果不一致；必须以服务端返回为准。
 - 手改 `router/index.ts` → 菜单驱动的路由会与之冲突。
 - 时间不做时区转换直接展示 → 偏 8 小时。

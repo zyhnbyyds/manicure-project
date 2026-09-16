@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull, like, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, like, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service';
 import { operationLogs, users } from '../../../database/schema/index';
+import { readCount } from '../../biz/common/query';
 import {
   resolveDataScope,
   type RequestActor,
@@ -68,15 +69,26 @@ export class OperationLogsService {
         );
       }
     }
-    const items = await this.database.db
-      .select(logColumns)
-      .from(operationLogs)
-      .leftJoin(users, eq(operationLogs.userId, users.id))
-      .where(conditions.length ? and(...(conditions as never[])) : undefined)
-      .orderBy(desc(operationLogs.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = conditions.length
+      ? and(...(conditions as never[]))
+      : undefined;
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select(logColumns)
+        .from(operationLogs)
+        .leftJoin(users, eq(operationLogs.userId, users.id))
+        .where(where)
+        .orderBy(desc(operationLogs.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      // where 里用到了 users.username，count 必须带同一个 leftJoin
+      this.database.db
+        .select({ value: count() })
+        .from(operationLogs)
+        .leftJoin(users, eq(operationLogs.userId, users.id))
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number) {

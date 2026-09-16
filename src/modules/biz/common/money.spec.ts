@@ -9,7 +9,7 @@ import {
   quoteBooking,
   splitBalanceDeduction,
   sumDuration,
-} from './money.js';
+} from './money';
 
 const item = (
   price: number,

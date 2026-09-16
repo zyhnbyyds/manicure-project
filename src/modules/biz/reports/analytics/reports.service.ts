@@ -27,13 +27,13 @@ import {
 } from 'drizzle-orm';
 import type { AnyMySqlColumn, MySqlColumn } from 'drizzle-orm/mysql-core';
 import { DatabaseService } from '../../../../database/database.service';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   listVisibleStores,
   resolveStoreScope,
   storeConditions,
   type StoreContext,
-} from '../../../../common/data-scope/store-scope.js';
+} from '../../../../common/data-scope/store-scope';
 import {
   bizBookingItems,
   bizBookings,
@@ -49,9 +49,9 @@ import {
   bizReviews,
   bizServiceItems,
   bizStaffs,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { andConditions, localDateRange } from '../../common/query.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { andConditions, localDateRange } from '../../common/query';
 import {
   bookingRates,
   countBookingStatuses,
@@ -61,7 +61,7 @@ import {
   resolveTrendWindow,
   sumBy,
   type HomeRange,
-} from './home-overview.js';
+} from './home-overview';
 import {
   addLocalDays,
   daysBetween,
@@ -69,7 +69,7 @@ import {
   shopDateOf,
   shopDayRange,
   shopToday,
-} from '../../common/shop-time.js';
+} from '../../common/shop-time';
 
 /* ------------------------------------------------------------------ *
  * 类型

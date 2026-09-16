@@ -4,18 +4,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
-import { sysStores } from '../../../../database/schema/index.js';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
+import { and, asc, count, desc, eq, isNull } from 'drizzle-orm';
+import { DatabaseService } from '../../../../database/database.service';
+import { sysStores } from '../../../../database/schema/index';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
 import {
   listVisibleStores,
   type StoreBrief,
-} from '../../../../common/data-scope/store-scope.js';
-import { StorePort, type StoreRow } from '../../common/ports.js';
-import { normalizeImages } from '../../common/gallery.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizTx } from '../../common/tx.js';
+} from '../../../../common/data-scope/store-scope';
+import { StorePort, type StoreRow } from '../../common/ports';
+import { readCount } from '../../common/query';
+import { normalizeImages } from '../../common/gallery';
+import { withoutUndefined } from '../../common/tx';
+import type { BizTx } from '../../common/tx';
 
 /**
  * 门店图集张数上限（小程序门店页展示）。
@@ -77,22 +78,27 @@ export class StoresService extends StorePort {
     pageSize: number,
   ): Promise<{
     items: StoreRow[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
     const offset = (page - 1) * pageSize;
-    const items = await this.database.db
-      .select()
-      .from(sysStores)
-      .where(isNull(sysStores.deletedAt))
-      .orderBy(
-        desc(sysStores.isDefault),
-        asc(sysStores.sort),
-        asc(sysStores.id),
-      )
-      .limit(pageSize)
-      .offset(offset);
-    return { items, page, pageSize };
+    const where = isNull(sysStores.deletedAt);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(sysStores)
+        .where(where)
+        .orderBy(
+          desc(sysStores.isDefault),
+          asc(sysStores.sort),
+          asc(sysStores.id),
+        )
+        .limit(pageSize)
+        .offset(offset),
+      this.database.db.select({ value: count() }).from(sysStores).where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   /**

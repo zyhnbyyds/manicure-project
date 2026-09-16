@@ -20,12 +20,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../common/swagger/zod-schema.helper.js';
+import { RequirePermissions } from '../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../common/swagger/zod-schema.helper';
 import {
   SchedulingService,
   type ScheduleOverrideFilter,
-} from './scheduling.service.js';
+} from './scheduling.service';
 
 const TIME_PATTERN = /^\d{2}:\d{2}(:\d{2})?$/;
 

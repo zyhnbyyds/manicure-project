@@ -117,19 +117,19 @@ bun test tests/integration/b1-booking.int.spec.ts   # 只跑 B1 集成验收
 
 ## 技术栈
 
-| 领域              | 选型                                                              |
-| ----------------- | ----------------------------------------------------------------- |
-| 运行时 / 包管理器 | Bun（无 Node / tsx 运行方式）                                     |
-| Web 框架          | NestJS 12 + Fastify 适配器（不是 Express）                        |
-| ORM               | Drizzle ORM 1.0.0-rc.3（MySQL 方言）                              |
-| 数据校验          | Zod 4（Controller 层校验请求体；`AppConfigService` 校验环境变量） |
-| 认证              | JWT via `jose`（HS256）；密码哈希 `Bun.password`（argon2id）      |
-| 调度              | `@nestjs/schedule` + `cron`                                       |
-| API 文档          | `@nestjs/swagger`（开启时路径：`/api/v1/docs`）                   |
-| 日志              | `pino`（Fastify 内置）                                            |
-| 测试              | `bun test`（Bun 内置运行器）· 断言/mock 沿用 vitest API           |
-| Lint / 格式化     | `oxlint`、`oxfmt`（不用 ESLint / Prettier）                       |
-| 语言              | TypeScript 5.9，`moduleResolution: NodeNext`，ESM `.js` 后缀导入  |
+| 领域              | 选型                                                                       |
+| ----------------- | -------------------------------------------------------------------------- |
+| 运行时 / 包管理器 | Bun（无 Node / tsx 运行方式）                                              |
+| Web 框架          | NestJS 12 + Fastify 适配器（不是 Express）                                 |
+| ORM               | Drizzle ORM 1.0.0-rc.3（MySQL 方言）                                       |
+| 数据校验          | Zod 4（Controller 层校验请求体；`AppConfigService` 校验环境变量）          |
+| 认证              | JWT via `jose`（HS256）；密码哈希 `Bun.password`（argon2id）               |
+| 调度              | `@nestjs/schedule` + `cron`                                                |
+| API 文档          | `@nestjs/swagger`（开启时路径：`/api/v1/docs`）                            |
+| 日志              | `pino`（Fastify 内置）                                                     |
+| 测试              | `bun test`（Bun 内置运行器）· 断言/mock 沿用 vitest API                    |
+| Lint / 格式化     | `oxlint`、`oxfmt`（不用 ESLint / Prettier）                                |
+| 语言              | TypeScript 5.9，`moduleResolution: Bundler`，ESM（相对导入**不带扩展名**） |
 
 ## 常用命令
 
@@ -252,10 +252,10 @@ Drizzle 关联也定义在同一文件中（通过 `defineRelations`）。
 
 ### ESM 导入
 
-所有 `.ts` 文件的导入路径必须使用 `.js` 后缀（匹配 `moduleResolution: NodeNext`）：
+相对导入**不写扩展名**（`moduleResolution: Bundler`；运行时是 bun，源码与编译产物都能解析）：
 
 ```ts
-import { UsersService } from './users.service.js';
+import { UsersService } from './users.service';
 ```
 
 ### Controller 编写规范
@@ -268,7 +268,7 @@ import { UsersService } from './users.service.js';
 ### Service 编写规范
 
 - Service 依赖 `DatabaseService`（提供 `db` 即 Drizzle 实例）和/或 `RedisService`。
-- 分页 `list` 方法接收 `page` 和 `pageSize`，做范围限制后返回 `{ items, page, pageSize }`。
+- 分页 `list` 方法接收 `page` 和 `pageSize`，做范围限制后返回 `{ items, page, pageSize, total }`（`total` 用同一套 `from/join/where` 的 `count()` 算）。
 - 软删除使用 `deletedAt = new Date()`，不物理删除行。
 - 唯一键冲突抛 `ConflictException`。
 - 实体不存在抛 `NotFoundException`。
@@ -408,7 +408,7 @@ const service = new UsersService({ db } as any);
 
 ## 注意事项
 
-1. **所有导入必须加 `.js` 后缀**：TypeScript 配置使用 `moduleResolution: NodeNext`，每个模块导入必须以 `.js` 结尾（即使源文件是 `.ts`）。
+1. **相对导入不写扩展名**：TypeScript 配置是 `moduleResolution: Bundler`（源码与 `nest build` 产物都由 bun 执行），统一写 `import x from './y'`。**不要**再写成 `'./y.js'` —— 那是 NodeNext 时代的遗留，2026-09-16 已全量去掉（`.json` 导入保留后缀）。
 2. **Schema 单文件管理**：所有表定义和关联都在 `src/database/schema/index.ts` 中。新增表时直接加到这个文件，然后用 `drizzle-kit generate` 生成迁移。
 3. **软删除 + 审计模式**：每张实体表都用 `deletedAt` 软删除、`created_by`/`updated_by` 记录操作人。Controller 传 `request.user.id` 作为操作人 ID。
 4. **测试完全隔离**：测试绝不访问真实数据库，完全 mock `DatabaseService.db`。Service 通过 `new Service(mock as any)` 实例化。

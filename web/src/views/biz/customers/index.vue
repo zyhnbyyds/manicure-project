@@ -576,6 +576,7 @@ async function openHistory(row: Customer) {
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
+          show-summary
           @change="handleChange"
         />
       </div>
@@ -684,6 +685,7 @@ async function openHistory(row: Customer) {
               v-model:current-page="historyPage"
               v-model:page-size="historyPageSize"
               :total="historyTotal"
+              show-summary
               @change="handleHistoryChange"
             />
           </div>

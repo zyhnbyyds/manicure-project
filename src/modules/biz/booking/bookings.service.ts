@@ -8,6 +8,7 @@ import {
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   inArray,
@@ -30,29 +31,34 @@ import {
   bizStaffs,
   users,
 } from '../../../database/schema/index';
-import type { RequestActor } from '../../../common/data-scope/data-scope.js';
-import { resolveDataScope } from '../../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../../common/data-scope/data-scope';
+import { resolveDataScope } from '../../../common/data-scope/data-scope';
 import {
   requireCurrentStoreId,
   resolveStoreScope,
   storeConditions,
-} from '../../../common/data-scope/store-scope.js';
-import { BizConfigService } from '../common/biz-config.service.js';
-import { buildDocNo, tempDocNo } from '../common/doc-no.js';
+} from '../../../common/data-scope/store-scope';
+import { BizConfigService } from '../common/biz-config.service';
+import { buildDocNo, tempDocNo } from '../common/doc-no';
 import {
   calcDepositAmount,
   centsToPoints,
   quoteBooking,
   type QuoteResult,
-} from '../common/money.js';
-import { andConditions, keywordLike, localDateRange } from '../common/query.js';
+} from '../common/money';
+import {
+  andConditions,
+  keywordLike,
+  localDateRange,
+  readCount,
+} from '../common/query';
 import {
   formatShopDateTime,
   shopDateOf,
   shopDayRange,
-} from '../common/shop-time.js';
-import type { BizTx } from '../common/tx.js';
-import { withoutUndefined } from '../common/tx.js';
+} from '../common/shop-time';
+import type { BizTx } from '../common/tx';
+import { withoutUndefined } from '../common/tx';
 import {
   type BookingItemRow,
   type BookingPayStatus,
@@ -73,8 +79,8 @@ import {
   SettlementPort,
   type StaffBookingFilter,
   StaffPort,
-} from '../common/ports.js';
-import { SlotsService } from './slots.service.js';
+} from '../common/ports';
+import { SlotsService } from './slots.service';
 
 /** 状态枚举定义在端口层（app 域要用，且不能 import 业务模块），此处原样导出 */
 export type { BookingStatus, BookingPayStatus };
@@ -361,16 +367,25 @@ export class BookingsService implements BookingPort {
         : undefined,
       ...(await this.scopeConditions(scope, actor)),
     ]);
-    const rows = await this.database.db
-      .select({ booking: bizBookings, staffName: bizStaffs.nickname })
-      .from(bizBookings)
-      .leftJoin(bizStaffs, eq(bizBookings.staffId, bizStaffs.id))
-      .where(where)
-      .orderBy(desc(bizBookings.startAt), desc(bizBookings.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select({ booking: bizBookings, staffName: bizStaffs.nickname })
+        .from(bizBookings)
+        .leftJoin(bizStaffs, eq(bizBookings.staffId, bizStaffs.id))
+        .where(where)
+        .orderBy(desc(bizBookings.startAt), desc(bizBookings.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      // count 带上同一个 leftJoin（口径一致，见 common/query.ts 的说明）
+      this.database.db
+        .select({ value: count() })
+        .from(bizBookings)
+        .leftJoin(bizStaffs, eq(bizBookings.staffId, bizStaffs.id))
+        .where(where),
+    ]);
     return {
       items: rows.map((row) => ({ ...row.booking, staffName: row.staffName })),
+      total: readCount(counted),
       page,
       pageSize,
     };
@@ -521,14 +536,19 @@ export class BookingsService implements BookingPort {
     page: number,
     pageSize: number,
     filter: StaffBookingFilter,
-  ): Promise<{ items: BookingWithItems[]; page: number; pageSize: number }> {
-    const rows = await this.selectByScope(
+  ): Promise<{
+    items: BookingWithItems[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const { rows, total } = await this.selectByScope(
       eq(bizBookings.staffId, staffId),
       filter,
       page,
       pageSize,
     );
-    return { items: await this.attachItems(rows), page, pageSize };
+    return { items: await this.attachItems(rows), total, page, pageSize };
   }
 
   async listByCustomer(
@@ -536,14 +556,19 @@ export class BookingsService implements BookingPort {
     page: number,
     pageSize: number,
     filter: { status?: BookingStatus | undefined } = {},
-  ): Promise<{ items: BookingWithItems[]; page: number; pageSize: number }> {
-    const rows = await this.selectByScope(
+  ): Promise<{
+    items: BookingWithItems[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const { rows, total } = await this.selectByScope(
       eq(bizBookings.customerId, customerId),
       { status: filter.status },
       page,
       pageSize,
     );
-    return { items: await this.attachItems(rows), page, pageSize };
+    return { items: await this.attachItems(rows), total, page, pageSize };
   }
 
   /**
@@ -557,7 +582,7 @@ export class BookingsService implements BookingPort {
     customerId: number,
     bookingId: number,
   ): Promise<BookingWithItems | null> {
-    const rows = await this.selectByScope(
+    const { rows } = await this.selectByScope(
       // 两个条件的 and 不会是 undefined，这里断言是安全的
       and(
         eq(bizBookings.id, bookingId),
@@ -1905,7 +1930,7 @@ export class BookingsService implements BookingPort {
     filter: StaffBookingFilter,
     page: number,
     pageSize: number,
-  ) {
+  ): Promise<{ rows: BookingRow[]; total: number }> {
     const bookingConfig = await this.config.booking();
     const where = andConditions([
       isNull(bizBookings.deletedAt),
@@ -1925,13 +1950,20 @@ export class BookingsService implements BookingPort {
             bookingConfig.timezone,
           ),
     ]);
-    return this.database.db
-      .select()
-      .from(bizBookings)
-      .where(where)
-      .orderBy(asc(bizBookings.startAt), asc(bizBookings.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizBookings)
+        .where(where)
+        .orderBy(asc(bizBookings.startAt), asc(bizBookings.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizBookings)
+        .where(where),
+    ]);
+    return { rows, total: readCount(counted) };
   }
 
   /** 批量补项目明细快照（一次查询，避免 N+1） */

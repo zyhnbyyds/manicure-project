@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   AppStaffScopeGuard,
   type AppStaffRequest,
-} from './app-staff-scope.guard.js';
+} from './app-staff-scope.guard';
 
 function chainFor(result: unknown) {
   const node = Promise.resolve(result) as unknown as Record<string, unknown>;

@@ -1,19 +1,19 @@
 import { Module } from '@nestjs/common';
-import { CardTypesController } from './card-types/card-types.controller.js';
-import { CardTypesService } from './card-types/card-types.service.js';
-import { MemberLevelsController } from './member-levels/member-levels.controller.js';
-import { MemberLevelsService } from './member-levels/member-levels.service.js';
-import { MemberAccountsService } from './member-accounts/member-accounts.service.js';
-import { MemberCardsController } from './member-cards/member-cards.controller.js';
-import { MemberCardsService } from './member-cards/member-cards.service.js';
-import { MembersController } from './members/members.controller.js';
-import { PointsController } from './points/points.controller.js';
-import { PointsGoodsController } from './points-goods/points-goods.controller.js';
-import { CouponsController } from './coupons/coupons.controller.js';
-import { PointsGoodsService } from './points-goods/points-goods.service.js';
-import { CouponsService } from './coupons/coupons.service.js';
-import { RechargePlansController } from './recharge-plans/recharge-plans.controller.js';
-import { RechargePlansService } from './recharge-plans/recharge-plans.service.js';
+import { CardTypesController } from './card-types/card-types.controller';
+import { CardTypesService } from './card-types/card-types.service';
+import { MemberLevelsController } from './member-levels/member-levels.controller';
+import { MemberLevelsService } from './member-levels/member-levels.service';
+import { MemberAccountsService } from './member-accounts/member-accounts.service';
+import { MemberCardsController } from './member-cards/member-cards.controller';
+import { MemberCardsService } from './member-cards/member-cards.service';
+import { MembersController } from './members/members.controller';
+import { PointsController } from './points/points.controller';
+import { PointsGoodsController } from './points-goods/points-goods.controller';
+import { CouponsController } from './coupons/coupons.controller';
+import { PointsGoodsService } from './points-goods/points-goods.service';
+import { CouponsService } from './coupons/coupons.service';
+import { RechargePlansController } from './recharge-plans/recharge-plans.controller';
+import { RechargePlansService } from './recharge-plans/recharge-plans.service';
 
 /**
  * B2 会员体系（等级 / 充值方案 / 卡种 / 会员账务 / 次卡 / 积分兑换）。

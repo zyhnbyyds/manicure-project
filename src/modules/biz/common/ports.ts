@@ -8,7 +8,7 @@
  * 方法签名是冻结契约，见 `project-design/superpowers/plans/2026-09-11-b1-b6-implementation-plan.md`。
  */
 import type { MultipartFile } from '@fastify/multipart';
-import type { RequestActor } from '../../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../../common/data-scope/data-scope';
 import type {
   bizBookingItems,
   bizBookingRecurrences,
@@ -20,8 +20,8 @@ import type {
   bizServiceItems,
   bizStaffs,
   sysStores,
-} from '../../../database/schema/index.js';
-import type { BizDatabase, BizTx } from './tx.js';
+} from '../../../database/schema/index';
+import type { BizDatabase, BizTx } from './tx';
 
 export type ServiceItemRow = typeof bizServiceItems.$inferSelect;
 export type BookingRow = typeof bizBookings.$inferSelect;
@@ -33,7 +33,13 @@ export type CreditAccountRow = typeof bizCreditAccounts.$inferSelect;
 export type ReceivableRow = typeof bizReceivables.$inferSelect;
 export type RecurrenceRow = typeof bizBookingRecurrences.$inferSelect;
 
-export type PageResult<T> = { items: T[]; page: number; pageSize: number };
+export type PageResult<T> = {
+  items: T[];
+  /** 同条件下的总条数（`COUNT(*)`），与 items 共用同一套 from/join/where */
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 /* ------------------------------------------------------------------ *
  * 基础数据（B1）
@@ -754,6 +760,10 @@ export type UploadedFileView = {
   url: string;
   mime: string;
   size: number;
+  /** 是否做过压缩（`false` = 原样保存）；app 域只用于提示，不落库 */
+  compressed: boolean;
+  /** 上传时的原始字节数，与 `size` 对比可提示「已压到 x%」 */
+  originalSize: number;
 };
 
 /**
@@ -767,6 +777,8 @@ export abstract class FilePort {
   abstract save(
     part: MultipartFile,
     actorId: number | undefined,
+    /** `compress: false` 时原样保存（默认压缩，见 `image-compress.ts`） */
+    options?: { compress?: boolean },
   ): Promise<UploadedFileView>;
 }
 

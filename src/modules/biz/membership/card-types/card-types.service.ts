@@ -4,15 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { readCount } from '../../common/query';
 import { DatabaseService } from '../../../../database/database.service';
 import {
   bizMemberCardTypes,
   bizMemberCardTypeItems,
   bizServiceItems,
-} from '../../../../database/schema/index.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizDatabase } from '../../common/tx.js';
+} from '../../../../database/schema/index';
+import { withoutUndefined } from '../../common/tx';
+import type { BizDatabase } from '../../common/tx';
 
 export type CardTypeRow = typeof bizMemberCardTypes.$inferSelect;
 export type CardTypeItemRow = typeof bizMemberCardTypeItems.$inferSelect;
@@ -68,26 +69,34 @@ export class CardTypesService {
     filter: CardTypeListFilter = {},
   ): Promise<{
     items: (CardTypeRow & { applicableItems: ApplicableItem[] })[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
     const conditions = [isNull(bizMemberCardTypes.deletedAt)];
     if (filter.status)
       conditions.push(eq(bizMemberCardTypes.status, filter.status));
-    const rows = await this.database.db
-      .select()
-      .from(bizMemberCardTypes)
-      .where(and(...conditions))
-      .orderBy(asc(bizMemberCardTypes.sort), asc(bizMemberCardTypes.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const where = and(...conditions);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizMemberCardTypes)
+        .where(where)
+        .orderBy(asc(bizMemberCardTypes.sort), asc(bizMemberCardTypes.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizMemberCardTypes)
+        .where(where),
+    ]);
 
     const itemMap = await this.applicableItemsOfMany(rows.map((row) => row.id));
     const items = rows.map((row) => ({
       ...row,
       applicableItems: itemMap.get(row.id) ?? [],
     }));
-    return { items, page, pageSize };
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(

@@ -18,13 +18,13 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../../common/auth/public.decorator.js';
-import { BookingPort } from '../../biz/common/ports.js';
-import { AppStaffWorkbenchService } from './app-staff-workbench.service.js';
+import { Public } from '../../../common/auth/public.decorator';
+import { BookingPort } from '../../biz/common/ports';
+import { AppStaffWorkbenchService } from './app-staff-workbench.service';
 import {
   APP_STAFF_GUARDS,
   type AppStaffRequest,
-} from './app-staff-scope.guard.js';
+} from './app-staff-scope.guard';
 
 /**
  * 美甲师工作台（S3 只读 + S4 写，施工单 §12.5）。

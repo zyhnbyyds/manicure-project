@@ -225,7 +225,7 @@ throw new ConflictException({ message: '…', conflicts: [...] }); // 409 + 结�
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
-/** 列表分页统一口径：返回 { items, page, pageSize }，没有 total */
+/** 列表分页统一口径：返回 { items, page, pageSize, total }（total 与 items 同 where） */
 export function parsePagination(rawPage?, rawPageSize?) {
   const page = Math.max(Math.trunc(Number(rawPage)) || 1, 1);
   const pageSize = Math.min(

@@ -4,13 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, ne } from 'drizzle-orm';
+import { readCount } from '../../common/query';
 import { DatabaseService } from '../../../../database/database.service';
-import { bizRechargePlans } from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { RechargePlanPort } from '../../common/ports.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizDatabase } from '../../common/tx.js';
+import { bizRechargePlans } from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { RechargePlanPort } from '../../common/ports';
+import { withoutUndefined } from '../../common/tx';
+import type { BizDatabase } from '../../common/tx';
 
 export type RechargePlanRow = typeof bizRechargePlans.$inferSelect;
 
@@ -56,18 +57,30 @@ export class RechargePlansService extends RechargePlanPort {
     page: number,
     pageSize: number,
     filter: RechargePlanListFilter = {},
-  ): Promise<{ items: RechargePlanRow[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: RechargePlanRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const conditions = [isNull(bizRechargePlans.deletedAt)];
     if (filter.status)
       conditions.push(eq(bizRechargePlans.status, filter.status));
-    const items = await this.database.db
-      .select()
-      .from(bizRechargePlans)
-      .where(and(...conditions))
-      .orderBy(asc(bizRechargePlans.sort), asc(bizRechargePlans.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizRechargePlans)
+        .where(where)
+        .orderBy(asc(bizRechargePlans.sort), asc(bizRechargePlans.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizRechargePlans)
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number): Promise<RechargePlanRow> {

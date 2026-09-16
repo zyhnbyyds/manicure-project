@@ -13,16 +13,16 @@ import {
   ServiceItemPort,
   SlotPort,
   StaffPort,
-} from '../common/ports.js';
-import { BizConfigService } from '../common/biz-config.service.js';
-import { maxBuffer, sumDuration } from '../common/money.js';
+} from '../common/ports';
+import { BizConfigService } from '../common/biz-config.service';
+import { maxBuffer, sumDuration } from '../common/money';
 import {
   formatShopDateTime,
   shopDateOf,
   shopDayRange,
   shopLocalToUtc,
-} from '../common/shop-time.js';
-import type { BizTx } from '../common/tx.js';
+} from '../common/shop-time';
+import type { BizTx } from '../common/tx';
 
 /** 参与冲突判定的服务状态（终态不占时段） */
 export const ACTIVE_BOOKING_STATUS = [

@@ -4,9 +4,9 @@ import {
   SlotPort,
   StaffPort,
   StorePort,
-} from '../../biz/common/ports.js';
-import { parsePagination } from '../../biz/common/query.js';
-import { resolveAppStore } from '../common/app-store.js';
+} from '../../biz/common/ports';
+import { parsePagination } from '../../biz/common/query';
+import { resolveAppStore } from '../common/app-store';
 import {
   appAvailableSlotsQuerySchema,
   appServiceItemIdsSchema,
@@ -14,7 +14,7 @@ import {
   type AppAvailableSlotsVo,
   type AppServiceItemListVo,
   type AppStaffListVo,
-} from '../dto/app-vo.js';
+} from '../dto/app-vo';
 
 /**
  * app 域目录：服务项目 / 美甲师 / 可约时段（spec §9.7）。

@@ -1,4 +1,4 @@
-import { StorePort, type StoreRow } from '../../biz/common/ports.js';
+import { StorePort, type StoreRow } from '../../biz/common/ports';
 
 /**
  * 小程序传「当前门店」用的请求头。

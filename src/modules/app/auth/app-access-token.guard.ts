@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { jwtVerify } from 'jose';
-import { AppConfigService } from '../../../config/app-config.service.js';
-import { APP_OPTIONAL_TOKEN } from './app-optional-token.decorator.js';
+import { AppConfigService } from '../../../config/app-config.service';
+import { APP_OPTIONAL_TOKEN } from './app-optional-token.decorator';
 
 /** app 域身份（只表示「哪个微信身份」，不代表后台账号，也没有角色 / 权限点） */
 export type AppAuthUser = {

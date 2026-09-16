@@ -13,7 +13,7 @@
  * 3. **到店率** = (到店 + 完成) ÷ (全部 − 取消)。取消是顾客主动的行为，
  *    不算「没来」，所以从分母里剔除。
  */
-import { addLocalDays, daysBetween } from '../../common/shop-time.js';
+import { addLocalDays, daysBetween } from '../../common/shop-time';
 
 /** 首页区间档位（默认「今日」——店长每天第一眼想知道的就是今天） */
 export type HomeRange = 'today' | '7d' | '30d' | 'month';

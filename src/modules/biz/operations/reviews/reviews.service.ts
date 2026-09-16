@@ -6,26 +6,27 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, desc, eq, getTableColumns, isNull, sql } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookings,
   bizCustomers,
   bizReviews,
   bizStaffs,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
 import {
   type PageResult,
   ReviewPort,
   StaffPort,
   type StaffReviewItem,
-} from '../../common/ports.js';
+} from '../../common/ports';
 import {
   andConditions,
   localDateRange,
   parsePagination,
-} from '../../common/query.js';
-import { withoutUndefined } from '../../common/tx.js';
+  readCount,
+} from '../../common/query';
+import { withoutUndefined } from '../../common/tx';
 
 export type CreateReviewInput = {
   bookingId: number;
@@ -72,30 +73,42 @@ export class ReviewsService extends ReviewPort {
     pageSize: number,
   ): Promise<PageResult<StaffReviewItem>> {
     const paging = parsePagination(page, pageSize);
-    const items = await this.database.db
-      .select({
-        id: bizReviews.id,
-        bookingId: bizReviews.bookingId,
-        score: bizReviews.score,
-        content: bizReviews.content,
-        reply: bizReviews.reply,
-        createdAt: bizReviews.createdAt,
-        bookingNo: bizBookings.bookingNo,
-      })
-      .from(bizReviews)
-      .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
-      .where(
-        and(
-          eq(bizReviews.staffId, staffId),
-          isNull(bizReviews.deletedAt),
-          // 被隐藏的评价不给本人看（§20.1：隐藏就是按下不表）
-          eq(bizReviews.status, 'published'),
-        ),
-      )
-      .orderBy(desc(bizReviews.id))
-      .limit(paging.pageSize)
-      .offset(paging.offset);
-    return { items, page: paging.page, pageSize: paging.pageSize };
+    const where = and(
+      eq(bizReviews.staffId, staffId),
+      isNull(bizReviews.deletedAt),
+      // 被隐藏的评价不给本人看（§20.1：隐藏就是按下不表）
+      eq(bizReviews.status, 'published'),
+    );
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          id: bizReviews.id,
+          bookingId: bizReviews.bookingId,
+          score: bizReviews.score,
+          content: bizReviews.content,
+          reply: bizReviews.reply,
+          createdAt: bizReviews.createdAt,
+          bookingNo: bizBookings.bookingNo,
+        })
+        .from(bizReviews)
+        .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
+        .where(where)
+        .orderBy(desc(bizReviews.id))
+        .limit(paging.pageSize)
+        .offset(paging.offset),
+      // 同文件下的另一个 `count` 局部量在 averageScore 里（函数作用域），这里用 sql 避开同名遮蔽
+      this.database.db
+        .select({ value: sql<number>`COUNT(*)` })
+        .from(bizReviews)
+        .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
+        .where(where),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
   override async averageScore(
@@ -152,22 +165,38 @@ export class ReviewsService extends ReviewPort {
         timeZone,
       ),
     ]);
-    const items = await this.database.db
-      .select({
-        ...getTableColumns(bizReviews),
-        customerName: bizCustomers.name,
-        staffName: bizStaffs.nickname,
-        bookingNo: bizBookings.bookingNo,
-      })
-      .from(bizReviews)
-      .leftJoin(bizCustomers, eq(bizCustomers.id, bizReviews.customerId))
-      .leftJoin(bizStaffs, eq(bizStaffs.id, bizReviews.staffId))
-      .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
-      .where(conditions)
-      .orderBy(desc(bizReviews.id))
-      .limit(paging.pageSize)
-      .offset(paging.offset);
-    return { items, page: paging.page, pageSize: paging.pageSize };
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          ...getTableColumns(bizReviews),
+          customerName: bizCustomers.name,
+          staffName: bizStaffs.nickname,
+          bookingNo: bizBookings.bookingNo,
+        })
+        .from(bizReviews)
+        .leftJoin(bizCustomers, eq(bizCustomers.id, bizReviews.customerId))
+        .leftJoin(bizStaffs, eq(bizStaffs.id, bizReviews.staffId))
+        .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
+        .where(conditions)
+        .orderBy(desc(bizReviews.id))
+        .limit(paging.pageSize)
+        .offset(paging.offset),
+      // 这里用 `sql` 而不是 drizzle 的 `count()`：同文件下有个名为 `count` 的局部量（平均分），
+      // 避开同名遮蔽，读起来也不岐义
+      this.database.db
+        .select({ value: sql<number>`COUNT(*)` })
+        .from(bizReviews)
+        .leftJoin(bizCustomers, eq(bizCustomers.id, bizReviews.customerId))
+        .leftJoin(bizStaffs, eq(bizStaffs.id, bizReviews.staffId))
+        .leftJoin(bizBookings, eq(bizBookings.id, bizReviews.bookingId))
+        .where(conditions),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
   async findOne(id: number) {

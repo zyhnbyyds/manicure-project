@@ -5,21 +5,18 @@ import {
 } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { SignJWT } from 'jose';
-import { AppConfigService } from '../../../config/app-config.service.js';
-import { DatabaseService } from '../../../database/database.service.js';
-import {
-  appWxUserBindLogs,
-  appWxUsers,
-} from '../../../database/schema/index.js';
-import { CustomerPort, StaffPort } from '../../biz/common/ports.js';
+import { AppConfigService } from '../../../config/app-config.service';
+import { DatabaseService } from '../../../database/database.service';
+import { appWxUserBindLogs, appWxUsers } from '../../../database/schema/index';
+import { CustomerPort, StaffPort } from '../../biz/common/ports';
 import type {
   AppBindPhoneRequest,
   AppBindPhoneVo,
   AppLoginRequest,
   AppLoginVo,
-} from '../dto/app-vo.js';
-import { APP_ACTOR_ID } from '../app-actor.js';
-import { WxMiniappProvider } from './wx-miniapp.provider.js';
+} from '../dto/app-vo';
+import { APP_ACTOR_ID } from '../app-actor';
+import { WxMiniappProvider } from './wx-miniapp.provider';
 
 /** 身份记录快照（去掉了不必要的外传字段） */
 type AppIdentity = {

@@ -1,19 +1,19 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { BizConfigService } from '../../biz/common/biz-config.service.js';
+import { BizConfigService } from '../../biz/common/biz-config.service';
 import {
   BookingPort,
   CommissionPort,
   ReviewPort,
   SchedulePort,
   StaffPort,
-} from '../../biz/common/ports.js';
-import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
+} from '../../biz/common/ports';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time';
 import {
   maskPhone,
   type AppStaffMeVo,
   type AppStaffPerformanceVo,
   type AppStaffScheduleVo,
-} from '../dto/app-staff-workbench.vo.js';
+} from '../dto/app-staff-workbench.vo';
 
 /** `yyyyMM`，与提成记录的 period 同一口径 */
 const PERIOD_PATTERN = /^\d{6}$/;

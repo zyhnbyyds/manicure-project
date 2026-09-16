@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { maskPhone } from '../dto/app-staff-workbench.vo.js';
-import { AppStaffWorkbenchService } from './app-staff-workbench.service.js';
+import { maskPhone } from '../dto/app-staff-workbench.vo';
+import { AppStaffWorkbenchService } from './app-staff-workbench.service';
 
 type Row = Record<string, unknown>;
 

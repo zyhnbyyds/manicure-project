@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CustomersController } from './customers.controller.js';
+import { CustomersController } from './customers.controller';
 
 function createHarness() {
   const customers = {

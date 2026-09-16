@@ -5,23 +5,23 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, gte, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, isNull, ne } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookingItems,
   bizBookingRecurrences,
   bizBookings,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope.js';
-import { buildDocNo } from '../../common/doc-no.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { requireCurrentStoreId } from '../../../../common/data-scope/store-scope';
+import { buildDocNo } from '../../common/doc-no';
 import {
   quoteBooking,
   sumDuration,
   type QuoteItem,
   type QuoteResult,
-} from '../../common/money.js';
+} from '../../common/money';
 import {
   CustomerPort,
   MemberAccountPort,
@@ -30,8 +30,8 @@ import {
   SlotPort,
   StaffPort,
   type RecurrenceRow,
-} from '../../common/ports.js';
-import { andConditions, parsePagination } from '../../common/query.js';
+} from '../../common/ports';
+import { andConditions, parsePagination, readCount } from '../../common/query';
 import {
   addLocalDays,
   daysBetween,
@@ -44,12 +44,9 @@ import {
   shopToday,
   shopWeekday,
   timeToMinutes,
-} from '../../common/shop-time.js';
-import { withoutUndefined, type BizTx } from '../../common/tx.js';
-import {
-  NoticesService,
-  NOTICE_TEMPLATES,
-} from '../notices/notices.service.js';
+} from '../../common/shop-time';
+import { withoutUndefined, type BizTx } from '../../common/tx';
+import { NoticesService, NOTICE_TEMPLATES } from '../notices/notices.service';
 
 export type CreateRecurrenceInput = {
   name?: string | null | undefined;
@@ -208,20 +205,31 @@ export class RecurrencesService extends RecurrencePort {
         ? eq(bizBookingRecurrences.staffId, filter.staffId)
         : undefined,
     ]);
-    const rows = await this.database.db
-      .select()
-      .from(bizBookingRecurrences)
-      .where(conditions)
-      .orderBy(desc(bizBookingRecurrences.id))
-      .limit(paging.pageSize)
-      .offset(paging.offset);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizBookingRecurrences)
+        .where(conditions)
+        .orderBy(desc(bizBookingRecurrences.id))
+        .limit(paging.pageSize)
+        .offset(paging.offset),
+      this.database.db
+        .select({ value: count() })
+        .from(bizBookingRecurrences)
+        .where(conditions),
+    ]);
     const timeZone = (await this.config.booking()).timezone;
     const today = shopToday(timeZone);
     const items = rows.map((row) => ({
       ...row,
       nextGenerateDate: nextGenerateDate(row, today),
     }));
-    return { items, page: paging.page, pageSize: paging.pageSize };
+    return {
+      items,
+      total: readCount(counted),
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
   async findOne(id: number): Promise<RecurrenceRow> {

@@ -129,11 +129,16 @@ title: 踩坑记录与排查手册
     ```
 
   - **预防**：web 验证固定套路 = typecheck → lint → build → **产物找串**。（来源 `pitfalls/web.md` §4，实测）
-- **W5 · 列表响应没有总数（没有 `total` 字段）**
-  - **症状**：分页拿不到总数。
-  - **原因**：后端列表统一返回 `{ items, page, pageSize }`，**没有 `total`**。
-  - **处置**：用 `useTable`（它多取一条判断 `hasMore` 并估算总数），**不要自己写分页组件**。
-  - **预防**：这是全项目口径（README 的"贯穿全项目的口径"一节也有），新接口也不要加 `total`。（来源 `pitfalls/web.md` §5、`web/src/composables/useTable.ts`）
+- **W5 · 列表响应的总数（`total`）**
+  - **症状**：分页器只显示到「当前页 + 1 页」，看不到总页数、也无法跳页。
+  - **原因**：2026-09-16 之前，后端列表统一返回 `{ items, page, pageSize }`，**没有 `total`**；前端只能靠「多取一条」判断有没有下一页，分页器的总数是**估算值**。
+  - **处置**（已改成新口径）：后端列表**必须返回 `total`**，且与 `items` 用**同一套 `from/join/where`** 算（`readCount()`）；前端 `useTable` 直接读真值，页码/总页数才是准的。拿不到 `total` 的旧接口会退回估算（看起来就是「页码只有两页」）。
+  - **预防**：新写 `list` 时，把过滤条件先拼进一个 `where` 变量再两处复用；少一个 join 会报错，多一个 join 会让 total 与列表对不上。（来源 `web/src/composables/useTable.ts`、`src/modules/biz/common/query.ts`）
+- **W5b · 前端「多取一条」把后端 offset 顶偏，末页变空**
+  - **症状**：列表翻到**最后一页是空的**，前面几页看着都正常。用户原话：「操作日志点击到第四页为什么展示的是空」（当时每页选了 10 条、共 32 条 = 4 页）。
+  - **原因**：`useTable` 为了「多取一条判 hasMore」传了 `pageSize + 1`，而后端 `offset = (page - 1) * pageSize` 用的就是**这个被 +1 的值** → 第 N 页起点后移 `N - 1` 条（翻页会漏数据，末页越界变空）。实测（32 条 / 每页 10）：`page=4&pageSize=10` → 2 条，`page=4&pageSize=11` → **0 条**。
+  - **处置**：前端请求的 `pageSize` 就是每页条数本身；`hasMore` 由后端 `total` 推导（`(page-1)*pageSize + items.length < total`）。回归用例：`web/src/composables/useTable.spec.ts` 直接断言请求参数。
+  - **预防**：**「第 1 页正常」不能证明分页是对的** —— 偏移量随页码线性放大，要验就验最后一页。（来源：实测 + 读 `src/modules/biz/common/query.ts` 的 `parsePagination`）
 - **W6 · 菜单驱动路由：不要手改路由表**
   - **症状**：刷新页面后动态路由丢失、命中兜底路由导致 404；或手加的路由与菜单生成的路由冲突。
   - **原因**：路由由 `permissionStore.generateRoutes()` 从菜单数据生成，在 `router.beforeEach` 里注册；`dynamicRoutesAdded` 是模块级标志，**刷新后 JSA 上下文重置 → 必须重新注册**，并且首个导航已经命中兜底路由。
@@ -182,7 +187,7 @@ title: 踩坑记录与排查手册
 - **W15 · `accept: 'image/*'` 会把注定失败的文件递给后端**
   - **症状**：手机上传头像/图片，从相册挑一张 → 提示「不支持的文件类型」。
   - **原因**：后端按**扩展名白名单**校验（图片只有 jpg/jpeg/png/gif/webp/svg），而 iPhone 相册的 `.heic`（以及 `.avif`）不在白名单里；`accept: 'image/*'` 恰好把它们列出来。
-  - **处置**：用 `~/utils/upload-limits` 的 `IMAGE_ACCEPT`（`image/png,image/jpeg,image/webp,image/gif,image/svg+xml`）+ `MAX_UPLOAD_FILE_SIZE`（与后端 `MAX_FILE_SIZE` 一致的 10MB）。
+  - **处置**：用 `~/utils/upload-limits` 的 `IMAGE_ACCEPT`（`image/png,image/jpeg,image/webp,image/gif,image/svg+xml`）+ `MAX_UPLOAD_FILE_SIZE`（与后端 `MAX_FILE_SIZE` 一致的 5MB）；提示文案里的数字用 `MAX_UPLOAD_FILE_SIZE_LABEL`，**不要手写**（本轮把上限从 10MB 改成 5MB 时，三处写死的文案全成了假话）。
   - **预防**：显式写 `image/jpeg` 还白捡一个好处 —— **iOS 会在上传前把 HEIC 自动转成 JPEG**，本来传不上的照片反而能传上去。（来源 `pitfalls/web.md` §15，实测）
 - **W16 · 响应里有多个数组时，别让「第一个数组」决定行集**
   - **症状**：报表中心「应收」页签整列显示 `¥0.00` / 空白，看着像"这家店没有挂账"，而后端明明回了主体明细。

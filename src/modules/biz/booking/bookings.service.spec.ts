@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { BookingsService } from './bookings.service.js';
+import { BookingsService } from './bookings.service';
 
 type Row = Record<string, unknown>;
 
@@ -94,32 +94,37 @@ describe('BookingsService —— app 域端口（S3 读 / S4 写）', () => {
   describe('listByStaff / listByCustomer', () => {
     it('美甲师列表挂上项目明细快照，一次查询补齐（不 N+1）', async () => {
       const h = createHarness({
-        selectResults: [[booking({ id: 5 }), booking({ id: 6 })], [item()]],
+        // 第二次是 count 查询（total），第三次才是明细
+        selectResults: [[booking({ id: 5 }), booking({ id: 6 })], [], [item()]],
       });
       const result = await h.service.listByStaff(7, 1, 20, {});
       expect(result.page).toBe(1);
       expect(result.pageSize).toBe(20);
       expect(result.items).toHaveLength(2);
-      expect(h.select).toHaveBeenCalledTimes(2);
+      expect(h.select).toHaveBeenCalledTimes(3);
       expect(result.items[0]!.items).toEqual([item()]);
       expect(result.items[1]!.items).toEqual([]);
     });
 
     it('顾客「我的预约」同样带明细', async () => {
-      const h = createHarness({ selectResults: [[booking()], [item()]] });
+      // 中间那次是 count 查询
+      const h = createHarness({ selectResults: [[booking()], [], [item()]] });
       const result = await h.service.listByCustomer(9, 1, 20);
       expect(result.items).toHaveLength(1);
       expect(result.items[0]!.items).toHaveLength(1);
     });
 
     it('空结果不查明细（避免 IN () 的无效查询）', async () => {
-      const h = createHarness({ selectResults: [[]] });
+      const h = createHarness({ selectResults: [[], []] });
       await expect(h.service.listByStaff(7, 1, 20, {})).resolves.toEqual({
         items: [],
+        // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+        total: 0,
         page: 1,
         pageSize: 20,
       });
-      expect(h.select).toHaveBeenCalledTimes(1);
+      // page + count 各一次；空结果不再查明细
+      expect(h.select).toHaveBeenCalledTimes(2);
     });
   });
 

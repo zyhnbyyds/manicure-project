@@ -27,7 +27,7 @@ title: 接口契约索引
 | 监听                | `PORT`（默认 `3000`，`0.0.0.0`）                                                            | `src/main.ts`                                                                                                    |
 | CORS                | `CORS_ORIGINS`（逗号分隔，默认 `http://localhost:5173`），`credentials: true`               | `src/config/app-config.service.ts`                                                                               |
 | 限流                | 全局 `@fastify/rate-limit`：`max: 100` / `timeWindow: '1 minute'`                           | `src/main.ts`                                                                                                    |
-| 请求体上传          | `@fastify/multipart`：`files: 1`、`fileSize: 10 * 1024 * 1024`（10 MB）                     | `src/main.ts`                                                                                                    |
+| 请求体上传          | `@fastify/multipart`：`files: 1`、`fileSize: 5 * 1024 * 1024`（5 MB）                       | `src/main.ts`                                                                                                    |
 | 原始报文            | Fastify `rawBody: true` —— **支付回调验签依赖它**，不要用 `JSON.stringify(body)` 重算签名串 | `src/main.ts`                                                                                                    |
 
 所以一条真实请求是：`{BASE}/api/v1/{controller 前缀}/{方法路径}`，例如 `POST {BASE}/api/v1/biz/bookings`。
@@ -61,13 +61,13 @@ title: 接口契约索引
 
 统一由 `src/modules/biz/common/query.ts` 的 `parsePagination()` 实现：
 
-| 项                   | 约定                                                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 请求参数             | `page`（从 1 开始，默认 1）、`pageSize`（默认 `DEFAULT_PAGE_SIZE = 20`，上限 `MAX_PAGE_SIZE = 100`，超出被夹到 100） |
-| 响应结构             | `{ items: T[], page: number, pageSize: number }`                                                                     |
-| **`total`**          | **没有 `total` 字段**（这是刻意的设计，避免大表 `COUNT(*)`）                                                         |
-| 前端判是否还有下一页 | **多取一条**：请求 `pageSize + 1`，返回数组长度 `> pageSize` 即 `hasMore = true`，展示时 `slice(0, pageSize)`        |
-| 前端估算 total       | 仅用于分页器展示：`hasMore ? page * pageSize + 1 : (page - 1) * pageSize + items.length`                             |
+| 项                   | 约定                                                                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 请求参数             | `page`（从 1 开始，默认 1）、`pageSize`（默认 `DEFAULT_PAGE_SIZE = 20`，上限 `MAX_PAGE_SIZE = 200`，超出被夹到 200）                                                                                       |
+| 响应结构             | `{ items: T[], total: number, page: number, pageSize: number }`                                                                                                                                            |
+| **`total`**          | **同条件下的总条数**（与 `items` 用同一套 `from/join/where` 的 `COUNT(*)`）                                                                                                                                |
+| 前端判是否还有下一页 | 用后端 `total` 算：`(page-1)*pageSize + items.length < total`。**不要传「多取一条」（`pageSize + 1`）** —— 后端 `offset` 用的就是这个值，页码越大偏得越多，末页会空（见[踩坑记录](/quality/pitfalls) W5b） |
+| 前端估算 total       | 不再需要估算——直接读后端 `total`（旧接口缺 `total` 时 `useTable` 会退回旧算法）                                                                                                                            |
 
 `web/src/composables/useTable.ts` 就是按上面的口径实现的 —— 自己写列表页时不要另起一套。
 
@@ -274,38 +274,46 @@ flowchart TB
 
 ### 2.6 监控与运维
 
-| 模块       | 方法   | 路径                                      | 权限点                      | 说明                                                    |
-| ---------- | ------ | ----------------------------------------- | --------------------------- | ------------------------------------------------------- |
-| 登录日志   | GET    | `/api/v1/monitor/login-logs`              | `monitor:loginlog:list`     | 登录日志列表                                            |
-| 登录日志   | GET    | `/api/v1/monitor/login-logs/:id`          | `monitor:loginlog:list`     | 登录日志详情                                            |
-| 登录日志   | DELETE | `/api/v1/monitor/login-logs/:id`          | `monitor:loginlog:delete`   | 删除指定登录日志                                        |
-| 登录日志   | DELETE | `/api/v1/monitor/login-logs`              | `monitor:loginlog:delete`   | **清空所有登录日志**                                    |
-| 操作日志   | GET    | `/api/v1/monitor/operation-logs`          | `monitor:operlog:list`      | 操作日志列表                                            |
-| 操作日志   | GET    | `/api/v1/monitor/operation-logs/:id`      | `monitor:operlog:list`      | 操作日志详情                                            |
-| 操作日志   | DELETE | `/api/v1/monitor/operation-logs/:id`      | `monitor:operlog:delete`    | 删除指定操作日志                                        |
-| 操作日志   | DELETE | `/api/v1/monitor/operation-logs`          | `monitor:operlog:delete`    | **清空所有操作日志**                                    |
-| 在线用户   | GET    | `/api/v1/monitor/online`                  | `monitor:online:list`       | 在线用户列表                                            |
-| 在线用户   | DELETE | `/api/v1/monitor/online/:userId`          | `monitor:online:delete`     | **强制下线**                                            |
-| 缓存监控   | GET    | `/api/v1/monitor/cache`                   | `monitor:cache:list`        | Redis 缓存信息（Redis 不可用时降级）                    |
-| 定时任务   | GET    | `/api/v1/system/jobs`                     | `system:job:list`           | 任务列表                                                |
-| 定时任务   | GET    | `/api/v1/system/jobs/:id`                 | `system:job:list`           | 任务详情                                                |
-| 定时任务   | GET    | `/api/v1/system/jobs/:id/logs`            | `system:job:list`           | 任务执行日志                                            |
-| 定时任务   | POST   | `/api/v1/system/jobs`                     | `system:job:create`         | 新增任务                                                |
-| 定时任务   | POST   | `/api/v1/system/jobs/:id/run`             | `system:job:run`            | **手动执行任务**（幂等由任务自身保证）                  |
-| 定时任务   | PATCH  | `/api/v1/system/jobs/:id`                 | `system:job:update`         | 修改任务                                                |
-| 定时任务   | DELETE | `/api/v1/system/jobs`                     | `system:job:delete`         | **清空任务日志**                                        |
-| 定时任务   | DELETE | `/api/v1/system/jobs/:id`                 | `system:job:delete`         | 删除任务                                                |
-| 文件       | POST   | `/api/v1/files/upload`                    | —                           | 上传文件（multipart，单文件 ≤10 MB）                    |
-| 文件       | GET    | `/api/v1/files`                           | `system:file:list`          | 文件列表                                                |
-| 文件       | GET    | `/api/v1/files/:id/download`              | —                           | **下载文件**；`@Public()`，公开可下载（头像等静态引用） |
-| 文件       | GET    | `/api/v1/files/:id`                       | `system:file:list`          | 文件详情                                                |
-| 文件       | DELETE | `/api/v1/files/:id`                       | `system:file:delete`        | 删除文件                                                |
-| 代码生成器 | GET    | `/api/v1/generator/tables`                | `system:generator:list`     | 数据库表列表                                            |
-| 代码生成器 | GET    | `/api/v1/generator/tables/:table/columns` | `system:generator:list`     | 表字段信息                                              |
-| 代码生成器 | POST   | `/api/v1/generator/preview`               | `system:generator:list`     | 预览生成代码                                            |
-| 代码生成器 | POST   | `/api/v1/generator/generate`              | `system:generator:generate` | 生成代码文件（写盘）                                    |
+| 模块       | 方法   | 路径                                      | 权限点                      | 说明                                                                            |
+| ---------- | ------ | ----------------------------------------- | --------------------------- | ------------------------------------------------------------------------------- |
+| 登录日志   | GET    | `/api/v1/monitor/login-logs`              | `monitor:loginlog:list`     | 登录日志列表                                                                    |
+| 登录日志   | GET    | `/api/v1/monitor/login-logs/:id`          | `monitor:loginlog:list`     | 登录日志详情                                                                    |
+| 登录日志   | DELETE | `/api/v1/monitor/login-logs/:id`          | `monitor:loginlog:delete`   | 删除指定登录日志                                                                |
+| 登录日志   | DELETE | `/api/v1/monitor/login-logs`              | `monitor:loginlog:delete`   | **清空所有登录日志**                                                            |
+| 操作日志   | GET    | `/api/v1/monitor/operation-logs`          | `monitor:operlog:list`      | 操作日志列表                                                                    |
+| 操作日志   | GET    | `/api/v1/monitor/operation-logs/:id`      | `monitor:operlog:list`      | 操作日志详情                                                                    |
+| 操作日志   | DELETE | `/api/v1/monitor/operation-logs/:id`      | `monitor:operlog:delete`    | 删除指定操作日志                                                                |
+| 操作日志   | DELETE | `/api/v1/monitor/operation-logs`          | `monitor:operlog:delete`    | **清空所有操作日志**                                                            |
+| 在线用户   | GET    | `/api/v1/monitor/online`                  | `monitor:online:list`       | 在线用户列表                                                                    |
+| 在线用户   | DELETE | `/api/v1/monitor/online/:userId`          | `monitor:online:delete`     | **强制下线**                                                                    |
+| 缓存监控   | GET    | `/api/v1/monitor/cache`                   | `monitor:cache:list`        | Redis 缓存信息（Redis 不可用时降级）                                            |
+| 定时任务   | GET    | `/api/v1/system/jobs`                     | `system:job:list`           | 任务列表                                                                        |
+| 定时任务   | GET    | `/api/v1/system/jobs/:id`                 | `system:job:list`           | 任务详情                                                                        |
+| 定时任务   | GET    | `/api/v1/system/jobs/:id/logs`            | `system:job:list`           | 任务执行日志                                                                    |
+| 定时任务   | POST   | `/api/v1/system/jobs`                     | `system:job:create`         | 新增任务                                                                        |
+| 定时任务   | POST   | `/api/v1/system/jobs/:id/run`             | `system:job:run`            | **手动执行任务**（幂等由任务自身保证）                                          |
+| 定时任务   | PATCH  | `/api/v1/system/jobs/:id`                 | `system:job:update`         | 修改任务                                                                        |
+| 定时任务   | DELETE | `/api/v1/system/jobs`                     | `system:job:delete`         | **清空任务日志**                                                                |
+| 定时任务   | DELETE | `/api/v1/system/jobs/:id`                 | `system:job:delete`         | 删除任务                                                                        |
+| 文件       | POST   | `/api/v1/files/upload`                    | —                           | 上传文件（multipart，单文件 ≤5 MB；图片默认压到 1 MB 以下，`?compress=0` 关闭） |
+| 文件       | GET    | `/api/v1/files`                           | `system:file:list`          | 文件列表                                                                        |
+| 文件       | GET    | `/api/v1/files/:id/download`              | —                           | **下载文件**；`@Public()`，公开可下载（头像等静态引用）                         |
+| 文件       | GET    | `/api/v1/files/:id`                       | `system:file:list`          | 文件详情                                                                        |
+| 文件       | DELETE | `/api/v1/files/:id`                       | `system:file:delete`        | 删除文件                                                                        |
+| 代码生成器 | GET    | `/api/v1/generator/tables`                | `system:generator:list`     | 数据库表列表                                                                    |
+| 代码生成器 | GET    | `/api/v1/generator/tables/:table/columns` | `system:generator:list`     | 表字段信息                                                                      |
+| 代码生成器 | POST   | `/api/v1/generator/preview`               | `system:generator:list`     | 预览生成代码                                                                    |
+| 代码生成器 | POST   | `/api/v1/generator/generate`              | `system:generator:generate` | 生成代码文件（写盘）                                                            |
 
 `files/upload` 没有权限点，任何已登录后台账号都能上传；**下载是 `@Public()`** —— 分享头像/图片 URL 时要知道这一点。
+
+上传有两个约定（本轮新增）：
+
+- **单文件上限 5 MB**，与 multipart 全局配置、`web/nginx.conf` 的 `client_max_body_size 6m` 同步；
+- **图片默认压缩**：jpg/jpeg/png/webp 超过 1 MB 会被压到 1 MB 以下后再落盘（`src/modules/files/image-compress.ts`），
+  `sys_file.size` 与 `/files/:id/download` 拿到的都是**压缩后**那份；响应额外返回 `compressed` / `originalSize`。
+  gif（动图）、svg（矢量）与 pdf/zip 等非位图一律原样保存；传 `?compress=0` 可对单次请求关闭压缩。
+  C 端 `POST /api/v1/app/upload` 同口径（且小程序端会先压一遍再传，见[小程序与后台前端](/frontend/miniapp)）。
 
 ### 2.7 仪表盘与健康检查
 

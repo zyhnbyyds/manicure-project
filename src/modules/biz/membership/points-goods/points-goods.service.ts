@@ -22,21 +22,22 @@ import {
   bizMemberCardTypes,
   bizPointsGoods,
   bizPointsRedeems,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { buildDocNo } from '../../common/doc-no.js';
-import { quoteBooking } from '../../common/money.js';
-import { ServiceItemPort } from '../../common/ports.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { buildDocNo } from '../../common/doc-no';
+import { quoteBooking } from '../../common/money';
+import { ServiceItemPort } from '../../common/ports';
 import {
   andConditions,
   keywordLike,
   parsePagination,
-} from '../../common/query.js';
-import { withoutUndefined } from '../../common/tx.js';
-import type { BizDatabase } from '../../common/tx.js';
-import { CardTypesService } from '../card-types/card-types.service.js';
-import { MemberAccountsService } from '../member-accounts/member-accounts.service.js';
-import { MemberCardsService } from '../member-cards/member-cards.service.js';
+  readCount,
+} from '../../common/query';
+import { withoutUndefined } from '../../common/tx';
+import type { BizDatabase } from '../../common/tx';
+import { CardTypesService } from '../card-types/card-types.service';
+import { MemberAccountsService } from '../member-accounts/member-accounts.service';
+import { MemberCardsService } from '../member-cards/member-cards.service';
 
 export type PointsGoodsRow = typeof bizPointsGoods.$inferSelect;
 export type PointsRedeemRow = typeof bizPointsRedeems.$inferSelect;
@@ -103,6 +104,7 @@ export class PointsGoodsService {
     filter: PointsGoodsListFilter = {},
   ): Promise<{
     items: (PointsGoodsRow & { cardTypeName: string | null })[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
@@ -119,21 +121,38 @@ export class PointsGoodsService {
     const keyword = keywordLike(bizPointsGoods.name, filter.keyword);
     if (keyword) conditions.push(keyword);
 
-    const items = await this.database.db
-      .select({
-        ...getTableColumns(bizPointsGoods),
-        cardTypeName: bizMemberCardTypes.name,
-      })
-      .from(bizPointsGoods)
-      .leftJoin(
-        bizMemberCardTypes,
-        eq(bizPointsGoods.cardTypeId, bizMemberCardTypes.id),
-      )
-      .where(andConditions(conditions))
-      .orderBy(asc(bizPointsGoods.sort), asc(bizPointsGoods.id))
-      .limit(safePageSize)
-      .offset(offset);
-    return { items, page: safePage, pageSize: safePageSize };
+    const where = andConditions(conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          ...getTableColumns(bizPointsGoods),
+          cardTypeName: bizMemberCardTypes.name,
+        })
+        .from(bizPointsGoods)
+        .leftJoin(
+          bizMemberCardTypes,
+          eq(bizPointsGoods.cardTypeId, bizMemberCardTypes.id),
+        )
+        .where(where)
+        .orderBy(asc(bizPointsGoods.sort), asc(bizPointsGoods.id))
+        .limit(safePageSize)
+        .offset(offset),
+      // count 带上同一个 leftJoin（select 里用到了 join 表的列）
+      this.database.db
+        .select({ value: count() })
+        .from(bizPointsGoods)
+        .leftJoin(
+          bizMemberCardTypes,
+          eq(bizPointsGoods.cardTypeId, bizMemberCardTypes.id),
+        )
+        .where(where),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: safePage,
+      pageSize: safePageSize,
+    };
   }
 
   /**
@@ -424,6 +443,7 @@ export class PointsGoodsService {
       customerPhone: string | null;
       goodsName: string | null;
     })[];
+    total: number;
     page: number;
     pageSize: number;
   }> {
@@ -440,21 +460,48 @@ export class PointsGoodsService {
     if (filter.status)
       conditions.push(eq(bizPointsRedeems.status, filter.status));
 
-    const items = await this.database.db
-      .select({
-        ...getTableColumns(bizPointsRedeems),
-        customerName: bizCustomers.name,
-        customerPhone: bizCustomers.phone,
-        goodsName: bizPointsGoods.name,
-      })
-      .from(bizPointsRedeems)
-      .leftJoin(bizCustomers, eq(bizPointsRedeems.customerId, bizCustomers.id))
-      .leftJoin(bizPointsGoods, eq(bizPointsRedeems.goodsId, bizPointsGoods.id))
-      .where(andConditions(conditions))
-      .orderBy(desc(bizPointsRedeems.id))
-      .limit(safePageSize)
-      .offset(offset);
-    return { items, page: safePage, pageSize: safePageSize };
+    const where = andConditions(conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          ...getTableColumns(bizPointsRedeems),
+          customerName: bizCustomers.name,
+          customerPhone: bizCustomers.phone,
+          goodsName: bizPointsGoods.name,
+        })
+        .from(bizPointsRedeems)
+        .leftJoin(
+          bizCustomers,
+          eq(bizPointsRedeems.customerId, bizCustomers.id),
+        )
+        .leftJoin(
+          bizPointsGoods,
+          eq(bizPointsRedeems.goodsId, bizPointsGoods.id),
+        )
+        .where(where)
+        .orderBy(desc(bizPointsRedeems.id))
+        .limit(safePageSize)
+        .offset(offset),
+      // count 带上同一组 leftJoin
+      this.database.db
+        .select({ value: count() })
+        .from(bizPointsRedeems)
+        .leftJoin(
+          bizCustomers,
+          eq(bizPointsRedeems.customerId, bizCustomers.id),
+        )
+        .leftJoin(
+          bizPointsGoods,
+          eq(bizPointsRedeems.goodsId, bizPointsGoods.id),
+        )
+        .where(where),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: safePage,
+      pageSize: safePageSize,
+    };
   }
 
   /** 撤销兑换（§15.3）：回补积分 + 废卡 + 置 `reverted` + 回补库存；必填原因 */

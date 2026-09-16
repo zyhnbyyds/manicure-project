@@ -4,9 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm';
-import { DatabaseService } from '../../../database/database.service.js';
-import { appWxUsers, bizStaffs } from '../../../database/schema/index.js';
+import { and, asc, count, desc, eq, isNull, ne } from 'drizzle-orm';
+import { DatabaseService } from '../../../database/database.service';
+import { appWxUsers, bizStaffs } from '../../../database/schema/index';
+import { readCount } from '../../biz/common/query';
 
 export type GrantStatus = 'pending' | 'active' | 'rejected';
 
@@ -52,40 +53,53 @@ export class AppStaffGrantsService {
     page: number,
     pageSize: number,
     filter: GrantFilter,
-  ): Promise<{ items: GrantItem[]; page: number; pageSize: number }> {
-    const rows = await this.database.db
-      .select({
-        id: appWxUsers.id,
-        openid: appWxUsers.openid,
-        nickname: appWxUsers.nickname,
-        phone: appWxUsers.phone,
-        staffId: appWxUsers.staffId,
-        staffStatus: appWxUsers.staffStatus,
-        staffRequestedAt: appWxUsers.staffRequestedAt,
-        staffDecidedAt: appWxUsers.staffDecidedAt,
-        staffRejectReason: appWxUsers.staffRejectReason,
-        staffName: bizStaffs.nickname,
-        staffArchivedStatus: bizStaffs.status,
-      })
-      .from(appWxUsers)
-      .leftJoin(bizStaffs, eq(appWxUsers.staffId, bizStaffs.id))
-      .where(
-        and(
-          isNull(appWxUsers.deletedAt),
-          // `none` 是从没申请过的普通顾客，不该出现在店长的待办里
-          ne(appWxUsers.staffStatus, 'none'),
-          filter.status ? eq(appWxUsers.staffStatus, filter.status) : undefined,
-        ),
-      )
-      .orderBy(desc(appWxUsers.staffRequestedAt), asc(appWxUsers.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+  ): Promise<{
+    items: GrantItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const where = and(
+      isNull(appWxUsers.deletedAt),
+      // `none` 是从没申请过的普通顾客，不该出现在店长的待办里
+      ne(appWxUsers.staffStatus, 'none'),
+      filter.status ? eq(appWxUsers.staffStatus, filter.status) : undefined,
+    );
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select({
+          id: appWxUsers.id,
+          openid: appWxUsers.openid,
+          nickname: appWxUsers.nickname,
+          phone: appWxUsers.phone,
+          staffId: appWxUsers.staffId,
+          staffStatus: appWxUsers.staffStatus,
+          staffRequestedAt: appWxUsers.staffRequestedAt,
+          staffDecidedAt: appWxUsers.staffDecidedAt,
+          staffRejectReason: appWxUsers.staffRejectReason,
+          staffName: bizStaffs.nickname,
+          staffArchivedStatus: bizStaffs.status,
+        })
+        .from(appWxUsers)
+        .leftJoin(bizStaffs, eq(appWxUsers.staffId, bizStaffs.id))
+        .where(where)
+        .orderBy(desc(appWxUsers.staffRequestedAt), asc(appWxUsers.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      // count 带上同一个 leftJoin（select 里用到了 bizStaffs.nickname）
+      this.database.db
+        .select({ value: count() })
+        .from(appWxUsers)
+        .leftJoin(bizStaffs, eq(appWxUsers.staffId, bizStaffs.id))
+        .where(where),
+    ]);
     return {
       items: rows.map((row) => ({
         ...row,
         staffRequestedAt: row.staffRequestedAt?.toISOString() ?? null,
         staffDecidedAt: row.staffDecidedAt?.toISOString() ?? null,
       })),
+      total: readCount(counted),
       page,
       pageSize,
     };

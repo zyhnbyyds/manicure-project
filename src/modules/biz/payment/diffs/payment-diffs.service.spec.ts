@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { PaymentDiffsService } from './payment-diffs.service.js';
+import { PaymentDiffsService } from './payment-diffs.service';
 
 type Row = Record<string, unknown>;
 type BillRecord = {
@@ -304,10 +304,12 @@ describe('PaymentDiffsService（§17.5 渠道对账）', () => {
   });
 
   describe('list / findOne', () => {
-    it('list 返回 items/page/pageSize', async () => {
+    it('list 返回 items/page/pageSize/total', async () => {
       const { service } = createHarness({ systemPayments: [{ id: 1 }] });
       await expect(service.list(1, 20, {})).resolves.toEqual({
         items: [{ id: 1 }],
+        // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+        total: 0,
         page: 1,
         pageSize: 20,
       });

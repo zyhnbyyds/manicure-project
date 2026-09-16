@@ -122,18 +122,30 @@ const { start, end } = shopDayRange('2026-09-11');
 
 - 单号里的日期段也用店内本地日：`buildDocNo()`（`src/modules/biz/common/doc-no.ts`），格式 `前缀 + yyyyMMdd + 主键补零 6 位`。
 
-### 3. 列表接口：`{ items, page, pageSize }`，**没有 total**
+### 3. 列表接口：`{ items, page, pageSize, total }`
 
 ```ts
 // src/modules/biz/common/ports.ts
-export type PageResult<T> = { items: T[]; page: number; pageSize: number };
+export type PageResult<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 ```
 
-- 分页解析统一走 `parsePagination(rawPage, rawPageSize)`（`biz/common/query.ts`）：默认 `pageSize = 20`，**上限 100**；
-- 前端**多取一条判 `hasMore`**，不查 count（大表上 `COUNT(*)` 是纯浪费）。
+- 分页解析统一走 `parsePagination(rawPage, rawPageSize)`（`biz/common/query.ts`）：默认 `pageSize = 20`，**上限 `MAX_PAGE_SIZE = 200`**；
+- **`total` 与 `items` 必须同口径**：用同一套 `from/join/where` 再跑一次 `select({ value: count() })`（只去掉 `orderBy/limit/offset`），结果用 `readCount()` 转数字（`COUNT(*)` 是 BIGINT，mysql2 会回字符串）；
+- 前端 `useTable` 用 `total` 精确算页数；未接 `total` 的旧列表会退回「多取一条」的兼容路径。
 
-::: warning 别顺手加 total
-加 `total` 就等于给每个列表接口加一次全表 count。真要统计口径，用报表接口（`biz/reports/analytics`）。
+::: warning total 的两个硬要求
+
+1. **过滤条件只能写一份**：先拼进 `where` 变量，再给「列表」与「count」两处复用 —— 少写一个条件，前端显示的页数就是假的；
+2. **from/join 必须一字不差**：少一个 join，`where` 里引用那张表的列会直接报错；多一个 join（一对多）会让 `total` 与 `items` 对不上。
+
+真正要「统计口径」的重聚合（报表）仍走 `biz/reports/analytics`，不要在列表里堆聚合。
+
+⚠️ **app 域（`/api/v1/app/**`）是例外**：小程序是「加载更多」交互，返回仍是 `{ items, page, pageSize }`（不带 `total`）—— 不要为了「统一」给小程序端也加 count。
 :::
 
 ### 4. 涉及钱的写入：条件更新模板 + 全局锁顺序

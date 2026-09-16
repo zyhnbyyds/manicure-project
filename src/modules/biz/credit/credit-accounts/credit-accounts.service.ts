@@ -6,6 +6,7 @@ import {
 import {
   and,
   asc,
+  count,
   eq,
   inArray,
   isNull,
@@ -14,17 +15,17 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizCreditAccounts,
   bizReceivables,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import { keywordLike, andConditions } from '../../common/query.js';
-import type { PageResult } from '../../common/ports.js';
-import { CustomerPort, type CreditAccountRow } from '../../common/ports.js';
-import { withoutUndefined } from '../../common/tx.js';
-import { OUTSTANDING_RECEIVABLE_STATUSES } from '../receivables/receivables.service.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { andConditions, keywordLike, readCount } from '../../common/query';
+import type { PageResult } from '../../common/ports';
+import { CustomerPort, type CreditAccountRow } from '../../common/ports';
+import { withoutUndefined } from '../../common/tx';
+import { OUTSTANDING_RECEIVABLE_STATUSES } from '../receivables/receivables.service';
 
 export type CreditAccountType = 'customer' | 'company' | 'staff';
 
@@ -90,13 +91,19 @@ export class CreditAccountsService {
       filter.status ? eq(bizCreditAccounts.status, filter.status) : undefined,
       this.keywordCondition(filter.keyword),
     ]);
-    const rows = await this.database.db
-      .select()
-      .from(bizCreditAccounts)
-      .where(where)
-      .orderBy(asc(bizCreditAccounts.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizCreditAccounts)
+        .where(where)
+        .orderBy(asc(bizCreditAccounts.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizCreditAccounts)
+        .where(where),
+    ]);
     const outstanding = await this.outstandingByAccount(
       rows.map((row) => row.id),
     );
@@ -105,6 +112,7 @@ export class CreditAccountsService {
         ...row,
         outstandingAmount: outstanding.get(row.id) ?? 0,
       })),
+      total: readCount(counted),
       page,
       pageSize,
     };

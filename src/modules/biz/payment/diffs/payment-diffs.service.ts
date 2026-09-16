@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   and,
+  count,
   desc,
   eq,
   gte,
@@ -15,20 +16,17 @@ import {
   isNull,
   lt,
 } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
+import { readCount } from '../../common/query';
 import {
   bizPaymentDiffs,
   bizPayments,
-} from '../../../../database/schema/index.js';
-import { BizConfigService } from '../../common/biz-config.service.js';
-import {
-  addLocalDays,
-  shopDayRange,
-  shopToday,
-} from '../../common/shop-time.js';
-import { AlipayQrProvider } from '../channels/alipay-qr.provider.js';
-import type { PaymentChannelProvider } from '../channels/channel.interface.js';
-import { WxpayNativeProvider } from '../channels/wxpay-native.provider.js';
+} from '../../../../database/schema/index';
+import { BizConfigService } from '../../common/biz-config.service';
+import { addLocalDays, shopDayRange, shopToday } from '../../common/shop-time';
+import { AlipayQrProvider } from '../channels/alipay-qr.provider';
+import type { PaymentChannelProvider } from '../channels/channel.interface';
+import { WxpayNativeProvider } from '../channels/wxpay-native.provider';
 
 export type PaymentDiffRow = typeof bizPaymentDiffs.$inferSelect;
 export type DiffType =
@@ -253,7 +251,12 @@ export class PaymentDiffsService {
     page: number,
     pageSize: number,
     filter: PaymentDiffListFilter,
-  ): Promise<{ items: PaymentDiffRow[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: PaymentDiffRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const conditions = [isNull(bizPaymentDiffs.deletedAt)];
     if (filter.billDate)
       conditions.push(eq(bizPaymentDiffs.billDate, filter.billDate));
@@ -263,14 +266,22 @@ export class PaymentDiffsService {
       conditions.push(eq(bizPaymentDiffs.status, filter.status));
     if (filter.diffType)
       conditions.push(eq(bizPaymentDiffs.diffType, filter.diffType));
-    const items = await this.database.db
-      .select()
-      .from(bizPaymentDiffs)
-      .where(and(...conditions))
-      .orderBy(desc(bizPaymentDiffs.billDate), desc(bizPaymentDiffs.id))
-      .limit(Math.min(pageSize, DIFF_LIMIT))
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizPaymentDiffs)
+        .where(where)
+        .orderBy(desc(bizPaymentDiffs.billDate), desc(bizPaymentDiffs.id))
+        .limit(Math.min(pageSize, DIFF_LIMIT))
+        .offset((page - 1) * pageSize),
+      // total 是**全部**未处理/已处理差异的条数，不受 DIFF_LIMIT 夹取的影响
+      this.database.db
+        .select({ value: count() })
+        .from(bizPaymentDiffs)
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number): Promise<PaymentDiffRow> {

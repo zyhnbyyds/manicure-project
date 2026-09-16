@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { AlipayQrProvider } from './channels/alipay-qr.provider.js';
-import { WxpayNativeProvider } from './channels/wxpay-native.provider.js';
-import { PaymentDiffsController } from './diffs/payment-diffs.controller.js';
-import { PaymentDiffsService } from './diffs/payment-diffs.service.js';
-import { PaymentsController } from './payments/payments.controller.js';
-import { PaymentsService } from './payments/payments.service.js';
-import { RefundsController } from './refunds/refunds.controller.js';
-import { RefundsService } from './refunds/refunds.service.js';
+import { AlipayQrProvider } from './channels/alipay-qr.provider';
+import { WxpayNativeProvider } from './channels/wxpay-native.provider';
+import { PaymentDiffsController } from './diffs/payment-diffs.controller';
+import { PaymentDiffsService } from './diffs/payment-diffs.service';
+import { PaymentsController } from './payments/payments.controller';
+import { PaymentsService } from './payments/payments.service';
+import { RefundsController } from './refunds/refunds.controller';
+import { RefundsService } from './refunds/refunds.service';
 
 /**
  * 收银模块（B3）。

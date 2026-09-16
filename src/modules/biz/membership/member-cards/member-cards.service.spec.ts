@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import type { RequestActor } from '../../../../common/data-scope/data-scope.js';
-import { MemberCardsService } from './member-cards.service.js';
+import type { RequestActor } from '../../../../common/data-scope/data-scope';
+import { MemberCardsService } from './member-cards.service';
 
 type Row = Record<string, unknown>;
 
@@ -476,12 +476,14 @@ describe('MemberCardsService（§15.5 次卡）', () => {
   });
 
   describe('list / findOne / 批量查询', () => {
-    it('list 返回 items/page/pageSize（没有 total）', async () => {
+    it('list 返回 items/page/pageSize/total', async () => {
       const h = createHarness({
         selectResults: [[{ id: 1, cardNo: 'C20260911000001' }]],
       });
       await expect(h.service.list(1, 20)).resolves.toEqual({
         items: [{ id: 1, cardNo: 'C20260911000001' }],
+        // mock 的 count 查询没喂数据 → total 为 0；真实 total 由集成测试覆盖
+        total: 0,
         page: 1,
         pageSize: 20,
       });

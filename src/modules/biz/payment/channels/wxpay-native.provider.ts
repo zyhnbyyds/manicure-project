@@ -13,12 +13,12 @@ import {
   randomUUID,
 } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
-import { AppConfigService } from '../../../../config/app-config.service.js';
+import { AppConfigService } from '../../../../config/app-config.service';
 import {
   DEFAULT_SHOP_TIMEZONE,
   formatShopDateTime,
   shopLocalToUtc,
-} from '../../common/shop-time.js';
+} from '../../common/shop-time';
 import {
   type ChannelBillRecord,
   type ChannelOrderState,
@@ -30,8 +30,8 @@ import {
   type NotifyVerifyInput,
   PaymentChannelProvider,
   ChannelFailureKind,
-} from './channel.interface.js';
-import type { ChannelReply } from './channel.interface.js';
+} from './channel.interface';
+import type { ChannelReply } from './channel.interface';
 
 /** 微信支付 APIv3 网关 */
 const WXPAY_BASE_URL = 'https://api.mch.weixin.qq.com';

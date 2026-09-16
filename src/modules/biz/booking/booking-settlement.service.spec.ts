@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BookingSettlementService } from './booking-settlement.service.js';
+import { BookingSettlementService } from './booking-settlement.service';
 
 type Row = Record<string, unknown>;
 

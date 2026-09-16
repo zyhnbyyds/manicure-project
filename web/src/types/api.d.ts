@@ -1,8 +1,9 @@
-/** 后端统一分页响应（无 total 字段） */
+/** 后端统一分页响应（`total` = 同条件下的总条数，由后端 `COUNT(*)` 给出） */
 export interface PageResult<T> {
   items: T[];
   page: number;
   pageSize: number;
+  total: number;
 }
 
 /** 分页请求参数 */
@@ -610,6 +611,20 @@ export interface FileItem {
   ext: string;
   size: number;
   createdAt: string;
+}
+
+/**
+ * 上传接口（`POST /files/upload` 与 `POST /app/upload`）额外带的两个字段。
+ *
+ * 它们描述的是**这一次上传动作**（列表 / 详情接口没有这两个值），所以单独一个类型，
+ * 而不是塞进 `FileItem` —— 免得调用方以为列表里也读得到。
+ * `size` 是压缩后的字节数，`originalSize` 是上传时的原图大小。
+ */
+export interface UploadedFileItem extends FileItem {
+  /** 服务端是否压缩过（false = 原样保存：非位图 / 已 ≤1MB / 显式关闭 / 压不小） */
+  compressed: boolean;
+  /** 上传时的原始字节数 */
+  originalSize: number;
 }
 
 // ============ generator ============

@@ -22,8 +22,8 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
-import { AppConfigService } from '../../../../config/app-config.service.js';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { AppConfigService } from '../../../../config/app-config.service';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   appWxSubscribeGrants,
   bizBookingItems,
@@ -33,30 +33,31 @@ import {
   sysNoticeLogs,
   sysNoticeTemplates,
   users,
-} from '../../../../database/schema/index.js';
+} from '../../../../database/schema/index';
 import {
   BizConfigService,
   type NoticeConfig,
-} from '../../common/biz-config.service.js';
+} from '../../common/biz-config.service';
 import {
   NoticePort,
   type NoticeInboxRow,
   type NoticeSendInput,
   type SubscribeGrantInput,
-} from '../../common/ports.js';
+} from '../../common/ports';
 import {
   andConditions,
   localDateRange,
   parsePagination,
-} from '../../common/query.js';
+  readCount,
+} from '../../common/query';
 import {
   addLocalDays,
   formatShopDateTime,
   shopDayRange,
   shopToday,
-} from '../../common/shop-time.js';
-import { withoutUndefined, type BizTx } from '../../common/tx.js';
-import { SmsProvider } from './sms/sms.provider.js';
+} from '../../common/shop-time';
+import { withoutUndefined, type BizTx } from '../../common/tx';
+import { SmsProvider } from './sms/sms.provider';
 
 /**
  * 内置模板 code（§19.1）。`recurrence_conflict` / `recurrence_failed` 是
@@ -188,7 +189,12 @@ export class NoticesService extends NoticePort {
     page: number,
     pageSize: number,
     filter: NoticeTemplateFilter = {},
-  ): Promise<{ items: NoticeTemplateRow[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: NoticeTemplateRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const paging = parsePagination(page, pageSize);
     const conditions = [isNull(sysNoticeTemplates.deletedAt)];
     if (filter.channel)
@@ -205,14 +211,26 @@ export class NoticesService extends NoticePort {
         ) as SQL,
       );
     }
-    const items = await this.database.db
-      .select()
-      .from(sysNoticeTemplates)
-      .where(and(...conditions))
-      .orderBy(asc(sysNoticeTemplates.id))
-      .limit(paging.pageSize)
-      .offset(paging.offset);
-    return { items, page: paging.page, pageSize: paging.pageSize };
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(sysNoticeTemplates)
+        .where(where)
+        .orderBy(asc(sysNoticeTemplates.id))
+        .limit(paging.pageSize)
+        .offset(paging.offset),
+      this.database.db
+        .select({ value: count() })
+        .from(sysNoticeTemplates)
+        .where(where),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
   async findTemplate(id: number): Promise<NoticeTemplateRow> {
@@ -341,7 +359,12 @@ export class NoticesService extends NoticePort {
     page: number,
     pageSize: number,
     filter: NoticeLogFilter = {},
-  ): Promise<{ items: NoticeLogRow[]; page: number; pageSize: number }> {
+  ): Promise<{
+    items: NoticeLogRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const paging = parsePagination(page, pageSize);
     const timeZone = (await this.config.booking()).timezone;
     const conditions = andConditions([
@@ -363,14 +386,25 @@ export class NoticesService extends NoticePort {
         timeZone,
       ),
     ]);
-    const items = await this.database.db
-      .select()
-      .from(sysNoticeLogs)
-      .where(conditions)
-      .orderBy(desc(sysNoticeLogs.id))
-      .limit(paging.pageSize)
-      .offset(paging.offset);
-    return { items, page: paging.page, pageSize: paging.pageSize };
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(sysNoticeLogs)
+        .where(conditions)
+        .orderBy(desc(sysNoticeLogs.id))
+        .limit(paging.pageSize)
+        .offset(paging.offset),
+      this.database.db
+        .select({ value: count() })
+        .from(sysNoticeLogs)
+        .where(conditions),
+    ]);
+    return {
+      items,
+      total: readCount(counted),
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
   async findLog(id: number): Promise<NoticeLogRow> {

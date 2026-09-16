@@ -4,7 +4,7 @@ import {
   buildOutTradeNo,
   buildSettleBatch,
   tempDocNo,
-} from './doc-no.js';
+} from './doc-no';
 
 describe('biz/common/doc-no（§4.3 主键回填，不用「查当日最大号 +1」）', () => {
   /** 店内本地 2026-09-11 10:00 */

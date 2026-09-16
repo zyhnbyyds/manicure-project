@@ -5,12 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
-import { DatabaseService } from '../../../database/database.service.js';
-import { appWxUsers } from '../../../database/schema/index.js';
-import { BizConfigService } from '../../biz/common/biz-config.service.js';
-import { StaffPort } from '../../biz/common/ports.js';
-import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time.js';
-import type { AppStaffApplyVo } from '../dto/app-vo.js';
+import { DatabaseService } from '../../../database/database.service';
+import { appWxUsers } from '../../../database/schema/index';
+import { BizConfigService } from '../../biz/common/biz-config.service';
+import { StaffPort } from '../../biz/common/ports';
+import { appIso, appIsoOrNull, appShopTimeZone } from '../common/app-time';
+import type { AppStaffApplyVo } from '../dto/app-vo';
 
 /** 小程序美甲师申请：只能由手机号命中的在职档案发起，店长确认才 active。 */
 @Injectable()

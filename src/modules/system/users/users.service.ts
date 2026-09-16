@@ -3,9 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { hashPassword } from '../../../common/password/password.service';
 import { DatabaseService } from '../../../database/database.service';
+import { readCount } from '../../biz/common/query';
 import {
   departments,
   roles,
@@ -70,26 +71,35 @@ export class UsersService {
         );
       }
     }
-    const items = await this.database.db
-      .select({
-        id: users.id,
-        username: users.username,
-        displayName: users.displayName,
-        email: users.email,
-        phone: users.phone,
-        status: users.status,
-        deptId: users.deptId,
-        deptName: departments.name,
-        avatar: users.avatar,
-        createdAt: users.createdAt,
-        loginAt: users.loginAt,
-      })
-      .from(users)
-      .leftJoin(departments, eq(users.deptId, departments.id))
-      .where(and(...conditions))
-      .orderBy(desc(users.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select({
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          email: users.email,
+          phone: users.phone,
+          status: users.status,
+          deptId: users.deptId,
+          deptName: departments.name,
+          avatar: users.avatar,
+          createdAt: users.createdAt,
+          loginAt: users.loginAt,
+        })
+        .from(users)
+        .leftJoin(departments, eq(users.deptId, departments.id))
+        .where(where)
+        .orderBy(desc(users.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      // total 与 items 用同一套 from/join/where（少一个 join 就可能因为 where 引用它而报错）
+      this.database.db
+        .select({ value: count() })
+        .from(users)
+        .leftJoin(departments, eq(users.deptId, departments.id))
+        .where(where),
+    ]);
     const roleMap = await this.fetchRoleMap(items.map((item) => item.id));
     const storeMap = await this.fetchStoreMap(items.map((item) => item.id));
     return {
@@ -103,6 +113,7 @@ export class UsersService {
          */
         stores: storeMap.get(item.id) ?? [],
       })),
+      total: readCount(counted),
       page,
       pageSize,
     };

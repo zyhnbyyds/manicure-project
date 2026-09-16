@@ -14,6 +14,7 @@ import { openImagePreview } from '~/composables/useImagePreview';
 import { formatDateTime, formatSize } from '~/composables/useFormat';
 import type { FileItem } from '~/types/api';
 import { confirmDanger } from '~/utils/confirm';
+import { MAX_UPLOAD_FILE_SIZE_LABEL } from '~/utils/upload-limits';
 import IconButton from '~/components/IconButton.vue';
 
 // ---------- 列表 ----------
@@ -114,7 +115,9 @@ function handleDelete(row: FileItem) {
     <div class="flex items-center justify-between">
       <div>
         <h2 class="page-title m-0">文件管理</h2>
-        <p class="page-subtitle mt-1 mb-0">上传与管理文件（单文件最大 10MB）</p>
+        <p class="page-subtitle mt-1 mb-0">
+          上传与管理文件（单文件最大 {{ MAX_UPLOAD_FILE_SIZE_LABEL }}）
+        </p>
       </div>
       <LewButton
         v-permission="'system:file:upload'"
@@ -175,6 +178,7 @@ function handleDelete(row: FileItem) {
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
+          show-summary
           @change="handleChange"
         />
       </div>

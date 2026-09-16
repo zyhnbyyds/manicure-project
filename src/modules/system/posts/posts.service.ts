@@ -3,9 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, ne } from 'drizzle-orm';
 import { DatabaseService } from '../../../database/database.service';
 import { posts, userPosts } from '../../../database/schema/index';
+import { readCount } from '../../biz/common/query';
 
 export type CreatePostInput = {
   name: string;
@@ -28,14 +29,19 @@ export class PostsService {
   constructor(private readonly database: DatabaseService) {}
 
   async list(page: number, pageSize: number) {
-    const items = await this.database.db
-      .select()
-      .from(posts)
-      .where(isNull(posts.deletedAt))
-      .orderBy(asc(posts.sort), asc(posts.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    // total 与 items 共用同一个 where（口径见 common/query.ts）
+    const where = isNull(posts.deletedAt);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(posts)
+        .where(where)
+        .orderBy(asc(posts.sort), asc(posts.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db.select({ value: count() }).from(posts).where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number) {

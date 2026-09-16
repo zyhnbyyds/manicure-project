@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ServiceItemsController } from './service-items.controller.js';
+import { ServiceItemsController } from './service-items.controller';
 
 type Row = Record<string, unknown>;
 

@@ -5,20 +5,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, asc, count, eq, inArray, isNull } from 'drizzle-orm';
-import { DatabaseService } from '../../../../database/database.service.js';
+import { DatabaseService } from '../../../../database/database.service';
 import {
   bizBookingItems,
   bizBookings,
   bizServiceItems,
-} from '../../../../database/schema/index.js';
+} from '../../../../database/schema/index';
 import {
   ServiceItemPort,
   type PageResult,
   type ServiceItemRow,
-} from '../../common/ports.js';
-import { keywordLike } from '../../common/query.js';
-import { normalizeImages } from '../../common/gallery.js';
-import { withoutUndefined, type BizTx } from '../../common/tx.js';
+} from '../../common/ports';
+import { keywordLike, readCount } from '../../common/query';
+import { normalizeImages } from '../../common/gallery';
+import { withoutUndefined, type BizTx } from '../../common/tx';
 
 /** 未完成预约（§6.4）：这些状态下的预约会阻止主数据被停用 / 删除 */
 const UNFINISHED_BOOKING_STATUSES = [
@@ -80,14 +80,21 @@ export class ServiceItemsService extends ServiceItemPort {
     if (keyword) conditions.push(keyword);
     if (filter.status)
       conditions.push(eq(bizServiceItems.status, filter.status));
-    const items = await this.database.db
-      .select()
-      .from(bizServiceItems)
-      .where(and(...conditions))
-      .orderBy(asc(bizServiceItems.sort), asc(bizServiceItems.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items, page, pageSize };
+    const where = and(...conditions);
+    const [items, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(bizServiceItems)
+        .where(where)
+        .orderBy(asc(bizServiceItems.sort), asc(bizServiceItems.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db
+        .select({ value: count() })
+        .from(bizServiceItems)
+        .where(where),
+    ]);
+    return { items, total: readCount(counted), page, pageSize };
   }
 
   async findOne(id: number): Promise<ServiceItemRow> {

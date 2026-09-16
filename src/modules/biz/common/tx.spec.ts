@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withoutUndefined } from './tx.js';
+import { withoutUndefined } from './tx';
 
 describe('biz/common/tx', () => {
   it('只剔除 undefined，保留 null / 0 / 空串 / false（局部更新不能误删字段）', () => {

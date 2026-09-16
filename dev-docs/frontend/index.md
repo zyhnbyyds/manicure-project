@@ -230,7 +230,7 @@ export const permission: Directive<HTMLElement, string | string[]> = {
 // web/src/composables/useTable.ts
 /**
  * 通用表格分页逻辑
- * 后端分页响应无 total 字段，通过多取一条判断 hasMore 估算 total
+ * total 取后端列表响应的 total（同条件下的 COUNT(*)）；缺失时退回「多取一条判 hasMore 估算」
  */
 async function fetchPage(page = currentPage.value) {
   const data = await get<PageResult<T>>(options.url, {
@@ -351,6 +351,10 @@ function openEdit(row: CreditAccount) {
 
 `web/src/api/files.ts` 是唯一入口：`uploadFile(file)` → `POST /files/upload`；`filePreviewUrl(id)` = `.../files/:id/download?inline=1`（可直接塞 `<img src>`，下载接口是 `@Public()`）；`fileDownloadUrl(id)`。**上传只要登录态，不需要额外权限点**。
 
+`uploadFile()` 内部会先调 `~/utils/image-compress` 把图片压一遍（超过 1MB 时才压，弱网下省流量），
+**后端还会再兜一层**（`src/modules/files/image-compress.ts`，口径的唯一来源）—— 页面不需要关心这件事，
+它只在返回里多给两个字段：`compressed`（后端是否压过）与 `originalSize`（上传时的原图大小，配 `size` 可提示「已从 2.4MB 压到 200KB」）。
+
 `LewForm` 原生支持 `as: 'upload'`（底层 `LewUpload`）：
 
 ```ts
@@ -374,11 +378,12 @@ async function uploadImage(params: { fileItem: LewUploadFileItem; setFileItem: (
 
 三个必须用的工具模块：
 
-| 模块                    | 内容                                                                                                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/utils/upload-images` | `toUploadItems`（反显）/ `toUploadedItem`（上传回填）/ `toImageUrls`（提交，只挑 `complete`、`success`）/ `toSingleImageUrl`（单图字段，无图返回 `null`） |
-| `~/utils/upload-limits` | `MAX_UPLOAD_FILE_SIZE = 10 * 1024 * 1024`（与后端 `MAX_FILE_SIZE` 一致）；`IMAGE_ACCEPT`                                                                  |
-| `~/utils/form`          | `withPassThroughRule` + `PASS_THROUGH_RULE = 'Yup.mixed()'`                                                                                               |
+| 模块                     | 内容                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `~/utils/upload-images`  | `toUploadItems`（反显）/ `toUploadedItem`（上传回填）/ `toImageUrls`（提交，只挑 `complete`、`success`）/ `toSingleImageUrl`（单图字段，无图返回 `null`）                            |
+| `~/utils/upload-limits`  | `MAX_UPLOAD_FILE_SIZE = 5 * 1024 * 1024`（与后端 `MAX_FILE_SIZE` 一致）；`MAX_UPLOAD_FILE_SIZE_LABEL`（提示文案用，别手写数字）；`IMAGE_COMPRESS_TARGET_BYTES = 1MB`；`IMAGE_ACCEPT` |
+| `~/utils/image-compress` | `compressImageFile(file)` —— 上传前的浏览器端预压缩（只处理 jpeg/png/webp、只在 >1MB 时压、越压越大就放弃）。`uploadFile()` 已经内置调用，页面无需手动用                             |
+| `~/utils/form`           | `withPassThroughRule` + `PASS_THROUGH_RULE = 'Yup.mixed()'`                                                                                                                          |
 
 ::: danger 不要手写 `{ key, status: 'complete', percent: 100, url }`
 `url` 必须过 `toDisplayImageUrl()` 归一化。`web/src/utils/image-url.ts` 写明了原因：lew-ui 判断「能不能当图片渲染」用的是 **url 是否以图片扩展名结尾**，而预览地址是 `/api/v1/files/:id/download?inline=1` —— 不以扩展名结尾 ⇒ 渲染成**文件图标**。这就是「编辑时**原有**图片能看见、**新传**的图片是个文件图标」的真正原因。归一化做法是给显示态地址补无害参数 `__img=.png`，提交前 `stripDisplayImageUrl()` 剥掉。

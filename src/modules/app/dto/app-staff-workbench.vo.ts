@@ -5,13 +5,13 @@
  * 顾客手机号一律脱敏（`138****0000`）——小程序端只负责拨号，不展示明文（D11）。
  */
 import { z } from 'zod';
-import { registerComponent } from '../../../common/swagger/zod-schema.helper.js';
+import { registerComponent } from '../../../common/swagger/zod-schema.helper';
 import {
   appBookingItemVo,
   appBookingStatusSchema,
   appPayStatusSchema,
   isoDateTime,
-} from './app-vo.js';
+} from './app-vo';
 
 /** 店内本地日 `YYYY-MM-DD` */
 const localDate = z

@@ -262,6 +262,7 @@ async function submitReject() {
         <LewPagination
           :model-value="currentPage"
           :total="total"
+          show-summary
           :page-size="pageSize"
           @change="handleChange"
         />

@@ -1,10 +1,10 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AppConfigService } from '../../../config/app-config.service.js';
+import type { AppConfigService } from '../../../config/app-config.service';
 import {
   FakeWxMiniappProvider,
   HttpWxMiniappProvider,
-} from './wx-miniapp.provider.js';
+} from './wx-miniapp.provider';
 
 /**
  * G2「未配置凭据 → 503」。

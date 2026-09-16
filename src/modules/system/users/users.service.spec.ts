@@ -61,6 +61,17 @@ describe('UsersService', () => {
             }),
           }),
         })
+        /**
+         * 第二次 select：`total` 的 count 查询（`from().leftJoin().where()`）。
+         * 少了这一层，后面「取角色 / 取门店」两次都会拿到错位的数据。
+         */
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
+        })
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
@@ -71,7 +82,7 @@ describe('UsersService', () => {
           }),
         })
         /**
-         * 第三次 select：`fetchStoreMap`（可见门店，连锁直营）。
+         * 第四次 select：`fetchStoreMap`（可见门店，连锁直营）。
          * 空数组 = 该账号没有门店授权（列表里 `stores` 就是 `[]`）。
          */
         .mockReturnValueOnce({
@@ -121,6 +132,14 @@ describe('UsersService', () => {
             }),
           }),
         })
+        // 第二次 select：`total` 的 count 查询
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
+        })
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
@@ -130,7 +149,7 @@ describe('UsersService', () => {
             }),
           }),
         })
-        // 第三次 select：`fetchStoreMap`（可见门店）—— 空数组 = 无门店授权
+        // 第四次 select：`fetchStoreMap`（可见门店）—— 空数组 = 无门店授权
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({

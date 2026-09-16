@@ -20,10 +20,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { z } from 'zod';
-import { RequirePermissions } from '../../../../common/auth/permissions.decorator.js';
-import { registerComponent } from '../../../../common/swagger/zod-schema.helper.js';
-import { MAX_PAGE_SIZE } from '../../common/query.js';
-import { NoticesService } from './notices.service.js';
+import { RequirePermissions } from '../../../../common/auth/permissions.decorator';
+import { registerComponent } from '../../../../common/swagger/zod-schema.helper';
+import { MAX_PAGE_SIZE } from '../../common/query';
+import { NoticesService } from './notices.service';
 
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
