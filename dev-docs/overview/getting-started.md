@@ -71,14 +71,15 @@ bun run dev             # http://localhost:3000
 
 逐条说明：
 
-| 命令                    | 入口                         | 做什么                                                                                                                                    |
-| ----------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run db:migrate`    | `src/database/migrate.ts`    | 读 `process.env.DATABASE_URL`，用 `drizzle-orm/mysql2/migrator` 跑 `./src/database/migrations`，失败 `process.exit(1)`                    |
-| `bun run db:seed`       | `src/database/seed/index.ts` | 建 `admin` / `user` 两个角色 → 建 `admin` 用户（`Bun.password` argon2id）→ 绑角色 → **然后依次调用 `seedMenus` / `seedBiz` / `seedNail`** |
-| `bun run db:seed:menus` | `src/database/seed/menus.ts` | 菜单与按钮权限点，按 `name` upsert（值没变不发 UPDATE），角色授权只补缺失项                                                               |
-| `bun run db:seed:biz`   | `src/database/seed/biz.ts`   | 会员等级 / 退款判责规则 / 8 个通知模板 / 11 个定时任务 / `biz.*` 业务参数 + 中文名                                                        |
-| `bun run db:seed:nail`  | `src/database/seed/nail.ts`  | 服务项目 / 美甲师 / 周排班 / 卡种 / 充值方案 / 积分兑换品 / 提成规则 / 挂账主体                                                           |
-| `bun run db:seed:demo`  | `src/database/seed/demo.ts`  | **演示用**顾客与会员数据                                                                                                                  |
+| 命令                            | 入口                                 | 做什么                                                                                                                                    |
+| ------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run db:migrate`            | `src/database/migrate.ts`            | 读 `process.env.DATABASE_URL`，用 `drizzle-orm/mysql2/migrator` 跑 `./src/database/migrations`，失败 `process.exit(1)`                    |
+| `bun run db:seed`               | `src/database/seed/index.ts`         | 建 `admin` / `user` 两个角色 → 建 `admin` 用户（`Bun.password` argon2id）→ 绑角色 → **然后依次调用 `seedMenus` / `seedBiz` / `seedNail`** |
+| `bun run db:seed:menus`         | `src/database/seed/menus.ts`         | 菜单与按钮权限点，按 `name` upsert（值没变不发 UPDATE），角色授权只补缺失项                                                               |
+| `bun run db:seed:biz`           | `src/database/seed/biz.ts`           | 会员等级 / 退款判责规则 / 8 个通知模板 / 11 个定时任务 / `biz.*` 业务参数 + 中文名                                                        |
+| `bun run db:seed:nail`          | `src/database/seed/nail.ts`          | 服务项目 / 美甲师 / 周排班 / 卡种 / 充值方案 / 积分兑换品 / 提成规则 / 挂账主体                                                           |
+| `bun run db:seed:demo`          | `src/database/seed/demo.ts`          | **演示用**顾客与会员数据 + 当天预约（首页统计不再是空的）                                                                                 |
+| `bun run db:seed:demo:bookings` | `src/database/seed/demo-bookings.ts` | 只造当天预约（单独重跑用；`db:seed:demo` 会在顾客之后自动调它）                                                                           |
 
 ::: warning `bun run db:seed` 其实已经把 menus / biz / nail 都跑了
 `seed/index.ts` 第 49-53 行显式调用了 `seedMenus(pool)` / `seedBiz(pool)` / `seedNail(pool)`，第 54 行注释还专门说明 demo 不在里面。

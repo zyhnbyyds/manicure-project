@@ -314,7 +314,7 @@ bun run build
 
 按顺序做，每条都对应本仓库里真实存在的命令（脚本名取自根 `package.json` 与 `dev-docs/package.json`）：
 
-1. **跑起来后端**：`bun install` → `bun run db:migrate` → `bun run db:seed` → `bun run dev`，确认服务能起、种子数据可查。（辅助脚本还有 `db:seed:menus`、`db:seed:biz`、`db:seed:nail`、`db:seed:demo`；表结构改动用 `db:generate` 生成迁移，`db:studio` 可视化看数据。）
+1. **跑起来后端**：`bun install` → `bun run db:migrate` → `bun run db:seed` → `bun run dev`，确认服务能起、种子数据可查。（辅助脚本还有 `db:seed:menus`、`db:seed:biz`、`db:seed:nail`、`db:seed:demo`、`db:seed:demo:bookings`；表结构改动用 `db:generate` 生成迁移，`db:studio` 可视化看数据。）
 2. **跑通质量门禁**：`bun run typecheck`、`bun run lint`、`bun test` 三条必须全绿 —— 这是仓库明确的提交前提。集成测试需要 `.env.test` 指向独立测试库，写法见 `testing-acceptance` 技能。
 3. **读一个模块的技能**：挑一个真实任务相关的技能从头读完（建议先 `booking-core` 或 `base-data`），并对照 [预约主链路实现](/backend/booking) 或 [业务表详解](/data/business-tables) 在源码里找到对应文件。
 4. **起本地开发者文档站并改一页**：`cd dev-docs && bun install && bun run dev`（`http://localhost:5180/`），在自己刚读过的模块页里补一段「实测结论」或修正一处过时描述；构建前用 `bun run build` 验证无死链（`ignoreDeadLinks: false`，死链即构建失败）。

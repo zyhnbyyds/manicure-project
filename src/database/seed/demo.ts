@@ -4,6 +4,7 @@ import mysql from 'mysql2/promise';
 import { buildDocNo } from '../../modules/biz/common/doc-no.js';
 import { DEFAULT_SHOP_TIMEZONE } from '../../modules/biz/common/shop-time.js';
 import { bizCustomers, bizMemberLevels, configs } from '../schema/index.js';
+import { seedDemoBookings } from './demo-bookings.js';
 
 /**
  * 演示用顾客 / 会员档案 seed（**可选**，仅供开发与演示环境）
@@ -95,8 +96,10 @@ export const CUSTOMER_SEEDS: CustomerSeed[] = [
   },
 ];
 
-/** 店内时区：读 `biz.booking.timezone`，缺失时回落默认值 */
-async function shopTimeZone(db: ReturnType<typeof drizzle>): Promise<string> {
+/** 店内时区：读 `biz.booking.timezone`，缺失时回落默认值（`demo-bookings.ts` 也用它） */
+export async function shopTimeZone(
+  db: ReturnType<typeof drizzle>,
+): Promise<string> {
   const [row] = await db
     .select({ value: configs.value })
     .from(configs)
@@ -165,10 +168,14 @@ export async function seedDemo(pool?: mysql.Pool): Promise<void> {
     console.log(
       `[seed:demo] biz_customer inserted=${inserted} skipped=${known.size}`,
     );
-    console.log('[seed:demo] Done.');
   } finally {
     if (owned) await target.end();
   }
+
+  // 顾客就绪后再造当天的预约（走业务服务，保证账实相符）。
+  // 单独放一步而不是并进上面的 try：它会把 AppModule 拉起来，失败原因也不同。
+  // 这里传 `pool`：`owned` 为真时 `pool` 本就是 `undefined`，它自己建池。
+  await seedDemoBookings(pool);
 }
 
 if (import.meta.main) {

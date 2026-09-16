@@ -137,7 +137,9 @@ bun run db:seed:nail          # nail-shop base data: items / staff / shifts / ca
 bun run dev                   # http://localhost:3000 , Swagger at /api/v1/docs
 ```
 
-`bun run db:seed:demo` adds **demo** customers/members (development only — do not run in production).
+`bun run db:seed:demo` adds **demo** customers/members plus today's bookings (development only — do not run in production).
+The booking part does not hand-write SQL: it boots `AppModule` and calls `BookingsService`
+so pricing, payment records and reconciliation stay real.
 
 ### Admin frontend
 
@@ -258,7 +260,7 @@ bun run test             # bun test (unit + integration)
 bun run test:coverage
 bun run db:generate      # generate migrations from the schema (never hand-write SQL)
 bun run db:migrate
-bun run db:seed / db:seed:menus / db:seed:biz / db:seed:nail / db:seed:demo
+bun run db:seed / db:seed:menus / db:seed:biz / db:seed:nail / db:seed:demo / db:seed:demo:bookings
 bun run db:studio        # Drizzle Studio
 
 # Admin frontend (web/)

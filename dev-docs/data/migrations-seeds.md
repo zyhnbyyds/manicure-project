@@ -114,13 +114,14 @@ db:seed  →  index.ts
                                   （可选、不在链上）seedDemo()
 ```
 
-| 脚本            | 命令                    | 职责                                                                                                                    | 幂等策略                                                                   | 可重复执行 |
-| --------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------- |
-| `seed/index.ts` | `bun run db:seed`       | 内置角色 `admin`（`isSystem`）/ `user`、管理员账号（`SEED_ADMIN_PASSWORD`）、用户↔角色绑定，然后串联 menus → biz → nail | `ON DUPLICATE KEY UPDATE`（角色 key、用户名、用户角色唯一键）              | ✅         |
-| `seed/menus.ts` | `bun run db:seed:menus` | 菜单树 + 权限点（`M`/`C`/`F`），并给 `admin` 角色**补齐**菜单授权                                                       | 按 `name` 查已有行 → 逐字段比对，值没变**不发 UPDATE**；角色授权只补缺失项 | ✅         |
-| `seed/biz.ts`   | `bun run db:seed:biz`   | 配置类初始数据：`sys_config` 默认值、会员等级、退款判责规则、通知模板、定时任务                                         | 逐项按业务键判断，**已存在一律跳过**（不覆盖运营改过的值）                 | ✅         |
-| `seed/nail.ts`  | `bun run db:seed:nail`  | 美甲基础资料：服务项目、美甲师、可做项目、周排班、卡种 + 卡种项目、充值方案、积分兑换品、挂账主体、提成规则             | 按 `name` / `nickname` / 组合键判断，跳过已存在                            | ✅         |
-| `seed/demo.ts`  | `bun run db:seed:demo`  | **演示**顾客档案 8 条（`13700000001`~`08`）                                                                             | 按 `phone` 判断，已存在整行跳过                                            | ✅         |
+| 脚本                    | 命令                            | 职责                                                                                                                      | 幂等策略                                                                   | 可重复执行 |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------- |
+| `seed/index.ts`         | `bun run db:seed`               | 内置角色 `admin`（`isSystem`）/ `user`、管理员账号（`SEED_ADMIN_PASSWORD`）、用户↔角色绑定，然后串联 menus → biz → nail   | `ON DUPLICATE KEY UPDATE`（角色 key、用户名、用户角色唯一键）              | ✅         |
+| `seed/menus.ts`         | `bun run db:seed:menus`         | 菜单树 + 权限点（`M`/`C`/`F`），并给 `admin` 角色**补齐**菜单授权                                                         | 按 `name` 查已有行 → 逐字段比对，值没变**不发 UPDATE**；角色授权只补缺失项 | ✅         |
+| `seed/biz.ts`           | `bun run db:seed:biz`           | 配置类初始数据：`sys_config` 默认值、会员等级、退款判责规则、通知模板、定时任务                                           | 逐项按业务键判断，**已存在一律跳过**（不覆盖运营改过的值）                 | ✅         |
+| `seed/nail.ts`          | `bun run db:seed:nail`          | 美甲基础资料：服务项目、美甲师、可做项目、周排班、卡种 + 卡种项目、充值方案、积分兑换品、挂账主体、提成规则               | 按 `name` / `nickname` / 组合键判断，跳过已存在                            | ✅         |
+| `seed/demo.ts`          | `bun run db:seed:demo`          | **演示**顾客档案 8 条（`13700000001`~`08`），完成后转去建当天预约（见下一行）                                             | 顾客按 `phone` 判断、已存在整行跳过；预约**当天已有单则整段跳过**          | ✅         |
+| `seed/demo-bookings.ts` | `bun run db:seed:demo:bookings` | **演示**当天预约：按当天真实班次铺满，已结束的标完成并现金全额收款、进行中的标到店、剩下的留待服务，末了再撤 1 单留个取消 | 同上（当天有单就跳，不做「先删后建」）                                     | ✅         |
 
 依赖顺序不可调换：`menus` 依赖 `admin` 角色（`seedMenus` 里找不到 admin 会直接抛
 `Admin role not found, run db:seed first`）；`nail` 的关联表（可做项目、卡种项目、周排班）
@@ -131,6 +132,7 @@ db:seed  →  index.ts
 `bun run db:seed:demo`。清理方式：
 
 ```sql
+DELETE FROM biz_booking  WHERE remark LIKE '[demo]%';
 DELETE FROM biz_customer WHERE phone LIKE '137000000%';
 ```
 

@@ -141,7 +141,9 @@ bun run db:seed:nail          # 美甲店基础数据：项目 / 美甲师 / 排
 bun run dev                   # http://localhost:3000 ，Swagger: /api/v1/docs
 ```
 
-`bun run db:seed:demo` 是**演示用**顾客与会员数据（可选，生产不要跑）。
+`bun run db:seed:demo` 是**演示用**顾客与会员数据 + 当天的预约（可选，生产不要跑）。
+预约那部分不是拼 SQL，而是把 `AppModule` 拉起来调 `BookingsService` 走完整九步，
+所以算价、收款流水与对账等式都是真的 —— 首页的净营收、成单率、客单价一跑就有数。
 
 ### 后台前端
 
@@ -271,7 +273,7 @@ bun run test             # bun test（单元 + 集成）
 bun run test:coverage
 bun run db:generate      # 由 schema 生成迁移（不要手写 SQL）
 bun run db:migrate       # 执行迁移
-bun run db:seed / db:seed:menus / db:seed:biz / db:seed:nail / db:seed:demo
+bun run db:seed / db:seed:menus / db:seed:biz / db:seed:nail / db:seed:demo / db:seed:demo:bookings
 bun run db:studio        # Drizzle Studio
 
 # 后台前端（web/）

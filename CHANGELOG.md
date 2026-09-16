@@ -58,6 +58,23 @@
   两个站点是分开部署的，所以收进一个下拉 —— 并排摆两个图标，等于为两个「一个月点一次」
   的入口各占一个常驻位。下拉项走 `window.open`：项是数据渲染出来的、挂不上真链接，
   但它由用户点击触发（有用户激活），不会被弹窗拦截器拦掉。
+- **演示数据补上「当天预约」**：`bun run db:seed:demo` 现在在顾客档案之后继续造当天的预约，
+  首页不再是空壳 —— 跑完就有净营收、完成单量、成单率、到店率、客单价与「今天接下来」的排期。
+  预约按**当天真实班次**（`biz_staff_weekly_shifts`）铺满，状态按当前时刻定：
+  已结束的走「到店 → 完成 → 现金全额收款」，进行中的只到店，还没到的保持待服务，
+  末了再撤 1 单给成单率留个分母（否则那两个率恒为 100%，比空着还假）。
+
+  **关键的是它不算价、不写金额、不碰流水**：`money-invariants` §1 规定
+  `paid_amount` / `refund_amount` / `due_amount` / `pay_status` 的唯一写入方是
+  `BookingSettlementService.recalc()`，并且明确写着「任何接口、任务、**脚本**都不准直接 UPDATE」。
+  所以 seed 把 `AppModule` 拉起来调 `BookingsService.create()` 走完整九步 ——
+  算价、`FOR UPDATE` 锁、冲突检测、收款流水、会员积分与等级全由业务代码负责，
+  演示数据从第一天就账实相符（首页净营收与 `biz_payment` 总额对得上）。
+  不这么做的话，首页展示的是假数据不可怕，可怕的是它看起来对、其实和真实链路算出来的不是一个数。
+
+  幂等靠「当天已有预约就整段跳过」，刻意不做「先删后建」：删预约要连带动收款流水与会员账务，
+  那正是本模块极力避免做的事。也可单独跑 `bun run db:seed:demo:bookings`。
+  演示班次里**周一全店休息**，周一跑会明确提示，而不是静默什么都不做。
 
 ### 修复
 
@@ -75,6 +92,13 @@
   选中态改用整行底色区分；顶栏入口、面板工具条、会话列表与对话区标题统一为四角星芒
   （小尺寸用 lucide `Sparkles`，欢迎页主视觉用自绘 `AiStarIcon` 渐变），
   不再使用机器人头 `Bot`；也不用五角星 —— 五角星在本项目语汇里表示收藏 / 评分。
+- **列表「每页条数」切了没反应**（从 20 切到 10 列表纹丝不动）。`useTable` 的 `handleChange`
+  里有一行 `pageSize.value = data.pageSize`，而 lew-ui 的 `change` 事件**在换每页条数时带的是旧值**：
+  它是受控组件，先 emit `update:pageSize(新值)`，紧接着**在同一个同步流程里** emit `change`，
+  那会儿父组件还没把新值回写进 props。实测点「每页 10」的 emit 序列是
+  `update:pageSize(10)` → `change({ currentPage: 1, pageSize: 20 })`，于是刚选中的 10 被这行覆盖回 20、
+  请求仍按 20 发。去掉这行覆盖（写入交给 `v-model:page-size`），只按 `change` 里的 `currentPage` 拉数据。
+  翻页不受此影响：`change` 里的 `currentPage` 是**新值**（实测 `update:currentPage(2)` → `change({ currentPage: 2 })`）。
 
 ## 1.0.0 — 2026-09-15
 
