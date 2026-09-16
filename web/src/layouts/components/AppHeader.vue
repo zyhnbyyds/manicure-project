@@ -6,6 +6,7 @@ import {
   BookOpen,
   ChevronDown,
   Github,
+  Info,
   MonitorPlay,
   Moon,
   Palette,
@@ -141,8 +142,18 @@ function toggleDark() {
   <header
     class="flex items-center justify-between h-14 px-4 shrink-0 bg-[var(--app-bg-card)] border-b border-[var(--app-border)]"
   >
-    <div>
+    <div class="flex min-w-0 items-center gap-3">
       <span class="text-15px font-600">{{ $route.meta.title ?? '' }}</span>
+
+      <!-- 免责声明：常驻但不抢眼（不带交互，所以只放静态徽标 + tooltip）。
+           窄屏隐藏 —— 它是「背景信息」，比右侧的门店切换器与各项操作优先级低得多。 -->
+      <span
+        class="hidden items-center gap-1.5 h-22px px-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-bg-page)] shrink-0 text-12px whitespace-nowrap text-[var(--app-text-secondary)] md:inline-flex"
+        title="本系统为技术演示环境：所有数据均为虚构，仅用于功能演示，未从事任何商业经营活动"
+      >
+        <Info :size="13" class="shrink-0" />
+        仅演示，未从事商业活动
+      </span>
     </div>
 
     <div class="flex items-center gap-2">
