@@ -27,3 +27,4 @@ project-design/superpowers/
 .agents/skills/wechatpay-payment-integration/assets/
 # 同步脚本的本地状态（上次同步时间/etag），每台机器不同
 .agents/skills/wechatpay-payment-integration/scripts/.wechatpay-resource-sync-state.json
+douyin
