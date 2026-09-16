@@ -9,7 +9,7 @@
  * 4. 列表给出 `claimedCount`，让运营看得见停用的影响面。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 
@@ -128,9 +128,8 @@ describe('券模板维护（后台，本目标新增）', () => {
 
     // 用 service 发券（后台发券接口还没做，见待办）
     const coupons = ctx.app.get(
-      (
-        await import('../../src/modules/biz/membership/coupons/coupons.service.js')
-      ).CouponsService,
+      (await import('../../src/modules/biz/membership/coupons/coupons.service'))
+        .CouponsService,
     );
     const issued = await coupons.issue({
       customerId: customer.insertId,

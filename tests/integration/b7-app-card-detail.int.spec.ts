@@ -9,7 +9,7 @@
  *    （不是 403 —— 403 等于确认这个 id 存在）。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

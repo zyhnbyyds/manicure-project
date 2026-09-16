@@ -7,7 +7,7 @@
  * 复刻 main.ts 的写法，才算真的把它跑了一遍。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

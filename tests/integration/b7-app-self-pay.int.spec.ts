@@ -12,13 +12,13 @@
  * 4. **归属只认 token**：不是本人的预约一律 403。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { BizConfigService } from '../../src/modules/biz/common/biz-config.service.js';
+import { BizConfigService } from '../../src/modules/biz/common/biz-config.service';
 import {
   addLocalDays,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 let date: string;

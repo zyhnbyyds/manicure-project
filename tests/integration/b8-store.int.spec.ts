@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 
@@ -177,7 +177,7 @@ describe('小程序门店档案 GET /app/shop 以门店为准', () => {
     );
     ctx.app
       .get(
-        (await import('../../src/modules/biz/common/biz-config.service.js'))
+        (await import('../../src/modules/biz/common/biz-config.service'))
           .BizConfigService,
       )
       .invalidate();
@@ -200,7 +200,7 @@ describe('小程序门店档案 GET /app/shop 以门店为准', () => {
     await ctx.sql(`UPDATE sys_store SET deleted_at = NOW()`);
     ctx.app
       .get(
-        (await import('../../src/modules/biz/common/biz-config.service.js'))
+        (await import('../../src/modules/biz/common/biz-config.service'))
           .BizConfigService,
       )
       .invalidate();

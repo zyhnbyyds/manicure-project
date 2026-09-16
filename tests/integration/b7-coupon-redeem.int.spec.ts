@@ -10,9 +10,9 @@
  * `NestFastifyApplication`，`app.get(SomeService)` 拿到的就是运行时同一个单例。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { DatabaseService } from '../../src/database/database.service.js';
-import { CouponsService } from '../../src/modules/biz/membership/coupons/coupons.service.js';
-import { createTestContext, type TestContext } from './harness.js';
+import { DatabaseService } from '../../src/database/database.service';
+import { CouponsService } from '../../src/modules/biz/membership/coupons/coupons.service';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 let coupons: CouponsService;

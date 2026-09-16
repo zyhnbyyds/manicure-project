@@ -4,7 +4,7 @@ import {
   BIZ_CONFIG_DEFAULTS,
   BIZ_CONFIG_LABELS,
   BIZ_CONFIG_REMARKS,
-} from '../../modules/biz/common/biz-config.service.js';
+} from '../../modules/biz/common/biz-config.service';
 import {
   bizMemberLevels,
   bizRefundPolicies,

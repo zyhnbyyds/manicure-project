@@ -8,7 +8,7 @@
  * 4. **并发领同一张恰好成功一次**（服务端事务内锁模板行串行化）。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

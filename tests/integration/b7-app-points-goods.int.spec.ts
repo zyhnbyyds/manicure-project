@@ -9,7 +9,7 @@
  *    而不是「某字段存在」—— 后者挡不住以后有人顺手把整行 spread 出去。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

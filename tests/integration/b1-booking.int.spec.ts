@@ -11,8 +11,8 @@ import {
   shopDayRange,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 /** 用例使用的店内本地日（相对今天 +3 天，避开「现在几点」的影响） */
@@ -460,7 +460,7 @@ describe('B1 定时任务幂等（§11）', () => {
     );
 
     const { BookingOpsPort } =
-      await import('../../src/modules/biz/common/ports.js');
+      await import('../../src/modules/biz/common/ports');
     const ops = ctx.app.get(BookingOpsPort);
     const first = await ops.autoCompleteExpired();
     expect(first.completed).toBe(1);
@@ -487,7 +487,7 @@ describe('B1 定时任务幂等（§11）', () => {
       [created.body.id],
     );
     const { BookingOpsPort } =
-      await import('../../src/modules/biz/common/ports.js');
+      await import('../../src/modules/biz/common/ports');
     const ops = ctx.app.get(BookingOpsPort);
     expect((await ops.autoNoShowExpired()).noShow).toBe(1);
     expect((await ops.autoNoShowExpired()).noShow).toBe(0);

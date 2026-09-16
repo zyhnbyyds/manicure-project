@@ -3,8 +3,8 @@ import {
   addLocalDays,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 /** 排班冲突检查的「未来 30 天」，取一个稳定在窗口内的日期 */

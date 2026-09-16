@@ -11,7 +11,7 @@ import {
   bizStaffServiceItems,
   bizStaffs,
   bizStaffWeeklyShifts,
-} from '../schema/index.js';
+} from '../schema/index';
 
 /**
  * 美甲业务基础资料 seed（§5.3 / §15.2 / §15.4 / §15.3 / §18 / §20.3）

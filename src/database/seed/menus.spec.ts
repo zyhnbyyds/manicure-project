@@ -4,7 +4,7 @@ import {
   MENU_SEEDS,
   MONEY_PERMISSIONS,
   ROLE_SEEDS,
-} from './menus.js';
+} from './menus';
 
 /**
  * §15.9「角色建议」的授权口径回归。

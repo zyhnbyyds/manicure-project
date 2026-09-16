@@ -1,8 +1,8 @@
 import mysql from 'mysql2/promise';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { eq, isNull } from 'drizzle-orm';
-import { configs, sysStores } from '../schema/index.js';
-import { BIZ_CONFIG_DEFAULTS } from '../../modules/biz/common/biz-config.service.js';
+import { configs, sysStores } from '../schema/index';
+import { BIZ_CONFIG_DEFAULTS } from '../../modules/biz/common/biz-config.service';
 
 /**
  * 门店档案 seed（连锁直营 · 阶段 0）。

@@ -12,8 +12,8 @@ import {
   addLocalDays,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 /** 未配置凭据的 context（G2 专用，见文件末尾的 describe） */
@@ -149,7 +149,7 @@ beforeAll(async () => {
   date = addLocalDays(shopToday(), 3);
 
   const { WxMiniappProvider, HttpWxMiniappProvider } =
-    await import('../../src/modules/app/auth/wx-miniapp.provider.js');
+    await import('../../src/modules/app/auth/wx-miniapp.provider');
   // 只喂一个「凭据为空」的配置桩：真实现只用到 config.wxMiniapp，
   // 这样就能在不联网的前提下让整条链路（controller → service → provider）跑出 503。
   const emptyCredentialConfig = {

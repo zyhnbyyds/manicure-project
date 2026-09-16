@@ -2,7 +2,7 @@ import { and, asc, eq, gte, isNull, like, lt, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { NestFactory } from '@nestjs/core';
-import type { RequestActor } from '../../common/data-scope/data-scope.js';
+import type { RequestActor } from '../../common/data-scope/data-scope';
 import {
   formatShopDateTime,
   minutesToTime,
@@ -11,7 +11,7 @@ import {
   shopToday,
   shopWeekday,
   timeToMinutes,
-} from '../../modules/biz/common/shop-time.js';
+} from '../../modules/biz/common/shop-time';
 import {
   bizBookings,
   bizCustomers,
@@ -21,8 +21,8 @@ import {
   bizStaffWeeklyShifts,
   sysStores,
   users,
-} from '../schema/index.js';
-import { shopTimeZone } from './demo.js';
+} from '../schema/index';
+import { shopTimeZone } from './demo';
 
 /**
  * 演示用「当天预约」seed（**可选**，仅供开发与演示环境）。
@@ -206,8 +206,8 @@ export async function seedDemoBookings(pool?: mysql.Pool): Promise<void> {
 
     // ---- 起 Nest 上下文：建单 / 到店 / 完成 / 收款全部走业务服务 ----
     const [{ AppModule }, { BookingsService }] = await Promise.all([
-      import('../../app.module.js'),
-      import('../../modules/biz/booking/bookings.service.js'),
+      import('../../app.module'),
+      import('../../modules/biz/booking/bookings.service'),
     ]);
     const app = await NestFactory.createApplicationContext(AppModule, {
       // 启动期的 Nest 日志（RoutesResolver 那一屏）会把结果淹掉

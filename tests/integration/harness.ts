@@ -215,7 +215,7 @@ export async function createTestContext(
 
   const [{ Test }, { AppModule }, { FastifyAdapter }] = await Promise.all([
     import('@nestjs/testing'),
-    import('../../src/app.module.js'),
+    import('../../src/app.module'),
     import('@nestjs/platform-fastify'),
   ]);
 
@@ -232,9 +232,9 @@ export async function createTestContext(
     { rawBody: true },
   );
   const { AppConfigService } =
-    await import('../../src/config/app-config.service.js');
+    await import('../../src/config/app-config.service');
   const { GlobalExceptionFilter } =
-    await import('../../src/common/filters/global-exception.filter.js');
+    await import('../../src/common/filters/global-exception.filter');
   const { z } = await import('zod');
   const { zhCN } = await import('zod/v4/locales');
   // 与 src/main.ts 保持一致：中文校验提示 + 全局异常过滤器（否则错误响应体形状不同）
@@ -356,7 +356,7 @@ export async function createTestContext(
         [enabled ? 'true' : 'false', String(percent)],
       );
       const { BizConfigService } =
-        await import('../../src/modules/biz/common/biz-config.service.js');
+        await import('../../src/modules/biz/common/biz-config.service');
       app.get(BizConfigService).invalidate();
     },
   };

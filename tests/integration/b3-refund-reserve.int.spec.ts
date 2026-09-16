@@ -33,8 +33,8 @@ import {
   it,
   vi,
 } from 'vitest';
-import { WxpayNativeProvider } from '../../src/modules/biz/payment/channels/wxpay-native.provider.js';
-import { createTestContext, type TestContext } from './harness.js';
+import { WxpayNativeProvider } from '../../src/modules/biz/payment/channels/wxpay-native.provider';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

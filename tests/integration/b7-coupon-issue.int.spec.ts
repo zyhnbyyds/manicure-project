@@ -9,7 +9,7 @@
  * 3. **并发发券不重号**：单号是「主键回填」，并发下必须各自唯一。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

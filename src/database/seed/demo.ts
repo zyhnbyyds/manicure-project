@@ -1,10 +1,10 @@
 import { asc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
-import { buildDocNo } from '../../modules/biz/common/doc-no.js';
-import { DEFAULT_SHOP_TIMEZONE } from '../../modules/biz/common/shop-time.js';
-import { bizCustomers, bizMemberLevels, configs } from '../schema/index.js';
-import { seedDemoBookings } from './demo-bookings.js';
+import { buildDocNo } from '../../modules/biz/common/doc-no';
+import { DEFAULT_SHOP_TIMEZONE } from '../../modules/biz/common/shop-time';
+import { bizCustomers, bizMemberLevels, configs } from '../schema/index';
+import { seedDemoBookings } from './demo-bookings';
 
 /**
  * 演示用顾客 / 会员档案 seed（**可选**，仅供开发与演示环境）

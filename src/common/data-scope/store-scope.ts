@@ -8,7 +8,7 @@ import {
   sysUserStores,
   type relations,
 } from '../../database/schema/index';
-import type { RequestActor } from './data-scope.js';
+import type { RequestActor } from './data-scope';
 
 type Schema = typeof relations;
 /** 只要求「能 select」的最小能力，好让 service 既传 `db` 也传 `tx` */

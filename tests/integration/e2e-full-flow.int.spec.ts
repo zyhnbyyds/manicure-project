@@ -19,13 +19,13 @@
  * 每一步都断言**能手工复核的数字**（金额、流水、次数、报表口径），而不是只断言 200。
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { hashPassword } from '../../src/common/password/password.service.js';
+import { hashPassword } from '../../src/common/password/password.service';
 import {
   addLocalDays,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 /** 预约落在「今天 +3 天」，避开「现在几点」对可约时段的影响 */
@@ -92,7 +92,7 @@ beforeAll(async () => {
      ON DUPLICATE KEY UPDATE value = '0'`,
   );
   const { BizConfigService } =
-    await import('../../src/modules/biz/common/biz-config.service.js');
+    await import('../../src/modules/biz/common/biz-config.service');
   ctx.app.get(BizConfigService).invalidate();
 }, 180_000);
 

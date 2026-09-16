@@ -64,7 +64,7 @@ manicure-project/
 ::: warning app.config 与 tsconfig 的两个坑
 
 - `tsconfig.json` 的 `exclude` 里有 `src/modules/generated`，`tsconfig.build.json` 同样排除 —— 代码生成器的产物**不参与类型检查与构建**；
-- `tsconfig.json` 有 `"ignoreDeprecations": "6.0"` 与 `paths: { "@/*": ["./src/*"] }`；后端源码实际用的是相对路径 + `.js` 后缀（ESM + Bundler 解析），`@/` 别名基本没人用。
+- `tsconfig.json` 有 `"ignoreDeprecations": "6.0"` 与 `paths: { "@/*": ["./src/*"] }`；后端源码实际用的是**相对路径 + 不带扩展名**（`moduleResolution: Bundler`，源码与产物都由 bun 执行），`@/` 别名基本没人用。
   :::
 
 ## `src/modules/` 模块职责

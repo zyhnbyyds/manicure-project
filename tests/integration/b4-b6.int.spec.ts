@@ -8,8 +8,8 @@ import {
   shopLocalToUtc,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 let date: string;
@@ -431,7 +431,7 @@ describe('B5 评价 / 周期预约 / 美甲师项目 / 通知', () => {
     expect(Number(created.body.generated)).toBe(4);
 
     const { RecurrencePort } =
-      await import('../../src/modules/biz/common/ports.js');
+      await import('../../src/modules/biz/common/ports');
     const recurrences = ctx.app.get(RecurrencePort);
     const rerun = await recurrences.generate(created.body.id);
     expect(rerun.generated).toBe(0);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BIZ_CONFIG_DEFAULTS } from '../../modules/biz/common/biz-config.service.js';
-import { CUSTOMER_SEEDS } from './demo.js';
+import { BIZ_CONFIG_DEFAULTS } from '../../modules/biz/common/biz-config.service';
+import { CUSTOMER_SEEDS } from './demo';
 import {
   CARD_TYPE_SEEDS,
   COMMISSION_RULE_SEEDS,
@@ -11,7 +11,7 @@ import {
   STAFF_SEEDS,
   STAFF_SKILL_SEEDS,
   WEEKLY_SHIFT_SEEDS,
-} from './nail.js';
+} from './nail';
 
 /**
  * seed 数据的**不变量**测试。

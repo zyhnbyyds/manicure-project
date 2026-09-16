@@ -7,7 +7,7 @@
  *   「有地址但没有默认」是下游没人能处理的状态（下单时选谁？）。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

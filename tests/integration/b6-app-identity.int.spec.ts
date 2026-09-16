@@ -9,8 +9,8 @@ import {
   addLocalDays,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { createTestContext, itemsOf, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { createTestContext, itemsOf, type TestContext } from './harness';
 
 let ctx: TestContext;
 /** 建单用的店内本地日（今天 +3 天，避开「现在几点」的影响） */

@@ -13,7 +13,7 @@
  * `issue()` 会在下一轮「下单核销 / 发券入口」一起补测。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 

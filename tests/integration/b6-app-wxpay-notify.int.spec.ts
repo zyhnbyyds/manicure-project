@@ -16,8 +16,8 @@
  *   V3 不看 body，回 200 等于「受理成功，别再发了」，会把可自愈的验签失败变成丢单。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContext, type TestContext } from './harness.js';
-import { buildWxpayNotify, tamperSignature } from './wxpay-notify.helper.js';
+import { createTestContext, type TestContext } from './harness';
+import { buildWxpayNotify, tamperSignature } from './wxpay-notify.helper';
 
 let ctx: TestContext;
 

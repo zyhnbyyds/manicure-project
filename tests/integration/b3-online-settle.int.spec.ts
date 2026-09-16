@@ -25,9 +25,9 @@ import {
   addLocalDays,
   shopToday,
   shopWeekday,
-} from '../../src/modules/biz/common/shop-time.js';
-import { WxpayNativeProvider } from '../../src/modules/biz/payment/channels/wxpay-native.provider.js';
-import { createTestContext, type TestContext } from './harness.js';
+} from '../../src/modules/biz/common/shop-time';
+import { WxpayNativeProvider } from '../../src/modules/biz/payment/channels/wxpay-native.provider';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 let date: string;

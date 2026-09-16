@@ -11,8 +11,9 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import multipart from '@fastify/multipart';
-import { BizConfigService } from '../../src/modules/biz/common/biz-config.service.js';
-import { createTestContext, type TestContext } from './harness.js';
+import sharp from 'sharp';
+import { BizConfigService } from '../../src/modules/biz/common/biz-config.service';
+import { createTestContext, type TestContext } from './harness';
 
 let ctx: TestContext;
 
@@ -25,7 +26,7 @@ beforeAll(async () => {
   ctx = await createTestContext({
     configure: async (app) => {
       await app.register(multipart, {
-        limits: { files: 1, fileSize: 10 * 1024 * 1024 },
+        limits: { files: 1, fileSize: 5 * 1024 * 1024 },
       });
     },
   });
@@ -644,7 +645,105 @@ describe('B6 C 端图片上传 /app/upload', () => {
     });
     expect(noToken.statusCode).toBe(401);
   });
+
+  it('超过 1MB 的图片被压到 1MB 以下，落盘的就是压过的那份', async () => {
+    const customerId = await seedCustomer('李女士', '13800009032');
+    const { token } = await seedBoundAppUser('openid-upload-3', customerId);
+    const big = await makeBigJpeg();
+    expect(big.length).toBeGreaterThan(1024 * 1024);
+    const { boundary, payload } = multipart('photo.jpg', 'image/jpeg', big);
+
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/app/upload',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      payload,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      id: number;
+      url: string;
+      mime: string;
+      size: number;
+      compressed: boolean;
+      originalSize: number;
+    };
+    expect(body.compressed).toBe(true);
+    expect(body.originalSize).toBe(big.length);
+    expect(body.size).toBeLessThanOrEqual(1024 * 1024);
+    expect(body.mime).toBe('image/jpeg');
+
+    // 下载回来必须就是压缩后的那份 —— 「只改返回值、磁盘照写原图」在这里就会露馅
+    const download = await ctx.app.inject({ method: 'GET', url: body.url });
+    expect(download.statusCode).toBe(200);
+    expect(Buffer.from(download.rawPayload).length).toBe(body.size);
+  }, 60_000);
+
+  it('compress=0 时原样保存（原始素材不走压缩）', async () => {
+    const customerId = await seedCustomer('李女士', '13800009033');
+    const { token } = await seedBoundAppUser('openid-upload-4', customerId);
+    const big = await makeBigJpeg();
+    const { boundary, payload } = multipart('raw.jpg', 'image/jpeg', big);
+
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/app/upload?compress=0',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      payload,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      size: number;
+      compressed: boolean;
+      originalSize: number;
+    };
+    expect(body.compressed).toBe(false);
+    expect(body.size).toBe(big.length);
+    expect(body.originalSize).toBe(big.length);
+  }, 60_000);
 });
+
+/**
+ * 造一张 >1MB 的真实 JPEG（与 `image-compress.spec.ts` 同款：渐变 + 每 4×4 块扰动）。
+ *
+ * **不能用假字节**：压缩只在 >1MB 时触发，`Buffer.from('fake')` 那种根本进不了那条分支。
+ */
+async function makeBigJpeg(): Promise<Buffer> {
+  const width = 3200;
+  const height = 2400;
+  const raw = Buffer.allocUnsafe(width * height * 3);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 3;
+      raw[i] = Math.floor((x * 255) / width);
+      raw[i + 1] = Math.floor((y * 255) / height);
+      raw[i + 2] = Math.floor(((x + y) * 255) / (width + height));
+    }
+  }
+  let seed = 7 >>> 0;
+  for (let y = 0; y < height; y += 4) {
+    for (let x = 0; x < width; x += 4) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const delta = ((seed >>> 28) & 0x0f) - 8;
+      for (let dy = 0; dy < 4 && y + dy < height; dy++) {
+        for (let dx = 0; dx < 4 && x + dx < width; dx++) {
+          const i = ((y + dy) * width + x + dx) * 3;
+          for (let c = 0; c < 3; c++)
+            raw[i + c] = Math.min(255, Math.max(0, raw[i + c]! + delta));
+        }
+      }
+    }
+  }
+  return sharp(raw, { raw: { width, height, channels: 3 } })
+    .jpeg({ quality: 98, mozjpeg: true })
+    .toBuffer();
+}
 
 describe('B6 门店档案 /app/shop', () => {
   it('未配置时回落内置默认值（不是空字符串），且不要求绑定手机号', async () => {

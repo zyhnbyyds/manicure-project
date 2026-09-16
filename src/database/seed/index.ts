@@ -3,10 +3,10 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { hashPassword } from '../../common/password/password.service';
 import { roles, userRoles, users } from '../schema/index';
-import { seedBiz } from './biz.js';
-import { seedMenus } from './menus.js';
-import { seedNail } from './nail.js';
-import { seedStores } from './stores.js';
+import { seedBiz } from './biz';
+import { seedMenus } from './menus';
+import { seedNail } from './nail';
+import { seedStores } from './stores';
 
 async function seed(): Promise<void> {
   const url = Bun.env.DATABASE_URL;

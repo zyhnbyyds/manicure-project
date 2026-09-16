@@ -15,7 +15,7 @@ import {
   randomBytes,
   randomUUID,
 } from 'node:crypto';
-import { wxpayTestCredential } from './harness.js';
+import { wxpayTestCredential } from './harness';
 
 export type NotifyInput = {
   outTradeNo: string;
