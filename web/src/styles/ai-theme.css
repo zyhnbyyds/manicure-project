@@ -14,8 +14,15 @@
   --ai-accent: #4f6ef7;
   --ai-accent-2: #8b5cf6;
   --ai-gradient: linear-gradient(135deg, #4f6ef7 0%, #7c5cf8 55%, #8b5cf6 100%);
-  /* 图标渐变略亮一档，跟按钮同框时不会糊成一团 */
-  --ai-gradient-soft: linear-gradient(135deg, #6d8bff 0%, #9b7bff 100%);
+  /* 图标渐变略亮一档，跟按钮同框时不会糊成一团。
+     单拆两个色标给 SVG 用（`stop-color` 只能取单色，吃不下上面的 gradient）。 */
+  --ai-accent-soft-1: #6d8bff;
+  --ai-accent-soft-2: #9b7bff;
+  --ai-gradient-soft: linear-gradient(
+    135deg,
+    var(--ai-accent-soft-1) 0%,
+    var(--ai-accent-soft-2) 100%
+  );
   /* 卡片/气泡的浅色描边与投影（浅色模式） */
   --ai-chip-border: rgb(79 110 247 / 18%);
   --ai-shadow-soft: 0 12px 32px rgb(79 110 247 / 12%);

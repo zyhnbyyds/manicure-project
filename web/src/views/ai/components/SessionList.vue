@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import {
-  Bot,
   ChevronsLeft,
   ChevronsRight,
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
 } from 'lucide-vue-next';
 import { LewInput, LewTextTrim } from 'lew-ui';
@@ -110,7 +110,7 @@ function displayTitle(session: AiSession): string {
       >
         <template v-if="!collapsed">
           <div class="flex items-center gap-1.5">
-            <Bot :size="16" class="text-[var(--ai-accent)]" />
+            <Sparkles :size="16" class="text-[var(--ai-accent)]" />
             <span class="text-13px font-700">AI 操作助手</span>
           </div>
           <button
@@ -150,7 +150,7 @@ function displayTitle(session: AiSession): string {
       <!-- 搜索会话 -->
       <div class="shrink-0 px-3 pb-2">
         <div
-          class="flex items-center gap-2 h-8 px-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-bg-hover)]"
+          class="ai-session-search flex items-center gap-2 h-8 px-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-bg-hover)]"
         >
           <Search :size="13" class="shrink-0 text-[var(--app-text-muted)]" />
           <LewInput
@@ -158,7 +158,7 @@ function displayTitle(session: AiSession): string {
             size="small"
             placeholder="搜索会话"
             :max-length="50"
-            class="flex-1 min-w-0 ai-session-search"
+            class="flex-1 min-w-0"
           />
         </div>
       </div>
@@ -183,24 +183,10 @@ function displayTitle(session: AiSession): string {
             "
             @click="emit('select', session.id)"
           >
-            <span
-              class="flex items-center justify-center w-6 h-6 shrink-0 rounded-lg"
-              :class="
-                currentSession?.id === session.id
-                  ? 'ai-gradient'
-                  : 'bg-[var(--app-bg-hover)]'
-              "
-            >
-              <Bot
-                :size="13"
-                :color="
-                  currentSession?.id === session.id
-                    ? '#fff'
-                    : 'var(--app-text-muted)'
-                "
-              />
-            </span>
-
+            <!--
+              会话行**不带头像**：一列全是同一个机器人图标，没有区分度、
+              白占 24px 宽度，选中态靠整行底色区分就够了。
+            -->
             <div class="flex-1 min-w-0">
               <!-- 编辑态：输入框 -->
               <LewInput
@@ -282,14 +268,20 @@ function displayTitle(session: AiSession): string {
         :title="displayTitle(session)"
         @click="emit('select', session.id)"
       >
-        <Bot :size="15" />
+        <Sparkles :size="15" />
       </button>
     </div>
   </aside>
 </template>
 
 <style scoped>
-/* 搜索框里的 LewInput 去掉自身边框/底色，融入外层胶囊（lew-ui 的根节点是 .lew-input-view） */
+/*
+ * 搜索框里的 LewInput 去掉自身边框 / 底色 / 阴影，融入外层胶囊（lew-ui 的根节点是 .lew-input-view）。
+ *
+ * `.ai-session-search` 必须挂在外层胶囊 div（祖先）上：`:deep(x)` 编译成
+ * `.祖先[data-v-xxx] x`，若把类名加在 LewInput 上（= 根节点本身），
+ * 选择器要求它“是自己的后代”，永远匹配不到，覆盖就会静默失效。
+ */
 .ai-session-search :deep(.lew-input-view),
 .ai-session-search :deep(.lew-input-view:hover),
 .ai-session-search :deep(.lew-input-view:focus-within) {
@@ -298,8 +290,14 @@ function displayTitle(session: AiSession): string {
   box-shadow: none;
 }
 
+/*
+ * 外层胶囊已经给了左右内边距 / 图标间距，内层不再补。
+ * 原写法 `padding: 0 var(--lew-form-input-padding-small)` 是错的：
+ * 该变量本身是「2px 10px」这样的简写，混进 `padding` 后展开成 `0 2px 10px`，
+ * 变成「上 0 / 左右 2px / 下 10px」—— 文字既贴左右、又整体偏上。
+ */
 .ai-session-search :deep(.lew-input-box) {
-  padding: 0 var(--lew-form-input-padding-small);
+  padding: 0;
 }
 
 .ai-session-search :deep(input) {

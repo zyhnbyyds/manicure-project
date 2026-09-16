@@ -2,27 +2,24 @@
 import { useId } from 'vue';
 
 /**
- * AI 星标：欢迎页的主视觉（渐变底 + 圆角星形 + 内高光）。
+ * AI 星芒：AI 模块的统一标识（欢迎页主视觉 / 面板与标题栏的小图标）。
  *
- * 为什么自绘 SVG 而不是 lucide 的 `Sparkles` / `Star`：
- * 设计稿要的是「胖圆角五角星 + 蓝紫渐变 + 内部高光」，lucide 只给单色描边路径，
- * 圆角与渐变都表达不出来。
+ * 为什么是「四角星芒」而不是五角星、也不是机器人头：
+ * 五角星在 UI 语汇里是「收藏 / 评分」，机器人头在 14~16px 下细节全糊成一团；
+ * 四角星芒是 AI 类产品的通用符号，一份路径从 14px 到 80px 都干净。
+ * （小尺寸场景直接用 lucide 的 `Sparkles`，描边风格能跟项目其余图标统一。）
  *
- * 圆角实现：`stroke-width` 足够粗 + `stroke-linejoin="round"`，
- * 描边把尖角包圆、且与填充同色 —— 比手写 rounded-star 路径好维护。
- *
- * 渐变 id 用 `useId()` 生成：同一文档里重复 id 只会命中第一个定义，
- * 多实例（欢迎页 + 未来别处复用）会串色。
+ * 渐变 id 用 `useId()` 生成：同一文档里重复 id 只会命中第一个定义，多实例会串色。
+ * 颜色走 `--ai-accent-soft-*`（图标专用的亮一档色标），`stop-color` 作为 CSS 属性
+ * 支持 `var()`，暗色模式自动跟随。
  */
 withDefaults(defineProps<{ size?: number }>(), { size: 72 });
 
 const uid = useId();
 const fillId = `ai-star-fill-${uid}`;
-const glossId = `ai-star-gloss-${uid}`;
 
-/** 同一份路径画三遍：填充 + 同色粗描边（圆角）+ 内高光 */
-const STAR_PATH =
-  'M12 2.6l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.62l-5.88 3.09 1.12-6.55-4.76-4.64 6.58-.96z';
+/** 四角星芒：四段二次贝塞尔，控制点朝对角内收 → 弧线内凹的四角星 */
+const STAR_PATH = 'M12 2Q15 9 22 12Q15 15 12 22Q9 15 2 12Q9 9 12 2Z';
 </script>
 
 <template>
@@ -35,29 +32,10 @@ const STAR_PATH =
   >
     <defs>
       <linearGradient :id="fillId" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#6d8bff" />
-        <stop offset="55%" stop-color="#7c5cf8" />
-        <stop offset="100%" stop-color="#a78bfa" />
+        <stop offset="0%" style="stop-color: var(--ai-accent-soft-1)" />
+        <stop offset="100%" style="stop-color: var(--ai-accent-soft-2)" />
       </linearGradient>
-      <radialGradient :id="glossId" cx="0.3" cy="0.22" r="0.6">
-        <stop offset="0%" stop-color="#fff" stop-opacity="0.45" />
-        <stop offset="60%" stop-color="#fff" stop-opacity="0.08" />
-        <stop offset="100%" stop-color="#fff" stop-opacity="0" />
-      </radialGradient>
     </defs>
-    <!--
-      画两层、**顺序不能反**：
-      1. 先画「内高光 + 同色粗描边」——描边负责把尖角包圆；
-      2. 再把主渐变填上去盖住描边的内半边，只留下圆角轮廓。
-      反过来（先填充再叠高光）高光会把星形描一圈白边，看着像空心星星。
-    -->
-    <path
-      :d="STAR_PATH"
-      :fill="`url(#${glossId})`"
-      :stroke="`url(#${fillId})`"
-      stroke-width="3.4"
-      stroke-linejoin="round"
-    />
     <path :d="STAR_PATH" :fill="`url(#${fillId})`" />
   </svg>
 </template>

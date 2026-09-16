@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Bot } from 'lucide-vue-next';
+import { Sparkles } from 'lucide-vue-next';
 import { useAiChat } from './composables/useAiChat';
 import ChatInput from './components/ChatInput.vue';
 import DetailPanel from './components/DetailPanel.vue';
@@ -91,7 +91,7 @@ function onDeleteSession(id: number) {
           class="flex items-center justify-center w-6 h-6 shrink-0 rounded-lg"
           :class="headerDim ? 'bg-[var(--app-bg-hover)]' : 'ai-gradient'"
         >
-          <Bot
+          <Sparkles
             :size="14"
             :color="headerDim ? 'var(--app-text-muted)' : '#fff'"
           />

@@ -89,13 +89,17 @@ async function onFileChange(event: Event) {
           套一层之后 100% 只相对这层算，`flex-1 min-w-0` 保证能收缩。
         -->
         <div class="flex-1 min-w-0">
+          <!--
+            高度由 lew-ui 的 `height`（默认 80px，约两行）决定。
+            这里**不能**用 `:rows="2"` —— LewTextarea 没有 `rows` prop，
+            它会作为原生属性透传到根 div 上（对 div 无效），高度纹丝不动。
+          -->
           <LewTextarea
             ref="textareaRef"
             :model-value="modelValue"
-            :rows="2"
             :max-length="2000"
             placeholder="输入你的指令，例如：查询本周未收款的订单"
-            class="w-full ai-composer-input"
+            class="w-full"
             @update:model-value="emit('update:modelValue', $event)"
             @keydown="onKeydown"
           />
@@ -152,22 +156,33 @@ async function onFileChange(event: Event) {
 </template>
 
 <style scoped>
-/* 输入区去掉 lew-ui 自带边框/底色，交给外层 composer 表达聚焦态 */
-.ai-composer-input :deep(.lew-textarea-view),
-.ai-composer-input :deep(.lew-textarea-view:hover),
-.ai-composer-input :deep(.lew-textarea-view:focus-within) {
+/*
+ * 输入区去掉 lew-ui 自带的边框 / 底色 / 圆角 / 阴影，融入外层 composer，
+ * 聚焦态统一由 `.ai-composer:focus-within` 的主题色光圈表达（见 styles/ai-theme.css）。
+ *
+ * 选择器必须挂在 `.ai-composer`（真正的**祖先**）上：scoped 的 `:deep(x)` 编译成
+ * `.祖先[data-v-xxx] x`，而 `.lew-textarea-view` 就是 LewTextarea 的根节点**本身**。
+ * 曾经把类名加在 LewTextarea 上再写 `:deep(.lew-textarea-view)` —— 那要求该元素
+ * 是它自己的后代，永远匹配不到，于是这段覆盖一直没生效：
+ * 输入框仍是 `--lew-form-bgcolor`（#ebebef）的灰块 + 8px 圆角，
+ * 聚焦时还会再叠一层白底和蓝色描边。
+ */
+.ai-composer :deep(.lew-textarea-view),
+.ai-composer :deep(.lew-textarea-view:hover),
+.ai-composer :deep(.lew-textarea-view:focus-within) {
   border: none;
   background: transparent;
   box-shadow: none;
+  border-radius: 0;
 }
 
-.ai-composer-input :deep(.lew-textarea) {
+.ai-composer :deep(.lew-textarea) {
   padding: 0;
   font-size: 13.5px;
 }
 
-/* 拖拽改变尺寸的小三角与外层圆角冲突，隐藏掉（composer 高度由 rows 决定） */
-.ai-composer-input :deep(.lew-textarea-resize-handle) {
+/* 拖拽改变尺寸的小三角与外层圆角冲突，隐藏掉（高度由 lew-ui 的 height 决定） */
+.ai-composer :deep(.lew-textarea-resize-handle) {
   display: none;
 }
 </style>

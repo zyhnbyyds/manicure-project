@@ -8,7 +8,13 @@ import {
   watch,
 } from 'vue';
 import { useRoute } from 'vue-router';
-import { Bot, GripHorizontal, Maximize, Minimize, X } from 'lucide-vue-next';
+import {
+  GripHorizontal,
+  Maximize,
+  Minimize,
+  Sparkles,
+  X,
+} from 'lucide-vue-next';
 import AiChatPage from '~/views/ai/index.vue';
 
 /**
@@ -195,17 +201,6 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <!-- 背板：蓝紫渐变 + 微妙网格，本身就是「AI 产品」的科技感来源 -->
-    <Transition name="fade">
-      <div
-        v-if="props.visible"
-        class="ai-backdrop fixed inset-0 z-1200"
-        @click="close"
-      >
-        <div class="ai-grid absolute inset-0" />
-      </div>
-    </Transition>
-
     <Transition name="rise">
       <section
         v-if="props.visible"
@@ -221,7 +216,7 @@ onBeforeUnmount(() => {
           <span
             class="flex items-center justify-center w-6 h-6 rounded-lg ai-gradient"
           >
-            <Bot :size="14" color="#fff" />
+            <Sparkles :size="14" color="#fff" />
           </span>
           <span class="text-14px font-700">AI 操作助手</span>
           <button
