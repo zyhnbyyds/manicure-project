@@ -38,13 +38,34 @@ export class FilesController {
   constructor(private readonly files: FilesService) {}
   // 上传仅需登录（用户自定义头像需要普通用户也能上传，不限定 system:file:upload）
   @Post('upload')
-  @ApiOperation({ summary: '上传文件' })
+  @ApiOperation({
+    summary: '上传文件',
+    description:
+      '图片（jpg/jpeg/png/webp）默认压缩到 1MB 以下；单文件上限 5MB。' +
+      '传 `compress=0` 可关闭压缩（原始设计稿 / 扫描件）。',
+  })
+  @ApiQuery({
+    name: 'compress',
+    required: false,
+    description: '传 0 关闭图片压缩，原样保存（默认压缩）',
+  })
   @ApiResponse({ status: 201, description: '成功' })
+  @ApiResponse({
+    status: 400,
+    description: '未选择文件 / 不允许的文件类型 / 内容为空',
+  })
+  @ApiResponse({ status: 413, description: '文件超过 5MB' })
   @ApiBearerAuth('access-token')
-  async upload(@Req() request: UploadRequest) {
+  async upload(
+    @Req() request: UploadRequest,
+    @Query('compress') compress?: string,
+  ) {
     const file = await request.file();
     if (!file) throw new BadRequestException('未选择文件');
-    return this.files.save(file, request.user?.id);
+    return this.files.save(file, request.user?.id, {
+      // 只有**显式**传 0 才不压：默认真压缩，别让漏传参数意外关掉它
+      compress: compress !== '0',
+    });
   }
   @Get()
   @RequirePermissions('system:file:list')

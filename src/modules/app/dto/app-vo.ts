@@ -10,7 +10,7 @@
  * 命名约定：`appXxxSchema` + `AppXxxVo`（响应）/ `AppXxxRequest`（请求）。
  */
 import { z } from 'zod';
-import { registerComponent } from '../../../common/swagger/zod-schema.helper.js';
+import { registerComponent } from '../../../common/swagger/zod-schema.helper';
 
 /* ------------------------------------------------------------------ *
  * 通用
@@ -757,12 +757,22 @@ export type AppCreateFeedbackVo = z.infer<typeof appCreateFeedbackVo>;
  *
  * `url` 是可以直接塞进小程序 `<image src>` 的路径（相对路径，
  * 由小程序的 `absoluteAssetUrl` 拼上接口域名）。
+ *
+ * `size` 是**压缩后**的实际字节数（落盘的那份），`originalSize` 是上传时的原图大小；
+ * `compressed` 为 `true` 时说明服务端压过（`compress=0`、非位图或本来就 ≤1MB 时为 `false`）。
  */
 export const appUploadVo = z.object({
   id: z.number().int(),
   url: z.string().openapi({ example: '/api/v1/files/12/download' }),
   mime: z.string().openapi({ example: 'image/jpeg' }),
-  size: z.number().int().openapi({ description: '字节数' }),
+  size: z
+    .number()
+    .int()
+    .openapi({ description: '压缩后的字节数（= 落盘大小）' }),
+  compressed: z
+    .boolean()
+    .openapi({ description: '服务端是否做过压缩（false = 原样保存）' }),
+  originalSize: z.number().int().openapi({ description: '上传时的原始字节数' }),
 });
 registerComponent('AppUploadVo', appUploadVo);
 export type AppUploadVo = z.infer<typeof appUploadVo>;

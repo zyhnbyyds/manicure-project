@@ -71,6 +71,24 @@ describe('GlobalExceptionFilter', () => {
     expect(body.message).toBe('请求过于频繁，请稍后再试');
   });
 
+  it('上传超限（multipart 抛的英文 413）转成中文提示', () => {
+    const filter = new GlobalExceptionFilter();
+    const { host, status, send } = buildHost();
+    // @fastify/multipart 超过 fileSize 就是这么抛的：普通 Error + statusCode = 413
+    const tooLarge: Error & { statusCode?: number } = new Error(
+      'request file too large',
+    );
+    tooLarge.statusCode = 413;
+
+    filter.catch(tooLarge, host);
+
+    expect(status).toHaveBeenCalledWith(413);
+    const body = send.mock.calls[0]![0];
+    expect(body.statusCode).toBe(413);
+    expect(body.message).toBe('上传的文件超过大小上限');
+    expect(body.error).toBe('Payload Too Large');
+  });
+
   it('插件给的 statusCode 是 5xx 时仍按未知异常兜底 500（不让它决定失败语义）', () => {
     const filter = new GlobalExceptionFilter();
     const { host, status, send } = buildHost();

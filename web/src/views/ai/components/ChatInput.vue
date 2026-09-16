@@ -3,7 +3,10 @@ import { nextTick, ref } from 'vue';
 import { Loader2, Paperclip, Send } from 'lucide-vue-next';
 import { LewMessage, LewTextarea } from 'lew-ui';
 import { uploadFile } from '~/api/files';
-import { MAX_UPLOAD_FILE_SIZE } from '~/utils/upload-limits';
+import {
+  MAX_UPLOAD_FILE_SIZE,
+  MAX_UPLOAD_FILE_SIZE_LABEL,
+} from '~/utils/upload-limits';
 
 /**
  * 底部输入区（composer）。
@@ -53,7 +56,7 @@ async function onFileChange(event: Event) {
   if (!file) return;
 
   if (file.size > MAX_UPLOAD_FILE_SIZE) {
-    LewMessage.warning('附件不能超过 10MB');
+    LewMessage.warning(`附件不能超过 ${MAX_UPLOAD_FILE_SIZE_LABEL}`);
     return;
   }
   uploading.value = true;

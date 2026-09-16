@@ -59,6 +59,24 @@ describe('FilesController', () => {
     });
     await c.upload(req as any);
     expect(s.save).toHaveBeenCalled();
+    // 默认压缩：漏传 query 时 `compress !== '0'` 为 true
+    expect(s.save).toHaveBeenCalledWith(expect.anything(), 1, {
+      compress: true,
+    });
+  });
+
+  it('upload keeps original bytes when compress=0', async () => {
+    const s = mockService();
+    const c = new FilesController(s as FilesService);
+    const req = mockRequest({
+      filename: 'poster.jpg',
+      mimetype: 'image/jpeg',
+      toBuffer: vi.fn(),
+    });
+    await c.upload(req as any, '0');
+    expect(s.save).toHaveBeenCalledWith(expect.anything(), 1, {
+      compress: false,
+    });
   });
 
   it('upload throws when no file', async () => {

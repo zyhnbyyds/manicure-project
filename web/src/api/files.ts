@@ -1,14 +1,22 @@
-import type { FileItem, PageResult } from '~/types/api';
+import type { FileItem, PageResult, UploadedFileItem } from '~/types/api';
 import { del, get, upload } from '~/request';
+import { compressImageFile } from '~/utils/image-compress';
 
 /** 文件列表（分页） */
 export function listFiles(page = 1, pageSize = 20) {
   return get<PageResult<FileItem>>('/files', { page, pageSize });
 }
 
-/** 上传文件 */
+/**
+ * 上传文件。
+ *
+ * 图片会先在本端压一遍（`~/utils/image-compress`，弱网下省流量），
+ * 后端仍会再兜一层；两边都不改文件名与格式，调用方无需关心。
+ */
 export function uploadFile(file: File) {
-  return upload<FileItem>('/files/upload', file);
+  return compressImageFile(file).then((compressed) =>
+    upload<UploadedFileItem>('/files/upload', compressed),
+  );
 }
 
 /** 删除文件 */

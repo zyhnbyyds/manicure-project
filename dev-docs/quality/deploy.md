@@ -165,7 +165,7 @@ pm2 restart manicure-server && pm2 save
 | 监听 `0.0.0.0:1011`                                             | `src/main.ts` 的 `app.listen({ host: '0.0.0.0' })`                  | 防火墙 / 安全组要放行 TCP 1011（或只放 nginx 内网访问）                                       |
 | `trustProxy: true`                                              | `FastifyAdapter({ logger: true, trustProxy: true })`                | 走 nginx 时必须带 `X-Forwarded-For`，否则登录日志/限流拿到的是代理 IP                         |
 | 全局限流 `max: 100 / 1 minute`；登录接口按路由收紧到 10 次/分钟 | `app.register(rateLimit, ...)`                                      | 高并发压测会被 429；第 11 次登录返回 429 + `retry-after`                                      |
-| multipart `files: 1` / `fileSize: 10MB`                         | `app.register(multipart, ...)`                                      | 单次只收 1 个文件；与 `MAX_FILE_SIZE` 一致                                                    |
+| multipart `files: 1` / `fileSize: 5MB`                          | `app.register(multipart, ...)`                                      | 单次只收 1 个文件；与 `MAX_FILE_SIZE` 一致                                                    |
 | helmet 默认值                                                   | `app.register(helmet)`                                              | 全局 `Cross-Origin-Resource-Policy: same-origin`，**只有文件下载那一条**覆盖为 `cross-origin` |
 | CORS                                                            | `app.enableCors({ origin: config.corsOrigins, credentials: true })` | `CORS_ORIGINS` 逗号分隔，逐项 `trim()`                                                        |
 | 接口前缀                                                        | `app.setGlobalPrefix(config.apiPrefix)`                             | 默认 `api/v1`；健康检查因此是 `/api/v1/health`                                                |
@@ -219,7 +219,7 @@ server {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;   # 配合 trustProxy
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 12m;                  # 略大于 10MB 上传上限
+        client_max_body_size 6m;                   # 略大于 5MB 上传上限
     }
 }
 
@@ -257,14 +257,15 @@ nginx -t && systemctl reload nginx
 
 ### 3.3 `uploads/` 的持久化与备份
 
-| 事实                                                               | 出处 / 说明                                                               |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| 文件按 `randomUUID() + 扩展名` 落盘到 `path.resolve(UPLOAD_DIR)`   | `src/modules/files/files.service.ts`                                      |
-| 扩展名白名单（图片只有 jpg/jpeg/png/gif/webp/svg + 文档/压缩包等） | `ALLOWED_EXTENSIONS`                                                      |
-| 单文件上限 **10MB**，空文件被拒                                    | `MAX_FILE_SIZE` / multipart 限制                                          |
-| DB 里的 `url` 是 `/{apiPrefix}/files/{id}/download`（相对路径）    | 小程序端必须再拼绝对地址，否则图片空白（见[踩坑记录](/quality/pitfalls)） |
-| **删除文件会同时删 DB 行和磁盘文件**                               | `FilesService.remove()` 里 `unlink()`                                     |
-| `uploads/` 被 `.gitignore` 忽略                                    | 属于运行时状态，**必须**单独备份                                          |
+| 事实                                                                   | 出处 / 说明                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 文件按 `randomUUID() + 扩展名` 落盘到 `path.resolve(UPLOAD_DIR)`       | `src/modules/files/files.service.ts`                                      |
+| 扩展名白名单（图片只有 jpg/jpeg/png/gif/webp/svg + 文档/压缩包等）     | `ALLOWED_EXTENSIONS`                                                      |
+| 单文件上限 **5MB**，空文件被拒                                         | `MAX_FILE_SIZE` / multipart 限制                                          |
+| 图片落盘前**压到 1MB 以下**（jpg/jpeg/png/webp；gif·svg 与非图片不压） | `src/modules/files/image-compress.ts`                                     |
+| DB 里的 `url` 是 `/{apiPrefix}/files/{id}/download`（相对路径）        | 小程序端必须再拼绝对地址，否则图片空白（见[踩坑记录](/quality/pitfalls)） |
+| **删除文件会同时删 DB 行和磁盘文件**                                   | `FilesService.remove()` 里 `unlink()`                                     |
+| `uploads/` 被 `.gitignore` 忽略                                        | 属于运行时状态，**必须**单独备份                                          |
 
 ```bash
 # 每日备份（示例：保留 14 天）
@@ -527,7 +528,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://admin.example.com/api/v1/app/pa
 
 | 检查点                         | 说明                                                                                   |
 | ------------------------------ | -------------------------------------------------------------------------------------- |
-| `du -sh uploads/` 与实际文件数 | 单文件上限 10MB，正常业务量下增长应该很慢                                              |
+| `du -sh uploads/` 与实际文件数 | 单文件上限 5MB（图片还会压到 1MB 以下），正常业务量下增长应该很慢                      |
 | 后台「运维工具 → 文件管理」    | 删除会**同时删 DB 行与磁盘文件**（`FilesService.remove` 里的 `unlink`）                |
 | 失配文件                       | 目录里有、DB 里没有的孤儿文件需要人工清理（备份恢复/迁移中断会产生）                   |
 | 长期方案                       | `uploads/` 挂独立数据盘；每日 tar 备份 + 定期清理；对象存储迁移（需改 `FilesService`） |

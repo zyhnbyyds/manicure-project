@@ -3,6 +3,7 @@ import {
   Controller,
   HttpCode,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -13,16 +14,17 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../../common/auth/public.decorator.js';
+import { Public } from '../../common/auth/public.decorator';
 import {
   AppAccessTokenGuard,
   type AppRequest,
-} from './auth/app-access-token.guard.js';
-import { FilePort } from '../biz/common/ports.js';
-import type { AppUploadVo } from './dto/app-vo.js';
+} from './auth/app-access-token.guard';
+import { FilePort } from '../biz/common/ports';
+import type { AppUploadVo } from './dto/app-vo';
 
 /** Fastify 上传请求（与后台 `FilesController` 同一套取文件方式） */
 type UploadRequest = AppRequest & {
@@ -42,12 +44,13 @@ type UploadRequest = AppRequest & {
  *
  * 1. **只收图片**：按 MIME 与扩展名双重判断 —— 扩展名白名单由 `FilesService` 把关，
  *    这里再挡一层 MIME，避免「把 .php 改名成 .jpg」这类试探落到存储层；
- * 2. **大小上限沿用后台的 10MB**（`@fastify/multipart` 全局配置）：
- *    手机直出照片也就 3~5MB，再往上只会让弱网卡住；
+ * 2. **大小上限 5MB**（`@fastify/multipart` 全局配置）：手机直出照片也就 3~5MB；
+ *    落盘前会把超过 1MB 的图片**压缩到 1MB 以下**（`image-compress.ts`，与后台同一套）；
  * 3. **限流 20 次/分钟/IP**（基线是全站 100/分钟）—— 上传是最贵的接口，
  *    比登录的 10 次宽松一点（顾客可能连传几张），但远低于全局值。
  *
- * 返回 `{ id, url, mime, size }`：`url` 已经是可以直接塞进小程序 `<image src>` 的路径。
+ * 返回 `{ id, url, mime, size, compressed, originalSize }`：`url` 已经是可以直接塞进
+ * 小程序 `<image src>` 的路径；`size` 是压缩后的实际字节数，`originalSize` 是上传时的原图大小。
  */
 @ApiTags('小程序端')
 @ApiBearerAuth('app-token')
@@ -65,14 +68,23 @@ export class AppUploadController {
     summary: '上传图片（评价配图 / 意见反馈）',
     description:
       '只接受图片（MIME 与扩展名双重判断，扩展名白名单由文件服务把关）；' +
-      '单文件上限 10MB（multipart 全局配置）；限流 20 次/分钟/IP。' +
+      '单文件上限 5MB（multipart 全局配置），超过 1MB 的图片会被压缩到 1MB 以下；' +
+      '传 `compress=0` 可关闭压缩（原样保存）；限流 20 次/分钟/IP。' +
       '返回的 `url` 可直接用于小程序 `<image src>`。',
+  })
+  @ApiQuery({
+    name: 'compress',
+    required: false,
+    description: '传 0 关闭图片压缩，原样保存（默认压缩）',
   })
   @ApiResponse({ status: 200, description: '成功' })
   @ApiResponse({ status: 400, description: '未选择文件 / 不是图片 / 内容为空' })
   @ApiResponse({ status: 413, description: '文件超过上限' })
   @ApiResponse({ status: 429, description: '上传过于频繁' })
-  async upload(@Req() request: UploadRequest): Promise<AppUploadVo> {
+  async upload(
+    @Req() request: UploadRequest,
+    @Query('compress') compress?: string,
+  ): Promise<AppUploadVo> {
     const appUser = request.appUser;
     if (!appUser) throw new UnauthorizedException();
     const file = await request.file();
@@ -91,12 +103,16 @@ export class AppUploadController {
        * 顾客上传的溯源在业务侧（反馈/评价记录里带顾客 id），不靠文件表。
        */
       undefined,
+      // 与后台同一个口径：默认压缩，只有显式 `compress=0` 才原样保存
+      { compress: compress !== '0' },
     );
     return {
       id: saved.id,
       url: saved.url,
       mime: saved.mime,
       size: saved.size,
+      compressed: saved.compressed,
+      originalSize: saved.originalSize,
     };
   }
 }

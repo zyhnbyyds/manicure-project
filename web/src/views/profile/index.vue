@@ -5,6 +5,10 @@ import { LewButton, LewForm, LewMessage } from 'lew-ui';
 import type { LewFormOption } from 'lew-ui';
 import { changePassword, getProfile, updateProfile } from '~/api/auth';
 import { uploadFile } from '~/api/files';
+import {
+  MAX_UPLOAD_FILE_SIZE,
+  MAX_UPLOAD_FILE_SIZE_LABEL,
+} from '~/utils/upload-limits';
 import AppLoading from '~/components/AppLoading.vue';
 import { openImagePreview } from '~/composables/useImagePreview';
 import { useUserStore } from '~/store/user';
@@ -113,8 +117,9 @@ async function handleAvatarChange(event: Event) {
     LewMessage.error('请选择图片文件');
     return;
   }
-  if (file.size > 2 * 1024 * 1024) {
-    LewMessage.error('头像图片不能超过 2MB');
+  // 上限跟后端口径走（原来这里写死 2MB：手机原图常常直接超，后端明明允许 5MB 却被前端拦下）
+  if (file.size > MAX_UPLOAD_FILE_SIZE) {
+    LewMessage.error(`头像图片不能超过 ${MAX_UPLOAD_FILE_SIZE_LABEL}`);
     return;
   }
   const result = await uploadFile(file);

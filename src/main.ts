@@ -33,7 +33,10 @@ async function bootstrap(): Promise<void> {
   await app.register(helmet);
   await app.register(rateLimit, { max: 1000, timeWindow: '1 minute' });
   await app.register(multipart, {
-    limits: { files: 1, fileSize: 10 * 1024 * 1024 },
+    // 5MB：手机原图直出通常 3~5MB，上传后由 `image-compress.ts` 压到 1MB 以下落盘。
+    // 改这里要同步改三处：`files.service.ts` 的 MAX_FILE_SIZE、`web/nginx.conf` 的
+    // client_max_body_size、`web/src/utils/upload-limits.ts` 的前端预检值。
+    limits: { files: 1, fileSize: 5 * 1024 * 1024 },
   });
   app.enableCors({ origin: config.corsOrigins, credentials: true });
   app.setGlobalPrefix(config.apiPrefix);

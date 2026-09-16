@@ -176,13 +176,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           message:
             pluginStatus === HttpStatus.TOO_MANY_REQUESTS
               ? '请求过于频繁，请稍后再试'
-              : exception instanceof Error
-                ? exception.message
-                : '请求不被受理',
+              : pluginStatus === HttpStatus.PAYLOAD_TOO_LARGE
+                ? // 上传超限是**用户看得见**的错误。multipart 抛的原文是英文
+                  // `request file too large`，直接透传等于把英文甩给店员。
+                  // 这里不写具体数字：上限值在 files 模块，common 层不该反向依赖它，
+                  // 前端 `MAX_UPLOAD_FILE_SIZE_LABEL` 已经会在提交前给出带数字的提示。
+                  '上传的文件超过大小上限'
+                : exception instanceof Error
+                  ? exception.message
+                  : '请求不被受理',
           error:
             pluginStatus === HttpStatus.TOO_MANY_REQUESTS
               ? 'Too Many Requests'
-              : 'Client Error',
+              : pluginStatus === HttpStatus.PAYLOAD_TOO_LARGE
+                ? 'Payload Too Large'
+                : 'Client Error',
         }),
       );
       return;

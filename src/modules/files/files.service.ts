@@ -9,10 +9,12 @@ import { createReadStream } from 'node:fs';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { AppConfigService } from '../../config/app-config.service';
 import { DatabaseService } from '../../database/database.service';
 import { files } from '../../database/schema/index';
+import { readCount } from '../biz/common/query';
+import { compressImage } from './image-compress';
 
 const ALLOWED_EXTENSIONS = new Set([
   '.jpg',
@@ -36,7 +38,7 @@ const ALLOWED_EXTENSIONS = new Set([
   '.mp3',
   '.mp4',
 ]);
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 type FileRow = typeof files.$inferSelect;
 export type FileDto = {
@@ -50,6 +52,20 @@ export type FileDto = {
   createdAt: Date;
 };
 
+/**
+ * 上传响应：比列表 / 详情多两个「这一次压缩发生了什么」的字段。
+ *
+ * **刻意不落库**（`sys_file` 不加列）：它们描述的是**这次上传动作**，不是文件的持久属性 ——
+ * 列表 / 详情没有这两个值的来源，返回个假的 `false` 反而会误导前端。
+ * 需要长期展示的信息（大小）落在 `size` 里，那才是压缩后的真实字节数。
+ */
+export type UploadedFileDto = FileDto & {
+  /** 是否真的压缩过（`false` = 原样保存：非位图 / 已 ≤1MB / 显式关闭 / 压不小） */
+  compressed: boolean;
+  /** 上传时的原始字节数 */
+  originalSize: number;
+};
+
 @Injectable()
 export class FilesService {
   constructor(
@@ -58,57 +74,93 @@ export class FilesService {
   ) {}
 
   async list(page: number, pageSize: number) {
-    const rows = await this.database.db
-      .select()
-      .from(files)
-      .orderBy(desc(files.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-    return { items: rows.map((row) => this.toDto(row)), page, pageSize };
+    // 文件表是物理删（无软删标记），total 就是全表行数
+    const [rows, counted] = await Promise.all([
+      this.database.db
+        .select()
+        .from(files)
+        .orderBy(desc(files.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      this.database.db.select({ value: count() }).from(files),
+    ]);
+    return {
+      items: rows.map((row) => this.toDto(row)),
+      total: readCount(counted),
+      page,
+      pageSize,
+    };
   }
 
   async detail(id: number): Promise<FileDto> {
     return this.toDto(await this.findOne(id));
   }
 
+  /**
+   * 保存上传的文件。
+   *
+   * **图片默认压缩到 1MB 以下**（`image-compress.ts`）；`options.compress === false`
+   * 是给「原始设计稿 / 合同扫描件」留的口子（后台 `?compress=0`）。
+   * 入库的 `size` / `mime` 一律是**最终落盘的那份**，与磁盘上的文件严格一致。
+   */
   async save(
     part: MultipartFile,
     actorId: number | undefined,
-  ): Promise<FileDto> {
+    options: { compress?: boolean } = {},
+  ): Promise<UploadedFileDto> {
     const originalName = sanitizeFilename(decodeFilename(part.filename));
     const ext = path.extname(originalName).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(ext))
       throw new BadRequestException('不允许的文件类型');
-    const buffer = await part.toBuffer();
-    if (buffer.length === 0) throw new BadRequestException('文件内容为空');
-    if (buffer.length > MAX_FILE_SIZE)
+    const uploaded = await part.toBuffer();
+    if (uploaded.length === 0) throw new BadRequestException('文件内容为空');
+    // 上限按**原图**算（压缩后再校验等于白拦：先把 100MB 读进内存就已经输了）
+    if (uploaded.length > MAX_FILE_SIZE)
       throw new PayloadTooLargeException('文件超过允许的最大大小');
+    const image =
+      options.compress === false
+        ? {
+            buffer: uploaded,
+            size: uploaded.length,
+            originalSize: uploaded.length,
+            compressed: false,
+            mime: part.mimetype || 'application/octet-stream',
+          }
+        : await compressImage(
+            uploaded,
+            part.mimetype || 'application/octet-stream',
+            ext,
+          );
     const name = `${randomUUID()}${ext}`;
     const dir = path.resolve(this.config.uploadDir);
     await mkdir(dir, { recursive: true });
     const absolutePath = path.join(dir, name);
-    await writeFile(absolutePath, buffer);
+    await writeFile(absolutePath, image.buffer);
     const result = await this.database.db.insert(files).values({
       name,
       originalName,
       path: absolutePath,
-      mime: part.mimetype || 'application/octet-stream',
+      mime: image.mime,
       ext,
-      size: buffer.length,
+      size: image.size,
       createdBy: actorId ?? null,
     });
     const id = Number(result[0].insertId);
-    return this.toDto({
-      id,
-      name,
-      originalName,
-      path: absolutePath,
-      mime: part.mimetype || 'application/octet-stream',
-      ext,
-      size: buffer.length,
-      createdBy: actorId ?? null,
-      createdAt: new Date(),
-    });
+    return {
+      ...this.toDto({
+        id,
+        name,
+        originalName,
+        path: absolutePath,
+        mime: image.mime,
+        ext,
+        size: image.size,
+        createdBy: actorId ?? null,
+        createdAt: new Date(),
+      }),
+      compressed: image.compressed,
+      originalSize: image.originalSize,
+    };
   }
 
   async open(id: number): Promise<{

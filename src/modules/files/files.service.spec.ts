@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import sharp from 'sharp';
+import { writeFile } from 'node:fs/promises';
 import {
   NotFoundException,
   BadRequestException,
@@ -151,7 +153,8 @@ describe('FilesService', () => {
     it('throws PayloadTooLargeException for oversized file', async () => {
       const { db } = buildDb();
       const file = mockMultipartFile({
-        toBuffer: vi.fn().mockResolvedValue(Buffer.alloc(11 * 1024 * 1024)),
+        // 上限是 5MB（见 MAX_FILE_SIZE）：用例取「刚好超一点」，别真分配 50MB
+        toBuffer: vi.fn().mockResolvedValue(Buffer.alloc(6 * 1024 * 1024)),
       });
       const service = new FilesService({ db } as any, buildConfig() as any);
       await expect(service.save(file as any, 1)).rejects.toThrow(
@@ -184,6 +187,46 @@ describe('FilesService', () => {
       const result = await service.save(file as any, 1);
       expect(result.originalName).toBe('报表 2024.xlsx');
     });
+
+    it('compresses images over 1MB and stores the compressed size', async () => {
+      const big = await makeBigJpeg();
+      const { db } = buildDb();
+      const file = mockMultipartFile({
+        filename: 'photo.jpg',
+        mimetype: 'image/jpeg',
+        toBuffer: vi.fn().mockResolvedValue(big),
+      });
+      const service = new FilesService({ db } as any, buildConfig() as any);
+      const result = await service.save(file as any, 1);
+
+      expect(result.compressed).toBe(true);
+      // originalSize 是上传时的大小（前端用它提示「已从 2.4MB 压到 200KB」）
+      expect(result.originalSize).toBe(big.length);
+      expect(result.size).toBeLessThanOrEqual(1024 * 1024);
+      // 落盘的必须是压缩后的那份 —— 「只改返回值、磁盘照写原图」是最容易犯的错
+      // （注意：`bun test` 没有实现 `vi.mocked`，这里直接读 mock 上的 calls）
+      const calls = (
+        writeFile as unknown as { mock: { calls: [string, Buffer][] } }
+      ).mock.calls;
+      const written = calls.at(-1)?.[1];
+      expect(written?.length).toBe(result.size);
+    }, 60_000);
+
+    it('keeps the original bytes when compress is disabled', async () => {
+      const big = await makeBigJpeg();
+      const { db } = buildDb();
+      const file = mockMultipartFile({
+        filename: 'poster.jpg',
+        mimetype: 'image/jpeg',
+        toBuffer: vi.fn().mockResolvedValue(big),
+      });
+      const service = new FilesService({ db } as any, buildConfig() as any);
+      const result = await service.save(file as any, 1, { compress: false });
+
+      expect(result.compressed).toBe(false);
+      expect(result.size).toBe(big.length);
+      expect(result.originalSize).toBe(big.length);
+    }, 60_000);
   });
 
   describe('open', () => {
@@ -249,6 +292,46 @@ describe('FilesService', () => {
     });
   });
 });
+
+/**
+ * 造一张 >1MB 的真实 JPEG。
+ *
+ * 压缩是这次改动的主角，**必须用真图测**：`Buffer.from('fake-image-data')` 这类假字节
+ * 大小不到 1MB，压缩分支（>1MB 才进）根本走不到，断言压缩结果就成了自欺。
+ *
+ * 图的内容用「平滑渐变 + 每 4×4 块一点扰动」：纯渐变压完只剩几十 KB（原图自己就不到 1MB），
+ * 纯噪声又几乎压不动（验不了「压到 1MB 以下」）。与 `image-compress.spec.ts` 同款，只是小一号。
+ */
+async function makeBigJpeg(): Promise<Buffer> {
+  const width = 3200;
+  const height = 2400;
+  const raw = Buffer.allocUnsafe(width * height * 3);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 3;
+      raw[i] = Math.floor((x * 255) / width);
+      raw[i + 1] = Math.floor((y * 255) / height);
+      raw[i + 2] = Math.floor(((x + y) * 255) / (width + height));
+    }
+  }
+  let seed = 7 >>> 0;
+  for (let y = 0; y < height; y += 4) {
+    for (let x = 0; x < width; x += 4) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const delta = ((seed >>> 28) & 0x0f) - 8;
+      for (let dy = 0; dy < 4 && y + dy < height; dy++) {
+        for (let dx = 0; dx < 4 && x + dx < width; dx++) {
+          const i = ((y + dy) * width + x + dx) * 3;
+          for (let c = 0; c < 3; c++)
+            raw[i + c] = Math.min(255, Math.max(0, raw[i + c]! + delta));
+        }
+      }
+    }
+  }
+  return sharp(raw, { raw: { width, height, channels: 3 } })
+    .jpeg({ quality: 98, mozjpeg: true })
+    .toBuffer();
+}
 
 /**
  * multipart 文件名编码。
