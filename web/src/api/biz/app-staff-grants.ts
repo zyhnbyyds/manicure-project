@@ -29,7 +29,7 @@ export interface GrantDecision {
   staffDecidedAt: string | null;
 }
 
-/** 申请列表（分页，响应无 total） */
+/** 申请列表（分页） */
 export function listAppStaffGrants(
   page = 1,
   pageSize = 20,

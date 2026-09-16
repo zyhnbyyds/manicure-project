@@ -56,7 +56,7 @@ export interface StaffServiceItemRef {
   name: string;
 }
 
-/** 美甲师列表（分页，响应无 total） */
+/** 美甲师列表（分页） */
 export function listStaffs(
   page = 1,
   pageSize = 20,

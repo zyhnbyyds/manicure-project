@@ -433,7 +433,7 @@ export function availableSlots(query: SlotQuery) {
   });
 }
 
-/** 预约列表（分页，响应无 total） */
+/** 预约列表（分页） */
 export function listBookings(
   page = 1,
   pageSize = 20,

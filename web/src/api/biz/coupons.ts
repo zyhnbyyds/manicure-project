@@ -46,7 +46,7 @@ export interface CouponTemplateQuery {
   keyword?: string;
 }
 
-/** 券模板列表（分页；无 total，与其它列表一致） */
+/** 券模板列表（分页；与其它列表同口径） */
 export function listCouponTemplates(
   page = 1,
   pageSize = 20,

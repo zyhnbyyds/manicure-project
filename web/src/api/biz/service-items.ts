@@ -53,7 +53,7 @@ export interface ServiceItemListQuery {
   status?: EntityStatus;
 }
 
-/** 服务项目列表（分页，响应无 total） */
+/** 服务项目列表（分页） */
 export function listServiceItems(
   page = 1,
   pageSize = 20,

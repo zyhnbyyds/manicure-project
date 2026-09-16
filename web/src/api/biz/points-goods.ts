@@ -34,7 +34,7 @@ export interface PointsGoodsBody {
 /**
  * 积分兑换记录（biz_points_redeem）
  * `GET /biz/points-redeems` 会联查返回 `customerName` / `customerPhone` / `goodsName`，
- * **但不返回卡号**（只有 `memberCardId`）；列表接口也没有 `total`。
+ * **但不返回卡号**（只有 `memberCardId`）。
  */
 export interface PointsRedeem {
   id: number;
