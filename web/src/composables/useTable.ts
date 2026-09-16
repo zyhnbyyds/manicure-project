@@ -62,8 +62,23 @@ export function useTable<
     return fetchPage(currentPage.value);
   }
 
+  /**
+   * 分页器变化 → 拉对应页。
+   *
+   * ⚠️ **只读 `currentPage`，绝不能拿 `data.pageSize` 回写 `pageSize`。**
+   *
+   * lew-ui 是受控组件：换每页条数时它先 emit `update:pageSize(新值)`，紧接着
+   * **在同一个同步流程里** emit `change` —— 而那会儿父组件还没把新值回写到 props，
+   * 于是 `change` 负载里带的是**旧值**。实测点「每页 10」的 emit 序列是：
+   * `update:pageSize(10)` → `change({ currentPage: 1, pageSize: 20 })`。
+   * 若在这里写 `pageSize.value = data.pageSize`，就把刚选中的 10 覆盖回 20，
+   * 请求仍按 20 发 —— 症状正是「从 20 切到 10 没反应，列表纹丝不动」。
+   *
+   * 所以写入交给 `v-model:page-size`（它能正确写进 ref），这里只负责按新的
+   * 每页条数重新拉数据。翻页不受此影响：`change` 里的 `currentPage` 是**新值**
+   * （实测 `update:currentPage(2)` → `change({ currentPage: 2 })`）。
+   */
   function handleChange(data: { currentPage: number; pageSize: number }) {
-    pageSize.value = data.pageSize;
     return fetchPage(data.currentPage);
   }
 
