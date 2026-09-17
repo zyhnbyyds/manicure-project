@@ -198,13 +198,31 @@ const requiresApproval =
 
 ### Tool 返回统一脱敏
 
-Agent 在**任何** Tool 结果进入 SSE、进任务步骤、回喂 LLM 之前都过一遍 `ContextSanitizer.sanitize()`：递归遍历对象与数组，命中 `SENSITIVE_FIELDS` 的 key **整键丢弃**（不是打码）；`agent.service.ts` 的 `:417`（首次执行）与 `:586`（审批后确认执行）两处调用。
+Agent 在**任何** Tool 结果进入 SSE、进任务步骤、回喂 LLM 之前都过一遍 `ContextSanitizer.sanitize()`：递归遍历对象与数组，命中 `SENSITIVE_FIELDS` 的 key **整键丢弃**（不是打码）；`agent.service.ts` 的 `:418`（首次执行）与 `:588`（审批后确认执行）两处调用。
 
 `SENSITIVE_FIELDS`（`context.types.ts`）精确 7 个：`password` / `passwordHash` / `refreshToken` / `accessToken` / `secret` / `privateKey` / `token`。
 
 ::: danger 脱敏是「按 key 名精确匹配」
 `passwordHash` 会被删，但 `pwd` / `userPassword` / `credential` 不会。新增 Tool 返回值时不要用变体名承载敏感数据。
 :::
+
+### 数据口径：金额一律是「分」
+
+全库金额都是**整数「分」**（见 `dev-docs/data/business-tables.md`），报表 / 支付 / 会员工具的返回也一样。
+模型只看 `{ net: 59576 }` 是**判断不出量纲**的 —— 实测出现过把 595.76 元报成「59,576 元」（差 100 倍），
+而同一会话另一处又写成「（≈329.76 元）」，即同一份数据两种说法。
+
+所以口径必须**贴着数据一起给模型**，共三层（只改一层不够）：
+
+| 位置                               | 内容                                                                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 系统提示词（`context.builder.ts`） | 「数据口径」段落：金额=分、必须 ÷100 换算成元并带单位；折扣率千分比；时刻为店内本地时间；列表只含当前页、禁止加总       |
+| tool 消息（`agent.service.ts`）    | 每条工具结果 JSON 之后追加 `TOOL_RESULT_MONEY_HINT`（`context.types.ts`），`run()` 与 `summarizeExecution()` 两处都要加 |
+| 工具描述                           | `report.revenue` / `report.overview` / `report.home` 的 `description` 末尾声明金额单位                                  |
+
+回归测试是 `src/ai/context/context.builder.spec.ts`：口径段被删即变红。
+前端 AI 面板的「结果」区展示的是**原始数据**（`ToolStepCard` 里点明「金额单位为「分」」），
+只有回答正文里的「元」才是给用户看的结论。
 
 ### ActionIntent 一次性 token + 预览快照 TOCTOU 校验
 

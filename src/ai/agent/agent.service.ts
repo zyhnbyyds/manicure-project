@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { CapabilityService } from '../capability/capability.service';
 import { ContextBuilder } from '../context/context.builder';
 import { ContextSanitizer } from '../context/context.sanitizer';
+import { TOOL_RESULT_MONEY_HINT } from '../context/context.types';
 import { LlmMessage } from '../llm/llm.interface';
 import { LlmService } from '../llm/llm.service';
 import { PolicyEngine } from '../policy/policy.engine';
@@ -460,7 +461,8 @@ export class AgentService {
         });
         messages.push({
           role: 'tool',
-          content: JSON.stringify(sanitized),
+          // 口径提醒紧贴数据：模型只看 JSON 无法判断「分 / 元」，实测出现过 100 倍误报
+          content: `${JSON.stringify(sanitized)}\n\n${TOOL_RESULT_MONEY_HINT}`,
           toolCallId: toolCall.id,
         });
       }
@@ -670,7 +672,7 @@ export class AgentService {
       },
       {
         role: 'tool',
-        content: JSON.stringify(params.result ?? {}).slice(0, 4000),
+        content: `${JSON.stringify(params.result ?? {}).slice(0, 4000)}\n\n${TOOL_RESULT_MONEY_HINT}`,
         toolCallId: 'confirm-execution',
       },
     ];

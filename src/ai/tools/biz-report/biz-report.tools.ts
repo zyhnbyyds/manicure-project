@@ -31,7 +31,8 @@ export class ReportRevenueTool implements AiTool<{
     '查营收报表（按天 / 周 / 月粒度）。口径已由后端固定：**净营收 = 成功支付 − 成功退款**，' +
     '**挂账不计营收（销账才计入）**，次卡核销单列不混进营收。' +
     '任何「这个月赚了多少」都必须用它，不要拿 payment.list 自己加总。' +
-    'granularity 不传时按后端默认粒度。';
+    'granularity 不传时按后端默认粒度。' +
+    '**返回的金额字段单位一律是「分」**，向用户汇报前先换算成「元」（÷100）。';
   permission = 'biz:report:view';
   riskLevel = RiskLevel.L0;
   approvalPolicy = ApprovalPolicy.NONE;
@@ -99,7 +100,8 @@ export class ReportOverviewTool implements AiTool<{
   name = 'report.overview';
   description =
     '查经营总览（区间汇总）：营收、单量、客单价、项目与美甲师排行等一整套指标，口径与报表页完全一致。' +
-    '回答「最近生意怎么样」先用它拿到全景，再按需下钻 report.revenue（时间序列）。';
+    '回答「最近生意怎么样」先用它拿到全景，再按需下钻 report.revenue（时间序列）。' +
+    '**返回的金额字段单位一律是「分」**，向用户汇报前先换算成「元」（÷100）。';
   permission = 'biz:report:view';
   riskLevel = RiskLevel.L0;
   approvalPolicy = ApprovalPolicy.NONE;
@@ -160,6 +162,7 @@ export class ReportHomeTool implements AiTool<{
   description =
     '查首页看板（今天的营业额与单量、待办提醒、近几日趋势等），就是后台首页那张卡片的数据。' +
     'range 可选 today / 7d / 30d / month，不传按后端默认。' +
+    '**返回的金额字段单位一律是「分」**，向用户汇报前先换算成「元」（÷100）。' +
     '注意首页看板对**没有金额权限**的账号会自动隐藏金额部分 —— ' +
     '如果返回里没有金额字段，那是权限问题，不是数据丢了。';
   permission = 'biz:report:view';

@@ -155,7 +155,13 @@ function prettyJson(value: unknown): string {
           </div>
 
           <div v-else>
-            <div class="text-11px text-[var(--app-text-muted)] mb-1">结果</div>
+            <!-- 原始数据直接透传：金额一律是「分」，这里点明单位，避免与回答里的「元」混淆 -->
+            <div
+              class="flex items-baseline justify-between gap-2 mb-1 text-11px text-[var(--app-text-muted)]"
+            >
+              <span>结果</span>
+              <span class="shrink-0">原始数据 · 金额单位为「分」</span>
+            </div>
             <!-- 用户列表 → 表格 -->
             <template v-if="isUserList(result)">
               <div class="text-11.5px text-[var(--app-text-muted)] mb-1.5">
